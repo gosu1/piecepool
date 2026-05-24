@@ -79,7 +79,7 @@ export function AiEngineView({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <StatusPill tone={settings.plan.tier === "pro" ? "green" : "pool"}>
-              {settings.plan.tier === "pro" ? "Pro 체험" : "Free Plan"}
+              {settings.plan.tier === "pro" ? "Pro 체험" : "Local Mode"}
             </StatusPill>
             <StatusPill tone="pool">사용 중: {selectedProvider?.name ?? "Local LLM"}</StatusPill>
           </div>

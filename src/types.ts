@@ -51,12 +51,38 @@ export type Project = {
   d_day: string;
   progress: number;
   next_action: string;
+  goals: ProjectGoal[];
+  evidence_count: number;
+  progress_note: string;
 };
 
-export type UpdateProjectPayload = {
-  progress?: number;
-  next_action?: string;
+export type ProjectGoal = {
+  id: string;
+  title: string;
+  status: "not_started" | "in_progress" | "covered";
 };
+
+export type CreateProjectPayload = {
+  title: string;
+  kind: string;
+  d_day: string;
+  goals: string[];
+};
+
+export type WorkspaceProfile = {
+  id: string;
+  name: string;
+  storageLabel: string;
+  createdAt: string;
+  lastOpenedAt: string;
+};
+
+export type SyncUser = {
+  name: string;
+  email: string;
+};
+
+export type ThemeMode = "light" | "dark" | "system";
 
 export type GraphNode = {
   id: string;
@@ -117,4 +143,4 @@ export type LlmOperationResult = {
   suggested_actions: string[];
 };
 
-export type ViewKey = "inbox" | "wiki" | "plan" | "projects" | "graph" | "reminder" | "ai-engine";
+export type ViewKey = "workspace" | "inbox" | "plan" | "search" | "wiki" | "projects" | "graph" | "reminder" | "ai-engine";

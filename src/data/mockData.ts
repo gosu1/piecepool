@@ -17,7 +17,7 @@ export const fallbackFragments: Fragment[] = [
     source: "LMS",
     project: "운영체제",
     summary: "스케줄링 알고리즘과 평균 대기시간 계산 예제가 포함된 강의 자료입니다.",
-    status: "정리 완료",
+    status: "Organized",
     created_at: "오늘 09:42"
   },
   {
@@ -27,7 +27,7 @@ export const fallbackFragments: Fragment[] = [
     source: "Gallery",
     project: "운영체제",
     summary: "Deadlock 발생 조건 네 가지를 칠판 필기로 저장한 이미지입니다.",
-    status: "정리 완료",
+    status: "Organized",
     created_at: "어제 18:35"
   },
   {
@@ -37,7 +37,7 @@ export const fallbackFragments: Fragment[] = [
     source: "Voice Memo",
     project: "딥러닝",
     summary: "Self-Attention 설명과 발표 질문 힌트가 포함된 녹음입니다.",
-    status: "정리 중",
+    status: "Processing",
     created_at: "오늘 08:10"
   },
   {
@@ -47,7 +47,7 @@ export const fallbackFragments: Fragment[] = [
     source: "Browser",
     project: "딥러닝",
     summary: "Query, Key, Value 흐름을 시각적으로 설명하는 참고 링크입니다.",
-    status: "검토 필요",
+    status: "Needs Review",
     created_at: "어제 14:20"
   },
   {
@@ -57,7 +57,7 @@ export const fallbackFragments: Fragment[] = [
     source: "Inbox note",
     project: "운영체제",
     summary: "time quantum 변화가 context switching overhead에 미치는 영향을 정리한 메모입니다.",
-    status: "연결 필요",
+    status: "Imported",
     created_at: "오늘 11:05"
   }
 ];
@@ -120,26 +120,47 @@ export const fallbackProjects: Project[] = [
   {
     id: "project-os-midterm",
     title: "운영체제 중간고사",
-    kind: "시험",
+    kind: "대학교 수업용",
     d_day: "D-6",
     progress: 68,
-    next_action: "Deadlock 복습 카드 완성"
+    next_action: "Deadlock 복습 카드 완성",
+    goals: [
+      { id: "goal-os-1", title: "CPU Scheduling 계산 문제 정리", status: "covered" },
+      { id: "goal-os-2", title: "Deadlock 4조건 설명 연습", status: "covered" },
+      { id: "goal-os-3", title: "예상 문제 풀이", status: "in_progress" }
+    ],
+    evidence_count: 3,
+    progress_note: "로컬 AI가 강의 PDF, 필기 사진, 메모를 기준으로 계산했습니다."
   },
   {
     id: "project-dl-presentation",
     title: "딥러닝 발표",
-    kind: "발표",
+    kind: "대학교 프로젝트용",
     d_day: "D-12",
     progress: 44,
-    next_action: "Transformer 자료 2개 요약"
+    next_action: "Transformer 자료 2개 요약",
+    goals: [
+      { id: "goal-dl-1", title: "Self-Attention 자료 조사", status: "covered" },
+      { id: "goal-dl-2", title: "발표 구조 만들기", status: "in_progress" },
+      { id: "goal-dl-3", title: "예상 질문 준비", status: "not_started" }
+    ],
+    evidence_count: 2,
+    progress_note: "로컬 AI가 수업 녹음과 링크 자료를 기준으로 계산했습니다."
   },
   {
     id: "project-startup",
     title: "창업 아이디어 스케치",
-    kind: "프로젝트",
+    kind: "기타/추후 확장",
     d_day: "D-18",
     progress: 31,
-    next_action: "문제 정의 인터뷰 정리"
+    next_action: "문제 정의 인터뷰 정리",
+    goals: [
+      { id: "goal-startup-1", title: "문제 정의 정리", status: "in_progress" },
+      { id: "goal-startup-2", title: "사용자 인터뷰 메모 수집", status: "not_started" },
+      { id: "goal-startup-3", title: "가설 검증 계획 작성", status: "not_started" }
+    ],
+    evidence_count: 1,
+    progress_note: "로컬 AI가 프로젝트 목표와 연결 자료를 기준으로 계산했습니다."
   }
 ];
 

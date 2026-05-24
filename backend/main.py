@@ -16,16 +16,18 @@ from backend.mock_data import (
 )
 from backend.models import (
     CreateFragmentRequest,
+    CreateProjectRequest,
     CreateReminderRequest,
     CreateStudyTaskRequest,
     Fragment,
     GraphEdge,
     GraphNode,
-    Project,
     LlmOperationResult,
     LlmProvider,
     Plan,
     ProviderSettings,
+    Project,
+    ProjectGoal,
     Reminder,
     SelectProviderRequest,
     StudyTask,
@@ -153,6 +155,66 @@ def selected_provider() -> LlmProvider:
     return next((provider for provider in build_providers() if provider.selected), build_providers()[0])
 
 
+def default_goals_for_project(project: Project) -> list[ProjectGoal]:
+    defaults = {
+        "시험": ["핵심 개념 정리", "예상 문제 풀이", "오답/취약점 보강"],
+        "발표": ["자료 조사", "발표 흐름 구성", "예상 질문 준비"],
+        "프로젝트": ["문제 정의", "실행 계획 정리", "결과물 초안 만들기"],
+        "대학교 수업용": ["강의 자료 수집", "핵심 개념 정리", "복습 태스크 만들기"],
+        "대학교 프로젝트용": ["요구사항 정리", "자료 조사", "결과물 제작"],
+        "운동": ["목표 설정", "운동 기록 수집", "주간 루틴 점검"],
+    }
+    titles = defaults.get(project.kind, ["목표 정의", "자료 수집", "다음 액션 실행"])
+    return [ProjectGoal(id=make_id("goal"), title=title) for title in titles]
+
+
+def fragment_matches_project(fragment: Fragment, project: Project) -> bool:
+    fragment_project = fragment.project.strip().lower()
+    project_title = project.title.strip().lower()
+    project_kind = project.kind.strip().lower()
+
+    if not fragment_project:
+        return False
+
+    return (
+        fragment_project == project_title
+        or fragment_project in project_title
+        or project_title in fragment_project
+        or fragment_project == project_kind
+    )
+
+
+def recalculate_project_progress(project: Project):
+    if not project.goals:
+        project.goals = default_goals_for_project(project)
+
+    evidence_count = len([fragment for fragment in fragments if fragment_matches_project(fragment, project)])
+    goal_count = max(1, len(project.goals))
+    covered_count = min(evidence_count, goal_count)
+
+    for index, goal in enumerate(project.goals):
+        if index < covered_count:
+            goal.status = "covered"
+        elif index == covered_count and evidence_count > 0:
+            goal.status = "in_progress"
+        else:
+            goal.status = "not_started"
+
+    project.evidence_count = evidence_count
+    project.progress = min(100, round((covered_count / goal_count) * 100))
+
+    next_goal = next((goal for goal in project.goals if goal.status != "covered"), None)
+    project.next_action = (
+        f"{next_goal.title} 관련 자료를 Inbox에 추가하세요." if next_goal else "목표 자료가 충분합니다. Wiki와 Plan에서 마무리 점검하세요."
+    )
+    project.progress_note = f"로컬 AI가 프로젝트 목표 {goal_count}개와 연결 자료 {evidence_count}개를 기준으로 계산했습니다."
+
+
+def recalculate_projects():
+    for project in projects:
+        recalculate_project_progress(project)
+
+
 def infer_concept_id(fragment: Fragment) -> str | None:
     text = f"{fragment.title} {fragment.summary} {fragment.project}".lower()
     if any(keyword in text for keyword in ["deadlock", "교착", "상호 배제"]):
@@ -238,12 +300,13 @@ def create_fragment(request: CreateFragmentRequest):
         source=request.source.strip() or "직접 입력",
         project=request.project.strip() or "미분류",
         summary=request.summary.strip() or "아직 요약이 없습니다.",
-        status="연결 필요",
+        status="Imported",
         created_at="방금 전",
     )
 
     fragments.insert(0, fragment)
     ensure_graph_node(GraphNode(id=fragment.id, label=fragment.title, category="fragment", summary=fragment.summary))
+    recalculate_projects()
     save_workspace_state()
 
     return fragment
@@ -259,6 +322,7 @@ def delete_fragment(fragment_id: str):
     for concept in wiki_concepts:
         concept.related_fragments = [item for item in concept.related_fragments if item != fragment_id]
 
+    recalculate_projects()
     save_workspace_state()
     return {"ok": True}
 
@@ -309,18 +373,54 @@ def delete_today_task(task_id: str):
 
 @app.get("/projects")
 def get_projects():
+    recalculate_projects()
     return projects
+
+
+@app.post("/projects", response_model=Project)
+def create_project(request: CreateProjectRequest):
+    goal_titles = [goal.strip() for goal in request.goals if goal.strip()]
+    project = Project(
+        id=make_id("project"),
+        title=request.title.strip(),
+        kind=request.kind.strip() or "기타",
+        d_day=request.d_day.strip() or "상시",
+        progress=0,
+        next_action="프로젝트 목표와 관련된 첫 자료를 Inbox에 추가하세요.",
+        goals=[ProjectGoal(id=make_id("goal"), title=goal) for goal in goal_titles],
+        evidence_count=0,
+    )
+
+    if not project.title:
+        raise HTTPException(status_code=400, detail="Project title is required")
+    if not project.goals:
+        project.goals = default_goals_for_project(project)
+
+    recalculate_project_progress(project)
+    projects.insert(0, project)
+    ensure_graph_node(GraphNode(id=project.id, label=project.title, category="project", summary=project.kind))
+    save_workspace_state()
+    return project
+
+
+@app.delete("/projects/{project_id}")
+def delete_project(project_id: str):
+    project = find_or_404(projects, project_id, "Project")
+    projects.remove(project)
+    graph_nodes[:] = [node for node in graph_nodes if node.id != project_id]
+    graph_edges[:] = [edge for edge in graph_edges if edge.source != project_id and edge.target != project_id]
+    save_workspace_state()
+    return {"ok": True}
 
 
 @app.patch("/projects/{project_id}")
 def update_project(project_id: str, request: UpdateProjectRequest):
     project = find_or_404(projects, project_id, "Project")
 
-    if request.progress is not None:
-        project.progress = max(0, min(100, request.progress))
     if request.next_action is not None:
         project.next_action = request.next_action.strip() or project.next_action
 
+    recalculate_project_progress(project)
     save_workspace_state()
     return project
 
@@ -399,8 +499,9 @@ def ingest_wiki():
     for fragment in fragments:
         if connect_fragment(fragment):
             connected_count += 1
-            fragment.status = "정리 완료"
+            fragment.status = "Organized"
 
+    recalculate_projects()
     save_workspace_state()
     return llm_result("ingest", f"AI 정리가 완료되었습니다. {connected_count}개의 자료 연결을 확인했습니다.")
 
@@ -429,7 +530,8 @@ def approve_connections():
     for fragment in fragments:
         if connect_fragment(fragment):
             approved_count += 1
-            fragment.status = "정리 완료"
+            fragment.status = "Organized"
 
+    recalculate_projects()
     save_workspace_state()
     return llm_result("approve-connections", f"{approved_count}개의 연결을 승인하고 Graph에 반영했습니다.")

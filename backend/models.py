@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class Fragment(BaseModel):
@@ -51,6 +51,15 @@ class UpdateStudyTaskRequest(BaseModel):
     done: bool
 
 
+ProjectGoalStatus = Literal["not_started", "in_progress", "covered"]
+
+
+class ProjectGoal(BaseModel):
+    id: str
+    title: str
+    status: ProjectGoalStatus = "not_started"
+
+
 class Project(BaseModel):
     id: str
     title: str
@@ -58,10 +67,19 @@ class Project(BaseModel):
     d_day: str
     progress: int
     next_action: str
+    goals: list[ProjectGoal] = Field(default_factory=list)
+    evidence_count: int = 0
+    progress_note: str = "AI가 프로젝트 목표와 누적 자료를 기준으로 진행도를 추적합니다."
+
+
+class CreateProjectRequest(BaseModel):
+    title: str
+    kind: str
+    d_day: str
+    goals: list[str]
 
 
 class UpdateProjectRequest(BaseModel):
-    progress: int | None = None
     next_action: str | None = None
 
 

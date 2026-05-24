@@ -1,5 +1,6 @@
 import type {
   CreateFragmentPayload,
+  CreateProjectPayload,
   CreateReminderPayload,
   CreateStudyTaskPayload,
   Fragment,
@@ -9,7 +10,6 @@ import type {
   Project,
   Reminder,
   StudyTask,
-  UpdateProjectPayload,
   WikiConcept
 } from "../types";
 
@@ -61,10 +61,14 @@ export const api = {
       method: "DELETE"
     }),
   projects: () => request<Project[]>("/projects"),
-  updateProject: (projectId: string, payload: UpdateProjectPayload) =>
-    request<Project>(`/projects/${projectId}`, {
-      method: "PATCH",
+  createProject: (payload: CreateProjectPayload) =>
+    request<Project>("/projects", {
+      method: "POST",
       body: JSON.stringify(payload)
+    }),
+  deleteProject: (projectId: string) =>
+    request<{ ok: boolean }>(`/projects/${projectId}`, {
+      method: "DELETE"
     }),
   graph: () => request<GraphData>("/graph"),
   reminders: () => request<Reminder[]>("/reminders"),

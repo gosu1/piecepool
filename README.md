@@ -26,6 +26,12 @@ npm run dev
 
 This starts the FastAPI local engine and opens PiecePool in a Tauri desktop window. You do not need to open a browser URL.
 
+First-run flow:
+
+```text
+Open PiecePool -> Create or open a Workspace -> Add local pieces -> Run AI organization -> Review Wiki, Graph, and Today
+```
+
 ## Useful Commands
 
 ```bash

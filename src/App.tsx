@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "./api/client";
 import { AiEngineView } from "./components/AiEngineView";
 import { GraphView } from "./components/GraphView";
@@ -6,8 +6,11 @@ import { InboxView } from "./components/InboxView";
 import { PlanView } from "./components/PlanView";
 import { ProjectsView } from "./components/ProjectsView";
 import { ReminderView } from "./components/ReminderView";
+import { SearchView } from "./components/SearchView";
 import { Shell, Panel } from "./components/Shell";
 import { Sidebar } from "./components/Sidebar";
+import { WorkspaceGate } from "./components/WorkspaceGate";
+import { WorkspaceView } from "./components/WorkspaceView";
 import { WikiView } from "./components/WikiView";
 import {
   fallbackFragments,
@@ -20,6 +23,7 @@ import {
 } from "./data/mockData";
 import type {
   CreateFragmentPayload,
+  CreateProjectPayload,
   CreateReminderPayload,
   CreateStudyTaskPayload,
   Fragment,
@@ -28,16 +32,77 @@ import type {
   ProviderSettings,
   Reminder,
   StudyTask,
-  UpdateProjectPayload,
+  SyncUser,
+  ThemeMode,
   ViewKey,
+  WorkspaceProfile,
   WikiConcept
 } from "./types";
 
+const workspaceStorageKey = "piecepool.localWorkspace";
+const syncUserStorageKey = "piecepool.syncUser";
+const themeStorageKey = "piecepool.themeMode";
+
+const mockSyncUser: SyncUser = {
+  name: "서준 박",
+  email: "gz5yv5h5yv@privaterelay.app"
+};
+
+function readWorkspaceProfile(): WorkspaceProfile | null {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = window.localStorage.getItem(workspaceStorageKey);
+    return raw ? (JSON.parse(raw) as WorkspaceProfile) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeWorkspaceProfile(profile: WorkspaceProfile) {
+  window.localStorage.setItem(workspaceStorageKey, JSON.stringify(profile));
+}
+
+function readSyncUser(): SyncUser | null {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = window.localStorage.getItem(syncUserStorageKey);
+    return raw ? (JSON.parse(raw) as SyncUser) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeSyncUser(user: SyncUser) {
+  window.localStorage.setItem(syncUserStorageKey, JSON.stringify(user));
+}
+
+function clearSyncUser() {
+  window.localStorage.removeItem(syncUserStorageKey);
+}
+
+function readThemeMode(): ThemeMode {
+  if (typeof window === "undefined") return "system";
+
+  const raw = window.localStorage.getItem(themeStorageKey);
+  return raw === "light" || raw === "dark" || raw === "system" ? raw : "system";
+}
+
+function writeThemeMode(mode: ThemeMode) {
+  window.localStorage.setItem(themeStorageKey, mode);
+}
+
 const viewCopy: Record<ViewKey, { title: string; eyebrow: string; description: string }> = {
-  inbox: {
+  workspace: {
     eyebrow: "Local workspace",
-    title: "흩어진 자료를 로컬 Inbox에 모읍니다.",
-    description: "PDF, 텍스트, 이미지, 링크, 오디오 조각을 한 곳에 보관하고 나중에 AI 정리 흐름으로 연결합니다."
+    title: "My Study Pool",
+    description: "내 기기 안에 모인 자료, 오늘 할 일, 프로젝트 진행 상태를 한 번에 확인합니다."
+  },
+  inbox: {
+    eyebrow: "Local pieces",
+    title: "내 컴퓨터 안의 조각을 Inbox에 모읍니다.",
+    description: "PDF, 사진, 녹음, 링크, 메모를 로컬 Workspace에 추가하고 AI 정리 흐름으로 보냅니다."
   },
   wiki: {
     eyebrow: "Living wiki",
@@ -45,14 +110,19 @@ const viewCopy: Record<ViewKey, { title: string; eyebrow: string; description: s
     description: "AI가 정리한 예시 개념 페이지와 관련 조각, 이해도 상태를 확인합니다."
   },
   plan: {
-    eyebrow: "Today plan",
+    eyebrow: "AI Today",
     title: "오늘 해야 할 학습 액션을 봅니다.",
     description: "자료와 목표에서 파생된 복습 태스크를 로컬 워크스페이스 안에서 관리합니다."
+  },
+  search: {
+    eyebrow: "Local search",
+    title: "Workspace 안의 조각과 지식을 찾습니다.",
+    description: "자료, Wiki, 프로젝트, 할 일을 로컬 데이터 기준으로 빠르게 검색합니다."
   },
   projects: {
     eyebrow: "Courses and projects",
     title: "시험, 발표, 프로젝트를 목표 단위로 추적합니다.",
-    description: "D-day, 진행률, 다음 액션을 한 화면에서 확인합니다."
+    description: "사용자가 넣은 자료를 바탕으로 로컬 AI가 목표별 진행률과 다음 액션을 갱신합니다."
   },
   graph: {
     eyebrow: "Knowledge graph",
@@ -72,7 +142,11 @@ const viewCopy: Record<ViewKey, { title: string; eyebrow: string; description: s
 };
 
 export function App() {
-  const [activeView, setActiveView] = useState<ViewKey>("inbox");
+  const [recentWorkspace, setRecentWorkspace] = useState<WorkspaceProfile | null>(() => readWorkspaceProfile());
+  const [workspace, setWorkspace] = useState<WorkspaceProfile | null>(null);
+  const [syncUser, setSyncUser] = useState<SyncUser | null>(() => readSyncUser());
+  const [themeMode, setThemeMode] = useState<ThemeMode>(() => readThemeMode());
+  const [activeView, setActiveView] = useState<ViewKey>("workspace");
   const [fragments, setFragments] = useState<Fragment[]>(fallbackFragments);
   const [wiki, setWiki] = useState<WikiConcept[]>(fallbackWiki);
   const [tasks, setTasks] = useState<StudyTask[]>(fallbackTasks);
@@ -81,6 +155,25 @@ export function App() {
   const [reminders, setReminders] = useState<Reminder[]>(fallbackReminders);
   const [providers, setProviders] = useState<ProviderSettings>(fallbackProviders);
   const [apiOnline, setApiOnline] = useState(false);
+
+  const openWorkspace = (profile: WorkspaceProfile) => {
+    const nextProfile = { ...profile, lastOpenedAt: new Date().toISOString() };
+    writeWorkspaceProfile(nextProfile);
+    setRecentWorkspace(nextProfile);
+    setWorkspace(nextProfile);
+    setActiveView("workspace");
+  };
+
+  const createWorkspace = (name: string) => {
+    const now = new Date().toISOString();
+    openWorkspace({
+      id: `workspace-local-${Date.now()}`,
+      name,
+      storageLabel: "Local Device",
+      createdAt: now,
+      lastOpenedAt: now
+    });
+  };
 
   const loadData = useCallback(async () => {
     await api.health();
@@ -117,6 +210,23 @@ export function App() {
     };
   }, [loadData]);
 
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+
+    const applyTheme = () => {
+      const darkEnabled = themeMode === "dark" || (themeMode === "system" && mediaQuery.matches);
+      document.documentElement.classList.toggle("dark", darkEnabled);
+      document.documentElement.dataset.theme = themeMode;
+    };
+
+    applyTheme();
+    mediaQuery.addEventListener("change", applyTheme);
+
+    return () => {
+      mediaQuery.removeEventListener("change", applyTheme);
+    };
+  }, [themeMode]);
+
   const createFallbackFragment = (payload: CreateFragmentPayload): Fragment => ({
     id: `fragment-local-${Date.now()}`,
     title: payload.title,
@@ -124,16 +234,37 @@ export function App() {
     source: payload.source || "직접 입력",
     project: payload.project || "미분류",
     summary: payload.summary || "아직 요약이 없습니다.",
-    status: "연결 필요",
+    status: "Imported",
     created_at: "방금 전"
   });
+
+  const createFallbackProject = (payload: CreateProjectPayload): Project => {
+    const goals = payload.goals.filter(Boolean).map((goal, index) => ({
+      id: `goal-local-${Date.now()}-${index}`,
+      title: goal,
+      status: "not_started" as const
+    }));
+
+    return {
+      id: `project-local-${Date.now()}`,
+      title: payload.title,
+      kind: payload.kind,
+      d_day: payload.d_day || "상시",
+      progress: 0,
+      next_action: "프로젝트 목표와 관련된 첫 자료를 Inbox에 추가하세요.",
+      goals: goals.length > 0 ? goals : [{ id: `goal-local-${Date.now()}`, title: "목표 정의", status: "not_started" }],
+      evidence_count: 0,
+      progress_note: "로컬 엔진이 꺼져 있어 예시 계산값으로 표시합니다."
+    };
+  };
 
   const handleCreateFragment = async (payload: CreateFragmentPayload) => {
     try {
       const created = await api.createFragment(payload);
-      const nextGraph = await api.graph();
+      const [nextGraph, nextProjects] = await Promise.all([api.graph(), api.projects()]);
       setFragments((current) => [created, ...current]);
       setGraph(nextGraph);
+      setProjects(nextProjects);
       setApiOnline(true);
     } catch {
       const created = createFallbackFragment(payload);
@@ -150,6 +281,7 @@ export function App() {
     const previousFragments = fragments;
     const previousGraph = graph;
     const previousWiki = wiki;
+    const previousProjects = projects;
 
     setFragments((current) => current.filter((item) => item.id !== fragmentId));
     setGraph((current) => ({
@@ -165,11 +297,14 @@ export function App() {
 
     try {
       await api.deleteFragment(fragmentId);
+      const nextProjects = await api.projects();
+      setProjects(nextProjects);
       setApiOnline(true);
     } catch {
       setFragments(previousFragments);
       setGraph(previousGraph);
       setWiki(previousWiki);
+      setProjects(previousProjects);
       setApiOnline(false);
     }
   };
@@ -225,14 +360,40 @@ export function App() {
     }
   };
 
-  const handleUpdateProject = async (projectId: string, payload: UpdateProjectPayload) => {
-    setProjects((current) => current.map((item) => (item.id === projectId ? { ...item, ...payload } : item)));
-
+  const handleCreateProject = async (payload: CreateProjectPayload) => {
     try {
-      const updated = await api.updateProject(projectId, payload);
-      setProjects((current) => current.map((item) => (item.id === projectId ? updated : item)));
+      const created = await api.createProject(payload);
+      const nextGraph = await api.graph();
+      setProjects((current) => [created, ...current]);
+      setGraph(nextGraph);
       setApiOnline(true);
     } catch {
+      const created = createFallbackProject(payload);
+      setProjects((current) => [created, ...current]);
+      setGraph((current) => ({
+        ...current,
+        nodes: [{ id: created.id, label: created.title, category: "project", summary: created.kind }, ...current.nodes]
+      }));
+      setApiOnline(false);
+    }
+  };
+
+  const handleDeleteProject = async (projectId: string) => {
+    const previousProjects = projects;
+    const previousGraph = graph;
+
+    setProjects((current) => current.filter((project) => project.id !== projectId));
+    setGraph((current) => ({
+      nodes: current.nodes.filter((node) => node.id !== projectId),
+      edges: current.edges.filter((edge) => edge.source !== projectId && edge.target !== projectId)
+    }));
+
+    try {
+      await api.deleteProject(projectId);
+      setApiOnline(true);
+    } catch {
+      setProjects(previousProjects);
+      setGraph(previousGraph);
       setApiOnline(false);
     }
   };
@@ -290,45 +451,122 @@ export function App() {
     }
   };
 
+  const handleSyncLogin = () => {
+    writeSyncUser(mockSyncUser);
+    setSyncUser(mockSyncUser);
+  };
+
+  const handleSyncLogout = () => {
+    clearSyncUser();
+    setSyncUser(null);
+  };
+
+  const handleThemeChange = (mode: ThemeMode) => {
+    writeThemeMode(mode);
+    setThemeMode(mode);
+  };
+
   const currentCopy = viewCopy[activeView];
-  const selectedProvider = useMemo(() => providers.providers.find((provider) => provider.selected), [providers]);
+  const organizedCount = fragments.filter((fragment) => fragment.status === "Organized" || fragment.status.includes("완료")).length;
+  const workspaceName = workspace?.name ?? "My Study Pool";
+
+  if (!workspace) {
+    return (
+      <WorkspaceGate
+        recentWorkspace={recentWorkspace}
+        onCreateWorkspace={createWorkspace}
+        onOpenWorkspace={openWorkspace}
+      />
+    );
+  }
 
   return (
-    <div className="flex h-screen overflow-hidden text-ink">
-      <Sidebar activeView={activeView} onChangeView={setActiveView} />
+    <div className="flex h-screen overflow-hidden bg-mist text-ink">
+      <Sidebar
+        activeView={activeView}
+        workspaceName={workspaceName}
+        syncUser={syncUser}
+        themeMode={themeMode}
+        onChangeView={setActiveView}
+        onSelectWorkspace={() => setWorkspace(null)}
+        onLogin={handleSyncLogin}
+        onLogout={handleSyncLogout}
+        onThemeChange={handleThemeChange}
+      />
       <Shell
         eyebrow={currentCopy.eyebrow}
-        title={currentCopy.title}
+        title={activeView === "workspace" ? workspaceName : currentCopy.title}
         description={currentCopy.description}
+        localStatus={apiOnline ? "Offline Ready" : "Local Preview"}
+        workspaceName={workspaceName}
         aside={
-          <div className="space-y-5">
+          activeView === "graph" ? undefined : (
+            <div className="space-y-5">
             <Panel>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Local Engine</p>
-              <p className="mt-2 text-lg font-black text-ink">{apiOnline ? "Ready" : "Offline preview"}</p>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Workspace Status</p>
+              <p className="mt-2 text-lg font-black text-ink">{workspaceName}</p>
               <p className="mt-2 text-sm leading-6 text-slate-600">
                 {apiOnline
-                  ? "이 기기에서 워크스페이스 데이터를 불러오고 있습니다."
-                  : "로컬 엔진이 꺼져 있어 내장된 예시 데이터로 미리 봅니다."}
+                  ? "저장 위치: Local Device. 네트워크 없이도 자료를 확인할 수 있습니다."
+                  : "로컬 엔진이 꺼져 있어 내장 예시 데이터로 미리 봅니다."}
               </p>
+              <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+                <div className="rounded-lg bg-mist p-3">
+                  <p className="text-xs font-bold text-slate-500">Pieces</p>
+                  <p className="mt-1 text-lg font-black text-ink">{fragments.length}</p>
+                </div>
+                <div className="rounded-lg bg-mist p-3">
+                  <p className="text-xs font-bold text-slate-500">Organized</p>
+                  <p className="mt-1 text-lg font-black text-ink">{organizedCount}</p>
+                </div>
+              </div>
             </Panel>
             <Panel>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">AI Engine</p>
-              <p className="mt-2 text-lg font-black text-ink">{selectedProvider?.name ?? "Local LLM"}</p>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Plan</p>
+              <p className="mt-2 text-lg font-black text-ink">{providers.plan.tier === "pro" ? "Pro Preview" : "Free Local"}</p>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                기본은 로컬 AI입니다. 클라우드 AI는 Pro 옵션으로 준비되어 있습니다.
+                로컬 정리는 기본 제공이고, 클라우드 AI 선택은 Plan 화면에서 잠긴 옵션으로만 미리 보여줍니다.
               </p>
             </Panel>
           </div>
+          )
         }
       >
-        {activeView === "inbox" ? (
-          <InboxView fragments={fragments} onCreateFragment={handleCreateFragment} onDeleteFragment={handleDeleteFragment} />
+        {activeView === "workspace" ? (
+          <WorkspaceView
+            workspaceName={workspaceName}
+            fragments={fragments}
+            tasks={tasks}
+            projects={projects}
+            graph={graph}
+            apiOnline={apiOnline}
+            onCreateFragment={handleCreateFragment}
+            onChangeView={setActiveView}
+          />
         ) : null}
+        {activeView === "inbox" ? (
+          <InboxView
+            fragments={fragments}
+            projectOptions={projects.map((project) => project.title)}
+            onCreateFragment={handleCreateFragment}
+            onDeleteFragment={handleDeleteFragment}
+          />
+        ) : null}
+        {activeView === "search" ? <SearchView fragments={fragments} concepts={wiki} projects={projects} tasks={tasks} /> : null}
         {activeView === "wiki" ? <WikiView concepts={wiki} fragments={fragments} /> : null}
         {activeView === "plan" ? (
-          <PlanView tasks={tasks} onCreateTask={handleCreateTask} onToggleTask={handleToggleTask} onDeleteTask={handleDeleteTask} />
+          <PlanView
+            tasks={tasks}
+            providerSettings={providers}
+            onCreateTask={handleCreateTask}
+            onToggleTask={handleToggleTask}
+            onDeleteTask={handleDeleteTask}
+            onPlanChange={handlePlanChange}
+          />
         ) : null}
-        {activeView === "projects" ? <ProjectsView projects={projects} onUpdateProject={handleUpdateProject} /> : null}
+        {activeView === "projects" ? (
+          <ProjectsView projects={projects} onCreateProject={handleCreateProject} onDeleteProject={handleDeleteProject} />
+        ) : null}
         {activeView === "graph" ? <GraphView graph={graph} /> : null}
         {activeView === "reminder" ? (
           <ReminderView reminders={reminders} onCreateReminder={handleCreateReminder} onDeleteReminder={handleDeleteReminder} />

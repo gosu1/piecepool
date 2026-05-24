@@ -1,7 +1,7 @@
 import type { FormEvent } from "react";
 import { useState } from "react";
-import { CheckCircle2, Circle, Clock3, Plus, Trash2 } from "lucide-react";
-import type { CreateStudyTaskPayload, StudyTask } from "../types";
+import { CheckCircle2, Circle, Clock3, Cpu, Lock, Plus, Trash2 } from "lucide-react";
+import type { CreateStudyTaskPayload, ProviderSettings, StudyTask } from "../types";
 import { Panel } from "./Shell";
 import { StatusPill } from "./StatusPill";
 
@@ -14,19 +14,33 @@ const emptyTask: CreateStudyTaskPayload = {
 
 export function PlanView({
   tasks,
+  providerSettings,
   onCreateTask,
   onToggleTask,
-  onDeleteTask
+  onDeleteTask,
+  onPlanChange
 }: {
   tasks: StudyTask[];
+  providerSettings: ProviderSettings;
   onCreateTask: (payload: CreateStudyTaskPayload) => Promise<void>;
   onToggleTask: (task: StudyTask) => Promise<void>;
   onDeleteTask: (taskId: string) => Promise<void>;
+  onPlanChange: (tier: "free" | "pro") => Promise<void>;
 }) {
   const [form, setForm] = useState<CreateStudyTaskPayload>(emptyTask);
   const [saving, setSaving] = useState(false);
+  const [planSaving, setPlanSaving] = useState(false);
   const doneCount = tasks.filter((task) => task.done).length;
   const totalMinutes = tasks.reduce((sum, task) => sum + Number.parseInt(task.estimate, 10) || sum, 0);
+  const selectedProvider = providerSettings.providers.find((provider) => provider.selected);
+
+  const changePlan = async (tier: "free" | "pro") => {
+    if (providerSettings.plan.tier === tier) return;
+
+    setPlanSaving(true);
+    await onPlanChange(tier);
+    setPlanSaving(false);
+  };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -59,6 +73,68 @@ export function PlanView({
           <p className="mt-1 text-sm text-slate-500">예상 학습 시간</p>
         </Panel>
       </div>
+
+      <Panel>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">AI 정리 플랜</p>
+            <h3 className="mt-2 text-lg font-black text-ink">오늘의 정리는 {selectedProvider?.id === "local" ? "로컬 AI" : selectedProvider?.name} 기준입니다.</h3>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+              Free는 내 기기 안에서 정리하고, Pro는 나중에 GPT/Gemini 같은 클라우드 AI 선택권을 여는 구조로 준비합니다.
+            </p>
+          </div>
+          <div className="flex rounded-lg border border-line bg-mist p-1">
+            <button
+              className={`rounded-md px-3 py-2 text-xs font-black transition ${
+                providerSettings.plan.tier === "free" ? "bg-white text-ink shadow-card" : "text-slate-500 hover:text-ink"
+              }`}
+              type="button"
+              disabled={planSaving}
+              onClick={() => changePlan("free")}
+            >
+              Free
+            </button>
+            <button
+              className={`rounded-md px-3 py-2 text-xs font-black transition ${
+                providerSettings.plan.tier === "pro" ? "bg-white text-ink shadow-card" : "text-slate-500 hover:text-ink"
+              }`}
+              type="button"
+              disabled={planSaving}
+              onClick={() => changePlan("pro")}
+            >
+              Pro 미리보기
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          {providerSettings.providers.map((provider) => {
+            const locked = provider.status === "locked";
+            const name = provider.id === "local" ? "로컬 AI" : provider.name;
+
+            return (
+              <div key={provider.id} className="rounded-lg border border-line bg-mist p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <div className="grid h-8 w-8 place-items-center rounded-lg bg-white text-ink">
+                      {locked ? <Lock size={16} /> : <Cpu size={16} />}
+                    </div>
+                    <p className="text-sm font-black text-ink">{name}</p>
+                  </div>
+                  <StatusPill tone={provider.selected ? "green" : locked ? "slate" : "pool"}>
+                    {provider.selected ? "사용 중" : locked ? "Pro" : "가능"}
+                  </StatusPill>
+                </div>
+                <p className="mt-3 text-xs leading-5 text-slate-600">
+                  {provider.id === "local"
+                    ? "자료가 먼저 로컬 Workspace 안에서 정리됩니다."
+                    : "유료 플랜에서 외부 API 연결 옵션으로 열릴 예정입니다."}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      </Panel>
 
       <Panel>
         <form className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_8rem_7rem_auto]" onSubmit={submit}>

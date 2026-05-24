@@ -2,6 +2,7 @@ import type { FormEvent } from "react";
 import { useState } from "react";
 import { FileAudio, FileImage, FileText, Link2, NotebookText, Plus, Sparkles, Trash2 } from "lucide-react";
 import type { CreateFragmentPayload, Fragment, FragmentKind } from "../types";
+import { MarkdownComposer } from "./MarkdownComposer";
 import { Panel } from "./Shell";
 import { StatusPill } from "./StatusPill";
 
@@ -31,10 +32,12 @@ const emptyForm: CreateFragmentPayload = {
 
 export function InboxView({
   fragments,
+  projectOptions,
   onCreateFragment,
   onDeleteFragment
 }: {
   fragments: Fragment[];
+  projectOptions: string[];
   onCreateFragment: (payload: CreateFragmentPayload) => Promise<void>;
   onDeleteFragment: (fragmentId: string) => Promise<void>;
 }) {
@@ -71,7 +74,7 @@ export function InboxView({
             onClick={() => setExpanded((current) => !current)}
           >
             <Plus size={16} />
-            자료 추가
+            Add Piece
           </button>
         </div>
       </Panel>
@@ -89,12 +92,19 @@ export function InboxView({
               value={form.title}
               onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
             />
-            <textarea
-              className="mt-3 min-h-28 w-full resize-none rounded-lg border border-line bg-mist px-4 py-3 text-sm leading-6 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-pool focus:bg-white"
-              placeholder="본문 일부, 요약, 기억할 포인트를 적어두세요."
-              value={form.summary}
-              onChange={(event) => setForm((current) => ({ ...current, summary: event.target.value }))}
-            />
+            <div className="mt-3">
+              <MarkdownComposer
+                value={form.summary}
+                onChange={(summary) => setForm((current) => ({ ...current, summary }))}
+                placeholder="본문 일부, 요약, 체크리스트, 코드 블록을 작성하세요."
+              />
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold text-slate-500">
+              <span className="rounded-full bg-mist px-2.5 py-1"># 제목</span>
+              <span className="rounded-full bg-mist px-2.5 py-1">- 목록</span>
+              <span className="rounded-full bg-mist px-2.5 py-1">- [ ] 체크</span>
+              <span className="rounded-full bg-mist px-2.5 py-1">``` 코드</span>
+            </div>
             <div className="mt-4 grid gap-3 md:grid-cols-[1fr_1fr_1.2fr]">
               <div>
                 <label className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Type</label>
@@ -116,10 +126,16 @@ export function InboxView({
               <label className="block">
                 <span className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Project</span>
                 <input
+                  list="project-options"
                   className="mt-2 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-pool"
                   value={form.project}
                   onChange={(event) => setForm((current) => ({ ...current, project: event.target.value }))}
                 />
+                <datalist id="project-options">
+                  {projectOptions.map((project) => (
+                    <option key={project} value={project} />
+                  ))}
+                </datalist>
               </label>
               <label className="block">
                 <span className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Source</span>
@@ -171,11 +187,11 @@ export function InboxView({
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="text-base font-black text-ink">{fragment.title}</h3>
-                    <StatusPill tone={fragment.status.includes("완료") ? "green" : fragment.status.includes("필요") ? "amber" : "pool"}>
+                    <StatusPill tone={fragment.status === "Organized" ? "green" : fragment.status === "Needs Review" ? "amber" : "pool"}>
                       {fragment.status}
                     </StatusPill>
                   </div>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">{fragment.summary}</p>
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-600">{fragment.summary}</p>
                   <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-slate-500">
                     <span>{fragment.kind.toUpperCase()}</span>
                     <span>{fragment.project}</span>
