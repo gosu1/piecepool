@@ -1,0 +1,42 @@
+{
+  "name": "piecepool",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npm run desktop:check && concurrently -k \"npm run backend:dev\" \"npm run tauri:dev:raw\"",
+    "desktop:dev": "npm run dev",
+    "desktop:check": "node scripts/check-desktop-env.mjs",
+    "desktop:icon": "node scripts/generate-tauri-icon.mjs",
+    "frontend:dev": "vite --host 127.0.0.1 --port 5173",
+    "web:dev": "npm run frontend:dev",
+    "build": "tsc && vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 4173",
+    "backend": "python3 -m uvicorn backend.main:app --host 127.0.0.1 --port 8000",
+    "backend:dev": "python3 -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000",
+    "tauri:dev": "npm run desktop:check && npm run tauri:dev:raw",
+    "tauri:dev:raw": "tauri dev",
+    "tauri:build": "tauri build",
+    "desktop:build": "npm run desktop:check && npm run tauri:build"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.11.0",
+    "framer-motion": "^11.18.2",
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.2",
+    "@types/node": "^20.17.12",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.5.0",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "^9.1.2",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.2",
+    "vite": "^6.3.5"
+  }
+}

@@ -1,0 +1,9 @@
+.next
+node_modules
+dist
+build
+src-tauri/target
+__pycache__
+*.pyc
+.DS_Store
+*.log
