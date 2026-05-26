@@ -256,12 +256,12 @@ export function GraphView({ graph }: { graph: GraphData }) {
     setTransform({ x: 0, y: 0, scale: 1 });
   };
 
-  if (graph.nodes.length === 0 || graph.edges.length === 0) {
+  if (graph.nodes.length === 0) {
     return (
       <Panel className="grid min-h-[620px] place-items-center text-center">
         <div>
-          <h3 className="text-xl font-black text-ink">아직 연결된 조각이 없습니다</h3>
-          <p className="mt-2 text-sm text-slate-500">자료를 추가하고 연결을 승인하면 이곳에 그래프가 표시됩니다.</p>
+          <h3 className="text-xl font-black text-ink">아직 표시할 노드가 없습니다</h3>
+          <p className="mt-2 text-sm text-slate-500">자료를 추가하면 연결 여부와 관계없이 이곳에 노드가 표시됩니다.</p>
         </div>
       </Panel>
     );

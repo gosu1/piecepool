@@ -166,17 +166,36 @@ projects = [
 
 graph_nodes = [
     GraphNode(id="fragment-os-pdf", label="운영체제 5주차 PDF", category="fragment", summary="CPU Scheduling 원본 자료"),
+    GraphNode(id="fragment-deadlock-photo", label="Deadlock 칠판 필기", category="fragment", summary="교착 상태 발생 조건을 정리한 필기 사진"),
+    GraphNode(id="fragment-attention-audio", label="딥러닝 수업 녹음", category="fragment", summary="Self-Attention 설명과 발표 질문 힌트가 담긴 녹음"),
+    GraphNode(id="fragment-transformer-link", label="Transformer 시각화 글", category="fragment", summary="Query, Key, Value 흐름을 설명하는 참고 링크"),
     GraphNode(id="fragment-round-robin-note", label="Round Robin 예제 메모", category="fragment", summary="텍스트 메모"),
     GraphNode(id="wiki-cpu", label="CPU Scheduling", category="concept", summary="스케줄링 개념"),
+    GraphNode(id="wiki-deadlock", label="Deadlock 4조건", category="concept", summary="상호 배제, 점유 대기, 비선점, 순환 대기 개념"),
+    GraphNode(id="wiki-attention", label="Self-Attention", category="concept", summary="Q/K/V 흐름과 발표용 설명을 묶은 개념"),
     GraphNode(id="project-os-midterm", label="운영체제 중간고사", category="project", summary="시험 목표"),
+    GraphNode(id="project-dl-presentation", label="딥러닝 발표", category="project", summary="발표 준비 프로젝트"),
+    GraphNode(id="project-startup", label="창업 아이디어 스케치", category="project", summary="문제 정의와 사용자 인터뷰를 모으는 프로젝트"),
     GraphNode(id="task-cpu-review", label="CPU Scheduling 복습", category="task", summary="오늘 할 일"),
+    GraphNode(id="task-deadlock-explain", label="Deadlock 말로 설명", category="task", summary="교착 상태 4조건을 말로 설명하는 복습"),
+    GraphNode(id="task-attention-quiz", label="Self-Attention 예상문제", category="task", summary="발표 질문 대비용 예상문제 풀이"),
 ]
 
 graph_edges = [
     GraphEdge(source="fragment-os-pdf", target="wiki-cpu", label="개념 추출"),
     GraphEdge(source="fragment-round-robin-note", target="wiki-cpu", label="예제 연결"),
+    GraphEdge(source="fragment-deadlock-photo", target="wiki-deadlock", label="필기 정리"),
+    GraphEdge(source="fragment-attention-audio", target="wiki-attention", label="녹음 요약"),
+    GraphEdge(source="fragment-transformer-link", target="wiki-attention", label="참고 자료"),
     GraphEdge(source="wiki-cpu", target="project-os-midterm", label="시험 범위"),
+    GraphEdge(source="wiki-deadlock", target="project-os-midterm", label="시험 범위"),
+    GraphEdge(source="wiki-attention", target="project-dl-presentation", label="발표 핵심"),
     GraphEdge(source="wiki-cpu", target="task-cpu-review", label="복습 추천"),
+    GraphEdge(source="wiki-deadlock", target="task-deadlock-explain", label="복습 추천"),
+    GraphEdge(source="wiki-attention", target="task-attention-quiz", label="질문 대비"),
+    GraphEdge(source="project-dl-presentation", target="task-attention-quiz", label="다음 액션"),
+    GraphEdge(source="project-os-midterm", target="task-cpu-review", label="오늘 할 일"),
+    GraphEdge(source="project-os-midterm", target="task-deadlock-explain", label="오늘 할 일"),
 ]
 
 reminders = [
