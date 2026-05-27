@@ -1,52 +1,9 @@
-# PiecePool
+PiecePool MVP 개발 기준 문서입니다.
 
-PiecePool is a lightweight local-first desktop workspace for collecting study fragments, turning them into wiki pages, planning study work, and exploring connections.
+읽는 순서:
+1. PRD.md
+2. docs/superpowers/plans/2026-05-28-piecepool-mvp.md
+3. DEVELOPER_HANDOFF.md
 
-## Run The Desktop App
-
-Install dependencies once:
-
-```bash
-npm install
-python3 -m pip install -r requirements.txt
-```
-
-Tauri requires Rust/Cargo on the machine. If they are not installed yet:
-
-```bash
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-source "$HOME/.cargo/env"
-```
-
-Start the local desktop app:
-
-```bash
-npm run dev
-```
-
-This starts the FastAPI local engine and opens PiecePool in a Tauri desktop window. You do not need to open a browser URL.
-
-First-run flow:
-
-```text
-Open PiecePool -> Create or open a Workspace -> Add local pieces -> Run AI organization -> Review Wiki, Graph, and Today
-```
-
-## Useful Commands
-
-```bash
-npm run desktop:dev
-npm run backend:dev
-npm run build
-npm run desktop:build
-```
-
-`npm run web:dev` is only a frontend developer fallback. The default app flow is the Tauri desktop shell.
-
-## Current MVP Scope
-
-- Local workspace UI with Inbox, Wiki, Plan, Projects, Graph, Reminder, and AI Engine.
-- FastAPI local engine with local JSON persistence, mock workspace data, and mock LLM-Wiki actions.
-- Local LLM selected by default.
-- GPT and Gemini shown as locked Pro cloud options.
-- No login, cloud sync, billing, real AI API calls, or real file parsing yet.
+핵심은 단일 로컬 Workspace, archive/wiki Markdown 파일 저장, 실제 LLM 호출, PDF parsing, Graph View입니다.
+구현은 plan 파일의 Task 1부터 순서대로 진행하면 됩니다.
