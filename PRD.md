@@ -12,7 +12,7 @@ PiecePool의 핵심 컨셉은 다음 문장으로 정의한다.
 
 PiecePool은 대학생을 위한 로컬 우선 AI 지식 Workspace다.
 
-사용자는 강의 PDF, 직접 작성한 필기, 붙여넣은 수업 정리 텍스트, 질문 기록 같은 학습 자료를 하나의 로컬 Workspace에 넣는다. PiecePool은 사용자가 넣은 원문을 `archive/`에 보존하고, 실제 LLM을 호출해 개념 중심 Wiki 문서와 Typed Knowledge Graph로 재구성한다.
+사용자는 강의 PDF, 직접 작성한 필기, 붙여넣은 수업 정리 텍스트, 질문 기록 같은 학습 자료를 하나의 로컬 Workspace에 넣는다. PiecePool은 사용자가 넣은 원문을 `archive/`에 보존하고, 실제 LLM을 호출해 개념 중심 Wiki 문서와 타입이 있는 지식 그래프로 재구성한다.
 
 제품 경험은 일반 웹 SaaS 대시보드보다 Obsidian 같은 로컬 Markdown 지식 작업 공간에 가깝다. 차이는 PiecePool이 자료를 단순 저장하지 않고 LLM-Wiki와 Graph View로 계속 재구성한다는 점이다.
 
@@ -23,7 +23,7 @@ PiecePool은 대학생을 위한 로컬 우선 AI 지식 Workspace다.
 중요한 사용 시나리오는 단발성 요약이 아니라 장기 누적이다.
 
 - 사용자는 하나의 Workspace를 계속 사용한다.
-- 과목, 학기, 시험, 프로젝트는 Workspace를 나누는 기준이 아니라 metadata/filter다.
+- 과목, 학기, 시험, 프로젝트는 Workspace를 나누는 기준이 아니라 메타데이터/필터다.
 - 1학년 2학기에 시작한 학습 기록이 4학년까지 같은 Workspace 안에서 이어진다.
 - 시간이 지날수록 개념, 원문, 질문, Wiki, Relation이 누적된다.
 - 서로 다른 과목에서 배운 개념도 Graph 안에서 연결된다.
@@ -38,21 +38,21 @@ PiecePool은 대학생을 위한 로컬 우선 AI 지식 Workspace다.
 
 ## 4. MVP 목표
 
-MVP는 실제로 동작하는 로컬 앱이어야 한다. 단순 mock 화면이나 발표용 정적 데모가 아니다.
+MVP는 실제로 동작하는 로컬 앱이어야 한다. 단순 가짜 화면이나 발표용 정적 데모가 아니다.
 
 MVP 필수 목표:
 
 - 단일 로컬 Workspace 제공
-- Markdown editor 제공
+- Markdown 편집기 제공
 - 사용자가 입력한 원문을 실제 `.md` 파일로 `archive/`에 저장
-- PDF에서 텍스트를 실제 추출하고 archive note로 저장
+- PDF에서 텍스트를 실제 추출하고 archive 노트로 저장
 - 실제 LLM 호출로 Concept, WikiPage, Relation, Evidence 생성
 - LLM이 정리한 WikiPage를 실제 `.md` 파일로 `wiki/`에 저장
-- Relation metadata를 로컬 파일로 저장
+- Relation 메타데이터를 로컬 파일로 저장
 - Graph View를 로컬 wiki/relation 데이터에서 렌더링
 - Graph node 클릭 시 연결된 Markdown 문서 열기
-- Graph edge 클릭 시 relation type, explanation, evidence 표시
-- 첫 실행용 seed data 포함
+- Graph edge 클릭 시 관계 타입, 설명, 근거 표시
+- 첫 실행용 Seed 데이터 포함
 
 ## 5. MVP 제외 범위
 
@@ -64,7 +64,7 @@ MVP 필수 목표:
 - Today Task 화면
 - Project Flow 화면
 - 이미지 OCR 완성 구현
-- 고급 relation strength 자동 점수화
+- 고급 관계 강도 자동 점수화
 - 협업 기능
 
 단, OCR은 제품 요구사항에 포함한다. MVP 1차에서는 데이터 모델과 UI 진입점만 준비하고, 실제 OCR 파이프라인은 MVP+1에서 구현한다.
@@ -78,10 +78,10 @@ MVP 필수 목표:
 - TypeScript
 - Tailwind CSS
 - 로컬 파일 시스템 저장
-- Markdown editor/renderer
-- PDF text extraction
-- LLM API integration
-- Graph visualization library
+- Markdown 편집기/렌더러
+- PDF 텍스트 추출
+- LLM API 연동
+- Graph 시각화 라이브러리
 
 지원 목표:
 
@@ -91,7 +91,7 @@ MVP 필수 목표:
 
 ## 7. 로컬 Workspace 구조
 
-Workspace는 하나의 로컬 폴더다. 사람이 읽을 수 있는 Markdown 파일과 앱이 읽는 metadata 파일을 함께 가진다.
+Workspace는 하나의 로컬 폴더다. 사람이 읽을 수 있는 Markdown 파일과 앱이 읽는 메타데이터 파일을 함께 가진다.
 
 권장 구조:
 
@@ -127,7 +127,7 @@ PiecePool Workspace/
 - 수업 정리 텍스트
 - 사용자가 직접 작성한 노트
 
-`archive/`는 사용자가 제공한 원본 맥락의 보존 공간이다. LLM이 만든 요약이나 정리 결과가 archive note를 덮어쓰면 안 된다.
+`archive/`는 사용자가 제공한 원본 맥락의 보존 공간이다. LLM이 만든 요약이나 정리 결과가 archive 노트를 덮어쓰면 안 된다.
 
 ### 7.2 `wiki/`
 
@@ -152,22 +152,22 @@ updatedAt: "2026-05-28T12:30:00+09:00"
 
 # Self-Attention
 
-Self-Attention은 sequence 안의 각 token이 다른 token들과의 관계를 계산해 문맥 표현을 만드는 attention mechanism이다.
+Self-Attention은 sequence 안의 각 token이 다른 token과의 관계를 계산해 문맥 표현을 만드는 attention mechanism이다.
 
-## Summary
+## 요약
 
-Transformer에서 각 token이 전체 sequence의 다른 token을 참고해 contextual representation을 만드는 핵심 구조다.
+Transformer에서 각 token이 전체 sequence의 다른 token을 참고해 문맥 표현을 만드는 핵심 구조다.
 
-## Example
+## 예시
 
 문장 "The animal didn't cross the street because it was tired"에서 `it`이 무엇을 가리키는지 판단할 때 주변 token들과의 관계를 계산한다.
 ```
 
 ### 7.3 `relations/`
 
-Concept 간 relation과 evidence metadata를 저장한다.
+Concept 간 relation과 근거 메타데이터를 저장한다.
 
-MVP에서는 `relations.json` 하나로 시작한다. 추후 데이터가 커지면 과목별 또는 wiki별 metadata로 분리할 수 있다.
+MVP에서는 `relations.json` 하나로 시작한다. 추후 데이터가 커지면 과목별 또는 wiki별 메타데이터로 분리할 수 있다.
 
 ### 7.4 `sources/`
 
@@ -182,9 +182,9 @@ PDF는 `sources/original-files/`에 저장하고, 추출 텍스트는 `archive/`
 
 ### 7.5 `config/`
 
-Workspace 설정과 Subject metadata를 저장한다.
+Workspace 설정과 Subject 메타데이터를 저장한다.
 
-Subject는 Workspace가 아니다. 하나의 Workspace 안에서 과목을 구분하기 위한 metadata다.
+Subject는 Workspace가 아니다. 하나의 Workspace 안에서 과목을 구분하기 위한 메타데이터다.
 
 ## 8. 핵심 엔티티
 
@@ -204,7 +204,7 @@ type Workspace = {
 
 ### 8.2 Subject
 
-Workspace 안의 과목 metadata다.
+Workspace 안의 과목 메타데이터다.
 
 ```ts
 type Subject = {
@@ -332,13 +332,13 @@ type Relation = {
   strength: number;
   confidence: number;
   explanation: string;
-  evidence: Evidence[];
+  근거: Evidence[];
   createdAt: string;
   updatedAt: string;
 };
 ```
 
-`related_to`는 남발하지 않는다. 가능한 경우 `part_of`, `used_in`, `confused_with`, `prerequisite`처럼 의미가 분명한 relation type을 사용한다.
+`related_to`는 남발하지 않는다. 가능한 경우 `part_of`, `used_in`, `confused_with`, `prerequisite`처럼 의미가 분명한 관계 타입을 사용한다.
 
 ### 8.8 Evidence
 
@@ -354,7 +354,7 @@ type Evidence = {
 };
 ```
 
-Graph View에서 edge를 클릭하면 evidence를 볼 수 있어야 한다.
+Graph View에서 edge를 클릭하면 근거를 볼 수 있어야 한다.
 
 ### 8.9 Question
 
@@ -374,7 +374,7 @@ MVP에서는 별도 질문 화면을 만들지 않고 WikiPage 안의 섹션으�
 
 ### 8.10 ImportJob
 
-자료 import와 LLM 처리 상태를 추적한다.
+자료 가져오기와 LLM 처리 상태를 추적한다.
 
 ```ts
 type ImportJobStatus =
@@ -414,9 +414,9 @@ type ImportJob = {
 
 ### 9.2 수업 정리 텍스트 입력
 
-수업 정리 텍스트는 text source와 동일한 흐름으로 처리한다.
+수업 정리 텍스트는 텍스트 source와 동일한 흐름으로 처리한다.
 
-제품에서는 이를 `수업 정리 텍스트 import`로 표현한다. MVP는 파일 자체보다 정리된 텍스트를 PiecePool에 넣는 흐름을 우선한다.
+제품에서는 이를 `수업 정리 텍스트 가져오기`로 표현한다. MVP는 파일 자체보다 정리된 텍스트를 PiecePool에 넣는 흐름을 우선한다.
 
 ### 9.3 PDF 입력
 
@@ -424,14 +424,14 @@ type ImportJob = {
 사용자가 Subject 선택
 -> PDF 선택
 -> 원본 PDF를 sources/original-files/에 저장
--> PDF text extraction 실행
+-> PDF 텍스트 추출 실행
 -> 추출 텍스트를 archive/*.md 저장
 -> LLM 호출
 -> wiki/*.md 및 relations/relations.json 저장
 -> Wiki/Graph 갱신
 ```
 
-PDF parsing 실패 시:
+PDF 파싱 실패 시:
 
 - 실패 메시지를 보여준다.
 - 이미 저장한 원본 PDF는 유지한다.
@@ -444,7 +444,7 @@ PDF parsing 실패 시:
 MVP 1차:
 
 - `SourceType: "image"` 유지
-- UI에 이미지 import 진입점은 둘 수 있음
+- UI에 이미지 가져오기 진입점은 둘 수 있음
 - 실제 OCR 처리는 MVP+1로 분리
 
 MVP+1 OCR 흐름:
@@ -464,13 +464,13 @@ MVP는 실제 LLM을 호출해야 한다.
 
 LLM 입력:
 
-- Source title
-- Source text
-- Subject metadata
-- 기존 Concept title 목록
+- Source 제목
+- Source 텍스트
+- Subject 메타데이터
+- 기존 Concept 제목 목록
 - 필요 시 관련 WikiPage 요약
 
-LLM 출력은 구조화된 JSON으로 받는다. 앱은 이 JSON을 검증한 뒤 Markdown 파일과 relation metadata로 변환한다.
+LLM 출력은 구조화된 JSON으로 받는다. 앱은 이 JSON을 검증한 뒤 Markdown 파일과 relation 메타데이터로 변환한다.
 
 기대 출력:
 
@@ -492,18 +492,18 @@ type LlmWikiResult = {
     strength: number;
     confidence: number;
     explanation: string;
-    evidence: Evidence[];
+    근거: Evidence[];
   }>;
 };
 ```
 
-LLM은 archive note를 덮어쓰면 안 된다. LLM의 역할은 wiki page 생성/업데이트와 relation metadata 생성이다.
+LLM은 archive 노트를 덮어쓰면 안 된다. LLM의 역할은 wiki page 생성/업데이트와 relation 메타데이터 생성이다.
 
 ## 11. Markdown 요구사항
 
-### 11.1 Markdown Editor
+### 11.1 Markdown 편집기
 
-MVP는 Markdown editor를 포함한다.
+MVP는 Markdown 편집기를 포함한다.
 
 필수 기능:
 
@@ -512,7 +512,7 @@ MVP는 Markdown editor를 포함한다.
 - Markdown 편집
 - 실제 `.md` 파일 저장
 - 앱 재실행 후 저장 내용 복원
-- 문서 metadata 표시
+- 문서 메타데이터 표시
 
 Markdown preview 또는 split view는 MVP에서 구현한다. 단, 편집 안정성이 preview보다 우선이다.
 
@@ -560,7 +560,7 @@ Self-Attention은 sequence 안의 token들이 서로의 관계를 계산해 문�
 
 ## 12. Graph View 요구사항
 
-Graph View는 MVP의 핵심 화면이다. 단순 마인드맵이나 정적 시각화가 아니라, 사용자의 학습 맥락이 누적되는 Typed Knowledge Graph여야 한다.
+Graph View는 MVP의 핵심 화면이다. 단순 마인드맵이나 정적 시각화가 아니라, 사용자의 학습 맥락이 누적되는 타입이 있는 지식 그래프여야 한다.
 
 ### 12.1 Node
 
@@ -572,20 +572,20 @@ Node 종류:
 
 Node 클릭 동작:
 
-- Concept/WikiPage node 클릭 시 해당 WikiPage를 Markdown editor에서 연다.
-- Source node 클릭 시 해당 ArchiveNote를 Markdown editor에서 연다.
+- Concept/WikiPage node 클릭 시 해당 WikiPage를 Markdown 편집기에서 연다.
+- Source node 클릭 시 해당 ArchiveNote를 Markdown 편집기에서 연다.
 
 ### 12.2 Edge
 
-Edge는 typed relation을 표현한다.
+Edge는 타입이 있는 relation을 표현한다.
 
-Edge detail panel 표시 정보:
+Edge 상세 패널 표시 정보:
 
-- relation type
-- strength
-- confidence
-- explanation
-- evidence
+- 관계 타입
+- 강도
+- 신뢰도
+- 설명
+- 근거
 
 Edge 클릭 시 사용자는 “왜 이 둘이 연결됐는지” 이해할 수 있어야 한다.
 
@@ -595,10 +595,10 @@ Graph View는 relation 정보를 시각적으로 드러내야 한다.
 
 필수 표현:
 
-- relation type별 색상
-- strength별 edge 두께
-- strength별 opacity
-- strength별 node distance
+- 관계 타입별 색상
+- 강도별 edge 두께
+- 강도별 불투명도
+- 강도별 node 거리
 - 선택된 edge label 표시
 - hover 시 relation label 표시
 
@@ -616,11 +616,11 @@ function getLinkDistance(strength: number): number {
 
 필수 기능:
 
-- Subject filter
-- Search
-- Relation type filter
-- Selected node detail
-- Selected edge detail
+- Subject 필터
+- 검색
+- 관계 타입 필터
+- 선택된 node 상세
+- 선택된 edge 상세
 
 Graph는 실제 클릭/검색/필터가 동작해야 한다. 정적 데모 이미지로 대체할 수 없다.
 
@@ -635,18 +635,18 @@ Graph는 실제 클릭/검색/필터가 동작해야 한다. 정적 데모 이�
 필수 요소:
 
 - Workspace 이름
-- Workspace local path
+- Workspace 로컬 경로
 - Subject 목록
-- archive note 수
+- archive 노트 수
 - wiki page 수
 - concept 수
 - relation 수
-- Source Import 진입
-- Markdown Editor 진입
+- Source 가져오기 진입
+- Markdown 편집기 진입
 - Wiki View 진입
 - Graph View 진입
 
-### 13.2 Source Import
+### 13.2 Source 가져오기
 
 목적:
 
@@ -657,27 +657,27 @@ Graph는 실제 클릭/검색/필터가 동작해야 한다. 정적 데모 이�
 - Subject 선택
 - Subject 즉시 생성
 - 텍스트 붙여넣기
-- 수업 정리 텍스트 import
+- 수업 정리 텍스트 가져오기
 - PDF 업로드
-- PDF text extraction
-- 이미지 import 진입점
+- PDF 텍스트 추출
+- 이미지 가져오기 진입점
 - ImportJob 상태 표시
 - 완료 후 생성된 WikiPage/Relation 요약 표시
 
-### 13.3 Markdown Editor
+### 13.3 Markdown 편집기
 
 목적:
 
-- archive note와 wiki page를 읽고 편집한다.
+- archive 노트와 wiki page를 읽고 편집한다.
 
 필수 요소:
 
 - 문서 목록 또는 파일 트리
-- Markdown editor
+- Markdown 편집기
 - Markdown preview 또는 split view
 - 저장 상태 표시
 - 실제 `.md` 파일 저장
-- metadata 표시
+- 메타데이터 표시
 
 ### 13.4 Wiki View
 
@@ -687,14 +687,14 @@ Graph는 실제 클릭/검색/필터가 동작해야 한다. 정적 데모 이�
 
 필수 요소:
 
-- Subject filter
-- Concept list
-- Wiki detail
-- Related sources
-- Related relations
-- Confusing concepts
-- Related questions
-- Markdown Editor로 열기
+- Subject 필터
+- Concept 목록
+- Wiki 상세
+- 관련 source
+- 관련 relation
+- 헷갈리는 concept
+- 관련 질문
+- Markdown 편집기로 열기
 
 ### 13.5 Graph View
 
@@ -704,20 +704,20 @@ Graph는 실제 클릭/검색/필터가 동작해야 한다. 정적 데모 이�
 
 필수 요소:
 
-- wiki/relation metadata 기반 graph 렌더링
-- Subject filter
-- Search
-- Node click
-- Edge click
-- Evidence panel
-- Relation type 시각화
-- Strength 시각화
+- wiki/relation 메타데이터 기반 graph 렌더링
+- Subject 필터
+- 검색
+- Node 클릭
+- Edge 클릭
+- 근거 패널
+- 관계 타입 시각화
+- 강도 시각화
 
-## 14. Seed Data
+## 14. Seed 데이터
 
-첫 실행과 개발 테스트를 위해 seed data를 포함한다.
+첫 실행과 개발 테스트를 위해 Seed 데이터를 포함한다.
 
-Seed subject:
+Seed 과목:
 
 - AI
 - 운영체제
@@ -740,7 +740,7 @@ AI 대표 relation:
 - Backpropagation `used_in` Model Training
 - Self-Attention `confused_with` Attention
 
-Seed data는 하드코딩된 UI 상태만으로 만들지 않는다. 실제 Markdown 파일과 metadata로 구성한다.
+Seed 데이터는 하드코딩된 UI 상태만으로 만들지 않는다. 실제 Markdown 파일과 메타데이터로 구성한다.
 
 ## 15. 오류 처리
 
@@ -748,7 +748,7 @@ Seed data는 하드코딩된 UI 상태만으로 만들지 않는다. 실제 Mark
 
 필수 입력이 비어 있으면 submit을 비활성화한다.
 
-### 15.2 PDF parsing 실패
+### 15.2 PDF 파싱 실패
 
 처리:
 
@@ -760,20 +760,20 @@ Seed data는 하드코딩된 UI 상태만으로 만들지 않는다. 실제 Mark
 
 처리:
 
-- archive note는 유지
+- archive 노트는 유지
 - ImportJob을 `failed`로 표시
-- retry 제공
-- 유효하지 않은 partial wiki/relation 파일은 저장하지 않음
+- 재시도 제공
+- 유효하지 않은 부분 wiki/relation 파일은 저장하지 않음
 
 ### 15.4 파일 저장 실패
 
 처리:
 
 - 실패한 경로 표시
-- editor의 unsaved content는 메모리에 유지
-- 사용자가 권한 또는 Workspace 위치를 확인한 뒤 retry 가능
+- 편집기의 저장되지 않은 내용은 메모리에 유지
+- 사용자가 권한 또는 Workspace 위치를 확인한 뒤 재시도 가능
 
-### 15.5 Relation metadata 오류
+### 15.5 Relation 메타데이터 오류
 
 처리:
 
@@ -792,9 +792,9 @@ Seed data는 하드코딩된 UI 상태만으로 만들지 않는다. 실제 Mark
 ### 16.2 Markdown 파일
 
 - 텍스트 입력 시 `archive/*.md` 파일이 생성된다.
-- PDF import 시 추출 텍스트가 `archive/*.md`로 저장된다.
+- PDF 가져오기 시 추출 텍스트가 `archive/*.md`로 저장된다.
 - LLM 결과가 `wiki/*.md` 파일을 생성하거나 업데이트한다.
-- editor에서 수정한 wiki page가 실제 파일에 저장된다.
+- 편집기에서 수정한 wiki page가 실제 파일에 저장된다.
 - 앱 재실행 후 수정 내용이 유지된다.
 
 ### 16.3 LLM 처리
@@ -804,29 +804,29 @@ Seed data는 하드코딩된 UI 상태만으로 만들지 않는다. 실제 Mark
 - LLM 출력은 저장 전에 schema 검증을 통과해야 한다.
 - Concept, WikiPage, Relation, Evidence가 LLM 출력에서 생성된다.
 
-### 16.4 PDF parsing
+### 16.4 PDF 파싱
 
 - PDF 파일을 선택할 수 있다.
 - PDF에서 텍스트가 추출된다.
 - 추출 텍스트가 archive Markdown으로 저장된다.
-- parsing 실패 시 복구 흐름이 제공된다.
+- 파싱 실패 시 복구 흐름이 제공된다.
 
 ### 16.5 Graph View
 
-- Graph가 local wiki/relation metadata에서 렌더링된다.
+- Graph가 local wiki/relation 메타데이터에서 렌더링된다.
 - Node 클릭 시 연결된 wiki/archive 문서가 열린다.
-- Edge 클릭 시 relation detail panel이 열린다.
-- Relation type, strength, confidence, explanation, evidence가 표시된다.
-- Subject filter가 node/edge 범위를 바꾼다.
-- Search가 graph 표시 범위를 좁힌다.
+- Edge 클릭 시 relation 상세 패널이 열린다.
+- 관계 타입, 강도, 신뢰도, 설명, 근거가 표시된다.
+- Subject 필터가 node/edge 범위를 바꾼다.
+- 검색이 graph 표시 범위를 좁힌다.
 
-### 16.6 Seed Data
+### 16.6 Seed 데이터
 
 - 첫 실행 Workspace에 AI, 운영체제, 자료구조 예시가 들어 있다.
-- Seed data는 실제 Markdown 파일과 metadata로 존재한다.
+- Seed 데이터는 실제 Markdown 파일과 메타데이터로 존재한다.
 - 사용자가 자료를 넣기 전에도 Graph View를 확인할 수 있다.
 
-## 17. Future Scope
+## 17. 후속 범위
 
 ### 17.1 OCR
 
@@ -843,17 +843,17 @@ Seed data는 하드코딩된 UI 상태만으로 만들지 않는다. 실제 Mark
 
 ```text
 image
--> OCR text extraction
--> archive note
--> LLM wiki update
--> graph update
+-> OCR 텍스트 추출
+-> archive 노트
+-> LLM wiki 업데이트
+-> graph 업데이트
 ```
 
 ### 17.2 장기 전공 지식 지도
 
 PiecePool의 가장 중요한 장기 가치는 개인 전공 지식 지도의 성장이다.
 
-강화할 metadata:
+강화할 메타데이터:
 
 - 학기
 - 과목
@@ -863,7 +863,7 @@ PiecePool의 가장 중요한 장기 가치는 개인 전공 지식 지도의 �
 - 프로젝트
 - 읽은 자료
 
-이 정보들은 별도 Workspace를 만드는 기준이 아니라 하나의 Workspace 안에서 filter와 relation으로 작동해야 한다.
+이 정보들은 별도 Workspace를 만드는 기준이 아니라 하나의 Workspace 안에서 필터와 relation으로 작동해야 한다.
 
 ### 17.3 Today Task
 
@@ -887,8 +887,8 @@ Graph와 Wiki를 기반으로 복습 행동을 생성한다.
 - SQLite query layer
 - File watcher
 - 외부 Markdown 수정 감지
-- Optional sync account
-- Obsidian-compatible vault mode
+- 선택적 sync account
+- Obsidian 호환 vault mode
 
 ### 17.6 Relation scoring
 
@@ -907,11 +907,11 @@ strength =
 
 다음은 PRD에서 고정하지 않고 구현 계획 단계에서 결정한다.
 
-- Markdown editor library
-- Graph rendering library
-- Tauri에서의 PDF parsing 방식
+- Markdown 편집기 라이브러리
+- Graph 렌더링 라이브러리
+- Tauri에서의 PDF 파싱 방식
 - LLM provider
 - LLM structured output schema 세부 구현
-- Relation metadata를 단일 JSON으로 둘지, wiki frontmatter와 병행할지
+- Relation 메타데이터를 단일 JSON으로 둘지, wiki frontmatter와 병행할지
 
 PRD가 고정하는 것은 특정 라이브러리가 아니라 제품 동작과 데이터 계약이다.

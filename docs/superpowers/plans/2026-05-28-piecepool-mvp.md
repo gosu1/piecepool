@@ -1,28 +1,28 @@
-# PiecePool MVP Implementation Plan
+# PiecePool MVP 구현 계획
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **agentic worker용:** 이 계획을 작업 단위로 구현할 때는 `superpowers:subagent-driven-development`(권장) 또는 `superpowers:executing-plans`를 사용한다. 진행 상태는 체크박스(`- [ ]`) 문법으로 추적한다.
 
-**Goal:** Build the first working PiecePool desktop MVP: one local Markdown workspace, real file persistence, PDF text extraction, LLM-generated wiki pages, and an interactive typed knowledge graph.
+**목표:** 첫 번째로 실제 동작하는 PiecePool 데스크톱 MVP를 만든다. 범위는 단일 로컬 Markdown Workspace, 실제 파일 저장, PDF 텍스트 추출, LLM 생성 wiki page, 상호작용형 타입 지식 그래프다.
 
-**Architecture:** The Tauri Rust side owns local filesystem access, PDF extraction, and LLM calls so secrets and file permissions stay out of the webview. The React/TypeScript side owns app state, Markdown editing, source import UI, Wiki browsing, and Graph View. Shared domain contracts live in TypeScript schemas and are mirrored by Rust serde structs only where Tauri commands cross the boundary.
+**아키텍처:** Tauri Rust 쪽이 로컬 파일 시스템 접근, PDF 추출, LLM 호출을 담당한다. 비밀값과 파일 권한이 webview에 들어가지 않게 하기 위해서다. React/TypeScript 쪽은 앱 상태, Markdown 편집, source 가져오기 UI, Wiki 탐색, Graph View를 담당한다. 공유 도메인 계약은 TypeScript schema에 두고, Tauri command 경계를 넘는 부분만 Rust serde struct로 맞춘다.
 
-**Tech Stack:** Tauri, React, TypeScript, Tailwind CSS, Vitest, Testing Library, Playwright, Rust, serde, reqwest, pdf-extract, CodeMirror, React Markdown, react-force-graph-2d, zod, gray-matter.
+**기술 스택:** Tauri, React, TypeScript, Tailwind CSS, Vitest, Testing Library, Playwright, Rust, serde, reqwest, pdf-extract, CodeMirror, React Markdown, react-force-graph-2d, zod, gray-matter.
 
 ---
 
-## Scope Check
+## 범위 확인
 
-The PRD covers several subsystems: local file storage, Markdown editing, source import, PDF parsing, LLM processing, and graph visualization. This plan keeps them in one MVP plan because each task builds toward the same vertical workflow:
+PRD는 로컬 파일 저장, Markdown 편집, source 가져오기, PDF 파싱, LLM 처리, graph 시각화 등 여러 하위 시스템을 다룬다. 각 작업이 같은 수직 workflow로 이어지므로 이 계획에서는 하나의 MVP 계획으로 묶는다:
 
 ```text
 source input -> archive/*.md -> LLM -> wiki/*.md + relations.json -> Wiki/Graph UI
 ```
 
-If schedule becomes tight, stop after Task 10. That produces the minimum useful vertical slice: workspace files, text/PDF import, LLM output, and saved wiki/relation data. Tasks 11-13 make the product navigable and demo-ready.
+일정이 빡빡하면 작업 10 이후에서 멈춘다. 그 지점이면 workspace 파일, text/PDF 가져오기, LLM output, 저장된 wiki/relation data까지 최소 유용한 수직 기능 단면이 나온다. 작업 11-13은 제품을 탐색 가능하고 데모 가능한 상태로 만든다.
 
-## File Structure
+## 파일 구조
 
-Create the app under `app/` so the root can keep `PRD.md` and planning docs.
+root에 `PRD.md`와 계획 문서를 둘 수 있도록 앱은 `app/` 아래에 만든다.
 
 ```text
 app/
@@ -78,41 +78,41 @@ app/
       piecepool.spec.ts
 ```
 
-File responsibilities:
+파일 책임:
 
-- `src/domain/*`: pure types, zod validation, seed definitions, slug helpers.
-- `src/workspace/*`: frontend repository and import orchestration over Tauri commands.
-- `src/llm/*`: prompt text and LLM result-to-file mapping.
-- `src/components/*`: UI only; no direct filesystem logic.
-- `src/state/workspaceStore.tsx`: app state and async action wiring.
-- `src-tauri/src/workspace.rs`: safe workspace filesystem commands.
-- `src-tauri/src/pdf.rs`: PDF text extraction command.
-- `src-tauri/src/llm.rs`: LLM call command and structured output parsing.
-- `src-tauri/src/models.rs`: Rust command DTOs.
+- `src/domain/*`: 순수 type, zod 검증, seed 정의, slug helper를 둔다.
+- `src/workspace/*`: Tauri command 위에서 동작하는 frontend repository와 import orchestration을 둔다.
+- `src/llm/*`: prompt text와 LLM 결과를 파일로 매핑하는 로직을 둔다.
+- `src/components/*`: UI만 둔다. 직접 파일 시스템 로직은 넣지 않는다.
+- `src/state/workspaceStore.tsx`: app state와 비동기 action 연결을 둔다.
+- `src-tauri/src/workspace.rs`: 안전한 workspace 파일 시스템 command를 둔다.
+- `src-tauri/src/pdf.rs`: PDF 텍스트 추출 command를 둔다.
+- `src-tauri/src/llm.rs`: LLM 호출 command와 structured output parsing을 둔다.
+- `src-tauri/src/models.rs`: Rust command DTO를 둔다.
 
-## References
+## 참고 자료
 
 - OpenAI Responses API: https://platform.openai.com/docs/api-reference/responses
 - OpenAI Structured Outputs: https://platform.openai.com/docs/guides/structured-outputs
 
-Use these docs when implementing Task 9. The implementation should use structured outputs with a JSON schema, not loose JSON prompting.
+작업 9 구현 시 이 문서를 참고한다. 구현은 느슨한 JSON prompting이 아니라 JSON schema 기반 structured outputs를 사용해야 한다.
 
 ---
 
-### Task 1: Project Scaffold
+### 작업 1: 프로젝트 스캐폴드
 
-**Files:**
-- Create: `app/package.json`
-- Create: `app/src/main.tsx`
-- Create: `app/src/App.tsx`
-- Create: `app/src/styles.css`
-- Create: `app/src-tauri/src/main.rs`
-- Create: `app/vitest.config.ts`
-- Create: `app/src/test/setup.ts`
+**파일:**
+- 생성: `app/package.json`
+- 생성: `app/src/main.tsx`
+- 생성: `app/src/App.tsx`
+- 생성: `app/src/styles.css`
+- 생성: `app/src-tauri/src/main.rs`
+- 생성: `app/vitest.config.ts`
+- 생성: `app/src/test/setup.ts`
 
-- [ ] **Step 1: Initialize git and app skeleton**
+- [ ] **단계 1: git과 앱 기본 구조 초기화**
 
-Run:
+실행:
 
 ```bash
 git init
@@ -125,7 +125,7 @@ npx tailwindcss init -p
 npx tauri init --ci --app-name PiecePool --window-title PiecePool --frontend-dist ../dist --dev-url http://localhost:5173 --before-dev-command "npm run dev" --before-build-command "npm run build"
 ```
 
-Expected:
+예상 결과:
 
 ```text
 Initialized empty Git repository
@@ -133,9 +133,9 @@ added packages
 created app/src-tauri
 ```
 
-- [ ] **Step 2: Replace package scripts**
+- [ ] **단계 2: package script 교체**
 
-Edit `app/package.json` scripts:
+수정: `app/package.json` scripts:
 
 ```json
 {
@@ -151,9 +151,9 @@ Edit `app/package.json` scripts:
 }
 ```
 
-- [ ] **Step 3: Configure Vitest**
+- [ ] **단계 3: Vitest 설정**
 
-Create `app/vitest.config.ts`:
+생성: `app/vitest.config.ts`:
 
 ```ts
 import { defineConfig } from "vitest/config";
@@ -169,15 +169,15 @@ export default defineConfig({
 });
 ```
 
-Create `app/src/test/setup.ts`:
+생성: `app/src/test/setup.ts`:
 
 ```ts
 import "@testing-library/jest-dom/vitest";
 ```
 
-- [ ] **Step 4: Configure Tailwind**
+- [ ] **단계 4: Tailwind 설정**
 
-Edit `app/tailwind.config.js`:
+수정: `app/tailwind.config.js`:
 
 ```js
 /** @type {import('tailwindcss').Config} */
@@ -190,7 +190,7 @@ export default {
 };
 ```
 
-Edit `app/src/styles.css`:
+수정: `app/src/styles.css`:
 
 ```css
 @tailwind base;
@@ -211,9 +211,9 @@ body {
 }
 ```
 
-- [ ] **Step 5: Add smoke test**
+- [ ] **단계 5: smoke test 추가**
 
-Create `app/src/App.test.tsx`:
+생성: `app/src/App.test.tsx`:
 
 ```tsx
 import { render, screen } from "@testing-library/react";
@@ -225,7 +225,7 @@ test("renders PiecePool shell", () => {
 });
 ```
 
-Edit `app/src/App.tsx`:
+수정: `app/src/App.tsx`:
 
 ```tsx
 export default function App() {
@@ -237,23 +237,23 @@ export default function App() {
 }
 ```
 
-- [ ] **Step 6: Verify**
+- [ ] **단계 6: 검증**
 
-Run:
+실행:
 
 ```bash
 npm test
 npm run build
 ```
 
-Expected:
+예상 결과:
 
 ```text
 1 passed
 ✓ built
 ```
 
-- [ ] **Step 7: Commit**
+- [ ] **단계 7: 커밋**
 
 ```bash
 git add app package-lock.json PRD.md docs/superpowers/plans/2026-05-28-piecepool-mvp.md
@@ -262,17 +262,17 @@ git commit -m "chore: scaffold PiecePool app"
 
 ---
 
-### Task 2: Domain Types And Validation
+### 작업 2: 도메인 타입과 검증
 
-**Files:**
-- Create: `app/src/domain/types.ts`
-- Create: `app/src/domain/schemas.ts`
-- Create: `app/src/domain/slug.ts`
-- Create: `app/src/domain/types.test.ts`
+**파일:**
+- 생성: `app/src/domain/types.ts`
+- 생성: `app/src/domain/schemas.ts`
+- 생성: `app/src/domain/slug.ts`
+- 생성: `app/src/domain/types.test.ts`
 
-- [ ] **Step 1: Write failing schema tests**
+- [ ] **단계 1: 실패하는 schema test 작성**
 
-Create `app/src/domain/types.test.ts`:
+생성: `app/src/domain/types.test.ts`:
 
 ```ts
 import { describe, expect, test } from "vitest";
@@ -359,25 +359,25 @@ describe("createSlug", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify failure**
+- [ ] **단계 2: 실패 확인용 test 실행**
 
-Run:
+실행:
 
 ```bash
 cd app
 npm test -- src/domain/types.test.ts
 ```
 
-Expected:
+예상 결과:
 
 ```text
 FAIL src/domain/types.test.ts
 Cannot find module './schemas'
 ```
 
-- [ ] **Step 3: Add domain types**
+- [ ] **단계 3: domain type 추가**
 
-Create `app/src/domain/types.ts`:
+생성: `app/src/domain/types.ts`:
 
 ```ts
 export type SourceType = "text" | "pdf" | "summary_text" | "image";
@@ -527,9 +527,9 @@ export type LlmWikiResult = {
 };
 ```
 
-- [ ] **Step 4: Add slug helper**
+- [ ] **단계 4: slug helper 추가**
 
-Create `app/src/domain/slug.ts`:
+생성: `app/src/domain/slug.ts`:
 
 ```ts
 export function createSlug(input: string): string {
@@ -543,9 +543,9 @@ export function createSlug(input: string): string {
 }
 ```
 
-- [ ] **Step 5: Add zod schemas**
+- [ ] **단계 5: zod schema 추가**
 
-Create `app/src/domain/schemas.ts`:
+생성: `app/src/domain/schemas.ts`:
 
 ```ts
 import { z } from "zod";
@@ -614,21 +614,21 @@ export const llmWikiResultSchema = z.object({
 });
 ```
 
-- [ ] **Step 6: Verify**
+- [ ] **단계 6: 검증**
 
-Run:
+실행:
 
 ```bash
 npm test -- src/domain/types.test.ts
 ```
 
-Expected:
+예상 결과:
 
 ```text
 PASS src/domain/types.test.ts
 ```
 
-- [ ] **Step 7: Commit**
+- [ ] **단계 7: 커밋**
 
 ```bash
 git add app/src/domain app/src/test app/vitest.config.ts app/package.json app/package-lock.json
@@ -637,18 +637,18 @@ git commit -m "feat: add PiecePool domain contracts"
 
 ---
 
-### Task 3: Tauri Workspace Filesystem Commands
+### 작업 3: Tauri Workspace 파일 시스템 명령
 
-**Files:**
-- Create: `app/src-tauri/src/models.rs`
-- Create: `app/src-tauri/src/workspace.rs`
-- Modify: `app/src-tauri/src/main.rs`
-- Modify: `app/src-tauri/Cargo.toml`
-- Create: `app/src/workspace/api.ts`
+**파일:**
+- 생성: `app/src-tauri/src/models.rs`
+- 생성: `app/src-tauri/src/workspace.rs`
+- 수정: `app/src-tauri/src/main.rs`
+- 수정: `app/src-tauri/Cargo.toml`
+- 생성: `app/src/workspace/api.ts`
 
-- [ ] **Step 1: Add Rust dependencies**
+- [ ] **단계 1: Rust dependency 추가**
 
-Edit `app/src-tauri/Cargo.toml` dependencies:
+수정: `app/src-tauri/Cargo.toml` dependencies:
 
 ```toml
 [dependencies]
@@ -660,9 +660,9 @@ thiserror = "1"
 chrono = { version = "0.4", features = ["serde"] }
 ```
 
-- [ ] **Step 2: Write Rust tests first**
+- [ ] **단계 2: Rust test 먼저 작성**
 
-Create `app/src-tauri/src/workspace.rs` with tests and empty command bodies:
+생성: `app/src-tauri/src/workspace.rs` 테스트와 빈 command body 포함:
 
 ```rust
 use serde::{Deserialize, Serialize};
@@ -727,9 +727,9 @@ mod tests {
 }
 ```
 
-- [ ] **Step 3: Register commands**
+- [ ] **단계 3: command 등록**
 
-Edit `app/src-tauri/src/main.rs`:
+수정: `app/src-tauri/src/main.rs`:
 
 ```rust
 mod workspace;
@@ -748,9 +748,9 @@ pub fn run() {
 }
 ```
 
-- [ ] **Step 4: Add frontend API wrapper**
+- [ ] **단계 4: frontend API wrapper 추가**
 
-Create `app/src/workspace/api.ts`:
+생성: `app/src/workspace/api.ts`:
 
 ```ts
 import { invoke } from "@tauri-apps/api/core";
@@ -768,22 +768,22 @@ export async function readTextFile(rootPath: string, relativePath: string): Prom
 }
 ```
 
-- [ ] **Step 5: Verify**
+- [ ] **단계 5: 검증**
 
-Run:
+실행:
 
 ```bash
 cd app/src-tauri
 cargo test workspace
 ```
 
-Expected:
+예상 결과:
 
 ```text
 test result: ok. 2 passed
 ```
 
-- [ ] **Step 6: Commit**
+- [ ] **단계 6: 커밋**
 
 ```bash
 git add app/src-tauri app/src/workspace/api.ts
@@ -792,17 +792,17 @@ git commit -m "feat: add workspace filesystem commands"
 
 ---
 
-### Task 4: Markdown Frontmatter Repository
+### 작업 4: Markdown frontmatter 저장소
 
-**Files:**
-- Create: `app/src/workspace/markdown.ts`
-- Create: `app/src/workspace/markdown.test.ts`
-- Create: `app/src/workspace/repository.ts`
-- Create: `app/src/workspace/repository.test.ts`
+**파일:**
+- 생성: `app/src/workspace/markdown.ts`
+- 생성: `app/src/workspace/markdown.test.ts`
+- 생성: `app/src/workspace/repository.ts`
+- 생성: `app/src/workspace/repository.test.ts`
 
-- [ ] **Step 1: Write markdown tests**
+- [ ] **단계 1: markdown test 작성**
 
-Create `app/src/workspace/markdown.test.ts`:
+생성: `app/src/workspace/markdown.test.ts`:
 
 ```ts
 import { describe, expect, test } from "vitest";
@@ -862,25 +862,25 @@ Body`);
 });
 ```
 
-- [ ] **Step 2: Run test to verify failure**
+- [ ] **단계 2: 실패 확인용 test 실행**
 
-Run:
+실행:
 
 ```bash
 cd app
 npm test -- src/workspace/markdown.test.ts
 ```
 
-Expected:
+예상 결과:
 
 ```text
 FAIL src/workspace/markdown.test.ts
 Cannot find module './markdown'
 ```
 
-- [ ] **Step 3: Implement markdown helpers**
+- [ ] **단계 3: markdown helper 구현**
 
-Create `app/src/workspace/markdown.ts`:
+생성: `app/src/workspace/markdown.ts`:
 
 ```ts
 import matter from "gray-matter";
@@ -960,21 +960,21 @@ ${questions}
 }
 ```
 
-- [ ] **Step 4: Verify**
+- [ ] **단계 4: 검증**
 
-Run:
+실행:
 
 ```bash
 npm test -- src/workspace/markdown.test.ts
 ```
 
-Expected:
+예상 결과:
 
 ```text
 PASS src/workspace/markdown.test.ts
 ```
 
-- [ ] **Step 5: Commit**
+- [ ] **단계 5: 커밋**
 
 ```bash
 git add app/src/workspace/markdown.ts app/src/workspace/markdown.test.ts
@@ -983,16 +983,16 @@ git commit -m "feat: add markdown frontmatter helpers"
 
 ---
 
-### Task 5: Seed Workspace Data
+### 작업 5: Seed workspace 데이터
 
-**Files:**
-- Create: `app/src/domain/seed.ts`
-- Create: `app/src/domain/seed.test.ts`
-- Modify: `app/src/workspace/repository.ts`
+**파일:**
+- 생성: `app/src/domain/seed.ts`
+- 생성: `app/src/domain/seed.test.ts`
+- 수정: `app/src/workspace/repository.ts`
 
-- [ ] **Step 1: Write seed tests**
+- [ ] **단계 1: seed test 작성**
 
-Create `app/src/domain/seed.test.ts`:
+생성: `app/src/domain/seed.test.ts`:
 
 ```ts
 import { describe, expect, test } from "vitest";
@@ -1018,9 +1018,9 @@ describe("seed workspace", () => {
 });
 ```
 
-- [ ] **Step 2: Implement seed generator**
+- [ ] **단계 2: seed generator 구현**
 
-Create `app/src/domain/seed.ts`:
+생성: `app/src/domain/seed.ts`:
 
 ```ts
 import { buildArchiveMarkdown, buildWikiMarkdown } from "../workspace/markdown";
@@ -1092,22 +1092,22 @@ export function createSeedWorkspaceFiles(now: string): SeedFile[] {
 }
 ```
 
-- [ ] **Step 3: Verify**
+- [ ] **단계 3: 검증**
 
-Run:
+실행:
 
 ```bash
 cd app
 npm test -- src/domain/seed.test.ts
 ```
 
-Expected:
+예상 결과:
 
 ```text
 PASS src/domain/seed.test.ts
 ```
 
-- [ ] **Step 4: Commit**
+- [ ] **단계 4: 커밋**
 
 ```bash
 git add app/src/domain/seed.ts app/src/domain/seed.test.ts
@@ -1116,19 +1116,19 @@ git commit -m "feat: add seed workspace files"
 
 ---
 
-### Task 6: Workspace Store And App Shell
+### 작업 6: Workspace store와 app shell
 
-**Files:**
-- Create: `app/src/state/workspaceStore.tsx`
-- Create: `app/src/components/AppShell.tsx`
-- Create: `app/src/components/WorkspaceHome.tsx`
-- Create: `app/src/components/StatusBanner.tsx`
-- Modify: `app/src/App.tsx`
-- Create: `app/src/state/workspaceStore.test.tsx`
+**파일:**
+- 생성: `app/src/state/workspaceStore.tsx`
+- 생성: `app/src/components/AppShell.tsx`
+- 생성: `app/src/components/WorkspaceHome.tsx`
+- 생성: `app/src/components/StatusBanner.tsx`
+- 수정: `app/src/App.tsx`
+- 생성: `app/src/state/workspaceStore.test.tsx`
 
-- [ ] **Step 1: Write store/UI test**
+- [ ] **단계 1: store/UI test 작성**
 
-Create `app/src/state/workspaceStore.test.tsx`:
+생성: `app/src/state/workspaceStore.test.tsx`:
 
 ```tsx
 import { render, screen } from "@testing-library/react";
@@ -1161,9 +1161,9 @@ describe("WorkspaceProvider", () => {
 });
 ```
 
-- [ ] **Step 2: Implement store**
+- [ ] **단계 2: store 구현**
 
-Create `app/src/state/workspaceStore.tsx`:
+생성: `app/src/state/workspaceStore.tsx`:
 
 ```tsx
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
@@ -1221,9 +1221,9 @@ export function useWorkspaceStore() {
 }
 ```
 
-- [ ] **Step 3: Implement shell components**
+- [ ] **단계 3: shell component 구현**
 
-Create `app/src/components/AppShell.tsx`:
+생성: `app/src/components/AppShell.tsx`:
 
 ```tsx
 import type { ReactNode } from "react";
@@ -1264,7 +1264,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 }
 ```
 
-Create `app/src/components/WorkspaceHome.tsx`:
+생성: `app/src/components/WorkspaceHome.tsx`:
 
 ```tsx
 import { useWorkspaceStore } from "../state/workspaceStore";
@@ -1290,7 +1290,7 @@ export function WorkspaceHome() {
 }
 ```
 
-Create `app/src/components/StatusBanner.tsx`:
+생성: `app/src/components/StatusBanner.tsx`:
 
 ```tsx
 export function StatusBanner({ message }: { message: string }) {
@@ -1298,9 +1298,9 @@ export function StatusBanner({ message }: { message: string }) {
 }
 ```
 
-- [ ] **Step 4: Wire App**
+- [ ] **단계 4: App 연결**
 
-Edit `app/src/App.tsx`:
+수정: `app/src/App.tsx`:
 
 ```tsx
 import { AppShell } from "./components/AppShell";
@@ -1324,9 +1324,9 @@ export default function App() {
 }
 ```
 
-- [ ] **Step 5: Verify**
+- [ ] **단계 5: 검증**
 
-Run:
+실행:
 
 ```bash
 cd app
@@ -1334,7 +1334,7 @@ npm test -- src/state/workspaceStore.test.tsx src/App.test.tsx
 npm run build
 ```
 
-Expected:
+예상 결과:
 
 ```text
 PASS src/state/workspaceStore.test.tsx
@@ -1342,7 +1342,7 @@ PASS src/App.test.tsx
 ✓ built
 ```
 
-- [ ] **Step 6: Commit**
+- [ ] **단계 6: 커밋**
 
 ```bash
 git add app/src/state app/src/components app/src/App.tsx
@@ -1351,16 +1351,16 @@ git commit -m "feat: add workspace shell"
 
 ---
 
-### Task 7: Markdown Editor
+### 작업 7: Markdown editor
 
-**Files:**
-- Create: `app/src/components/MarkdownEditor.tsx`
-- Create: `app/src/components/MarkdownEditor.test.tsx`
-- Modify: `app/src/App.tsx`
+**파일:**
+- 생성: `app/src/components/MarkdownEditor.tsx`
+- 생성: `app/src/components/MarkdownEditor.test.tsx`
+- 수정: `app/src/App.tsx`
 
-- [ ] **Step 1: Write editor test**
+- [ ] **단계 1: editor test 작성**
 
-Create `app/src/components/MarkdownEditor.test.tsx`:
+생성: `app/src/components/MarkdownEditor.test.tsx`:
 
 ```tsx
 import { render, screen } from "@testing-library/react";
@@ -1391,9 +1391,9 @@ describe("MarkdownEditor", () => {
 });
 ```
 
-- [ ] **Step 2: Implement editor**
+- [ ] **단계 2: editor 구현**
 
-Create `app/src/components/MarkdownEditor.tsx`:
+생성: `app/src/components/MarkdownEditor.tsx`:
 
 ```tsx
 import { useState } from "react";
@@ -1446,9 +1446,9 @@ export function MarkdownEditor({ title, markdown, metadata, onSave }: MarkdownEd
 }
 ```
 
-- [ ] **Step 3: Wire seed editor view**
+- [ ] **단계 3: seed editor view 연결**
 
-Edit `app/src/App.tsx` active view branch:
+수정: `app/src/App.tsx` active view 분기:
 
 ```tsx
 import { MarkdownEditor } from "./components/MarkdownEditor";
@@ -1466,9 +1466,9 @@ if (activeView === "editor") {
 }
 ```
 
-- [ ] **Step 4: Verify**
+- [ ] **단계 4: 검증**
 
-Run:
+실행:
 
 ```bash
 cd app
@@ -1476,14 +1476,14 @@ npm test -- src/components/MarkdownEditor.test.tsx
 npm run build
 ```
 
-Expected:
+예상 결과:
 
 ```text
 PASS src/components/MarkdownEditor.test.tsx
 ✓ built
 ```
 
-- [ ] **Step 5: Commit**
+- [ ] **단계 5: 커밋**
 
 ```bash
 git add app/src/components/MarkdownEditor.tsx app/src/components/MarkdownEditor.test.tsx app/src/App.tsx
@@ -1492,18 +1492,18 @@ git commit -m "feat: add markdown editor"
 
 ---
 
-### Task 8: Text And Summary Source Import
+### 작업 8: 텍스트와 수업 정리 source 가져오기
 
-**Files:**
-- Create: `app/src/components/SourceImport.tsx`
-- Create: `app/src/components/SourceImport.test.tsx`
-- Create: `app/src/workspace/importPipeline.ts`
-- Create: `app/src/workspace/importPipeline.test.ts`
-- Modify: `app/src/App.tsx`
+**파일:**
+- 생성: `app/src/components/SourceImport.tsx`
+- 생성: `app/src/components/SourceImport.test.tsx`
+- 생성: `app/src/workspace/importPipeline.ts`
+- 생성: `app/src/workspace/importPipeline.test.ts`
+- 수정: `app/src/App.tsx`
 
-- [ ] **Step 1: Write import pipeline test**
+- [ ] **단계 1: import pipeline test 작성**
 
-Create `app/src/workspace/importPipeline.test.ts`:
+생성: `app/src/workspace/importPipeline.test.ts`:
 
 ```ts
 import { describe, expect, test, vi } from "vitest";
@@ -1535,9 +1535,9 @@ describe("importTextSource", () => {
 });
 ```
 
-- [ ] **Step 2: Implement text import pipeline shell**
+- [ ] **단계 2: text import pipeline 기본 구조 구현**
 
-Create `app/src/workspace/importPipeline.ts`:
+생성: `app/src/workspace/importPipeline.ts`:
 
 ```ts
 import type { LlmWikiResult, SourceType } from "../domain/types";
@@ -1577,9 +1577,9 @@ export async function importTextSource(input: ImportTextSourceInput): Promise<Ll
 }
 ```
 
-- [ ] **Step 3: Write SourceImport UI test**
+- [ ] **단계 3: SourceImport UI test 작성**
 
-Create `app/src/components/SourceImport.test.tsx`:
+생성: `app/src/components/SourceImport.test.tsx`:
 
 ```tsx
 import { render, screen } from "@testing-library/react";
@@ -1604,9 +1604,9 @@ describe("SourceImport", () => {
 });
 ```
 
-- [ ] **Step 4: Implement SourceImport UI**
+- [ ] **단계 4: SourceImport UI 구현**
 
-Create `app/src/components/SourceImport.tsx`:
+생성: `app/src/components/SourceImport.tsx`:
 
 ```tsx
 import { useState } from "react";
@@ -1674,9 +1674,9 @@ export function SourceImport({ subjects, onImport }: SourceImportProps) {
 }
 ```
 
-- [ ] **Step 5: Wire import view**
+- [ ] **단계 5: import view 연결**
 
-Edit `app/src/App.tsx`:
+수정: `app/src/App.tsx`:
 
 ```tsx
 import { SourceImport } from "./components/SourceImport";
@@ -1687,9 +1687,9 @@ if (activeView === "import") {
 }
 ```
 
-- [ ] **Step 6: Verify**
+- [ ] **단계 6: 검증**
 
-Run:
+실행:
 
 ```bash
 cd app
@@ -1697,7 +1697,7 @@ npm test -- src/workspace/importPipeline.test.ts src/components/SourceImport.tes
 npm run build
 ```
 
-Expected:
+예상 결과:
 
 ```text
 PASS src/workspace/importPipeline.test.ts
@@ -1705,7 +1705,7 @@ PASS src/components/SourceImport.test.tsx
 ✓ built
 ```
 
-- [ ] **Step 7: Commit**
+- [ ] **단계 7: 커밋**
 
 ```bash
 git add app/src/workspace/importPipeline.ts app/src/workspace/importPipeline.test.ts app/src/components/SourceImport.tsx app/src/components/SourceImport.test.tsx app/src/App.tsx
@@ -1714,25 +1714,25 @@ git commit -m "feat: add text source import flow"
 
 ---
 
-### Task 9: PDF Text Extraction
+### 작업 9: PDF 텍스트 추출
 
-**Files:**
-- Create: `app/src-tauri/src/pdf.rs`
-- Modify: `app/src-tauri/src/main.rs`
-- Modify: `app/src-tauri/Cargo.toml`
-- Modify: `app/src/workspace/api.ts`
+**파일:**
+- 생성: `app/src-tauri/src/pdf.rs`
+- 수정: `app/src-tauri/src/main.rs`
+- 수정: `app/src-tauri/Cargo.toml`
+- 수정: `app/src/workspace/api.ts`
 
-- [ ] **Step 1: Add PDF dependency**
+- [ ] **단계 1: PDF dependency 추가**
 
-Edit `app/src-tauri/Cargo.toml`:
+수정: `app/src-tauri/Cargo.toml`:
 
 ```toml
 pdf-extract = "0.7"
 ```
 
-- [ ] **Step 2: Implement PDF command**
+- [ ] **단계 2: PDF command 구현**
 
-Create `app/src-tauri/src/pdf.rs`:
+생성: `app/src-tauri/src/pdf.rs`:
 
 ```rust
 use std::fs;
@@ -1761,9 +1761,9 @@ mod tests {
 }
 ```
 
-- [ ] **Step 3: Register command**
+- [ ] **단계 3: command 등록**
 
-Edit `app/src-tauri/src/main.rs`:
+수정: `app/src-tauri/src/main.rs`:
 
 ```rust
 mod pdf;
@@ -1784,9 +1784,9 @@ pub fn run() {
 }
 ```
 
-- [ ] **Step 4: Add frontend wrapper**
+- [ ] **단계 4: frontend wrapper 추가**
 
-Edit `app/src/workspace/api.ts`:
+수정: `app/src/workspace/api.ts`:
 
 ```ts
 export async function extractPdfText(filePath: string): Promise<string> {
@@ -1794,22 +1794,22 @@ export async function extractPdfText(filePath: string): Promise<string> {
 }
 ```
 
-- [ ] **Step 5: Verify**
+- [ ] **단계 5: 검증**
 
-Run:
+실행:
 
 ```bash
 cd app/src-tauri
 cargo test pdf
 ```
 
-Expected:
+예상 결과:
 
 ```text
 test result: ok. 1 passed
 ```
 
-- [ ] **Step 6: Commit**
+- [ ] **단계 6: 커밋**
 
 ```bash
 git add app/src-tauri app/src/workspace/api.ts
@@ -1818,30 +1818,30 @@ git commit -m "feat: add PDF text extraction command"
 
 ---
 
-### Task 10: LLM Structured Output Command
+### 작업 10: LLM 구조화 출력 명령
 
-**Files:**
-- Create: `app/src-tauri/src/llm.rs`
-- Create: `app/src-tauri/src/models.rs`
-- Modify: `app/src-tauri/src/main.rs`
-- Modify: `app/src-tauri/Cargo.toml`
-- Create: `app/src/llm/prompt.ts`
-- Create: `app/src/llm/resultMapper.ts`
-- Create: `app/src/llm/resultMapper.test.ts`
-- Modify: `app/src/workspace/api.ts`
+**파일:**
+- 생성: `app/src-tauri/src/llm.rs`
+- 생성: `app/src-tauri/src/models.rs`
+- 수정: `app/src-tauri/src/main.rs`
+- 수정: `app/src-tauri/Cargo.toml`
+- 생성: `app/src/llm/prompt.ts`
+- 생성: `app/src/llm/resultMapper.ts`
+- 생성: `app/src/llm/resultMapper.test.ts`
+- 수정: `app/src/workspace/api.ts`
 
-- [ ] **Step 1: Add Rust dependencies**
+- [ ] **단계 1: Rust dependency 추가**
 
-Edit `app/src-tauri/Cargo.toml`:
+수정: `app/src-tauri/Cargo.toml`:
 
 ```toml
 reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
-- [ ] **Step 2: Add model DTOs**
+- [ ] **단계 2: model DTO 추가**
 
-Create `app/src-tauri/src/models.rs`:
+생성: `app/src-tauri/src/models.rs`:
 
 ```rust
 use serde::{Deserialize, Serialize};
@@ -1897,9 +1897,9 @@ pub struct LlmWikiResultDto {
 }
 ```
 
-- [ ] **Step 3: Implement LLM command**
+- [ ] **단계 3: LLM command 구현**
 
-Create `app/src-tauri/src/llm.rs`:
+생성: `app/src-tauri/src/llm.rs`:
 
 ```rust
 use crate::models::{LlmRequest, LlmWikiResultDto};
@@ -2033,9 +2033,9 @@ fn extract_output_text(response: &serde_json::Value) -> Option<&str> {
 }
 ```
 
-- [ ] **Step 4: Register command**
+- [ ] **단계 4: command 등록**
 
-Edit `app/src-tauri/src/main.rs`:
+수정: `app/src-tauri/src/main.rs`:
 
 ```rust
 mod llm;
@@ -2059,9 +2059,9 @@ pub fn run() {
 }
 ```
 
-- [ ] **Step 5: Add frontend wrapper**
+- [ ] **단계 5: frontend wrapper 추가**
 
-Edit `app/src/workspace/api.ts`:
+수정: `app/src/workspace/api.ts`:
 
 ```ts
 import type { LlmWikiResult } from "../domain/types";
@@ -2076,9 +2076,9 @@ export async function generateWikiResult(input: {
 }
 ```
 
-- [ ] **Step 6: Write result mapper test**
+- [ ] **단계 6: result mapper test 작성**
 
-Create `app/src/llm/resultMapper.test.ts`:
+생성: `app/src/llm/resultMapper.test.ts`:
 
 ```ts
 import { describe, expect, test } from "vitest";
@@ -2110,9 +2110,9 @@ describe("mapLlmResultToWorkspaceFiles", () => {
 });
 ```
 
-- [ ] **Step 7: Implement result mapper**
+- [ ] **단계 7: result mapper 구현**
 
-Create `app/src/llm/resultMapper.ts`:
+생성: `app/src/llm/resultMapper.ts`:
 
 ```ts
 import type { LlmWikiResult } from "../domain/types";
@@ -2179,9 +2179,9 @@ export function mapLlmResultToWorkspaceFiles(input: {
 }
 ```
 
-- [ ] **Step 8: Verify**
+- [ ] **단계 8: 검증**
 
-Run:
+실행:
 
 ```bash
 cd app
@@ -2190,14 +2190,14 @@ cd src-tauri
 cargo check
 ```
 
-Expected:
+예상 결과:
 
 ```text
 PASS src/llm/resultMapper.test.ts
 Finished dev profile
 ```
 
-- [ ] **Step 9: Commit**
+- [ ] **단계 9: 커밋**
 
 ```bash
 git add app/src-tauri app/src/workspace/api.ts app/src/llm
@@ -2206,18 +2206,18 @@ git commit -m "feat: add structured LLM wiki generation"
 
 ---
 
-### Task 11: End-To-End Import Orchestration
+### 작업 11: 전체 import 흐름 연결
 
-**Files:**
-- Modify: `app/src/workspace/importPipeline.ts`
-- Modify: `app/src/workspace/importPipeline.test.ts`
-- Modify: `app/src/state/workspaceStore.tsx`
-- Modify: `app/src/components/SourceImport.tsx`
-- Modify: `app/src/App.tsx`
+**파일:**
+- 수정: `app/src/workspace/importPipeline.ts`
+- 수정: `app/src/workspace/importPipeline.test.ts`
+- 수정: `app/src/state/workspaceStore.tsx`
+- 수정: `app/src/components/SourceImport.tsx`
+- 수정: `app/src/App.tsx`
 
-- [ ] **Step 1: Extend import pipeline test**
+- [ ] **단계 1: import pipeline test 확장**
 
-Edit `app/src/workspace/importPipeline.test.ts` to assert wiki writes:
+수정: `app/src/workspace/importPipeline.test.ts` wiki write를 검증하도록:
 
 ```ts
 test("writes LLM wiki files after LLM processing", async () => {
@@ -2253,9 +2253,9 @@ test("writes LLM wiki files after LLM processing", async () => {
 });
 ```
 
-- [ ] **Step 2: Update pipeline implementation**
+- [ ] **단계 2: pipeline 구현 갱신**
 
-Edit `app/src/workspace/importPipeline.ts`:
+수정: `app/src/workspace/importPipeline.ts`:
 
 ```ts
 import { mapLlmResultToWorkspaceFiles } from "../llm/resultMapper";
@@ -2275,9 +2275,9 @@ for (const file of generatedFiles) {
 return result;
 ```
 
-- [ ] **Step 3: Add store action**
+- [ ] **단계 3: store action 추가**
 
-Edit `app/src/state/workspaceStore.tsx`:
+수정: `app/src/state/workspaceStore.tsx`:
 
 ```tsx
 type WorkspaceState = {
@@ -2291,11 +2291,11 @@ async function importSource() {
 }
 ```
 
-This first implementation deliberately blocks import until workspace folder selection is added. The UI should surface the error instead of silently succeeding.
+이 첫 구현은 workspace 폴더 선택 기능이 추가되기 전까지 import를 의도적으로 막는다. UI는 조용히 성공 처리하지 말고 error를 보여줘야 한다.
 
-- [ ] **Step 4: Verify**
+- [ ] **단계 4: 검증**
 
-Run:
+실행:
 
 ```bash
 cd app
@@ -2303,14 +2303,14 @@ npm test -- src/workspace/importPipeline.test.ts
 npm run build
 ```
 
-Expected:
+예상 결과:
 
 ```text
 PASS src/workspace/importPipeline.test.ts
 ✓ built
 ```
 
-- [ ] **Step 5: Commit**
+- [ ] **단계 5: 커밋**
 
 ```bash
 git add app/src/workspace/importPipeline.ts app/src/workspace/importPipeline.test.ts app/src/state/workspaceStore.tsx app/src/components/SourceImport.tsx app/src/App.tsx
@@ -2319,16 +2319,16 @@ git commit -m "feat: orchestrate archive to wiki import pipeline"
 
 ---
 
-### Task 12: Wiki View
+### 작업 12: Wiki View
 
-**Files:**
-- Create: `app/src/components/WikiView.tsx`
-- Create: `app/src/components/WikiView.test.tsx`
-- Modify: `app/src/App.tsx`
+**파일:**
+- 생성: `app/src/components/WikiView.tsx`
+- 생성: `app/src/components/WikiView.test.tsx`
+- 수정: `app/src/App.tsx`
 
-- [ ] **Step 1: Write WikiView test**
+- [ ] **단계 1: WikiView test 작성**
 
-Create `app/src/components/WikiView.test.tsx`:
+생성: `app/src/components/WikiView.test.tsx`:
 
 ```tsx
 import { render, screen } from "@testing-library/react";
@@ -2361,9 +2361,9 @@ describe("WikiView", () => {
 });
 ```
 
-- [ ] **Step 2: Implement WikiView**
+- [ ] **단계 2: WikiView 구현**
 
-Create `app/src/components/WikiView.tsx`:
+생성: `app/src/components/WikiView.tsx`:
 
 ```tsx
 type WikiPageSummary = {
@@ -2423,9 +2423,9 @@ function InfoBlock({ title, items }: { title: string; items: string[] }) {
 }
 ```
 
-- [ ] **Step 3: Wire Wiki view**
+- [ ] **단계 3: Wiki view 연결**
 
-Edit `app/src/App.tsx`:
+수정: `app/src/App.tsx`:
 
 ```tsx
 import { WikiView } from "./components/WikiView";
@@ -2450,9 +2450,9 @@ if (activeView === "wiki") {
 }
 ```
 
-- [ ] **Step 4: Verify**
+- [ ] **단계 4: 검증**
 
-Run:
+실행:
 
 ```bash
 cd app
@@ -2460,14 +2460,14 @@ npm test -- src/components/WikiView.test.tsx
 npm run build
 ```
 
-Expected:
+예상 결과:
 
 ```text
 PASS src/components/WikiView.test.tsx
 ✓ built
 ```
 
-- [ ] **Step 5: Commit**
+- [ ] **단계 5: 커밋**
 
 ```bash
 git add app/src/components/WikiView.tsx app/src/components/WikiView.test.tsx app/src/App.tsx
@@ -2476,17 +2476,17 @@ git commit -m "feat: add wiki browser view"
 
 ---
 
-### Task 13: Graph View And Relation Panel
+### 작업 13: Graph View와 Relation Panel
 
-**Files:**
-- Create: `app/src/components/GraphView.tsx`
-- Create: `app/src/components/RelationPanel.tsx`
-- Create: `app/src/components/GraphView.test.tsx`
-- Modify: `app/src/App.tsx`
+**파일:**
+- 생성: `app/src/components/GraphView.tsx`
+- 생성: `app/src/components/RelationPanel.tsx`
+- 생성: `app/src/components/GraphView.test.tsx`
+- 수정: `app/src/App.tsx`
 
-- [ ] **Step 1: Write graph interaction test**
+- [ ] **단계 1: graph interaction test 작성**
 
-Create `app/src/components/GraphView.test.tsx`:
+생성: `app/src/components/GraphView.test.tsx`:
 
 ```tsx
 import { render, screen } from "@testing-library/react";
@@ -2526,9 +2526,9 @@ describe("GraphView", () => {
 });
 ```
 
-- [ ] **Step 2: Implement relation panel**
+- [ ] **단계 2: relation panel 구현**
 
-Create `app/src/components/RelationPanel.tsx`:
+생성: `app/src/components/RelationPanel.tsx`:
 
 ```tsx
 import type { Relation } from "../domain/types";
@@ -2566,9 +2566,9 @@ export function RelationPanel({ relation }: { relation: Relation | null }) {
 }
 ```
 
-- [ ] **Step 3: Implement GraphView**
+- [ ] **단계 3: GraphView 구현**
 
-Create `app/src/components/GraphView.tsx`:
+생성: `app/src/components/GraphView.tsx`:
 
 ```tsx
 import { useMemo, useState } from "react";
@@ -2664,9 +2664,9 @@ export function GraphView({ nodes, relations }: GraphViewProps) {
 }
 ```
 
-- [ ] **Step 4: Wire Graph view**
+- [ ] **단계 4: Graph view 연결**
 
-Edit `app/src/App.tsx`:
+수정: `app/src/App.tsx`:
 
 ```tsx
 import { GraphView } from "./components/GraphView";
@@ -2697,9 +2697,9 @@ if (activeView === "graph") {
 }
 ```
 
-- [ ] **Step 5: Verify**
+- [ ] **단계 5: 검증**
 
-Run:
+실행:
 
 ```bash
 cd app
@@ -2707,14 +2707,14 @@ npm test -- src/components/GraphView.test.tsx
 npm run build
 ```
 
-Expected:
+예상 결과:
 
 ```text
 PASS src/components/GraphView.test.tsx
 ✓ built
 ```
 
-- [ ] **Step 6: Commit**
+- [ ] **단계 6: 커밋**
 
 ```bash
 git add app/src/components/GraphView.tsx app/src/components/RelationPanel.tsx app/src/components/GraphView.test.tsx app/src/App.tsx
@@ -2723,31 +2723,31 @@ git commit -m "feat: add interactive graph view"
 
 ---
 
-### Task 14: Workspace Folder Selection And Persistence
+### 작업 14: Workspace 폴더 선택과 저장 유지
 
-**Files:**
-- Modify: `app/src-tauri/src/workspace.rs`
-- Modify: `app/src/workspace/api.ts`
-- Modify: `app/src/state/workspaceStore.tsx`
-- Modify: `app/src/components/WorkspaceHome.tsx`
+**파일:**
+- 수정: `app/src-tauri/src/workspace.rs`
+- 수정: `app/src/workspace/api.ts`
+- 수정: `app/src/state/workspaceStore.tsx`
+- 수정: `app/src/components/WorkspaceHome.tsx`
 
-- [ ] **Step 1: Add directory picker dependency**
+- [ ] **단계 1: directory picker dependency 추가**
 
-Edit `app/src-tauri/Cargo.toml`:
+수정: `app/src-tauri/Cargo.toml`:
 
 ```toml
 tauri-plugin-dialog = "2"
 ```
 
-Edit `app/src-tauri/src/main.rs` builder:
+수정: `app/src-tauri/src/main.rs` builder:
 
 ```rust
 .plugin(tauri_plugin_dialog::init())
 ```
 
-- [ ] **Step 2: Add frontend directory selection**
+- [ ] **단계 2: frontend directory selection 추가**
 
-Edit `app/src/workspace/api.ts`:
+수정: `app/src/workspace/api.ts`:
 
 ```ts
 import { open } from "@tauri-apps/plugin-dialog";
@@ -2758,9 +2758,9 @@ export async function pickWorkspaceFolder(): Promise<string | null> {
 }
 ```
 
-- [ ] **Step 3: Update store root path action**
+- [ ] **단계 3: store root path action 갱신**
 
-Edit `app/src/state/workspaceStore.tsx`:
+수정: `app/src/state/workspaceStore.tsx`:
 
 ```tsx
 type WorkspaceState = {
@@ -2779,9 +2779,9 @@ const workspace = {
 };
 ```
 
-- [ ] **Step 4: Add WorkspaceHome button**
+- [ ] **단계 4: WorkspaceHome 버튼 추가**
 
-Edit `app/src/components/WorkspaceHome.tsx`:
+수정: `app/src/components/WorkspaceHome.tsx`:
 
 ```tsx
 import { pickWorkspaceFolder } from "../workspace/api";
@@ -2797,9 +2797,9 @@ async function handlePickWorkspace() {
 </button>
 ```
 
-- [ ] **Step 5: Verify**
+- [ ] **단계 5: 검증**
 
-Run:
+실행:
 
 ```bash
 cd app
@@ -2808,14 +2808,14 @@ cd src-tauri
 cargo check
 ```
 
-Expected:
+예상 결과:
 
 ```text
 ✓ built
 Finished dev profile
 ```
 
-- [ ] **Step 6: Commit**
+- [ ] **단계 6: 커밋**
 
 ```bash
 git add app/src-tauri app/src/workspace/api.ts app/src/state/workspaceStore.tsx app/src/components/WorkspaceHome.tsx
@@ -2824,17 +2824,17 @@ git commit -m "feat: add workspace folder selection"
 
 ---
 
-### Task 15: Acceptance Tests And Manual Verification
+### 작업 15: 인수 테스트와 수동 검증
 
-**Files:**
-- Create: `app/tests/e2e/piecepool.spec.ts`
-- Create: `app/playwright.config.ts`
-- Modify: `app/package.json`
-- Create: `docs/superpowers/plans/2026-05-28-piecepool-mvp-verification.md`
+**파일:**
+- 생성: `app/tests/e2e/piecepool.spec.ts`
+- 생성: `app/playwright.config.ts`
+- 수정: `app/package.json`
+- 생성: `docs/superpowers/plans/2026-05-28-piecepool-mvp-verification.md`
 
-- [ ] **Step 1: Add Playwright config**
+- [ ] **단계 1: Playwright config 추가**
 
-Create `app/playwright.config.ts`:
+생성: `app/playwright.config.ts`:
 
 ```ts
 import { defineConfig } from "@playwright/test";
@@ -2853,9 +2853,9 @@ export default defineConfig({
 });
 ```
 
-- [ ] **Step 2: Add E2E smoke test**
+- [ ] **단계 2: E2E smoke test 추가**
 
-Create `app/tests/e2e/piecepool.spec.ts`:
+생성: `app/tests/e2e/piecepool.spec.ts`:
 
 ```ts
 import { expect, test } from "@playwright/test";
@@ -2872,14 +2872,14 @@ test("navigates core MVP screens", async ({ page }) => {
 });
 ```
 
-- [ ] **Step 3: Create verification note**
+- [ ] **단계 3: 검증 노트 생성**
 
-Create `docs/superpowers/plans/2026-05-28-piecepool-mvp-verification.md`:
+생성: `docs/superpowers/plans/2026-05-28-piecepool-mvp-verification.md`:
 
 ````md
-# PiecePool MVP Verification
+# PiecePool MVP 검증
 
-Run these before claiming MVP completion.
+MVP 완료를 말하기 전에 아래 명령을 실행한다.
 
 ```bash
 cd app
@@ -2891,21 +2891,21 @@ cargo test
 cargo check
 ```
 
-Manual checks:
+수동 확인:
 
-- Open workspace folder.
-- Seed data appears.
-- Text source import creates archive Markdown.
-- PDF import extracts text into archive Markdown.
-- LLM call creates wiki Markdown and relation metadata.
-- Wiki page edits save to disk.
-- Graph node opens linked document.
-- Graph edge opens evidence panel.
+- Workspace 폴더를 연다.
+- Seed 데이터가 보인다.
+- text source 가져오기가 archive Markdown을 만든다.
+- PDF 가져오기가 텍스트를 추출해 archive Markdown에 넣는다.
+- LLM 호출이 wiki Markdown과 relation 메타데이터를 만든다.
+- Wiki page 수정 내용이 디스크에 저장된다.
+- Graph node가 연결 문서를 연다.
+- Graph edge가 근거 패널을 연다.
 ````
 
-- [ ] **Step 4: Verify**
+- [ ] **단계 4: 검증**
 
-Run:
+실행:
 
 ```bash
 cd app
@@ -2917,7 +2917,7 @@ cargo test
 cargo check
 ```
 
-Expected:
+예상 결과:
 
 ```text
 PASS
@@ -2927,7 +2927,7 @@ test result: ok
 Finished dev profile
 ```
 
-- [ ] **Step 5: Commit**
+- [ ] **단계 5: 커밋**
 
 ```bash
 git add app/playwright.config.ts app/tests/e2e app/package.json docs/superpowers/plans/2026-05-28-piecepool-mvp-verification.md
@@ -2936,9 +2936,9 @@ git commit -m "test: add MVP acceptance verification"
 
 ---
 
-## Final Verification
+## 최종 검증
 
-Run:
+실행:
 
 ```bash
 cd app
@@ -2950,26 +2950,26 @@ cargo test
 cargo check
 ```
 
-Expected:
+예상 결과:
 
 ```text
-All tests pass.
-Frontend build succeeds.
-Playwright smoke test passes.
-Rust tests pass.
-Tauri Rust code checks.
+모든 test가 통과한다.
+frontend build가 성공한다.
+Playwright smoke test가 통과한다.
+Rust test가 통과한다.
+Tauri Rust code check가 통과한다.
 ```
 
-## PRD Coverage Map
+## PRD 반영 범위
 
-- Single local Workspace: Tasks 3, 6, 14
-- Markdown editor: Task 7
-- Actual `.md` archive/wiki files: Tasks 3, 4, 8, 10, 11
-- PDF parsing: Task 9
-- Actual LLM call: Task 10
-- Graph View: Task 13
-- Evidence panel: Task 13
-- Seed data: Task 5
-- Error handling basics: Tasks 8, 9, 10, 11
-- App restart persistence base: Tasks 3, 14
-- OCR MVP+1 scope preserved through `SourceType: "image"`: Task 2
+- 단일 로컬 Workspace: 작업 3, 6, 14
+- Markdown 편집기: 작업 7
+- 실제 `.md` archive/wiki 파일: 작업 3, 4, 8, 10, 11
+- PDF 파싱: 작업 9
+- 실제 LLM 호출: 작업 10
+- Graph View: 작업 13
+- 근거 패널: 작업 13
+- Seed 데이터: 작업 5
+- 기본 오류 처리: 작업 8, 9, 10, 11
+- app 재시작 저장 유지 기반: 작업 3, 14
+- `SourceType: "image"`로 OCR MVP+1 범위 보존: 작업 2
