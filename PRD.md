@@ -44,10 +44,13 @@ MVP 필수 목표:
 
 - 단일 로컬 Workspace 제공
 - Markdown 편집기 제공
+- 사용자가 자료를 넣는 Inbox 흐름 제공
 - 사용자가 입력한 원문을 실제 `.md` 파일로 지식 영역별 `<space>/archive/`에 저장
 - PDF에서 텍스트를 실제 추출하고 archive 노트로 저장
 - 실제 LLM 호출로 Concept, WikiPage, Relation, Evidence 생성
 - LLM이 정리한 WikiPage를 실제 `.md` 파일로 지식 영역별 `<space>/wiki/`에 저장
+- WikiPage 안에서 Obsidian식 `[[파일명]]` 링크와 `![[파일명]]` inline embed 지원
+- PDF/이미지 원본은 `<space>/sources/original-files/`에 보존하고, Wiki에서는 embed로 읽을 수 있게 표시
 - Relation 메타데이터를 지식 영역별 `<space>/relations/relations.json`에 저장
 - Graph View를 로컬 `<space>/wiki/`와 `<space>/relations/` 데이터에서 렌더링
 - Graph node 클릭 시 연결된 Markdown 문서 열기
@@ -103,6 +106,9 @@ PiecePool Workspace/
     workspace.json
     spaces.json
   deeplearning/
+    inbox/
+      transformer-week3.pdf
+      user-pasted-note.md
     archive/
       2026-05-28-transformer-lecture-summary.md
       2026-05-28-attention-paper-notes.md
@@ -115,6 +121,7 @@ PiecePool Workspace/
     sources/
       original-files/
         transformer-week3.pdf
+        attention-diagram.png
     config/
       subjects.json
     seed/
@@ -133,7 +140,22 @@ PiecePool Workspace/
 
 지식 영역 폴더는 독립 Workspace가 아니다. 앱은 하나의 Workspace를 열고, 그 안의 여러 지식 영역 폴더를 읽는다.
 
-### 7.2 `<space>/archive/`
+### 7.2 `<space>/inbox/`
+
+사용자가 처음 자료를 넣는 입력 공간이다.
+
+저장 대상:
+
+- 사용자가 업로드한 PDF
+- 사용자가 업로드한 이미지
+- 사용자가 붙여넣거나 작성한 임시 텍스트
+- 아직 LLM 정리와 archive/wiki 변환이 끝나지 않은 자료
+
+`<space>/inbox/`는 처리 전 임시 입력 공간이다. 앱은 Inbox 자료를 가져와 Source를 만들고, 원본 파일은 `<space>/sources/original-files/`에 보존하며, 추출 텍스트나 사용자가 입력한 원문은 `<space>/archive/`에 Markdown으로 저장한다.
+
+처리가 끝난 뒤 Inbox 파일을 유지할지 정리할지는 앱 설정으로 둘 수 있다. 단, 원본 보존 기준은 Inbox가 아니라 `<space>/sources/original-files/`다.
+
+### 7.3 `<space>/archive/`
 
 사용자가 넣은 원문 또는 추출된 원문을 저장한다.
 
@@ -146,11 +168,25 @@ PiecePool Workspace/
 
 `<space>/archive/`는 사용자가 제공한 원본 맥락의 보존 공간이다. LLM이 만든 요약이나 정리 결과가 archive 노트를 덮어쓰면 안 된다.
 
-### 7.3 `<space>/wiki/`
+### 7.4 `<space>/wiki/`
 
 LLM이 개념 중심으로 정리한 WikiPage를 저장한다.
 
-각 WikiPage는 하나의 Markdown 파일이다. 사용자는 이 파일을 직접 열고 수정할 수 있어야 한다.
+각 WikiPage는 하나의 Markdown 파일이다. 사용자는 이 파일을 직접 열고 수정할 수 있어야 한다. WikiPage는 사용자가 읽기 쉬운 설명 문서이면서, 앱과 LLM이 다시 이해하기 쉬운 구조화 Markdown이어야 한다.
+
+WikiPage는 Obsidian식 파일 링크와 embed 문법을 지원한다.
+
+- `[[transformer-week3.pdf]]`: 원본 파일 링크
+- `[[transformer-week3.pdf#page=12]]`: 특정 PDF page 링크
+- `![[transformer-week3.pdf]]`: Wiki 안에 PDF preview를 inline으로 표시
+- `![[transformer-week3.pdf#page=12]]`: 특정 PDF page를 inline으로 표시
+- `![[attention-diagram.png]]`: Wiki 안에 이미지 preview를 inline으로 표시
+
+`[[...]]`는 클릭 가능한 원본 링크다. `![[...]]`는 Wiki 읽기 화면에서 PDF/이미지 preview가 그 자리에 보이는 inline embed다. 사용자가 embed 영역을 클릭하면 확대 보기 또는 원본 뷰어를 열 수 있어야 한다.
+
+파일 링크와 embed는 `<space>/sources/original-files/` 안의 원본 파일을 가리킨다. PDF에서 추출한 텍스트는 `<space>/archive/`에 저장하지만, Wiki에서 시각적으로 보여주는 PDF/이미지 원본은 `<space>/sources/original-files/`를 기준으로 한다.
+
+LLM은 WikiPage를 생성할 때 필요한 경우 `![[...]]` embed 문법을 만들 수 있다. 단, Wiki가 과도하게 원본 preview로 가득 차지 않도록 핵심 근거가 되는 PDF page나 이미지에만 embed를 사용한다.
 
 예시:
 
@@ -164,6 +200,12 @@ subjectIds:
   - subject-ai
 sourceIds:
   - source-transformer-week3
+sourceRefs:
+  - sourceId: source-transformer-week3
+    file: transformer-week3.pdf
+    page: 12
+    embed: true
+    reason: "Self-Attention 수식과 설명이 있는 핵심 근거 page"
 updatedAt: "2026-05-28T12:30:00+09:00"
 ---
 
@@ -178,15 +220,21 @@ Transformer에서 각 token이 전체 sequence의 다른 token을 참고해 문�
 ## 예시
 
 문장 "The animal didn't cross the street because it was tired"에서 `it`이 무엇을 가리키는지 판단할 때 주변 token들과의 관계를 계산한다.
+
+## 근거 원본
+
+![[transformer-week3.pdf#page=12]]
+
+관련 원본: [[transformer-week3.pdf]]
 ```
 
-### 7.4 `<space>/relations/`
+### 7.5 `<space>/relations/`
 
 Concept 간 relation과 근거 메타데이터를 저장한다.
 
 MVP에서는 각 지식 영역 폴더마다 `relations.json` 하나로 시작한다. 예: `deeplearning/relations/relations.json`. 추후 데이터가 커지면 과목별 또는 wiki별 메타데이터로 분리할 수 있다.
 
-### 7.5 `sources/`와 `<space>/sources/`
+### 7.6 `sources/`와 `<space>/sources/`
 
 원본 파일을 보존한다.
 
@@ -197,7 +245,19 @@ MVP에서는 각 지식 영역 폴더마다 `relations.json` 하나로 시작한
 
 MVP에서는 원본 파일을 해당 지식 영역의 `<space>/sources/original-files/`에 저장한다. 예: `deeplearning/sources/original-files/transformer-week3.pdf`. 추출 텍스트는 같은 지식 영역의 `<space>/archive/`에 Markdown으로 저장한다.
 
-### 7.6 `config/`와 `<space>/config/`
+`<space>/sources/original-files/`의 파일은 Wiki에서 `[[파일명]]` 또는 `![[파일명]]` 문법으로 참조할 수 있어야 한다.
+
+예:
+
+```md
+[[transformer-week3.pdf]]
+![[transformer-week3.pdf#page=12]]
+![[attention-diagram.png]]
+```
+
+PDF page 단위 preview는 MVP 범위다. PDF page 안의 특정 좌표 highlight 또는 이미지 OCR 기반 영역 highlight는 MVP+1 이후로 둔다.
+
+### 7.7 `config/`와 `<space>/config/`
 
 Workspace 설정과 Subject 메타데이터를 저장한다.
 
@@ -275,12 +335,15 @@ type Source = {
   type: SourceType;
   title: string;
   subjectIds: string[];
+  inboxPath?: string;
   archivePath: string;
   originalFilePath?: string;
   createdAt: string;
   updatedAt: string;
 };
 ```
+
+`inboxPath`는 사용자가 처음 넣은 입력 파일 또는 임시 텍스트 경로다. `originalFilePath`는 보존된 원본 파일 경로이며, PDF/이미지는 `<space>/sources/original-files/` 아래를 가리킨다.
 
 ### 8.5 ArchiveNote
 
@@ -331,11 +394,48 @@ type WikiPage = {
   path: string;
   subjectIds: string[];
   sourceIds: string[];
+  sourceRefs: SourceRef[];
   markdown: string;
   createdAt: string;
   updatedAt: string;
 };
 ```
+
+### 8.7.1 SourceRef
+
+WikiPage 안에서 원본 파일 링크/embed가 어떤 Source를 가리키는지 설명하는 구조화 메타데이터다.
+
+```ts
+type SourceRef = {
+  id: string;
+  sourceId: string;
+  file: string;
+  page?: number;
+  embed: boolean;
+  label?: string;
+  reason?: string;
+};
+```
+
+`SourceRef`는 사람이 읽는 Markdown 문법과 앱/LLM이 읽는 구조화 데이터를 연결한다.
+
+예:
+
+```md
+---
+sourceRefs:
+  - id: source-ref-attention-page-12
+    sourceId: source-transformer-week3
+    file: transformer-week3.pdf
+    page: 12
+    embed: true
+    reason: "Self-Attention 수식과 설명이 있는 page"
+---
+
+![[transformer-week3.pdf#page=12]]
+```
+
+앱은 `sourceRefs`와 Markdown 본문의 `[[...]]`, `![[...]]`를 함께 사용한다. `sourceRefs`는 LLM과 앱의 안정적인 파싱용이고, embed 문법은 사용자 친화적인 읽기/편집용이다.
 
 WikiPage 구성:
 
@@ -343,6 +443,7 @@ WikiPage 구성:
 - 짧은 요약
 - 자세한 설명
 - 예시
+- 원본 PDF/이미지 embed
 - 관련 Source
 - 관련 Relation
 - 헷갈리는 개념
@@ -391,14 +492,17 @@ Relation이 왜 존재하는지 설명하는 근거다.
 ```ts
 type Evidence = {
   sourceId: string;
+  sourceRefId?: string;
   archivePath?: string;
+  originalFilePath?: string;
+  page?: number;
   quote?: string;
   location?: string;
   reason: string;
 };
 ```
 
-Graph View에서 edge를 클릭하면 근거를 볼 수 있어야 한다.
+Graph View에서 edge를 클릭하면 근거를 볼 수 있어야 한다. Evidence는 archive의 추출 텍스트뿐 아니라 sources의 원본 PDF page나 이미지도 가리킬 수 있어야 한다.
 
 ### 8.10 Question
 
@@ -444,11 +548,29 @@ type ImportJob = {
 
 ## 9. Import 처리 흐름
 
+모든 입력은 사용자가 Inbox에 자료를 넣는 경험에서 시작한다.
+
+공통 흐름:
+
+```text
+사용자가 <space>/inbox/에 자료 입력
+-> Source 생성
+-> 원본 PDF/이미지는 <space>/sources/original-files/에 보존
+-> 텍스트 또는 추출 텍스트는 <space>/archive/*.md 저장
+-> LLM 호출
+-> Concept, WikiPage, Relation, Evidence, SourceRef 생성
+-> <space>/wiki/*.md 저장
+-> <space>/relations/relations.json 저장
+-> Wiki/Graph 갱신
+```
+
+LLM이 WikiPage를 만들 때 원본 PDF page나 이미지가 설명 이해에 중요하면 `![[...]]` embed 문법을 Wiki 본문에 포함한다. 동시에 같은 참조를 frontmatter의 `sourceRefs`에 구조화해서 저장한다.
+
 ### 9.1 텍스트 입력
 
 ```text
 사용자가 Subject 선택
--> 텍스트 붙여넣기
+-> Inbox에 텍스트 입력
 -> Source 생성
 -> <space>/archive/*.md 저장
 -> LLM 호출
@@ -468,11 +590,12 @@ type ImportJob = {
 
 ```text
 사용자가 Subject 선택
--> PDF 선택
+-> Inbox에 PDF 입력
 -> 원본 PDF를 <space>/sources/original-files/에 저장
 -> PDF 텍스트 추출 실행
 -> 추출 텍스트를 <space>/archive/*.md 저장
 -> LLM 호출
+-> 필요한 경우 Wiki에 ![[파일명.pdf#page=N]] embed 생성
 -> <space>/wiki/*.md 및 <space>/relations/relations.json 저장
 -> Wiki/Graph 갱신
 ```
@@ -496,10 +619,12 @@ MVP 1차:
 MVP+1 OCR 흐름:
 
 ```text
-이미지 선택
+Inbox에 이미지 입력
+-> 원본 이미지를 <space>/sources/original-files/에 저장
 -> OCR text extraction
 -> <space>/archive/*.md 저장
 -> LLM 호출
+-> 필요한 경우 Wiki에 ![[파일명.png]] embed 생성
 -> <space>/wiki/*.md 및 <space>/relations/relations.json 저장
 -> Wiki/Graph 갱신
 ```
@@ -512,11 +637,16 @@ LLM 입력:
 
 - Source 제목
 - Source 텍스트
+- Source 원본 파일 정보
 - Subject 메타데이터
 - 기존 Concept 제목 목록
 - 필요 시 관련 WikiPage 요약
 
 LLM 출력은 구조화된 JSON으로 받는다. 앱은 이 JSON을 검증한 뒤 Markdown 파일과 relation 메타데이터로 변환한다.
+
+LLM 출력 WikiPage는 사람이 읽기 쉬워야 한다. 동시에 앱과 이후 LLM 호출이 다시 이해하기 쉽도록 sourceIds, sourceRefs, relation metadata를 유지해야 한다.
+
+LLM은 PDF/이미지 원본이 개념 이해에 직접 도움이 되는 경우에만 Wiki 본문에 `![[...]]` embed를 넣는다. 단순 출처 표기는 `[[...]]` 링크로 충분하다.
 
 기대 출력:
 
@@ -528,6 +658,8 @@ type LlmWikiResult = {
     summary: string;
     explanation: string;
     examples: string[];
+    sourceRefs: SourceRef[];
+    sourceEmbeds: string[];
     confusingConcepts?: string[];
     relatedQuestions?: string[];
   }>;
@@ -596,13 +728,50 @@ subjectIds:
   - subject-ai
 sourceIds:
   - source-transformer-week3
+sourceRefs:
+  - id: source-ref-transformer-week3-page-12
+    sourceId: source-transformer-week3
+    file: transformer-week3.pdf
+    page: 12
+    embed: true
+    reason: "Self-Attention 수식과 설명이 있는 핵심 근거 page"
 updatedAt: "2026-05-28T12:30:00+09:00"
 ---
 
 # Self-Attention
 
 Self-Attention은 sequence 안의 token들이 서로의 관계를 계산해 문맥 표현을 만드는 mechanism이다.
+
+## 근거 원본
+
+![[transformer-week3.pdf#page=12]]
+
+관련 원본: [[transformer-week3.pdf]]
 ```
+
+### 11.3 Wiki 파일 링크와 embed 문법
+
+Wiki는 Obsidian식 파일 링크와 embed 문법을 사용한다.
+
+```md
+[[transformer-week3.pdf]]
+[[transformer-week3.pdf#page=12]]
+![[transformer-week3.pdf]]
+![[transformer-week3.pdf#page=12]]
+![[attention-diagram.png]]
+```
+
+규칙:
+
+- `[[...]]`는 원본 파일 링크다.
+- `![[...]]`는 inline embed다.
+- PDF embed는 Wiki 읽기 화면에서 PDF preview를 그 위치에 표시한다.
+- `#page=N`이 있으면 해당 PDF page를 우선 표시한다.
+- 이미지 embed는 Wiki 읽기 화면에서 이미지 preview를 그 위치에 표시한다.
+- embed를 클릭하면 확대 보기 또는 원본 뷰어를 연다.
+- 파일 탐색 기준은 해당 지식 영역의 `<space>/sources/original-files/`다.
+- `sourceRefs` frontmatter는 앱/LLM용 구조화 메타데이터이고, `[[...]]`/`![[...]]`는 사용자가 직접 읽고 편집하는 Markdown 표현이다.
+- `sourceRefs`와 본문 embed가 서로 충돌하면 앱은 사용자에게 충돌 상태를 보여주고 자동으로 삭제하거나 덮어쓰지 않는다.
 
 ## 12. Graph View 요구사항
 
@@ -687,6 +856,7 @@ Graph는 실제 클릭/검색/필터가 동작해야 한다. 정적 데모 이�
 - wiki page 수
 - concept 수
 - relation 수
+- Inbox 상태
 - Source 가져오기 진입
 - Markdown 편집기 진입
 - Wiki View 진입
@@ -696,17 +866,19 @@ Graph는 실제 클릭/검색/필터가 동작해야 한다. 정적 데모 이�
 
 목적:
 
-- 사용자가 학습 자료를 Workspace로 넣는다.
+- 사용자가 학습 자료를 Inbox를 통해 Workspace로 넣는다.
 
 필수 요소:
 
 - Subject 선택
 - Subject 즉시 생성
+- Inbox 입력 영역
 - 텍스트 붙여넣기
 - 수업 정리 텍스트 가져오기
 - PDF 업로드
 - PDF 텍스트 추출
 - 이미지 가져오기 진입점
+- 원본 파일 보존 상태 표시
 - ImportJob 상태 표시
 - 완료 후 생성된 WikiPage/Relation 요약 표시
 
@@ -721,6 +893,8 @@ Graph는 실제 클릭/검색/필터가 동작해야 한다. 정적 데모 이�
 - 문서 목록 또는 파일 트리
 - Markdown 편집기
 - Markdown preview 또는 split view
+- `[[...]]` 링크 렌더링
+- `![[...]]` PDF/이미지 inline embed 렌더링
 - 저장 상태 표시
 - 실제 `.md` 파일 저장
 - 메타데이터 표시
@@ -737,6 +911,7 @@ Graph는 실제 클릭/검색/필터가 동작해야 한다. 정적 데모 이�
 - Concept 목록
 - Wiki 상세
 - 관련 source
+- PDF/이미지 inline embed
 - 관련 relation
 - 헷갈리는 concept
 - 관련 질문
@@ -827,12 +1002,21 @@ Seed 데이터는 하드코딩된 UI 상태만으로 만들지 않는다. 실제
 - 유효한 relation은 유지
 - 개발 로그에 warning 표시
 
+### 15.6 Source embed 오류
+
+처리:
+
+- `[[...]]` 또는 `![[...]]`가 가리키는 원본 파일이 없으면 깨진 링크 상태를 표시한다.
+- PDF page 번호가 범위를 벗어나면 PDF 첫 page와 오류 메시지를 표시한다.
+- `sourceRefs`와 Markdown 본문 embed가 충돌하면 자동 삭제나 덮어쓰기를 하지 않고 충돌 상태를 표시한다.
+- embed 렌더링 실패가 WikiPage 전체 렌더링 실패로 이어지면 안 된다.
+
 ## 16. 검증 기준
 
 ### 16.1 Workspace
 
 - 앱이 하나의 로컬 Workspace를 생성하거나 열 수 있다.
-- `<space>/archive/`, `<space>/wiki/`, `<space>/relations/`, `<space>/config/`를 읽을 수 있다.
+- `<space>/inbox/`, `<space>/archive/`, `<space>/wiki/`, `<space>/relations/`, `<space>/sources/`, `<space>/config/`를 읽을 수 있다.
 - 앱 재실행 후 이전 상태가 복원된다.
 
 ### 16.2 Markdown 파일
@@ -840,6 +1024,8 @@ Seed 데이터는 하드코딩된 UI 상태만으로 만들지 않는다. 실제
 - 텍스트 입력 시 `<space>/archive/*.md` 파일이 생성된다.
 - PDF 가져오기 시 추출 텍스트가 `<space>/archive/*.md`로 저장된다.
 - LLM 결과가 `<space>/wiki/*.md` 파일을 생성하거나 업데이트한다.
+- WikiPage frontmatter에 `sourceRefs`가 저장된다.
+- WikiPage 본문에 `![[파일명.pdf#page=N]]` embed가 저장될 수 있다.
 - 편집기에서 수정한 wiki page가 실제 파일에 저장된다.
 - 앱 재실행 후 수정 내용이 유지된다.
 
@@ -848,13 +1034,16 @@ Seed 데이터는 하드코딩된 UI 상태만으로 만들지 않는다. 실제
 - 텍스트 source가 실제 LLM 호출을 발생시킨다.
 - PDF 추출 텍스트가 실제 LLM 호출을 발생시킨다.
 - LLM 출력은 저장 전에 schema 검증을 통과해야 한다.
-- Concept, WikiPage, Relation, Evidence가 LLM 출력에서 생성된다.
+- Concept, WikiPage, Relation, Evidence, SourceRef가 LLM 출력에서 생성된다.
+- LLM이 생성한 WikiPage는 사용자 친화적인 설명과 앱/LLM 친화적인 구조화 메타데이터를 함께 가진다.
 
 ### 16.4 PDF 파싱
 
 - PDF 파일을 선택할 수 있다.
+- 원본 PDF가 `<space>/sources/original-files/`에 저장된다.
 - PDF에서 텍스트가 추출된다.
 - 추출 텍스트가 <space>/archive Markdown으로 저장된다.
+- Wiki에서 `![[파일명.pdf#page=N]]`가 해당 page preview로 렌더링된다.
 - 파싱 실패 시 복구 흐름이 제공된다.
 
 ### 16.5 Graph View
