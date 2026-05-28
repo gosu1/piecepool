@@ -1,146 +1,202 @@
-# PiecePool 개발자 전달 문서
+# Developer Handoff
 
-## 전달 목적
+PiecePool 신규 합류자 진입 문서. README는 전체 nav, 본 문서는 작업 시작 절차.
 
-PiecePool MVP 개발을 시작하기 위한 전달 문서다. 개발자는 아래 문서를 순서대로 읽고 구현 계획에 따라 작업하면 된다.
+> 리팩토링 후 갱신본. 최신 상세는 `docs/` 트리.
 
-읽는 순서:
+---
 
-1. `PRD.md`
-2. `docs/superpowers/plans/tasks`
-3. 이 전달 문서
+## 1. 읽는 순서
 
-## 제품 핵심
+1. **[README.md](README.md)** — 전체 nav, Phase 상태, 협업 규칙
+2. **[`docs/00-overview/`](docs/00-overview/)** — 비전 / MVP scope / 용어 / 플랜 / 열린 질문 (5 문서)
+3. **본인 역할 폴더** — Backend / Frontend / LLM / Design / QA
+4. **[`docs/10-contracts/`](docs/10-contracts/)** — 공유 계약 6 문서 (SSOT)
+5. **[GitHub Issues](https://github.com/gosu1/piecepool/issues)** — 본인 할당 Phase 4 작업
 
-PiecePool은 대학생을 위한 로컬 우선 AI 지식 Workspace다.
+---
 
-핵심 컨셉:
+## 2. 작업 시작 절차
 
-> 시간이 지날수록 Wiki/Graph가 개인 전공 지식 지도처럼 성장한다.
+### 2.1 환경 요구사항
+- macOS (Apple Silicon 권장)
+- Node.js 20+
+- Rust + cargo (Tauri 빌드)
+- Ollama (Free 플랜 테스트용)
 
-사용자가 넣은 원문은 Workspace 안의 지식 영역별 `<space>/archive/`에 보존한다. LLM이 정리한 개념 중심 문서는 `<space>/wiki/`에 저장한다. Graph View는 `<space>/wiki/`와 `<space>/relations/relations.json`을 기반으로 렌더링한다.
-
-## 절대 바꾸지 말아야 할 핵심 결정
-
-- Workspace는 단일 로컬 Workspace다.
-- `deeplearning/` 같은 하위 폴더는 Workspace가 아니라 지식 영역 폴더다.
-- 과목, 학기, 시험, 프로젝트는 Workspace 분리 기준이 아니라 지식 영역/메타데이터/필터다.
-- 사용자가 입력한 원문은 `<space>/archive/`에 실제 `.md` 파일로 저장한다.
-- LLM 정리 결과는 `<space>/wiki/`에 실제 `.md` 파일로 저장한다.
-- Graph View는 MVP 핵심 기능이다.
-- Relation은 타입이 명확해야 한다.
-- Edge 클릭 시 관계 타입, 설명, 근거가 보여야 한다.
-- 실제 LLM 호출을 한다.
-- PDF 텍스트 추출은 MVP 범위다.
-- OCR은 제품 요구사항에 포함하되 MVP+1로 분리한다.
-
-## MVP 필수 범위
-
-- Tauri + React + TypeScript + Tailwind 기반 Mac 로컬 앱
-- Markdown 편집기
-- 로컬 파일 시스템 저장
-- 텍스트 가져오기
-- 수업 정리 텍스트 가져오기
-- PDF 가져오기 + 텍스트 추출
-- LLM 구조화 출력
-- Concept/WikiPage/Relation/Evidence 생성
-- `<space>/archive/*.md` 저장
-- `<space>/wiki/*.md` 저장
-- `<space>/relations/relations.json` 저장
-- Wiki View
-- Graph View
-- Seed 데이터
-- 기본 테스트와 E2E smoke test
-
-## MVP 제외
-
-- 로그인/계정
-- 클라우드 동기화
-- 모바일 앱
-- Today Task
-- Project Flow
-- 실제 OCR 완성 구현
-- 협업 기능
-
-## 구현 계획
-
-구현 계획 파일:
-
-`docs/superpowers/plans/tasks`
-
-계획은 작업 단위로 나뉘어 있다. 각 작업은 테스트 작성, 실패 확인, 구현, 통과 확인, 커밋 순서로 진행한다.
-
-권장 작업 방식:
-
-1. 작업 1부터 순서대로 진행한다.
-2. 각 작업 완료 후 테스트를 실행한다.
-3. 작업 단위로 커밋한다.
-4. 작업 10까지 완료하면 최소 수직 기능 단면이 나온다.
-5. 작업 13까지 완료하면 데모 가능한 Wiki/Graph UI가 나온다.
-6. 작업 15까지 완료하면 MVP 검증 기준이 갖춰진다.
-
-## 환경 변수
-
-LLM 기능에는 다음 환경 변수가 필요하다.
+### 2.2 환경변수
 
 ```bash
-export OPENAI_API_KEY="..."
-export PIECEPOOL_LLM_MODEL="gpt-5-mini"
+# 공통
+export PIECEPOOL_LLM_PROVIDER=local                  # local|openai|gemini (기본 local=Free)
+export PIECEPOOL_LLM_MODEL=...                       # provider별 기본값
+
+# Free (local Ollama)
+export PIECEPOOL_LOCAL_LLM_ENDPOINT=http://localhost:11434
+export PIECEPOOL_LOCAL_LLM_BACKEND=ollama            # MVP 기본 (MLX/llamacpp는 후속)
+
+# Premium 옵션 (택 1)
+export OPENAI_API_KEY="..."                          # OpenAI GPT
+export GEMINI_API_KEY="..."                          # Google Gemini
+
+# Premium 기능 토글
+export PIECEPOOL_PREMIUM_FACT_CHECK=true
+export PIECEPOOL_PREMIUM_CLARIFY=true
 ```
 
-`PIECEPOOL_LLM_MODEL`은 기본값을 둘 수 있다. `OPENAI_API_KEY`가 없으면 LLM import는 실패 메시지와 재시도 흐름을 보여줘야 한다.
+### 2.3 본인 sub-issue claim
+1. [Phase 4 milestone](https://github.com/gosu1/piecepool/milestone/4) 진입
+2. 본인 `role:*` 라벨로 필터
+3. 작업 sub-issue 선택
+4. Parent tracking issue (#1~#5)의 체크박스 옆 `(담당: @핸들)` 표기
+5. Feature branch 생성 → 작업 → PR
 
-## 저장 구조
+### 2.4 PR 생성
+- PR template이 자동 등장 (영향 영역 / Phase / SSOT 체크 / 검증 절차)
+- `docs/10-contracts/` 수정 시 `contracts-change` 라벨 부착 + 4역할 review 요청
+- CI docs-check 자동 실행 (link / SSOT / prettier). 통과 확인
 
-권장 Workspace 구조:
+---
 
-```text
-PiecePool Workspace/
-  config/
-    workspace.json
-    spaces.json
-  deeplearning/
-    archive/
-    wiki/
-    relations/
-      relations.json
-    sources/
-      original-files/
-    config/
-      subjects.json
-    seed/
-      demo-data.json
-```
+## 3. 작업 규약 (절대 변경 금지)
 
-## 완료 기준
+서준 결정사항. PR에서 변경 시도 시 거부.
 
-완료 조건:
+- 단일 로컬 Workspace
+- `deeplearning/` 등은 **KnowledgeSpace 폴더**. Workspace 분리 아님
+- 과목 / 학기 / 시험 = 메타데이터. 폴더 분리 기준 아님
+- 원문 = `<space>/archive/`에 보존. LLM이 덮어쓰지 X
+- LLM 정리 = `<space>/wiki/`. 사용자 친화 + 구조화 메타데이터 동시
+- Graph View MVP 핵심. 정적 시각화 X, 실제 클릭/필터/검색
+- RelationType 명확. `related_to` 남발 금지
+- 실제 LLM 호출. 정적 데모 X
+- PDF 텍스트 추출 MVP 범위
+- **OCR MVP 범위** (PRD-v1 §17.1에서 MVP로 이동)
+- **3-provider hybrid** (Local / OpenAI / Gemini)
+- **`.dmg` / `.pkg` 배포 MVP 범위**
+- Premium 흐름은 `LlmWikiResult` schema 무변경 원칙 유지
 
-- 앱이 하나의 로컬 Workspace를 열거나 생성한다.
-- 텍스트 입력이 `<space>/archive/*.md`를 생성한다.
-- PDF 가져오기가 텍스트를 추출하고 `<space>/archive/*.md`를 생성한다.
-- 실제 LLM 호출 결과가 `<space>/wiki/*.md`와 `<space>/relations/relations.json`을 생성한다.
-- Markdown 편집기에서 wiki 파일을 수정하고 저장할 수 있다.
-- 앱 재실행 후 저장 내용이 복원된다.
-- Graph View가 relation 메타데이터에서 렌더링된다.
-- Graph node 클릭 시 연결 문서가 열린다.
-- Graph edge 클릭 시 근거 패널이 열린다.
-- Seed 데이터가 실제 파일과 메타데이터로 존재한다.
-- `npm test`, `npm run build`, `npm run e2e`, `cargo test`, `cargo check`가 통과한다.
+---
 
-## 구현 중 결정할 항목
+## 4. SSOT 원칙
 
-아래는 개발 중 결정 가능하다. 단, PRD의 제품 동작은 바꾸면 안 된다.
+[`docs/10-contracts/`](docs/10-contracts/) 6 문서에만 정의. 다른 곳 복붙 금지.
 
-- Markdown 편집기 라이브러리
-- Graph 렌더링 라이브러리
-- Tauri PDF 파싱 방식
-- LLM provider 세부 schema
-- Relation 메타데이터를 단일 JSON으로 둘지 wiki frontmatter와 병행할지
+| 자산 | 파일 |
+|---|---|
+| 엔티티 TS 타입 | `entities.md` |
+| RelationType enum | `relation-types.md` |
+| 폴더 트리 | `workspace-layout.md` |
+| Frontmatter | `markdown-frontmatter.md` |
+| Wikilink/embed | `wikilink-embed.md` |
+| LLM 출력 schema | `llm-output-schema.md` |
 
-## 관련 문서
+CI `ssot-check`가 grep으로 누출 자동 차단.
 
-- `PRD.md`
-- `docs/superpowers/plans/tasks`
+변경 절차:
+1. `contracts-change` 라벨 PR
+2. Backend / Frontend / LLM / Design 4역할 review 모두 승인
+3. 의존 문서 동기화 PR을 issue로 trace
+
+---
+
+## 5. 핵심 기술 스택
+
+| 영역 | 기술 | 결정 상태 |
+|---|---|---|
+| 앱 골격 | Tauri | ✅ 확정 |
+| Frontend | React + TypeScript + Tailwind | ✅ 확정 |
+| Backend | Rust | ✅ 확정 |
+| 저장 | 로컬 파일 시스템 (Markdown + JSON) | ✅ 확정 |
+| LLM provider | Ollama (local) / OpenAI / Gemini | ✅ 확정 (3-provider hybrid) |
+| OCR | Tesseract.js / Apple Vision / 외부 API | ⏸ 결정 대기 |
+| PDF 파싱 | pdfium / pdf-extract / pdf.js | ⏸ 결정 대기 |
+| Markdown 편집기 | TipTap / Lexical / CodeMirror 6 | ⏸ 결정 대기 |
+| Graph 렌더링 | D3 / Cytoscape / React Flow | ⏸ 결정 대기 |
+| 배포 | macOS `.dmg` / `.pkg` | ✅ 확정 |
+
+대기 항목 자세히: [`docs/00-overview/open-questions.md`](docs/00-overview/open-questions.md)
+
+---
+
+## 6. CODEOWNERS
+
+`.github/CODEOWNERS`가 PR review 자동 할당.
+
+| 폴더 | Owner |
+|---|---|
+| `/docs/00-overview/` | @gosu1 |
+| `/docs/10-contracts/` | @gosu1 @ChangSik88 @O6west @dbstpgns789-eng @Black-Tiger-h (5명, SSOT) |
+| `/docs/20-backend/` | @gosu1 @ChangSik88 @O6west |
+| `/docs/30-llm/` | @gosu1 |
+| `/docs/30-llm/prompt-templates.md` | @gosu1 @ChangSik88 @O6west (Backend 주도, LLM 공동) |
+| `/docs/40-frontend/` | @gosu1 @dbstpgns789-eng |
+| `/docs/50-design/` | @Black-Tiger-h |
+| `/docs/60-qa/`, `/docs/70-roadmap/`, `/docs/archive/` | @gosu1 |
+| `/.github/` | @gosu1 |
+| 기본 (catch-all) | @gosu1 |
+
+---
+
+## 7. 완료 기준 (MVP)
+
+자세히: [`docs/60-qa/acceptance-criteria.md`](docs/60-qa/acceptance-criteria.md)
+
+요약:
+- 단일 로컬 Workspace 생성/열기
+- 텍스트 / PDF / OCR 이미지 → archive 노트
+- 실제 LLM 호출 → wiki + relations
+- Markdown 편집기 작동 + 재실행 복원
+- Graph View 클릭 / 필터 / 검색
+- Free (Ollama) + Premium (GPT 또는 Gemini) 둘 다 동작
+- Premium 되묻기 + fact-check 기본 흐름
+- `.dmg` 또는 `.pkg` 빌드 산출물
+- `npm test`, `npm run build`, `npm run e2e`, `cargo test`, `cargo check` 통과
+- CI docs-check 통과
+
+E2E 시나리오 12개: [`docs/60-qa/e2e-scenarios.md`](docs/60-qa/e2e-scenarios.md)
+
+---
+
+## 8. 도구 / 인프라
+
+| 자산 | 위치 |
+|---|---|
+| Issues | https://github.com/gosu1/piecepool/issues |
+| Project board | https://github.com/users/gosu1/projects/2 |
+| Milestones | https://github.com/gosu1/piecepool/milestones |
+| CI workflow | [`.github/workflows/docs-check.yml`](.github/workflows/docs-check.yml) |
+| Issue templates | [`.github/ISSUE_TEMPLATE/`](.github/ISSUE_TEMPLATE/) (5종) |
+| PR template | [`.github/pull_request_template.md`](.github/pull_request_template.md) |
+| CODEOWNERS | [`.github/CODEOWNERS`](.github/CODEOWNERS) |
+
+라벨 (12종): `role:backend`, `role:frontend`, `role:llm`, `role:design`, `role:qa`, `role:pm`, `phase:1`~`phase:5`, `contracts-change`
+
+---
+
+## 9. 외부 자료
+
 - OpenAI Responses API: https://platform.openai.com/docs/api-reference/responses
 - OpenAI Structured Outputs: https://platform.openai.com/docs/guides/structured-outputs
+- Gemini API: https://ai.google.dev/api
+- Ollama: https://ollama.com/
+- Tauri: https://tauri.app/
+
+---
+
+## 10. 권장 next step (역할별)
+
+| 역할 | 첫 PR 후보 |
+|---|---|
+| Backend | [#6 architecture.md](https://github.com/gosu1/piecepool/issues/6) (모듈 경계 잡기, 다른 sub-task의 기준이 됨) |
+| Frontend | [#16 architecture.md](https://github.com/gosu1/piecepool/issues/16) (라우팅 + 상태 관리 기준) |
+| LLM | [#29 provider-config.md](https://github.com/gosu1/piecepool/issues/29) (3-provider adapter 인터페이스 확정) |
+| Design | [#33 screen-inventory.md](https://github.com/gosu1/piecepool/issues/33) (5화면 카드, Frontend 의존 unblock) |
+
+---
+
+## 11. 변경 이력 노트
+
+- 본 문서는 PRD-v1 시절 기준에서 현재 구조 (Phase 1~3, 5 완료 + Phase 4 진행)로 전면 재작성한 결과다.
+- 환경변수 (3-provider), CODEOWNERS, CI, Project board, 라벨 / 템플릿 / 마일스톤 등 인프라는 본 리팩토링에서 신규 추가했다.
+- 기존 reference (`PRD.md`, `docs/superpowers/plans/tasks`)는 제거. 새 reference는 `docs/00-overview/`와 `docs/10-contracts/`.

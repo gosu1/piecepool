@@ -1,19 +1,49 @@
 # PRD 리팩토링 Plan
 
-> 본 문서는 **PiecePool PRD.md (1152줄 모놀리식)** 를 4개 역할(Backend / Frontend / 로컬+API 하이브리드 LLM / Figma UI·UX) 협업용 다중 문서 구조로 재편하기 위한 실행 계획이다.
+> 본 문서는 **PiecePool PRD.md (1152줄 모놀리식)** 를 4개 역할(Backend / Frontend / 하이브리드 LLM / Figma UI·UX) 협업용 다중 문서 구조로 재편하기 위한 실행 계획이었다.
 >
-> 산출물은 본 plan만. 실제 분할 작업은 다음 턴.
+> ⚠️ **현재 상태**: 대부분 실행 완료. Phase 4 실작업만 남음. 본 문서는 의사결정 trace 목적으로 보존.
 
 ---
 
-## 0. 의사결정 요약 (확정)
+## 0. 진행 상태 (2026-05-29 기준)
 
-| 항목 | 결정 |
+| Phase | 내용 | 상태 | Commit |
+|---|---|---|---|
+| 1 | Skeleton (디렉토리 + archive + placeholder README) | ✅ | `d670f92` |
+| 2 | SSOT (10-contracts 6 문서) | ✅ | `9989319`, `d265c3d` (3-provider 확장) |
+| 3 | Overview (vision, scope-mvp, glossary, pricing-model, open-questions) | ✅ | `bb61432` |
+| 4 | Roles 병렬 (Backend / Frontend / LLM / Design) | ⏸ **진행 중** | 37 이슈 (#1~#37) |
+| 5 | QA & Roadmap (acceptance-criteria, e2e-scenarios, post-mvp) | ✅ | `d5e6f18` |
+
+### 추가 인프라 (계획 외)
+
+| 항목 | 상태 |
 |---|---|
-| LLM provider 방향 | **하이브리드** (Local + OpenAI 둘 다 지원, adapter 패턴) |
-| 기존 PRD.md 처리 | **archive 이동** → `docs/archive/PRD-v1.md`, 새 구조로 완전 대체 |
-| 문서 언어 | **한국어 유지** (식별자·타입명·코드만 영문) |
-| 이번 턴 산출물 | **Plan 문서만** |
+| `.github/CODEOWNERS` 폴더별 owner | ✅ |
+| Issue templates 5종 + PR template | ✅ |
+| Labels 12종 (role × 6 + phase × 5 + contracts-change) | ✅ |
+| Milestones 5종 (1, 2, 3, 5 closed / 4 open) | ✅ |
+| CI workflow `docs-check.yml` (link / SSOT / prettier) | ✅ |
+| Project board #2 (37 items, Phase + Role 필드) | ✅ |
+| Branch protection rule | ⏸ 사용자 수동 (GitHub Settings) |
+
+---
+
+## 0.A 의사결정 요약 (확정 + 후속 결정)
+
+| 항목 | 초기 결정 | 후속 변경 |
+|---|---|---|
+| LLM provider 방향 | 하이브리드 (Local + OpenAI) | **3-provider hybrid** (Local + OpenAI + Gemini, `d265c3d`) |
+| 기존 PRD.md 처리 | archive 이동 → `docs/archive/PRD-v1.md` | ✅ 실행 (`d670f92`) |
+| 문서 언어 | 한국어 유지 (코드/식별자만 영문) | ✅ 유지 |
+| 이번 턴 산출물 | Plan 문서만 | (이미 종료, 후속 turn에서 실행) |
+| OCR | MVP+1 (PRD §17.1) | **MVP 흡수** (Frontend 책임) |
+| Freemium 모델 | 없음 | **추가** (`pricing-model.md`) |
+| 프롬프트 설계 소유 | 미명시 | **Backend 주도** + LLM adapter 분리 |
+| Graph view 구현 담당 | 미명시 | @gosu1 직접 |
+| `.dmg` / `.pkg` 배포 | 미명시 | **MVP 포함** (Frontend) |
+| 협업 모델 | 미정 | 실제 팀 (Backend 3인, Frontend 2인, LLM/Design 각 1인) |
 
 ---
 
@@ -355,15 +385,15 @@ interface LlmProvider {
 
 ---
 
-## 12. Plan에 대한 열린 질문 (서준 확인 필요)
+## 12. Plan에 대한 열린 질문 (서준 확인 필요) — 해결 상태
 
-1. **`mvp.md` 빈 파일**: 삭제 vs archive 보존 vs 의도 명세 추가 중?
-2. **로컬 LLM 기본 backend**: Ollama 기본 가정인데 MLX/llama.cpp 우선 순위 다른가?
-3. **Figma 파일 URL**: 50-design에 placeholder만 둘지, 실제 Figma 파일이 이미 있는지?
-4. **`docs/superpowers/plans/tasks` 파일**: 본 refactor와 별개로 유지? 새 구조로 통합?
-5. **자동 검증 도구**: `markdown-link-check`, `prettier --check`, grep 기반 SSOT 검사 등 CI 도입할지?
+1. ✅ **`mvp.md` 빈 파일**: 삭제 (Phase 1 commit)
+2. ✅ **로컬 LLM 기본 backend**: Ollama 확정. MLX/llama.cpp는 후속 ([post-mvp §9.1](docs/70-roadmap/post-mvp.md))
+3. ⏸ **Figma 파일 URL**: placeholder 유지. 실제 URL은 Design 작업 시 `50-design/screen-inventory.md`에 추가
+4. ⏸ **`docs/superpowers/plans/tasks` 파일**: 본 refactor와 별개로 유지. 통합 검토는 후속
+5. ✅ **자동 검증 도구**: CI `docs-check.yml` 도입 (link / SSOT grep / prettier). `markdown-link-check` 대신 `lychee` 사용
 
-위 5개는 다음 턴 Phase 1 들어가기 전 결정 필요.
+5개 중 3개 해결. 2개 ⏸ 보류는 [`docs/00-overview/open-questions.md`](docs/00-overview/open-questions.md)에서 추적.
 
 ---
 

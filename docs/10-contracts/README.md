@@ -6,17 +6,19 @@ PiecePool 공유 계약. 모든 역할이 참조한다. **수정 시 4개 역할
 
 | 파일 | 내용 | 상태 |
 |---|---|---|
-| `workspace-layout.md` | Workspace 폴더 트리, `<space>/*` 디렉토리 규약 | ✍️ Phase 2 |
-| `entities.md` | 핵심 엔티티 TypeScript 타입 9종 | ✍️ Phase 2 |
-| `relation-types.md` | RelationType enum 12종 + 의미·사용 기준 | ✍️ Phase 2 |
-| `markdown-frontmatter.md` | archive/wiki Markdown frontmatter 스키마 | ✍️ Phase 2 |
-| `wikilink-embed.md` | `[[...]]` / `![[...]]` 문법 규약 | ✍️ Phase 2 |
-| `llm-output-schema.md` | LlmWikiResult JSON Schema (provider 무관) | ✍️ Phase 2 |
+| [`workspace-layout.md`](workspace-layout.md) | Workspace 폴더 트리, `<space>/*` 디렉토리 규약 | ✅ |
+| [`entities.md`](entities.md) | 핵심 엔티티 TypeScript 타입 11종 (Workspace ~ ImportJob) | ✅ |
+| [`relation-types.md`](relation-types.md) | RelationType enum 12종 + 의미·사용 기준 + 노드 호환성 매트릭스 | ✅ |
+| [`markdown-frontmatter.md`](markdown-frontmatter.md) | archive/wiki Markdown frontmatter 스키마 | ✅ |
+| [`wikilink-embed.md`](wikilink-embed.md) | `[[...]]` / `![[...]]` 문법 규약, 충돌 처리 4종 | ✅ |
+| [`llm-output-schema.md`](llm-output-schema.md) | LlmWikiResult JSON Schema (3-provider 무관: Local/OpenAI/Gemini) | ✅ |
 
 ## 규약
 
 ### SSOT 원칙
 다른 폴더 문서는 본 계약을 **link로만 참조**한다. TS 코드/JSON Schema **복붙 금지**.
+
+CI workflow `docs-check.yml`의 `ssot-check` job이 grep으로 누출 자동 차단.
 
 ### 변경 절차
 1. 본 폴더 수정 PR 생성
@@ -26,8 +28,12 @@ PiecePool 공유 계약. 모든 역할이 참조한다. **수정 시 4개 역할
 
 ## Owner
 
-Tech Lead (서준). 변경은 4개 역할 합의 필요.
+Tech Lead (@gosu1). 변경은 4개 역할 합의 필요. CODEOWNERS:
+```
+/docs/10-contracts/  @gosu1 @ChangSik88 @O6west @dbstpgns789-eng @Black-Tiger-h
+```
 
 ## 작성 일정
 
-Phase 2 (PRD_REFACTOR_PLAN 참조)
+Phase 2 — ✅ 완료 (2026-05-28).
+3-provider 확장 — ✅ 완료 (`d265c3d`, 2026-05-28).

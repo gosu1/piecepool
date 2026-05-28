@@ -6,93 +6,106 @@
 
 ---
 
-## 🚧 문서 리팩토링 진행 중
+## 📚 문서 진입
 
-기존 `PRD.md` (1152줄 단일 파일)을 역할별 다중 문서 구조로 재편 중이다.
+### 모든 역할 필독
+- [`docs/00-overview/`](docs/00-overview/) — 비전 / MVP scope / 용어 / 플랜 / 열린 질문 (5 문서)
 
-- 진행 계획: [PRD_REFACTOR_PLAN.md](PRD_REFACTOR_PLAN.md)
-- 대상 구조: `docs/{00-overview, 10-contracts, 20-backend, 30-llm, 40-frontend, 50-design, 60-qa, 70-roadmap}/`
-- 리팩토링 완료 전 진입점: [docs/archive/PRD-v1.md](docs/archive/PRD-v1.md), [DEVELOPER_HANDOFF.md](DEVELOPER_HANDOFF.md)
+### 역할별
+| 역할 | 폴더 | Owner |
+|---|---|---|
+| Backend | [`docs/20-backend/`](docs/20-backend/) | @gosu1 @ChangSik88 @O6west |
+| Frontend | [`docs/40-frontend/`](docs/40-frontend/) | @gosu1 @dbstpgns789-eng |
+| LLM | [`docs/30-llm/`](docs/30-llm/) | @gosu1 (Backend 공동: `prompt-templates.md`) |
+| Design (Figma) | [`docs/50-design/`](docs/50-design/) | @Black-Tiger-h |
+| QA / PM | [`docs/60-qa/`](docs/60-qa/), [`docs/70-roadmap/`](docs/70-roadmap/) | @gosu1 |
+
+### 공유 계약 (SSOT 🔒)
+모든 역할이 참조. 변경은 4역할 review 필수.
+
+[`docs/10-contracts/`](docs/10-contracts/)
+- `workspace-layout.md` — Workspace 폴더 트리
+- `entities.md` — TypeScript 타입 11종
+- `relation-types.md` — RelationType enum 12종
+- `markdown-frontmatter.md` — archive/wiki frontmatter
+- `wikilink-embed.md` — `[[...]]` / `![[...]]` 규약
+- `llm-output-schema.md` — LlmWikiResult JSON Schema
+
+---
+
+## 🗺️ 진행 상태
+
+| Phase | 내용 | 상태 |
+|---|---|---|
+| 1 | Skeleton (디렉토리 + archive) | ✅ |
+| 2 | SSOT (10-contracts 6 문서) | ✅ |
+| 3 | Overview (vision, scope, glossary, pricing-model, open-questions) | ✅ |
+| 4 | Roles 병렬 작업 | ⏸ **진행 중** |
+| 5 | QA (acceptance-criteria, e2e-scenarios) + Roadmap (post-mvp) | ✅ |
+
+**Phase 4 분배** ([milestone](https://github.com/gosu1/piecepool/milestone/4)):
+- 총 **37 이슈** (5 tracking + 32 sub)
+- Backend 11 / Frontend 14 / LLM 5 / Design 6 / Contracts 1
+- [Project board](https://github.com/users/gosu1/projects/2): Phase / Role 필드 자동 분류
 
 ---
 
 ## 협업 규칙
 
-신규 합류자/협업자는 본 절을 먼저 읽는다.
+### 1. SSOT (Single Source of Truth)
 
-### 1. 역할별 진입 경로 (리팩토링 완료 후 적용)
-
-| 역할 | 필독 폴더 |
-|---|---|
-| Backend | `docs/00-overview/`, `docs/10-contracts/`, `docs/20-backend/` |
-| LLM | `docs/00-overview/`, `docs/10-contracts/`, `docs/30-llm/` |
-| Frontend | `docs/00-overview/`, `docs/10-contracts/`, `docs/40-frontend/`, `docs/50-design/` |
-| Figma 디자이너 | `docs/00-overview/` (vision/scope만), `docs/50-design/` |
-| QA / PM | `docs/00-overview/`, `docs/60-qa/`, `docs/70-roadmap/` |
-
-각 역할은 본인 폴더 + `00-overview` + `10-contracts`만 알면 작업 착수 가능하다.
-
-### 2. Single Source of Truth (SSOT)
-
-다음 5개는 `docs/10-contracts/` 안에서만 정의한다. 다른 문서는 link로 참조하며 사본·재정의를 금지한다.
+`docs/10-contracts/` 안에서만 정의. 다른 문서는 link로 참조. **TS 코드 / JSON Schema 복붙 금지**.
 
 | 자산 | 파일 |
 |---|---|
 | 엔티티 TypeScript 타입 | `entities.md` |
 | RelationType enum 12종 | `relation-types.md` |
 | Workspace 폴더 트리 | `workspace-layout.md` |
-| Markdown frontmatter 스키마 | `markdown-frontmatter.md` |
+| Markdown frontmatter | `markdown-frontmatter.md` |
+| Wikilink/embed 규약 | `wikilink-embed.md` |
 | LLM 출력 JSON Schema | `llm-output-schema.md` |
 
-본문에 TS 코드블록 복붙은 계약 표류의 1순위 원인이므로 금지한다.
+### 2. 계약 변경 절차
 
-### 3. 계약 변경 절차
+`docs/10-contracts/` 수정 PR:
+- 라벨 `contracts-change` 부착
+- Backend / Frontend / LLM / Design 4역할 owner review 모두 승인
+- 의존 문서 동기화 PR을 issue로 trace
 
-`docs/10-contracts/` 수정 PR은 아래를 모두 만족해야 머지한다.
+### 3. LLM Provider (3-provider hybrid)
 
-- PR 라벨 `contracts-change` 부착
-- Backend, Frontend, LLM, Design 4개 역할 owner 모두 review 승인
-- 의존 문서(`20-backend`, `30-llm`, `40-frontend`, `50-design`) 동기화 PR을 issue로 trace
+| 플랜 | Provider | 환경변수 |
+|---|---|---|
+| Free (기본) | Local Ollama 무제한 | `PIECEPOOL_LLM_PROVIDER=local` |
+| Premium | OpenAI GPT | `OPENAI_API_KEY` |
+| Premium | Gemini | `GEMINI_API_KEY` |
 
-### 4. LLM Provider (하이브리드)
+Premium 추가 기능: 되묻기 + fact-check + 웹 검색 비교 + suggest. 자세히: [`docs/00-overview/pricing-model.md`](docs/00-overview/pricing-model.md)
 
-OpenAI + 로컬 모델 두 어댑터를 동시 지원한다. 환경변수:
+### 4. 문서 규약
 
-```bash
-PIECEPOOL_LLM_PROVIDER=openai|local                  # 기본 openai
-PIECEPOOL_LLM_MODEL=...                              # provider별 기본값
-OPENAI_API_KEY=...                                   # openai일 때만
-PIECEPOOL_LOCAL_LLM_ENDPOINT=http://localhost:11434  # local일 때만, Ollama 기본
-PIECEPOOL_LOCAL_LLM_BACKEND=ollama|mlx|llamacpp      # 기본 ollama
-```
+- 한 문서 200줄 이하 (스키마/표 위주 예외 명시)
+- 본문 한국어, 식별자/타입명/enum 값 영문
+- Obsidian 호환 `[[파일]]` / `![[파일]]`
 
-어댑터 인터페이스/프롬프트/스키마 검증은 `docs/30-llm/`에서 정의한다 (작성 예정).
+### 5. CI 자동 검증
 
-### 5. 파일 크기 가이드
+`.github/workflows/docs-check.yml`:
+- **link-check** (lychee) — 깨진 내부 link 차단
+- **ssot-check** (grep) — TS 타입 / JSON Schema 누출 차단
+- **prettier** (advisory) — 포맷 제안
 
-- 한 문서 200줄 이하 목표
-- 한 화면 = 한 파일
-- 스키마/매핑 표 위주 파일은 예외 명시 가능
+PR 또는 main push마다 자동 실행.
 
-### 6. 문서 언어
+### 6. CODEOWNERS
 
-- 본문 설명: 한국어
-- 식별자, 타입명, enum 값, 코드, 환경변수명: 영문 원형 유지
-- 표 머리글: 한국어
-- 외부 인용/사양 문서 URL: 원문 그대로
-
-### 7. Markdown 규약
-
-- Frontmatter 스키마는 `docs/10-contracts/markdown-frontmatter.md` 단일 정의
-- Obsidian 호환 문법: `[[파일명]]` (링크), `![[파일명]]` (inline embed)
-- PDF page embed: `![[파일.pdf#page=N]]`
-- 자세한 규약: `docs/10-contracts/wikilink-embed.md`
+`.github/CODEOWNERS`가 폴더별 review 자동 할당.
 
 ---
 
 ## 컨셉 스케치
 
-제품 아이디어와 시각 자료. 정식 사양은 `PRD.md` 및 향후 `docs/00-overview/`에서 관리한다.
+(협업자 시각 자료. 정식 사양은 [`docs/00-overview/vision.md`](docs/00-overview/vision.md))
 
 ### 아이디어 구조화
 
@@ -129,14 +142,19 @@ Race Condition Wiki Page
 
 ---
 
-## 기존 문서 (리팩토링 완료 시 `docs/archive/`로 이동 예정)
+## 추가 자료
 
-- [docs/archive/PRD-v1.md](docs/archive/PRD-v1.md) — 제품 요구사항 (v1, archive)
-- [DEVELOPER_HANDOFF.md](DEVELOPER_HANDOFF.md) — 개발자 진입 가이드
-- `docs/superpowers/plans/tasks` — 작업 단위 구현 계획
+| 자료 | 설명 |
+|---|---|
+| [`PRD_REFACTOR_PLAN.md`](PRD_REFACTOR_PLAN.md) | 리팩토링 계획 (대부분 실행 완료) |
+| [`DEVELOPER_HANDOFF.md`](DEVELOPER_HANDOFF.md) | 개발자 진입 가이드 |
+| [`docs/archive/PRD-v1.md`](docs/archive/PRD-v1.md) | 기존 PRD v1 보존본 |
+| [GitHub Issues](https://github.com/gosu1/piecepool/issues) | Phase 4 작업 분배 |
+| [Project board](https://github.com/users/gosu1/projects/2) | Roadmap 시각 추적 |
+| [Milestones](https://github.com/gosu1/piecepool/milestones) | Phase 1~5 진행 |
 
 ---
 
-## 라이선스 / 기여
+## 라이선스
 
-별도 명시 전까지 비공개 작업물로 간주.
+별도 명시 전까지 비공개 작업물.
