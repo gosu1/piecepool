@@ -32,7 +32,7 @@ interface LlmWikiInput {
 
 - `LlmWikiResult` 타입 정의는 [`llm-output-schema.md`](../10-contracts/llm-output-schema.md) SSOT 참조 (본 문서는 복붙 X)
 - premium flag는 Free 호출에서 무시
-- adapter는 raw 응답 → `LlmWikiResult` 변환 + JSON Schema 검증까지 책임 ([output-validation.md](output-validation.md) 작성 예정)
+- adapter는 raw 응답 → `LlmWikiResult` 변환 + JSON Schema 검증까지 책임 (`output-validation.md` (작성 예정) 작성 예정)
 
 ---
 
@@ -82,7 +82,7 @@ if provider == "local"
 - adapter 책임:
   - 응답 본문이 JSON Schema 통과하는지 검증 (Local 모델은 schema 위반 가능성 ↑)
   - 위반 시 재시도 (max `PIECEPOOL_LLM_MAX_RETRIES`)
-  - 재시도 실패 시 부분 결과 보존 + 오류 보고 ([output-validation.md](output-validation.md))
+  - 재시도 실패 시 부분 결과 보존 + 오류 보고 (`output-validation.md` (작성 예정))
 
 ### 3.2 OpenAI (Premium)
 
@@ -93,7 +93,7 @@ if provider == "local"
 - adapter 책임:
   - `response_format`에 `LlmWikiResult` JSON Schema 주입
   - Premium fact-check: tool use로 `web_search` 등 호출 (OpenAI tool support 활용)
-  - 되묻기: 1차 응답 분석 → confidence 임계값 미달 시 별도 round-trip ([output-validation.md](output-validation.md))
+  - 되묻기: 1차 응답 분석 → confidence 임계값 미달 시 별도 round-trip (`output-validation.md` (작성 예정))
 
 ### 3.3 Gemini (Premium)
 
@@ -109,7 +109,7 @@ if provider == "local"
 
 3 provider 모두 동일 `LlmWikiResult` 통과. provider별 raw → SSOT 정규화는 adapter 내부. 검증:
 - 동일 입력 → 3 provider 결과의 `concepts[].title` 동등 입증
-- 매트릭스 테스트는 [`evals.md`](evals.md)
+- 매트릭스 테스트는 `evals.md` (작성 예정)
 
 ---
 
@@ -160,7 +160,7 @@ Backend import-pipeline
   → return LlmWikiResult to Backend
 ```
 
-자세한 단계별 처리: [`output-validation.md`](output-validation.md) (작성 예정), [`../20-backend/import-pipeline.md`](../20-backend/) (작성 예정).
+자세한 단계별 처리: `output-validation.md` (작성 예정), [`../20-backend/`](../20-backend/) (해당 폴더 README에서 import-pipeline 작성 예정).
 
 ---
 
