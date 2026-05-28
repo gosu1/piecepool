@@ -221,15 +221,29 @@ LlmEvidence      → Evidence
 
 ---
 
-## 7. Provider 무관성 보장
+## 7. Provider 무관성 보장 (3-provider)
 
-본 schema는 어떤 LLM provider를 사용하더라도 일정해야 한다.
+본 schema는 어떤 LLM provider를 사용하더라도 일정해야 한다. PiecePool은 **3개 provider**를 지원한다.
 
-- OpenAI: Responses API + `response_format: { type: "json_schema", ... }` 사용
-- Local (Ollama): `format: "json"` + schema는 system prompt에 명시 + adapter가 검증
-- 추가 provider: 동일 JSON Schema 통과 강제
+| Provider | 플랜 | 호출 방식 |
+|---|---|---|
+| **Local (Ollama)** | Free (기본) | `format: "json"` + schema는 system prompt에 명시 + adapter가 검증 |
+| **OpenAI (GPT)** | Premium 선택지 | Responses API + `response_format: { type: "json_schema", ... }` |
+| **Gemini (Google)** | Premium 선택지 | `responseSchema` 파라미터 + adapter가 검증 |
 
-adapter 인터페이스 정의: `docs/30-llm/provider-config.md` (작성 예정).
+추가 provider는 동일 JSON Schema 통과를 강제한다.
+
+**플랜·기능 차이**: [`../00-overview/pricing-model.md`](../00-overview/pricing-model.md)
+**Adapter 인터페이스**: `../30-llm/provider-config.md` (작성 예정)
+
+### 7.1 Premium 전용 흐름 (schema 무변경)
+
+Premium의 **되묻기**/**fact-check** 기능은 본 schema를 확장하지 않는다.
+
+- 되묻기는 Backend의 import-pipeline이 별도 round-trip으로 사용자에게 노출
+- Fact-check 결과는 `evidence[].reason`에 출처 URL 누적 ([entities.md#evidence](entities.md#evidence))
+
+자세한 흐름: [`../00-overview/pricing-model.md#3.4-fact-check-흐름`](../00-overview/pricing-model.md)
 
 ---
 
@@ -238,3 +252,4 @@ adapter 인터페이스 정의: `docs/30-llm/provider-config.md` (작성 예정)
 - 본 문서는 `docs/archive/PRD-v1.md` §10 (line 632-678)을 분리·확장한 SSOT다.
 - JSON Schema(§4) 전체 명세는 본 리팩토링에서 신규 작성했다.
 - Provider 무관성 보장(§7)은 본 리팩토링의 하이브리드 결정에 따라 신규 추가했다.
+- **2026-05-28 확장**: 2-provider(OpenAI+Local)에서 **3-provider(Local+OpenAI+Gemini)** 로 확장. Premium 흐름(되묻기, fact-check)은 schema 무변경 원칙 유지. ([pricing-model.md](../00-overview/pricing-model.md) 신규 추가에 따른 SSOT 정렬)

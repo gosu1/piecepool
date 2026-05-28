@@ -17,8 +17,11 @@
 # 20-backend: Backend
 /docs/20-backend/                @gosu1 @ChangSik88 @O6west
 
-# 30-llm: LLM
+# 30-llm: LLM (adapter/validation/evals)
 /docs/30-llm/                    @gosu1
+
+# prompt-templates: Backend 주도 + LLM 공동 review (도메인 프롬프트 설계)
+/docs/30-llm/prompt-templates.md @gosu1 @ChangSik88 @O6west
 
 # 40-frontend: Frontend
 /docs/40-frontend/               @gosu1 @dbstpgns789-eng
