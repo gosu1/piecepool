@@ -1,0 +1,71 @@
+name: Contracts Change (SSOT)
+description: docs/10-contracts/ 변경 제안 (엔티티/RelationType/layout/frontmatter/LLM schema)
+title: "[Contracts] "
+labels: ["contracts-change"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ⚠️ **SSOT 변경**. 본 이슈와 후속 PR은 Backend/Frontend/LLM/Design 4개 역할 owner 모두 review 필요.
+        근거: `README.md` 협업 규칙 §3, `PRD_REFACTOR_PLAN.md` §5.
+
+  - type: dropdown
+    id: target
+    attributes:
+      label: 대상 파일
+      options:
+        - workspace-layout.md
+        - entities.md
+        - relation-types.md
+        - markdown-frontmatter.md
+        - wikilink-embed.md
+        - llm-output-schema.md
+        - 복수 파일
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: 변경 동기
+      description: 왜 변경이 필요한가
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 변경 제안
+      description: 구체적 수정안 (필드 추가/이름 변경/타입 변경 등)
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: 의존 문서 영향
+      description: 변경에 따라 동기화 PR이 필요한 문서들
+      placeholder: |
+        - [ ] docs/20-backend/...
+        - [ ] docs/30-llm/...
+        - [ ] docs/40-frontend/...
+        - [ ] docs/50-design/...
+    validations:
+      required: true
+
+  - type: textarea
+    id: migration
+    attributes:
+      label: 마이그레이션 / 호환성
+      description: 기존 저장 데이터 영향, 마이그레이션 필요 여부
+      placeholder: "예: WikiPage frontmatter에 새 필드 추가 — 기존 파일은 빈 값으로 backfill"
+
+  - type: checkboxes
+    id: reviewers
+    attributes:
+      label: Review 필요 역할 (PR 머지 전 모두 승인)
+      options:
+        - label: Backend (@gosu1, @ChangSik88, @O6west)
+        - label: Frontend (@gosu1, @dbstpgns789-eng)
+        - label: LLM (@gosu1)
+        - label: Design (@Black-Tiger-h)

@@ -1,0 +1,58 @@
+name: Design Task
+description: Figma 기반 UI/UX 작업
+title: "[Design] "
+labels: ["role:design"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Design 작업 이슈. 시작 전 `docs/00-overview/` (vision/scope), `docs/50-design/` 필독.
+        규약: TS 타입/JSON Schema 본문 노출 금지. 필요 시 `docs/10-contracts/` link만.
+
+  - type: dropdown
+    id: phase
+    attributes:
+      label: Phase
+      options:
+        - Phase 3 (Overview)
+        - Phase 4 (Roles)
+        - Phase 5 (QA & Roadmap)
+        - 범위 외
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: 영역
+      options:
+        - screen-inventory
+        - user-flows
+        - component-states
+        - design-tokens
+        - handoff-checklist
+        - Figma 파일 자체
+        - 기타
+    validations:
+      required: true
+
+  - type: textarea
+    id: goal
+    attributes:
+      label: 목표
+      placeholder: "예: Graph View 카드 (screen-inventory.md) + Figma 파일 URL 연결"
+    validations:
+      required: true
+
+  - type: textarea
+    id: frontend-handoff
+    attributes:
+      label: Frontend 인수인계
+      description: design-tokens 변경 등 Frontend가 반영해야 하는 사항
+      placeholder: "예: RelationType part_of 색상 변경 → Tailwind config 갱신 필요"
+
+  - type: textarea
+    id: figma-url
+    attributes:
+      label: Figma 파일 URL
+      placeholder: "https://www.figma.com/file/..."

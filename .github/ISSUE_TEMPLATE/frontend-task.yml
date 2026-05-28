@@ -1,0 +1,70 @@
+name: Frontend Task
+description: React/TypeScript/Tailwind 프론트엔드 작업
+title: "[Frontend] "
+labels: ["role:frontend"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Frontend 작업 이슈. 시작 전 `docs/00-overview/`, `docs/10-contracts/`, `docs/40-frontend/`, `docs/50-design/` 필독.
+
+  - type: dropdown
+    id: phase
+    attributes:
+      label: Phase
+      options:
+        - Phase 3 (Overview)
+        - Phase 4 (Roles)
+        - Phase 5 (QA & Roadmap)
+        - 범위 외
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: 영역
+      options:
+        - architecture
+        - screens/workspace
+        - screens/import
+        - screens/markdown-editor
+        - screens/wiki-view
+        - screens/graph-view
+        - components/embed-renderer
+        - components/wikilink
+        - components/graph-canvas
+        - 기타
+    validations:
+      required: true
+
+  - type: textarea
+    id: goal
+    attributes:
+      label: 목표
+      description: 검증 가능한 성공 기준
+    validations:
+      required: true
+
+  - type: textarea
+    id: design-handoff
+    attributes:
+      label: Design 의존
+      description: Figma 파일 / design-tokens / screen-inventory 의존 여부
+      placeholder: "예: docs/50-design/screen-inventory.md#graph-view 카드 필요"
+
+  - type: checkboxes
+    id: contracts-impact
+    attributes:
+      label: 계약 영향
+      options:
+        - label: 예 — `contracts-change` 라벨 부착 + 4역할 review 필요
+        - label: 아니오
+
+  - type: textarea
+    id: validation
+    attributes:
+      label: 검증 방법
+      placeholder: "예: npm test, 수동 클릭 시나리오"
+    validations:
+      required: true

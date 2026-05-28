@@ -1,0 +1,44 @@
+# PiecePool CODEOWNERS
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-security/customizing-your-repository/about-code-owners
+#
+# 규칙: 폴더별 owner. 후행 패턴이 우선.
+# - 10-contracts는 SSOT라 4개 역할 owner 모두 review 필요.
+# - 변경 절차: README.md "협업 규칙" + PRD_REFACTOR_PLAN.md §5 참조.
+
+# 기본 (모든 파일) — PM/Tech Lead
+*                                @gosu1
+
+# 00-overview: 비전·범위 (PM)
+/docs/00-overview/               @gosu1
+
+# 10-contracts: 🔒 SSOT — Backend/Frontend/LLM/Design 4개 역할 owner 합의
+/docs/10-contracts/              @gosu1 @ChangSik88 @O6west @dbstpgns789-eng @Black-Tiger-h
+
+# 20-backend: Backend
+/docs/20-backend/                @gosu1 @ChangSik88 @O6west
+
+# 30-llm: LLM
+/docs/30-llm/                    @gosu1
+
+# 40-frontend: Frontend
+/docs/40-frontend/               @gosu1 @dbstpgns789-eng
+
+# 50-design: Figma 디자이너
+/docs/50-design/                 @Black-Tiger-h
+
+# 60-qa: QA / PM
+/docs/60-qa/                     @gosu1
+
+# 70-roadmap: PM
+/docs/70-roadmap/                @gosu1
+
+# archive: 읽기 전용 — PM만 수정
+/docs/archive/                   @gosu1
+
+# .github/: PM
+/.github/                        @gosu1
+
+# 루트 메타 문서
+/README.md                       @gosu1
+/PRD_REFACTOR_PLAN.md            @gosu1
+/DEVELOPER_HANDOFF.md            @gosu1

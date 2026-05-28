@@ -1,0 +1,55 @@
+name: Backend Task
+description: Tauri/Rust 백엔드 작업
+title: "[Backend] "
+labels: ["role:backend"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Backend 작업 이슈. 시작 전 `docs/00-overview/`, `docs/10-contracts/`, `docs/20-backend/` 필독.
+
+  - type: dropdown
+    id: phase
+    attributes:
+      label: Phase
+      options:
+        - Phase 3 (Overview)
+        - Phase 4 (Roles)
+        - Phase 5 (QA & Roadmap)
+        - 범위 외
+    validations:
+      required: true
+
+  - type: textarea
+    id: goal
+    attributes:
+      label: 목표
+      description: 검증 가능한 성공 기준
+      placeholder: "예: ImportJobStatus 전이 다이어그램 docs/20-backend/import-job-states.md 작성"
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: 작업 범위
+      description: 영향 받는 파일/모듈
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: contracts-impact
+    attributes:
+      label: 계약 영향
+      description: 본 작업이 `docs/10-contracts/` 수정을 동반하는가?
+      options:
+        - label: 예 — `contracts-change` 라벨 부착 + 4역할 review 필요
+        - label: 아니오
+
+  - type: textarea
+    id: validation
+    attributes:
+      label: 검증 방법
+      placeholder: "예: cargo test, 수동 확인 절차"
+    validations:
+      required: true
