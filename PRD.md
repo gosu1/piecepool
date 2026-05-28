@@ -12,7 +12,7 @@ PiecePool의 핵심 컨셉은 다음 문장으로 정의한다.
 
 PiecePool은 대학생을 위한 로컬 우선 AI 지식 Workspace다.
 
-사용자는 강의 PDF, 직접 작성한 필기, 붙여넣은 수업 정리 텍스트, 질문 기록 같은 학습 자료를 하나의 로컬 Workspace에 넣는다. PiecePool은 사용자가 넣은 원문을 `archive/`에 보존하고, 실제 LLM을 호출해 개념 중심 Wiki 문서와 타입이 있는 지식 그래프로 재구성한다.
+사용자는 강의 PDF, 직접 작성한 필기, 붙여넣은 수업 정리 텍스트, 질문 기록 같은 학습 자료를 하나의 로컬 Workspace에 넣는다. PiecePool은 사용자가 넣은 원문을 Workspace 안의 지식 영역별 `<space>/archive/`에 보존하고, 실제 LLM을 호출해 개념 중심 Wiki 문서와 타입이 있는 지식 그래프로 재구성한다.
 
 제품 경험은 일반 웹 SaaS 대시보드보다 Obsidian 같은 로컬 Markdown 지식 작업 공간에 가깝다. 차이는 PiecePool이 자료를 단순 저장하지 않고 LLM-Wiki와 Graph View로 계속 재구성한다는 점이다.
 
@@ -44,12 +44,12 @@ MVP 필수 목표:
 
 - 단일 로컬 Workspace 제공
 - Markdown 편집기 제공
-- 사용자가 입력한 원문을 실제 `.md` 파일로 `archive/`에 저장
+- 사용자가 입력한 원문을 실제 `.md` 파일로 지식 영역별 `<space>/archive/`에 저장
 - PDF에서 텍스트를 실제 추출하고 archive 노트로 저장
 - 실제 LLM 호출로 Concept, WikiPage, Relation, Evidence 생성
-- LLM이 정리한 WikiPage를 실제 `.md` 파일로 `wiki/`에 저장
-- Relation 메타데이터를 로컬 파일로 저장
-- Graph View를 로컬 wiki/relation 데이터에서 렌더링
+- LLM이 정리한 WikiPage를 실제 `.md` 파일로 지식 영역별 `<space>/wiki/`에 저장
+- Relation 메타데이터를 지식 영역별 `<space>/relations/relations.json`에 저장
+- Graph View를 로컬 `<space>/wiki/`와 `<space>/relations/` 데이터에서 렌더링
 - Graph node 클릭 시 연결된 Markdown 문서 열기
 - Graph edge 클릭 시 관계 타입, 설명, 근거 표시
 - 첫 실행용 Seed 데이터 포함
@@ -91,32 +91,49 @@ MVP 필수 목표:
 
 ## 7. 로컬 Workspace 구조
 
-Workspace는 하나의 로컬 폴더다. 사람이 읽을 수 있는 Markdown 파일과 앱이 읽는 메타데이터 파일을 함께 가진다.
+Workspace는 하나의 로컬 폴더다. Workspace 아래에는 `deeplearning/` 같은 지식 영역 폴더가 있고, 각 지식 영역 폴더 안에 사람이 읽을 수 있는 Markdown 파일과 앱이 읽는 메타데이터 파일을 함께 둔다.
+
+Workspace는 여전히 하나다. `deeplearning/`, `operating-systems/`, `data-structures/` 같은 하위 폴더는 Workspace 분리가 아니라 지식 영역을 나누는 저장 단위다.
 
 권장 구조:
 
 ```text
 PiecePool Workspace/
-  archive/
-    2026-05-28-transformer-lecture-summary.md
-    2026-05-28-attention-paper-notes.md
-  wiki/
-    transformer.md
-    self-attention.md
-    embedding.md
-  relations/
-    relations.json
-  sources/
-    original-files/
-      transformer-week3.pdf
   config/
     workspace.json
-    subjects.json
-  seed/
-    demo-data.json
+    spaces.json
+  deeplearning/
+    archive/
+      2026-05-28-transformer-lecture-summary.md
+      2026-05-28-attention-paper-notes.md
+    wiki/
+      transformer.md
+      self-attention.md
+      embedding.md
+    relations/
+      relations.json
+    sources/
+      original-files/
+        transformer-week3.pdf
+    config/
+      subjects.json
+    seed/
+      demo-data.json
 ```
 
-### 7.1 `archive/`
+### 7.1 지식 영역 폴더
+
+지식 영역 폴더는 `Workspace/deeplearning/`처럼 Workspace 바로 아래에 위치한다.
+
+예:
+
+- `deeplearning/`
+- `operating-systems/`
+- `data-structures/`
+
+지식 영역 폴더는 독립 Workspace가 아니다. 앱은 하나의 Workspace를 열고, 그 안의 여러 지식 영역 폴더를 읽는다.
+
+### 7.2 `<space>/archive/`
 
 사용자가 넣은 원문 또는 추출된 원문을 저장한다.
 
@@ -127,9 +144,9 @@ PiecePool Workspace/
 - 수업 정리 텍스트
 - 사용자가 직접 작성한 노트
 
-`archive/`는 사용자가 제공한 원본 맥락의 보존 공간이다. LLM이 만든 요약이나 정리 결과가 archive 노트를 덮어쓰면 안 된다.
+`<space>/archive/`는 사용자가 제공한 원본 맥락의 보존 공간이다. LLM이 만든 요약이나 정리 결과가 archive 노트를 덮어쓰면 안 된다.
 
-### 7.2 `wiki/`
+### 7.3 `<space>/wiki/`
 
 LLM이 개념 중심으로 정리한 WikiPage를 저장한다.
 
@@ -163,13 +180,13 @@ Transformer에서 각 token이 전체 sequence의 다른 token을 참고해 문�
 문장 "The animal didn't cross the street because it was tired"에서 `it`이 무엇을 가리키는지 판단할 때 주변 token들과의 관계를 계산한다.
 ```
 
-### 7.3 `relations/`
+### 7.4 `<space>/relations/`
 
 Concept 간 relation과 근거 메타데이터를 저장한다.
 
-MVP에서는 `relations.json` 하나로 시작한다. 추후 데이터가 커지면 과목별 또는 wiki별 메타데이터로 분리할 수 있다.
+MVP에서는 각 지식 영역 폴더마다 `relations.json` 하나로 시작한다. 예: `deeplearning/relations/relations.json`. 추후 데이터가 커지면 과목별 또는 wiki별 메타데이터로 분리할 수 있다.
 
-### 7.4 `sources/`
+### 7.5 `sources/`와 `<space>/sources/`
 
 원본 파일을 보존한다.
 
@@ -178,13 +195,17 @@ MVP에서는 `relations.json` 하나로 시작한다. 추후 데이터가 커지
 - 업로드된 PDF 원본
 - 추후 이미지 원본
 
-PDF는 `sources/original-files/`에 저장하고, 추출 텍스트는 `archive/`에 Markdown으로 저장한다.
+MVP에서는 원본 파일을 해당 지식 영역의 `<space>/sources/original-files/`에 저장한다. 예: `deeplearning/sources/original-files/transformer-week3.pdf`. 추출 텍스트는 같은 지식 영역의 `<space>/archive/`에 Markdown으로 저장한다.
 
-### 7.5 `config/`
+### 7.6 `config/`와 `<space>/config/`
 
 Workspace 설정과 Subject 메타데이터를 저장한다.
 
-Subject는 Workspace가 아니다. 하나의 Workspace 안에서 과목을 구분하기 위한 메타데이터다.
+Workspace root의 `config/workspace.json`은 전체 Workspace 설정을 저장한다. `config/spaces.json`은 `deeplearning/` 같은 지식 영역 폴더 목록과 표시 정보를 저장한다.
+
+각 지식 영역의 `<space>/config/subjects.json`은 해당 지식 영역 안의 과목 메타데이터를 저장한다.
+
+Subject는 Workspace가 아니다. 하나의 Workspace 안의 지식 영역과 과목을 구분하기 위한 메타데이터다.
 
 ## 8. 핵심 엔티티
 
@@ -202,13 +223,31 @@ type Workspace = {
 };
 ```
 
-### 8.2 Subject
+### 8.2 KnowledgeSpace
+
+Workspace 안의 지식 영역 폴더다.
+
+예: `deeplearning`, `operating-systems`, `data-structures`
+
+```ts
+type KnowledgeSpace = {
+  id: string;
+  name: string;
+  slug: string;
+  rootPath: string;
+  createdAt: string;
+  updatedAt: string;
+};
+```
+
+### 8.3 Subject
 
 Workspace 안의 과목 메타데이터다.
 
 ```ts
 type Subject = {
   id: string;
+  spaceId: string;
   name: string;
   semester?: string;
   color?: string;
@@ -223,7 +262,7 @@ type Subject = {
 - 운영체제
 - 자료구조
 
-### 8.3 Source
+### 8.4 Source
 
 사용자가 추가한 자료 단위다.
 
@@ -232,6 +271,7 @@ type SourceType = "text" | "pdf" | "summary_text" | "image";
 
 type Source = {
   id: string;
+  spaceId: string;
   type: SourceType;
   title: string;
   subjectIds: string[];
@@ -242,13 +282,14 @@ type Source = {
 };
 ```
 
-### 8.4 ArchiveNote
+### 8.5 ArchiveNote
 
-`archive/`에 저장된 원문 Markdown 문서다.
+`<space>/archive/`에 저장된 원문 Markdown 문서다.
 
 ```ts
 type ArchiveNote = {
   id: string;
+  spaceId: string;
   sourceId: string;
   path: string;
   title: string;
@@ -259,13 +300,14 @@ type ArchiveNote = {
 };
 ```
 
-### 8.5 Concept
+### 8.6 Concept
 
 Source에서 추출된 핵심 개념이다.
 
 ```ts
 type Concept = {
   id: string;
+  spaceId: string;
   title: string;
   normalizedTitle: string;
   subjectIds: string[];
@@ -276,13 +318,14 @@ type Concept = {
 };
 ```
 
-### 8.6 WikiPage
+### 8.7 WikiPage
 
 Concept 하나에 대응되는 Markdown Wiki 문서다.
 
 ```ts
 type WikiPage = {
   id: string;
+  spaceId: string;
   conceptId: string;
   title: string;
   path: string;
@@ -305,7 +348,7 @@ WikiPage 구성:
 - 헷갈리는 개념
 - 관련 질문
 
-### 8.7 Relation
+### 8.8 Relation
 
 개념, Source, WikiPage 사이의 의미 있는 연결이다.
 
@@ -326,13 +369,14 @@ type RelationType =
 
 type Relation = {
   id: string;
+  spaceId: string;
   sourceNodeId: string;
   targetNodeId: string;
   relationType: RelationType;
   strength: number;
   confidence: number;
   explanation: string;
-  근거: Evidence[];
+  evidence: Evidence[];
   createdAt: string;
   updatedAt: string;
 };
@@ -340,7 +384,7 @@ type Relation = {
 
 `related_to`는 남발하지 않는다. 가능한 경우 `part_of`, `used_in`, `confused_with`, `prerequisite`처럼 의미가 분명한 관계 타입을 사용한다.
 
-### 8.8 Evidence
+### 8.9 Evidence
 
 Relation이 왜 존재하는지 설명하는 근거다.
 
@@ -356,13 +400,14 @@ type Evidence = {
 
 Graph View에서 edge를 클릭하면 근거를 볼 수 있어야 한다.
 
-### 8.9 Question
+### 8.10 Question
 
 WikiPage와 연결되는 관련 질문이다.
 
 ```ts
 type Question = {
   id: string;
+  spaceId: string;
   text: string;
   conceptIds: string[];
   sourceIds: string[];
@@ -372,7 +417,7 @@ type Question = {
 
 MVP에서는 별도 질문 화면을 만들지 않고 WikiPage 안의 섹션으로 표현한다.
 
-### 8.10 ImportJob
+### 8.11 ImportJob
 
 자료 가져오기와 LLM 처리 상태를 추적한다.
 
@@ -388,6 +433,7 @@ type ImportJobStatus =
 
 type ImportJob = {
   id: string;
+  spaceId?: string;
   sourceId?: string;
   status: ImportJobStatus;
   errorMessage?: string;
@@ -404,11 +450,11 @@ type ImportJob = {
 사용자가 Subject 선택
 -> 텍스트 붙여넣기
 -> Source 생성
--> archive/*.md 저장
+-> <space>/archive/*.md 저장
 -> LLM 호출
 -> Concept, WikiPage, Relation, Evidence 생성
--> wiki/*.md 저장
--> relations/relations.json 저장
+-> <space>/wiki/*.md 저장
+-> <space>/relations/relations.json 저장
 -> Wiki/Graph 갱신
 ```
 
@@ -423,11 +469,11 @@ type ImportJob = {
 ```text
 사용자가 Subject 선택
 -> PDF 선택
--> 원본 PDF를 sources/original-files/에 저장
+-> 원본 PDF를 <space>/sources/original-files/에 저장
 -> PDF 텍스트 추출 실행
--> 추출 텍스트를 archive/*.md 저장
+-> 추출 텍스트를 <space>/archive/*.md 저장
 -> LLM 호출
--> wiki/*.md 및 relations/relations.json 저장
+-> <space>/wiki/*.md 및 <space>/relations/relations.json 저장
 -> Wiki/Graph 갱신
 ```
 
@@ -452,9 +498,9 @@ MVP+1 OCR 흐름:
 ```text
 이미지 선택
 -> OCR text extraction
--> archive/*.md 저장
+-> <space>/archive/*.md 저장
 -> LLM 호출
--> wiki/relation 저장
+-> <space>/wiki/*.md 및 <space>/relations/relations.json 저장
 -> Wiki/Graph 갱신
 ```
 
@@ -492,7 +538,7 @@ type LlmWikiResult = {
     strength: number;
     confidence: number;
     explanation: string;
-    근거: Evidence[];
+    evidence: Evidence[];
   }>;
 };
 ```
@@ -704,7 +750,7 @@ Graph는 실제 클릭/검색/필터가 동작해야 한다. 정적 데모 이�
 
 필수 요소:
 
-- wiki/relation 메타데이터 기반 graph 렌더링
+- `<space>/wiki/`와 `<space>/relations/` 메타데이터 기반 graph 렌더링
 - Subject 필터
 - 검색
 - Node 클릭
@@ -786,14 +832,14 @@ Seed 데이터는 하드코딩된 UI 상태만으로 만들지 않는다. 실제
 ### 16.1 Workspace
 
 - 앱이 하나의 로컬 Workspace를 생성하거나 열 수 있다.
-- `archive/`, `wiki/`, `relations/`, `config/`를 읽을 수 있다.
+- `<space>/archive/`, `<space>/wiki/`, `<space>/relations/`, `<space>/config/`를 읽을 수 있다.
 - 앱 재실행 후 이전 상태가 복원된다.
 
 ### 16.2 Markdown 파일
 
-- 텍스트 입력 시 `archive/*.md` 파일이 생성된다.
-- PDF 가져오기 시 추출 텍스트가 `archive/*.md`로 저장된다.
-- LLM 결과가 `wiki/*.md` 파일을 생성하거나 업데이트한다.
+- 텍스트 입력 시 `<space>/archive/*.md` 파일이 생성된다.
+- PDF 가져오기 시 추출 텍스트가 `<space>/archive/*.md`로 저장된다.
+- LLM 결과가 `<space>/wiki/*.md` 파일을 생성하거나 업데이트한다.
 - 편집기에서 수정한 wiki page가 실제 파일에 저장된다.
 - 앱 재실행 후 수정 내용이 유지된다.
 
@@ -808,13 +854,13 @@ Seed 데이터는 하드코딩된 UI 상태만으로 만들지 않는다. 실제
 
 - PDF 파일을 선택할 수 있다.
 - PDF에서 텍스트가 추출된다.
-- 추출 텍스트가 archive Markdown으로 저장된다.
+- 추출 텍스트가 <space>/archive Markdown으로 저장된다.
 - 파싱 실패 시 복구 흐름이 제공된다.
 
 ### 16.5 Graph View
 
-- Graph가 local wiki/relation 메타데이터에서 렌더링된다.
-- Node 클릭 시 연결된 wiki/archive 문서가 열린다.
+- Graph가 local <space>/wiki와 <space>/relations 메타데이터에서 렌더링된다.
+- Node 클릭 시 연결된 <space>/wiki 또는 <space>/archive 문서가 열린다.
 - Edge 클릭 시 relation 상세 패널이 열린다.
 - 관계 타입, 강도, 신뢰도, 설명, 근거가 표시된다.
 - Subject 필터가 node/edge 범위를 바꾼다.

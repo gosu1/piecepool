@@ -7,7 +7,7 @@ PiecePool MVP 개발을 시작하기 위한 전달 문서다. 개발자는 아�
 읽는 순서:
 
 1. `PRD.md`
-2. `docs/superpowers/plans/2026-05-28-piecepool-mvp.md`
+2. `docs/superpowers/plans/tasks`
 3. 이 전달 문서
 
 ## 제품 핵심
@@ -18,14 +18,15 @@ PiecePool은 대학생을 위한 로컬 우선 AI 지식 Workspace다.
 
 > 시간이 지날수록 Wiki/Graph가 개인 전공 지식 지도처럼 성장한다.
 
-사용자가 넣은 원문은 `archive/`에 보존한다. LLM이 정리한 개념 중심 문서는 `wiki/`에 저장한다. Graph View는 `wiki/`와 `relations/relations.json`을 기반으로 렌더링한다.
+사용자가 넣은 원문은 Workspace 안의 지식 영역별 `<space>/archive/`에 보존한다. LLM이 정리한 개념 중심 문서는 `<space>/wiki/`에 저장한다. Graph View는 `<space>/wiki/`와 `<space>/relations/relations.json`을 기반으로 렌더링한다.
 
 ## 절대 바꾸지 말아야 할 핵심 결정
 
 - Workspace는 단일 로컬 Workspace다.
-- 과목, 학기, 시험, 프로젝트는 Workspace 분리 기준이 아니라 메타데이터/필터다.
-- 사용자가 입력한 원문은 `archive/`에 실제 `.md` 파일로 저장한다.
-- LLM 정리 결과는 `wiki/`에 실제 `.md` 파일로 저장한다.
+- `deeplearning/` 같은 하위 폴더는 Workspace가 아니라 지식 영역 폴더다.
+- 과목, 학기, 시험, 프로젝트는 Workspace 분리 기준이 아니라 지식 영역/메타데이터/필터다.
+- 사용자가 입력한 원문은 `<space>/archive/`에 실제 `.md` 파일로 저장한다.
+- LLM 정리 결과는 `<space>/wiki/`에 실제 `.md` 파일로 저장한다.
 - Graph View는 MVP 핵심 기능이다.
 - Relation은 타입이 명확해야 한다.
 - Edge 클릭 시 관계 타입, 설명, 근거가 보여야 한다.
@@ -43,9 +44,9 @@ PiecePool은 대학생을 위한 로컬 우선 AI 지식 Workspace다.
 - PDF 가져오기 + 텍스트 추출
 - LLM 구조화 출력
 - Concept/WikiPage/Relation/Evidence 생성
-- `archive/*.md` 저장
-- `wiki/*.md` 저장
-- `relations/relations.json` 저장
+- `<space>/archive/*.md` 저장
+- `<space>/wiki/*.md` 저장
+- `<space>/relations/relations.json` 저장
 - Wiki View
 - Graph View
 - Seed 데이터
@@ -65,7 +66,7 @@ PiecePool은 대학생을 위한 로컬 우선 AI 지식 Workspace다.
 
 구현 계획 파일:
 
-`docs/superpowers/plans/2026-05-28-piecepool-mvp.md`
+`docs/superpowers/plans/tasks`
 
 계획은 작업 단위로 나뉘어 있다. 각 작업은 테스트 작성, 실패 확인, 구현, 통과 확인, 커밋 순서로 진행한다.
 
@@ -95,17 +96,20 @@ export PIECEPOOL_LLM_MODEL="gpt-5-mini"
 
 ```text
 PiecePool Workspace/
-  archive/
-  wiki/
-  relations/
-    relations.json
-  sources/
-    original-files/
   config/
     workspace.json
-    subjects.json
-  seed/
-    demo-data.json
+    spaces.json
+  deeplearning/
+    archive/
+    wiki/
+    relations/
+      relations.json
+    sources/
+      original-files/
+    config/
+      subjects.json
+    seed/
+      demo-data.json
 ```
 
 ## 완료 기준
@@ -113,9 +117,9 @@ PiecePool Workspace/
 완료 조건:
 
 - 앱이 하나의 로컬 Workspace를 열거나 생성한다.
-- 텍스트 입력이 `archive/*.md`를 생성한다.
-- PDF 가져오기가 텍스트를 추출하고 `archive/*.md`를 생성한다.
-- 실제 LLM 호출 결과가 `wiki/*.md`와 `relations/relations.json`을 생성한다.
+- 텍스트 입력이 `<space>/archive/*.md`를 생성한다.
+- PDF 가져오기가 텍스트를 추출하고 `<space>/archive/*.md`를 생성한다.
+- 실제 LLM 호출 결과가 `<space>/wiki/*.md`와 `<space>/relations/relations.json`을 생성한다.
 - Markdown 편집기에서 wiki 파일을 수정하고 저장할 수 있다.
 - 앱 재실행 후 저장 내용이 복원된다.
 - Graph View가 relation 메타데이터에서 렌더링된다.
@@ -137,6 +141,6 @@ PiecePool Workspace/
 ## 관련 문서
 
 - `PRD.md`
-- `docs/superpowers/plans/2026-05-28-piecepool-mvp.md`
+- `docs/superpowers/plans/tasks`
 - OpenAI Responses API: https://platform.openai.com/docs/api-reference/responses
 - OpenAI Structured Outputs: https://platform.openai.com/docs/guides/structured-outputs

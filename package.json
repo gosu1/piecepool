@@ -1,0 +1,18 @@
+{
+  "name": "piecepool",
+  "private": true,
+  "packageManager": "npm@11.14.1",
+  "scripts": {
+    "install:app": "npm install --prefix app",
+    "dev": "npm run dev --prefix app",
+    "build": "npm run build --prefix app",
+    "test": "npm test --prefix app",
+    "lint": "npm run lint --prefix app",
+    "desktop:dev": "npm run desktop:dev --prefix app",
+    "desktop:build": "npm run desktop:build --prefix app"
+  },
+  "engines": {
+    "node": ">=20.19.0",
+    "npm": ">=10"
+  }
+}
