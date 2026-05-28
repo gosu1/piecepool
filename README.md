@@ -12,7 +12,7 @@
 
 - 진행 계획: [PRD_REFACTOR_PLAN.md](PRD_REFACTOR_PLAN.md)
 - 대상 구조: `docs/{00-overview, 10-contracts, 20-backend, 30-llm, 40-frontend, 50-design, 60-qa, 70-roadmap}/`
-- 리팩토링 완료 전 진입점: [PRD.md](PRD.md), [DEVELOPER_HANDOFF.md](DEVELOPER_HANDOFF.md)
+- 리팩토링 완료 전 진입점: [docs/archive/PRD-v1.md](docs/archive/PRD-v1.md), [DEVELOPER_HANDOFF.md](DEVELOPER_HANDOFF.md)
 
 ---
 
@@ -131,7 +131,7 @@ Race Condition Wiki Page
 
 ## 기존 문서 (리팩토링 완료 시 `docs/archive/`로 이동 예정)
 
-- [PRD.md](PRD.md) — 제품 요구사항 (v1)
+- [docs/archive/PRD-v1.md](docs/archive/PRD-v1.md) — 제품 요구사항 (v1, archive)
 - [DEVELOPER_HANDOFF.md](DEVELOPER_HANDOFF.md) — 개발자 진입 가이드
 - `docs/superpowers/plans/tasks` — 작업 단위 구현 계획
 

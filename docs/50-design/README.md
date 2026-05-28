@@ -25,7 +25,7 @@ Design / Figma (@Black-Tiger-h, git author name: `hyeon_nu`)
 ## 의존
 
 - [`../00-overview/vision.md`](../00-overview/) — 비전·사용자 (필독)
-- [`../40-frontend/screens/`](../40-frontend/screens/) — 화면별 기능 요구사항
+- [`../40-frontend/README.md`](../40-frontend/README.md) — 화면별 기능 요구사항 (screens/ 하위 문서 list)
 
 ## 작성 일정
 

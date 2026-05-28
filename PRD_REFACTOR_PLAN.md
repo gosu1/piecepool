@@ -340,7 +340,7 @@ interface LlmProvider {
 | 계약 표류 | §5 SSOT 원칙 + `contracts-change` PR 라벨 |
 | Figma↔코드 불일치 | design-tokens.md를 양쪽 SSOT, 후속에 자동 생성 검토 |
 | 로컬 LLM 품질 차이 | 30-llm/evals.md에 골든 케이스 필수, schema 엄격 |
-| 외부에서 PRD.md 직접 link 깨짐 | `docs/archive/PRD-v1.md` 상단에 "이 문서는 archive. 최신은 [docs/README.md](../README.md)" 안내 |
+| 외부에서 PRD.md 직접 link 깨짐 | `docs/archive/PRD-v1.md` 상단에 "이 문서는 archive. 최신은 루트 `README.md` 참조" 안내 |
 | 한국어 문서 + 영문 코드 충돌 | 식별자/타입명/enum 값은 영문 유지, 본문 설명만 한국어. 표 머리글도 한국어 |
 | `mvp.md` 빈 파일 의도 불명 | archive로 보존 (삭제 X). 의도 확인 후 후속 처리 |
 
