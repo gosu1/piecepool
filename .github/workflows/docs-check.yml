@@ -1,0 +1,105 @@
+name: Docs Check
+
+on:
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'README.md'
+      - 'PRD_REFACTOR_PLAN.md'
+      - '.github/workflows/docs-check.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'README.md'
+      - 'PRD_REFACTOR_PLAN.md'
+      - '.github/workflows/docs-check.yml'
+
+jobs:
+  link-check:
+    name: Internal link check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lychee (offline, internal links only)
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: >-
+            --no-progress
+            --offline
+            'docs/**/*.md'
+            'README.md'
+            'PRD_REFACTOR_PLAN.md'
+          fail: true
+
+  ssot-check:
+    name: SSOT guard (10-contracts is single source)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: No TypeScript type definitions outside 10-contracts
+        run: |
+          set +e
+          matches=$(find docs -name "*.md" \
+            -not -path "docs/10-contracts/*" \
+            -not -path "docs/archive/*" \
+            -print0 | xargs -0 grep -nHE "^type [A-Z][A-Za-z]+ =" 2>/dev/null)
+          set -e
+          if [ -n "$matches" ]; then
+            echo "::error::TypeScript type defined outside docs/10-contracts/ SSOT"
+            echo "$matches"
+            exit 1
+          fi
+          echo "::notice::SSOT clean — no TS type leakage outside 10-contracts/"
+
+      - name: No JSON Schema definitions outside 10-contracts
+        run: |
+          set +e
+          matches=$(find docs -name "*.md" \
+            -not -path "docs/10-contracts/*" \
+            -not -path "docs/archive/*" \
+            -print0 | xargs -0 grep -nHE '"\$schema":' 2>/dev/null)
+          set -e
+          if [ -n "$matches" ]; then
+            echo "::error::JSON Schema defined outside docs/10-contracts/ SSOT"
+            echo "$matches"
+            exit 1
+          fi
+          echo "::notice::SSOT clean — no JSON Schema leakage outside 10-contracts/"
+
+      - name: No RelationType enum exhaustive list outside relation-types.md
+        run: |
+          set +e
+          # Pattern: 12종 enum 값을 3개 이상 한 파일에서 나열하면 의심
+          matches=$(find docs -name "*.md" \
+            -not -path "docs/10-contracts/relation-types.md" \
+            -not -path "docs/archive/*" \
+            -print0 | xargs -0 grep -lE '"(part_of|used_in|confused_with|prerequisite|extracted_from|explained_by|causes|solves|contrasts|related_to|tested_in|review_needed)".*"(part_of|used_in|confused_with|prerequisite|extracted_from|explained_by|causes|solves|contrasts|related_to|tested_in|review_needed)".*"(part_of|used_in|confused_with|prerequisite|extracted_from|explained_by|causes|solves|contrasts|related_to|tested_in|review_needed)"' 2>/dev/null)
+          set -e
+          if [ -n "$matches" ]; then
+            echo "::warning::RelationType enum 3+ values appear together outside relation-types.md (SSOT 위험). Files:"
+            echo "$matches"
+          else
+            echo "::notice::SSOT clean — no RelationType enum proliferation"
+          fi
+
+  prettier:
+    name: Prettier check (advisory)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Prettier --check (markdown)
+        run: |
+          npx --yes prettier@3 --check \
+            'docs/**/*.md' \
+            'README.md' \
+            'PRD_REFACTOR_PLAN.md' \
+            || echo "::warning::Prettier formatting suggestions exist. 본 job는 advisory, blocking 아님"
