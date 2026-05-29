@@ -14,7 +14,7 @@ Frontend(`src/`)가 `invoke()`로 호출하는 Tauri command 목록. **Frontend 
 
 - **명명**: command = `snake_case`, 페이로드 필드 = `camelCase` (serde `rename_all="camelCase"`, ts-rs 미러).
 - **인자**: `invoke("cmd", { argName })` — 단일 객체. 반환 = `src/lib/types.ts` 엔티티 타입.
-- **오류**: Rust `Result<T, AppError>` → reject. 상세 [`error-handling.md`](error-handling.md) (작성 예정).
+- **오류**: Rust `Result<T, AppError>` → reject. 상세 `error-handling.md` (작성 예정).
 - **LLM은 IPC 아님**: 요약/추출/관계 생성 = TS adapter(`src/llm/`)가 수행. Rust IPC는
   **파일 I/O · PDF 추출 · 영속화(persist) · 뷰 read**만. ([`scope-mvp.md`](../00-overview/scope-mvp.md) §2.5 결정)
 
@@ -47,7 +47,7 @@ Frontend(`src/`)가 `invoke()`로 호출하는 Tauri command 목록. **Frontend 
 | `list_sources` | `spaceId` | `Source[]` | 🔜 |
 
 > `save_source` 가 `Source` + 연결된 `ArchiveNote`(`archive/*.md`) + 원본(`sources/original-files/`) 기록.
-> Import 흐름/상태(`ImportJob`)는 TS 서비스층이 오케스트레이션 — [`import-pipeline.md`](import-pipeline.md) (작성 예정).
+> Import 흐름/상태(`ImportJob`)는 TS 서비스층이 오케스트레이션 — `import-pipeline.md` (작성 예정).
 
 ## 5. Archive note
 
