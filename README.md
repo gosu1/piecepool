@@ -52,6 +52,13 @@
 
 ## 협업 규칙
 
+> **브랜치 / 머지 (명예 규칙)**
+> - `main` 직접 push **금지**. feature branch → PR → review → merge.
+> - branch protection **미적용** (private + free plan). 기술 강제 없음 → **각자 지킨다**.
+> - 일반 변경: 최소 1명 review 후 merge. CI(`docs-check`) red면 merge 금지.
+> - 계약 변경(`docs/10-contracts/`): 4역할 review (아래 §2).
+> - merge 후 feature branch 삭제.
+
 ### 1. SSOT (Single Source of Truth)
 
 `docs/10-contracts/` 안에서만 정의. 다른 문서는 link로 참조. **TS 코드 / JSON Schema 복붙 금지**.
