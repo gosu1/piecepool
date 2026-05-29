@@ -11,6 +11,7 @@ PiecePool 전체 비전·범위·용어·플랜·결정 보류. **모든 역할 
 | [`glossary.md`](glossary.md) | 용어 정의 (Workspace, KnowledgeSpace, Subject, Concept, WikiPage, Relation, Evidence, 되묻기, fact-check 등) | ✅ |
 | [`pricing-model.md`](pricing-model.md) | Free/Premium 매트릭스, 환경변수, 되묻기/fact-check 흐름 | ✅ |
 | [`open-questions.md`](open-questions.md) | 결정 보류 항목 (라이브러리, LLM, UX, 인프라, 데이터) | ✅ |
+| [`competition-plan.md`](competition-plan.md) | SW부문 대회 제출물·마감·역산 실행 계획 | ✅ |
 
 ## 읽기 순서 (권장)
 
