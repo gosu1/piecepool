@@ -109,7 +109,7 @@ PR 또는 main push마다 자동 실행.
 
 ### 아이디어 구조화
 
-<img width="1096" height="1098" alt="image" src="https://github.com/user-attachments/assets/83bc4471-7813-4a4f-b4f1-ef7dac97073c" />
+<img width="800" height="800" alt="image" src="https://github.com/user-attachments/assets/83bc4471-7813-4a4f-b4f1-ef7dac97073c" />
 
 ### Inbox
 
@@ -138,7 +138,8 @@ Race Condition Wiki Page
 
 ### 그래프 뷰
 
-<img width="800" height="800" alt="image" src="https://github.com/user-attachments/assets/169628d6-3179-49cf-9a6f-6425a2f3c055" />
+<img width="800" height="800" alt="스크린샷 2026-05-29 오전 10 18 24" src="https://github.com/user-attachments/assets/34cc23df-9e77-4524-a74f-c807f9ff0c98" />
+
 
 ---
 
