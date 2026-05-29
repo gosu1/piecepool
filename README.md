@@ -132,13 +132,13 @@ Race Condition Wiki Page
 
 "서울"이라는 Wiki 페이지를 만든다면 다음 형태로 생성될 수 있다.
 
-<img width="1004" height="1032" alt="image" src="https://github.com/user-attachments/assets/ea948660-df86-43b9-898c-5fe5335ef6c9" />
+<img width="800" height="800" alt="image" src="https://github.com/user-attachments/assets/ea948660-df86-43b9-898c-5fe5335ef6c9" />
 
 이런 방식으로 계속해서 Wiki 페이지를 업데이트한다.
 
 ### 그래프 뷰
 
-<img width="142" height="150" alt="image" src="https://github.com/user-attachments/assets/169628d6-3179-49cf-9a6f-6425a2f3c055" />
+<img width="800" height="800" alt="image" src="https://github.com/user-attachments/assets/169628d6-3179-49cf-9a6f-6425a2f3c055" />
 
 ---
 
