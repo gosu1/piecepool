@@ -1,14 +1,19 @@
-// 엔티티 TS 타입. SSOT: docs/10-contracts/entities.md — 본 파일은 미러다.
-// 드리프트 방지: 향후 ts-rs로 src-tauri/src/models 에서 자동 생성 권장.
+// 엔티티 TS 타입 배럴. ts-rs 생성물(./generated/*.ts) 재노출.
+// SSOT: docs/10-contracts/entities.md, relation-types.md → src-tauri/src/models/mod.rs.
+// generated/ 는 자동 생성 — 수동 편집 금지. 갱신: npm run gen:types.
 
-// docs/10-contracts/entities.md#workspace
-export type Workspace = {
-  id: string;
-  name: string;
-  rootPath: string;
-  createdAt: string;
-  updatedAt: string;
-};
-
-// TODO: KnowledgeSpace, Subject, Source, ArchiveNote, Concept, WikiPage,
-//       SourceRef, Evidence, Question, ImportJob — entities.md 참조.
+export type { Workspace } from "./generated/Workspace";
+export type { KnowledgeSpace } from "./generated/KnowledgeSpace";
+export type { Subject } from "./generated/Subject";
+export type { Source } from "./generated/Source";
+export type { SourceType } from "./generated/SourceType";
+export type { ArchiveNote } from "./generated/ArchiveNote";
+export type { Concept } from "./generated/Concept";
+export type { SourceRef } from "./generated/SourceRef";
+export type { WikiPage } from "./generated/WikiPage";
+export type { Evidence } from "./generated/Evidence";
+export type { Relation } from "./generated/Relation";
+export type { RelationType } from "./generated/RelationType";
+export type { Question } from "./generated/Question";
+export type { ImportJob } from "./generated/ImportJob";
+export type { ImportJobStatus } from "./generated/ImportJobStatus";
