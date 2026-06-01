@@ -254,7 +254,8 @@ type ImportJobStatus =
   | "idle"
   | "parsing"          // PDF 텍스트 추출 등
   | "archiving"        // <space>/archive/*.md 저장
-  | "llm_processing"   // LLM 호출 진행
+  | "llm_processing"   // LLM 호출 진행 (1차/2차 공용)
+  | "clarify_pending"  // Premium 되묻기: 사용자 응답 대기 (Free에서는 미발생)
   | "writing"          // <space>/wiki/*.md + relations.json 저장
   | "completed"
   | "failed";
@@ -272,9 +273,14 @@ type ImportJob = {
 
 **상태 전이 다이어그램**: `docs/20-backend/import-job-states.md` (작성 예정)
 
+- `clarify_pending`은 Premium 되묻기(clarify) 흐름 전용이다. Free(local) 호출에서는 발생하지 않는다.
+- Premium round-trip 시 전이: `llm_processing` (1차) → `clarify_pending` (사용자 응답 대기) → `llm_processing` (2차) → `writing` → `completed`. 상세는 [`../30-llm/output-validation.md`](../30-llm/output-validation.md) §6.4.
+- 사용자가 되묻기를 무시/timeout 시 `clarify_pending` → `writing` (1차 결과 저장).
+
 ---
 
 ## 변경 이력 노트
 
 - 본 문서는 `docs/archive/PRD-v1.md` §8 (line 270-547)을 분리·재구성한 SSOT다.
 - Relation 엔티티와 RelationType enum은 [relation-types.md](relation-types.md)로 분리했다.
+- 2026-05-29: `ImportJobStatus`에 `clarify_pending` 추가 (Premium 되묻기). 발의 = [output-validation.md §6.4](../30-llm/output-validation.md), 추적 = [#42](https://github.com/gosu1/piecepool/issues/42). `contracts-change` → 4역할 review.
