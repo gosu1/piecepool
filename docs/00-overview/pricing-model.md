@@ -93,6 +93,35 @@ PiecePool 제품 모델. 모든 역할이 읽는다.
 | Fact-check | ❌ | ✅ |
 | Wiki 저장 | 1차 결과 | 되묻기/fact-check 반영 결과 |
 
+### 4.1 Frontend 정책 (Phase 4: Roles)
+
+#### 최종 결정: **플랜 토글 대신 모델 선택 UI**
+- 사용자는 `local / openai / gemini` 중 모델(provider)을 선택한다.
+- 플랜은 선택값으로부터 파생한다:
+  - `local` = Free
+  - `openai | gemini` = Premium
+- 이유: provider 선택이 실제 실행 경로와 1:1로 대응되어, 토글+세부 선택의 이중 상태를 제거한다.
+
+#### 4가지 케이스별 권한 체크
+
+| 케이스 | 사용자 플랜 | 선택 모델 | 결과 | UX 처리 |
+|---|---|---|---|---|
+| 1 | Free | `local` | 허용 | 일반 실행 |
+| 2 | Free | `openai` 또는 `gemini` | 차단 | 결제 유도 팝업 + Premium 배지/버튼 노출 |
+| 3 | Premium | `openai` 또는 `gemini` | 허용 | 일반 실행 |
+| 4 | Premium | `local` | 허용 | "Premium 기능 비활성화" 경고 후 전환 |
+
+#### 결제 유도 UI/메시지 (기본안)
+- 트리거: Free 사용자가 Premium 모델 선택 시도 (케이스 2)
+- 모달 제목: `Premium 모델은 구독이 필요해요`
+- 본문: `OpenAI/Gemini를 사용하려면 Premium 플랜으로 업그레이드하세요. 현재는 Local(Free) 모델만 사용할 수 있어요.`
+- CTA:
+  - 기본: `Premium 시작하기`
+  - 보조: `Local로 계속하기`
+- 비활성화 스타일:
+  - 모델 목록에서 Premium 항목은 lock 아이콘 + `Premium` 배지 표시
+  - hover/focus 시 동일 안내 문구 툴팁 노출
+
 ---
 
 ## 5. Provider 인터페이스 통일
@@ -133,7 +162,7 @@ PIECEPOOL_PREMIUM_CLARIFY=true|false         # 되묻기, 기본 true
 | 항목 | MVP | MVP+1 이후 |
 |---|---|---|
 | Free 플랜 (Local LLM) | ✅ | — |
-| Premium 플랜 토글 | ✅ (provider 전환 작동) | — |
+| 모델 선택 UI (`local/openai/gemini`) | ✅ (권한 기반 전환) | — |
 | 정밀 정리 (Premium) | ✅ | — |
 | **되묻기 (Premium)** | ✅ | — |
 | **Fact-check (Premium)** | ⏸ 기본 흐름만, 정밀화는 후속 | 정밀화 |
@@ -152,7 +181,7 @@ PIECEPOOL_PREMIUM_CLARIFY=true|false         # 되묻기, 기본 true
 | 프롬프트 설계 (Free/Premium 모두) | Backend (주도) + LLM (구조화) |
 | 되묻기 트리거 로직 | Backend |
 | Fact-check 통합 | Backend (호출) + LLM (도구 호출 schema) |
-| Premium 토글 UI | Frontend |
+| 모델 선택 UI + 권한 게이트 | Frontend |
 | 결제 UI (MVP+1) | Frontend + Backend |
 
 ---
