@@ -76,7 +76,7 @@ if provider == "local"
 ### 3.1 Local (Ollama)
 
 - **MVP 기본 backend**. MLX / llama.cpp는 후속 ([post-mvp §9.1](../70-roadmap/post-mvp.md))
-- 기본 모델: `llama3.1:8b` (TBD, [open-questions](../00-overview/open-questions.md))
+- 기본 모델: `gemma4:e4b` (Gemma 4 E4B · Ollama 실제 태그는 [Hub](https://ollama.com/library) 확인 후 `PIECEPOOL_LLM_MODEL`로 override)
 - 호출: `POST <endpoint>/api/chat`
 - structured output: `format: "json"` 파라미터 + system prompt에 JSON Schema 명시
 - adapter 책임:
