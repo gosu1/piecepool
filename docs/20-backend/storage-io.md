@@ -32,9 +32,11 @@ let target = format!("{}/archive/{}", space_root.display(), filename);
 
 ### 1.2 Path Traversal 방지
 
-외부에서 주입되는 slug, 파일명, 상대경로는 반드시 정규화 후 루트 안에 있는지 확인한다.
+외부에서 주입되는 slug, 파일명, 상대경로는 위험 컴포넌트를 거부한 뒤 루트 안에 있는지 확인한다.
 
 ```rust
+use std::path::Component;
+
 /// 반환된 경로가 `base` 하위임을 보장한다. 아니면 AppError 반환.
 fn safe_join(base: &Path, untrusted: &str) -> Result<PathBuf, AppError> {
     // 1. null byte, 절대경로 접두사 즉시 거부
@@ -42,21 +44,26 @@ fn safe_join(base: &Path, untrusted: &str) -> Result<PathBuf, AppError> {
         return Err(AppError::invalid_path(untrusted));
     }
     let joined = base.join(untrusted);
-    // 2. canonicalize 전에 존재하는 최장 prefix까지만 정규화
-    let resolved = joined.components().collect::<PathBuf>();
-    // 3. base가 resolved의 prefix인지 확인
-    if !resolved.starts_with(base) {
+    // 2. ParentDir(`..`) 컴포넌트를 명시적으로 거부.
+    //    주의: Path::components()는 `.`와 중복 구분자만 제거할 뿐
+    //    `..`는 보존하므로, starts_with() 검사만으로는 탈출을 막지 못한다.
+    if joined.components().any(|c| matches!(c, Component::ParentDir)) {
         return Err(AppError::path_traversal(untrusted));
     }
-    Ok(resolved)
+    // 3. 최종 안전망: base가 결과 경로의 prefix인지 확인
+    if !joined.starts_with(base) {
+        return Err(AppError::path_traversal(untrusted));
+    }
+    Ok(joined)
 }
 ```
 
 거부 대상:
-- `..` 를 포함하는 경로 세그먼트
+- `..`(ParentDir) 컴포넌트를 포함하는 경로
 - 절대경로 (`/`, `C:\` 등)
 - null byte `\0`
-- `//`, `\\` 등 이중 구분자
+
+> 중복 구분자(`//` 등)는 `Path::components()`가 정규화해 흡수하므로 별도 거부 대상이 아니다. 단, `..`는 정규화되지 않으므로 위와 같이 명시적으로 거부해야 한다.
 
 ### 1.3 OS별 경로 구분자
 
@@ -79,7 +86,7 @@ path.to_string_lossy().replace('\\', "/")
 
 ```
 [1] 대상 파일과 같은 디렉토리에 임시 파일 생성
-      <target>.tmp  (예: self-attention.md.tmp)
+      <target> + ".tmp"  (예: self-attention.md.tmp, relations.json.tmp)
 
 [2] 임시 파일에 전체 내용 기록
 
@@ -91,22 +98,32 @@ path.to_string_lossy().replace('\\', "/")
 같은 파티션 내 `rename`은 POSIX 및 Windows 모두에서 원자적이다. 크로스-파티션 이동은 원자성을 보장하지 않으므로 임시 파일은 반드시 **대상 파일과 동일한 디렉토리**에 생성한다.
 
 ```rust
+use std::path::PathBuf;
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
 
 async fn write_atomic(target: &Path, content: &[u8]) -> Result<(), AppError> {
-    let tmp_path = target.with_extension("md.tmp");
+    // with_extension은 마지막 확장자를 "교체"하므로 사용 금지
+    // (relations.json → relations.md.tmp 같은 손상 유발).
+    // 파일명 뒤에 ".tmp"를 그대로 덧붙인다.
+    let mut tmp = target.as_os_str().to_owned();
+    tmp.push(".tmp");
+    let tmp_path = PathBuf::from(tmp);
 
     // 1. 임시 파일 쓰기
     let mut file = fs::File::create(&tmp_path).await
         .map_err(AppError::io)?;
     file.write_all(content).await.map_err(AppError::io)?;
     file.flush().await.map_err(AppError::io)?;
-    file.sync_all().await.map_err(AppError::io)?;
+    file.sync_all().await.map_err(AppError::io)?; // 파일 데이터 디스크 반영
     drop(file);
 
     // 2. 원자 교체
     fs::rename(&tmp_path, target).await.map_err(AppError::io)?;
+
+    // 3. (선택) 크래시 내구성을 위해 부모 디렉토리 fsync.
+    //    rename 자체는 원자적이나, 메타데이터 반영을 보장하려면
+    //    부모 디렉토리 핸들에 sync가 필요하다. MVP에서는 생략 가능.
     Ok(())
 }
 ```
@@ -116,7 +133,7 @@ async fn write_atomic(target: &Path, content: &[u8]) -> Result<(), AppError> {
 ### 2.3 `tokio::fs` 비동기 I/O 원칙
 
 - `storage/` 내 모든 파일 I/O는 `tokio::fs`를 사용한다. `std::fs`는 동기 컨텍스트(테스트, 초기화 단계)에서만 허용한다.
-- I/O 바운드 작업에서 `tokio::spawn_blocking`을 남용하지 않는다. `tokio::fs`가 제공하지 않는 연산(예: `fsync` 직접 제어)에 한해 제한적으로 사용한다.
+- `tokio::fs::File`은 `sync_all`/`sync_data`를 제공하므로 fsync에 별도 `spawn_blocking`이 필요 없다. `spawn_blocking`은 `tokio::fs`로 표현하기 어려운 동기 전용 연산(예: 부모 디렉토리 핸들 fsync, 일부 OS 전용 API)에 한해 제한적으로 사용한다.
 - 동일 파일에 대한 동시 쓰기는 호출자 계층(`import/`)에서 직렬화한다. `storage/`는 잠금을 소유하지 않는다.
 
 ### 2.4 `relations.json` 쓰기
@@ -150,21 +167,26 @@ MVP에서는 OS 네이티브 파일시스템 이벤트를 활용한다.
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use tokio::sync::mpsc;
 
-pub async fn watch_space(space_root: PathBuf, tx: mpsc::Sender<FsEvent>) {
+pub async fn watch_space(
+    space_root: PathBuf,
+    tx: mpsc::Sender<FsEvent>,
+) -> Result<(), AppError> {
     let (ntx, mut nrx) = mpsc::channel(64);
+    // 초기화 실패는 panic하지 않고 AppError로 전파한다 (4.3절: 호출자가 mtime 폴백으로 전환).
     let mut watcher = RecommendedWatcher::new(
         move |res| { let _ = ntx.blocking_send(res); },
         notify::Config::default(),
-    ).expect("fs watcher 초기화 실패");
+    ).map_err(AppError::watcher)?;
 
     watcher.watch(&space_root, RecursiveMode::Recursive)
-        .expect("watch 등록 실패");
+        .map_err(AppError::watcher)?;
 
     while let Some(Ok(event)) = nrx.recv().await {
         if let Some(fs_event) = classify_event(&event) {
             let _ = tx.send(fs_event).await;
         }
     }
+    Ok(())
 }
 ```
 
@@ -184,7 +206,7 @@ pub async fn watch_space(space_root: PathBuf, tx: mpsc::Sender<FsEvent>) {
 
 - 폴링 주기: 30초 (배터리 소모 최소화)
 - `notify` 이벤트와 mtime 폴링 중 **하나라도** 변경을 감지하면 동일 처리 흐름으로 합류한다
-- mtime은 시스템 시계 조작에 취약하므로 보조 수단으로만 사용한다
+- mtime은 해상도가 거칠고(일부 FS에서 1초 단위), 빠른 연속 편집 시 값이 갱신되지 않을 수 있어 변경을 놓칠 수 있다. 따라서 보조 수단으로만 사용한다
 
 ### 3.4 프론트엔드 이벤트 전파
 
@@ -199,7 +221,7 @@ pub async fn watch_space(space_root: PathBuf, tx: mpsc::Sender<FsEvent>) {
       │
   lib.rs 이벤트 루프
       │
-  tauri::AppHandle::emit_all("space:file-changed", payload)
+  tauri::AppHandle::emit("space:file-changed", payload)  // Tauri v2 API
       │
   Frontend (React)
 ```
