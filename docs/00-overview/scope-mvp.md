@@ -31,6 +31,8 @@ MVP는 **실제로 동작하는 로컬 앱**이어야 한다. 가짜 화면이�
 - 이미지를 넣을수있다.
 - 사용자 첫 진입 화면 = **Inbox**
     - **Wiki 구성**: 원본(사용자 입력 텍스트·이미지·txt) + LLM 정리본(짧은 Concept 요약·관련 이미지) 이중 레이어
+예시 화면
+<img width="625" height="570" alt="스크린샷 2026-06-23 오전 12 20 19" src="https://github.com/user-attachments/assets/b4d67f22-9a8b-479a-a213-595d71225c6a" />
 
 ### 2.4 저장
 - 원문 → `<space>/archive/*.md` 실제 파일
