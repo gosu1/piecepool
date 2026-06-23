@@ -14,10 +14,10 @@
 
 `storage/` 모듈은 두 개의 루트 경로를 인자로 받아 동작한다.
 
-| 변수명 | 의미 |
-|---|---|
+| 변수명           | 의미                                    |
+| ---------------- | --------------------------------------- |
 | `workspace_root` | 사용자가 선택한 Workspace 폴더 절대경로 |
-| `space_root` | `workspace_root/<space-slug>/` |
+| `space_root`     | `workspace_root/<space-slug>/`          |
 
 모든 하위 경로는 이 두 루트에서 **`Path::join`으로만** 구성한다. 문자열 연산(포맷 매크로, `+` 연산자)으로 경로를 조합하지 않는다.
 
@@ -41,7 +41,7 @@ use std::path::Component;
 fn safe_join(base: &Path, untrusted: &str) -> Result<PathBuf, AppError> {
     // 1. null byte, 절대경로 접두사 즉시 거부
     if untrusted.contains('\0') || Path::new(untrusted).is_absolute() {
-        return Err(AppError::invalid_path(untrusted));
+        return Err(AppError::path_invalid(untrusted));
     }
     let joined = base.join(untrusted);
     // 2. ParentDir(`..`) 컴포넌트를 명시적으로 거부.
@@ -59,6 +59,7 @@ fn safe_join(base: &Path, untrusted: &str) -> Result<PathBuf, AppError> {
 ```
 
 거부 대상:
+
 - `..`(ParentDir) 컴포넌트를 포함하는 경로
 - 절대경로 (`/`, `C:\` 등)
 - null byte `\0`
@@ -112,14 +113,14 @@ async fn write_atomic(target: &Path, content: &[u8]) -> Result<(), AppError> {
 
     // 1. 임시 파일 쓰기
     let mut file = fs::File::create(&tmp_path).await
-        .map_err(AppError::io)?;
-    file.write_all(content).await.map_err(AppError::io)?;
-    file.flush().await.map_err(AppError::io)?;
-    file.sync_all().await.map_err(AppError::io)?; // 파일 데이터 디스크 반영
+        .map_err(AppError::io_write)?;
+    file.write_all(content).await.map_err(AppError::io_write)?;
+    file.flush().await.map_err(AppError::io_write)?;
+    file.sync_all().await.map_err(AppError::io_write)?; // 파일 데이터 디스크 반영
     drop(file);
 
     // 2. 원자 교체
-    fs::rename(&tmp_path, target).await.map_err(AppError::io)?;
+    fs::rename(&tmp_path, target).await.map_err(AppError::io_write)?;
 
     // 3. (선택) 크래시 내구성을 위해 부모 디렉토리 fsync.
     //    rename 자체는 원자적이나, 메타데이터 반영을 보장하려면
@@ -158,10 +159,10 @@ PiecePool은 Obsidian, VS Code 등 외부 에디터와 동일한 파일을 공�
 
 MVP에서는 OS 네이티브 파일시스템 이벤트를 활용한다.
 
-| 크레이트 | 역할 |
-|---|---|
+| 크레이트                                    | 역할                                                                 |
+| ------------------------------------------- | -------------------------------------------------------------------- |
 | [`notify`](https://crates.io/crates/notify) | OS fs 이벤트 구독 (`inotify` / `FSEvents` / `ReadDirectoryChangesW`) |
-| `tokio::sync::mpsc` | notify 이벤트 → 비동기 채널 전달 |
+| `tokio::sync::mpsc`                         | notify 이벤트 → 비동기 채널 전달                                     |
 
 ```rust
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
@@ -192,13 +193,13 @@ pub async fn watch_space(
 
 감지 대상 이벤트:
 
-| 이벤트 종류 | 처리 |
-|---|---|
-| `Modify` (wiki, archive `.md`) | 프론트엔드에 `file-changed` 이벤트 전파 |
-| `Create` (새 `.md`) | 프론트엔드에 `file-created` 이벤트 전파 |
-| `Remove` | 프론트엔드에 `file-removed` 이벤트 전파 |
-| `Rename` | `file-removed` + `file-created` 쌍으로 분해 |
-| `Modify` (`.tmp` 파일) | **무시** — 앱 자체 쓰기 중 발생 |
+| 이벤트 종류                    | 처리                                        |
+| ------------------------------ | ------------------------------------------- |
+| `Modify` (wiki, archive `.md`) | 프론트엔드에 `file-changed` 이벤트 전파     |
+| `Create` (새 `.md`)            | 프론트엔드에 `file-created` 이벤트 전파     |
+| `Remove`                       | 프론트엔드에 `file-removed` 이벤트 전파     |
+| `Rename`                       | `file-removed` + `file-created` 쌍으로 분해 |
+| `Modify` (`.tmp` 파일)         | **무시** — 앱 자체 쓰기 중 발생             |
 
 ### 3.3 mtime 폴링 (폴백)
 
@@ -240,7 +241,8 @@ pub async fn watch_space(
 ## 4. 오류 처리
 
 - 모든 함수는 `Result<T, AppError>`를 반환한다. `unwrap()`/`panic!()`은 금지한다.
-- 파일을 찾지 못한 경우(`NotFound`)와 권한 오류(`PermissionDenied`)는 `AppError`의 서로 다른 `kind`로 구분해 프론트엔드가 적합한 UI 메시지를 표시할 수 있도록 한다.
+- 파일 I/O 실패는 읽기/쓰기 기준으로 `kind`를 구분한다: 읽기 실패는 `io_read`, 쓰기 실패(디스크/권한)는 `io_write`. `io_write`는 atomic write 롤백 대상이다.
+- 파일을 찾지 못한 경우(`NotFound`)와 권한 오류(`PermissionDenied`)는 `io_read`/`io_write`와 별개로 세분해 프론트엔드가 적합한 UI 메시지를 표시할 수 있도록 한다.
 - watcher 초기화 실패는 치명적 오류가 아니다. mtime 폴링 폴백으로 전환하고 warn 로그를 남긴다.
 
 ---
