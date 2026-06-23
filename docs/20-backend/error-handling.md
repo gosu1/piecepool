@@ -60,8 +60,10 @@ pub struct AppError {
 | `io_read` | 파일 읽기 실패 | 중단 — 사용자 알림 |
 | `io_write` | 파일 쓰기 실패 (디스크/권한) | 중단 — atomic write 롤백(§5.1) |
 | `not_found` | 요청한 경로/ID 없음 | 중단 — 사용자 알림 |
-| `path_invalid` | workspace 경계 밖 경로 / 잘못된 slug | 중단 — 보안상 거부 |
+| `path_invalid` | 절대경로 / null byte / 잘못된 slug 등 형식 오류 | 중단 — 보안상 거부 (`safe_join`) |
+| `path_traversal` | `..` 등으로 workspace 루트 탈출 시도 | 중단 — 보안상 거부 (`safe_join`) |
 | `archive_conflict` | 기존 ArchiveNote 덮어쓰기 시도 | 중단 — 원문 보호(§5.2), 절대 덮어쓰지 않음 |
+| `watcher` | 파일 변경 감시(`notify`) 초기화 실패 | **경고** — mtime 폴링 폴백(§5.6), warn 로그 |
 
 ### 3.2 PDF (`pdf/`)
 
@@ -106,9 +108,9 @@ pub struct AppError {
 
 | 분류 | 동작 | 해당 kind |
 |---|---|---|
-| **중단(fatal)** | 작업 실패, `ImportJob.status=failed` + `errorMessage` | `io_*`, `not_found`, `path_invalid`, `archive_conflict`, `pdf_extract`, `frontmatter_invalid`, `auth`, `network`, `rate_limit`, `schema`, `empty`, `internal` |
+| **중단(fatal)** | 작업 실패, `ImportJob.status=failed` + `errorMessage` | `io_*`, `not_found`, `path_invalid`, `path_traversal`, `archive_conflict`, `pdf_extract`, `frontmatter_invalid`, `auth`, `network`, `rate_limit`, `schema`, `empty`, `internal` |
 | **부분(partial)** | 유효 부분만 저장, `status=completed` + 경고 배지 | `relation_invalid`, `partial` |
-| **경고(warn)** | 저장 허용, 사용자에게 표시만 | `pdf_page_range`, `embed_unresolved` |
+| **경고(warn)** | 저장 허용, 사용자에게 표시만 | `pdf_page_range`, `embed_unresolved`, `watcher` |
 
 > **경고는 절대 자동 삭제·자동 수정하지 않는다.** 사용자에게 상태만 표시. (`wikilink-embed §충돌 처리`)
 
@@ -131,6 +133,9 @@ pub struct AppError {
 ### 5.5 embed 깨진 링크
 `![[...]]` 대상이 `sources/original-files/` 아래 없으면 `embed_unresolved` 경고만 표시. 저장은 허용, frontmatter `sourceRefs`와 본문 불일치도 자동 수정 금지. (`wikilink-embed §충돌 처리`)
 
+### 5.6 파일 감시 초기화 실패
+`notify` watcher 초기화가 실패해도 **앱은 중단하지 않는다**. `watcher` 경고를 남기고 mtime 폴링으로 폴백한다. (`storage-io.md §3.2~3.3` @ChangSik88)
+
 ---
 
 ## 6. 사용자 메시지 규약
@@ -144,6 +149,8 @@ pub struct AppError {
 | `io_write` | "파일을 저장하지 못했습니다. 디스크 공간/권한을 확인하세요." |
 | `not_found` | "대상을 찾을 수 없습니다." |
 | `archive_conflict` | "원문 노트는 덮어쓸 수 없습니다." |
+| `path_traversal` | "허용되지 않는 경로 접근이 차단되었습니다." |
+| `watcher` | "파일 변경 감지를 시작하지 못했습니다. 외부 편집이 자동 반영되지 않을 수 있습니다." |
 | `pdf_extract` | "PDF에서 텍스트를 추출하지 못했습니다. 파일을 확인하세요." |
 | `pdf_page_range` | "요청한 page가 문서 범위를 벗어나 첫 page를 표시합니다." |
 | `frontmatter_invalid` | "문서 메타데이터 형식이 올바르지 않아 저장하지 못했습니다." |
