@@ -38,17 +38,17 @@ src-tauri/src/
 
 ### 각 모듈의 책임
 
-| 모듈 | 단일 책임 | 금지 사항 |
-|---|---|---|
-| `main.rs` | 바이너리 엔트리 — `run()` 1줄 | 어떤 로직도 추가 불가 |
-| `lib.rs` | 모듈 wire-up + Tauri 설정 | 직접 비즈니스 로직 작성 금지 |
-| `error.rs` | `AppError` 정의 · `Display` 구현 | 복수 에러 타입 생성 금지 |
-| `models/` | 엔티티 struct/enum 선언 + ts-rs 연결 | 직접 DB/파일 접근 금지 |
-| `commands/` | IPC 파라미터 수신 → 내부 모듈 위임 → 결과 반환 | 비즈니스 로직 · 파일 I/O 직접 작성 금지 |
-| `storage/` | `tokio::fs` 비동기 파일 읽기/쓰기 · 경로 해석 | LLM 호출 · 상태 전이 금지 |
-| `import/` | `ImportJob` 상태 전이 · 파이프라인 단계 조율 | 직접 파일 쓰기(storage 위임) · LLM 호출(TS 위임) 금지 |
-| `pdf/` | PDF 바이너리 → 텍스트/메타데이터 변환 | 결과 저장 금지 (storage에 위임) |
-| `seed/` | 데모 데이터 fixture 정의 · storage 통해 기록 | 프로덕션 데이터 경로 변경 금지 |
+| 모듈        | 단일 책임                                      | 금지 사항                                             |
+| ----------- | ---------------------------------------------- | ----------------------------------------------------- |
+| `main.rs`   | 바이너리 엔트리 — `run()` 1줄                  | 어떤 로직도 추가 불가                                 |
+| `lib.rs`    | 모듈 wire-up + Tauri 설정                      | 직접 비즈니스 로직 작성 금지                          |
+| `error.rs`  | `AppError` 정의 · `Display` 구현               | 복수 에러 타입 생성 금지                              |
+| `models/`   | 엔티티 struct/enum 선언 + ts-rs 연결           | 직접 DB/파일 접근 금지                                |
+| `commands/` | IPC 파라미터 수신 → 내부 모듈 위임 → 결과 반환 | 비즈니스 로직 · 파일 I/O 직접 작성 금지               |
+| `storage/`  | `tokio::fs` 비동기 파일 읽기/쓰기 · 경로 해석  | LLM 호출 · 상태 전이 금지                             |
+| `import/`   | `ImportJob` 상태 전이 · 파이프라인 단계 조율   | 직접 파일 쓰기(storage 위임) · LLM 호출(TS 위임) 금지 |
+| `pdf/`      | PDF 바이너리 → 텍스트/메타데이터 변환          | 결과 저장 금지 (storage에 위임)                       |
+| `seed/`     | 데모 데이터 fixture 정의 · storage 통해 기록   | 프로덕션 데이터 경로 변경 금지                        |
 
 ---
 
@@ -121,12 +121,12 @@ entities.md (SSOT)
 
 상세 스펙은 [`ipc-api.md`](./ipc-api.md) 참조.
 
-| command | 상태 | 담당 모듈 |
-|---|---|---|
-| `get_workspace` | ✅ 구현됨 | `commands::workspace` → `storage/` |
-| `list_spaces`, `create_space` 등 | 🔜 MVP 예정 | `commands/` → `storage/` |
-| `extract_pdf_text` | 🔜 MVP 예정 | `commands/` → `pdf/` |
-| `save_source`, `save_wiki_page` 등 | 🔜 MVP 예정 | `commands/` → `storage/` |
+| command                            | 상태        | 담당 모듈                          |
+| ---------------------------------- | ----------- | ---------------------------------- |
+| `get_workspace`                    | ✅ 구현됨   | `commands::workspace` → `storage/` |
+| `list_spaces`, `create_space` 등   | 🔜 MVP 예정 | `commands/` → `storage/`           |
+| `extract_pdf_text`                 | 🔜 MVP 예정 | `commands/` → `pdf/`               |
+| `save_source`, `save_wiki_page` 등 | 🔜 MVP 예정 | `commands/` → `storage/`           |
 
 ---
 
@@ -136,12 +136,14 @@ entities.md (SSOT)
 
 ```rust
 pub struct AppError {
-    pub kind: String,    // 오류 분류 (예: "io", "schema", "pdf", "llm_timeout")
+    pub kind: String,    // 오류 분류 (예: "io_read", "io_write", "schema", "network")
     pub message: String, // 사용자/로그용 메시지
 }
 ```
 
-`AppError`는 `serde::Serialize`를 구현하므로 Tauri IPC를 통해 Frontend로 그대로 전달된다.
+`AppError`는 내부 계층에서는 `{ kind, message }` 구조를 유지하다가, `commands/` 경계에서
+`"[kind] message"` **문자열**로 변환되어 Frontend `invoke()` reject 페이로드가 된다 (MVP).
+구조화된 `{ kind, message }` 객체 직렬화는 post-MVP 개선안이다 — `error-handling.md §7` (별도 PR).
 
 ### 에러 전파 규칙
 
@@ -158,25 +160,28 @@ pub struct AppError {
 
 ### kind 값 규약 (예시)
 
-| kind | 발생 위치 | 의미 |
-|---|---|---|
-| `"io"` | `storage/` | 파일 읽기/쓰기 실패 |
-| `"pdf"` | `pdf/` | PDF 파싱 불가 |
-| `"schema"` | `import/` | LLM 출력 검증 실패 |
-| `"not_found"` | `storage/` | 요청한 경로/ID 없음 |
-| `"llm_timeout"` | `import/` | TS llm/ 응답 타임아웃 |
+아래는 **대표 예시**일 뿐이다. `kind` 확정 분류(전체 레지스트리)와 영역별 처리 정책의 SSOT는
+`error-handling.md §3` (별도 PR)이며, 본 표는 그 문서로 대체된다.
 
-상세 에러 처리 가이드는 `error-handling.md` (작성 예정)를 참조한다.
+| kind                       | 발생 위치  | 의미                          |
+| -------------------------- | ---------- | ----------------------------- |
+| `"io_read"` / `"io_write"` | `storage/` | 파일 읽기 / 쓰기 실패         |
+| `"pdf_extract"`            | `pdf/`     | PDF 파싱 불가                 |
+| `"schema"`                 | `import/`  | LLM 출력 검증 실패            |
+| `"not_found"`              | `storage/` | 요청한 경로/ID 없음           |
+| `"network"`                | `import/`  | LLM 서버 연결 실패 / 타임아웃 |
+
+> 확정 분류는 항상 `error-handling.md §3` 레지스트리를 따른다.
 
 ---
 
 ## 관련 문서
 
-| 문서 | 내용 |
-|---|---|
-| [`../10-contracts/entities.md`](../10-contracts/entities.md) | 엔티티 타입 SSOT |
-| [`../10-contracts/workspace-layout.md`](../10-contracts/workspace-layout.md) | 파일 경로 규약 |
-| [`./ipc-api.md`](./ipc-api.md) | Tauri command 전체 목록 및 페이로드 스펙 |
-| `./import-pipeline.md` | ImportJob 상태 전이 상세 (작성 예정) |
-| `./storage-io.md` | atomic write · fs watch 설계 (작성 예정) |
-| `./error-handling.md` | kind 분류 · 사용자 메시지 규약 (작성 예정) |
+| 문서                                                                         | 내용                                                           |
+| ---------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| [`../10-contracts/entities.md`](../10-contracts/entities.md)                 | 엔티티 타입 SSOT                                               |
+| [`../10-contracts/workspace-layout.md`](../10-contracts/workspace-layout.md) | 파일 경로 규약                                                 |
+| [`./ipc-api.md`](./ipc-api.md)                                               | Tauri command 전체 목록 및 페이로드 스펙                       |
+| `./import-pipeline.md`                                                       | ImportJob 상태 전이 상세 (작성 예정)                           |
+| `./storage-io.md`                                                            | atomic write · fs watch 설계 (작성 예정)                       |
+| `./error-handling.md`                                                        | **kind 레지스트리 · 처리 정책 · 사용자 메시지 SSOT** (별도 PR) |
