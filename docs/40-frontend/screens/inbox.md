@@ -26,7 +26,7 @@ PiecePool 사용자 첫 진입 화면. 글/이미지를 작성해 하나의 `Sou
 |---|---|---|
 | 제목 | `Source.title` / `ArchiveNote.title` | 1:1 대응, 추가 결정 불필요 |
 | project | `KnowledgeSpace` 선택 | "project에 넣는 화면을 고른다"(§2.3 원문)가 곧 어느 `<space>/`에 저장할지 고르는 동작과 동일. `useWorkspaceStore`의 현재 선택값을 기본값으로 노출, Inbox 화면에서 즉시 변경 가능 |
-| resource(자원) | `Subject` 다중 태깅 (`subjectIds`) | PiecePool 엔티티 중 가장 가까운 대응. **추정 매핑** — Notion 기본 PARA 템플릿의 "자원" 속성을 그대로 캡처한 것일 수 있어 1:1 확정은 아님. PR 리뷰 시 @gosu1 확인 필요 |
+| resource(자원) | **신규 `Source.tags` 필드** (project 경계와 무관한 자유 해시태그) | @gosu1 확인(2026-06-24, Slack): `#주식`, `#딥러닝`처럼 어느 project에 있든 자유롭게 붙이는 태그 기능. `Subject`는 `spaceId`로 project(KnowledgeSpace) 1개에 종속되므로 요구사항 충족 불가 → 신규 필드 필요. [이슈 #64](https://github.com/gosu1/piecepool/issues/64)로 `contracts-change` 제안, 머지 대기 |
 | 고정하기 | **MVP 제외** | `Source`/`ArchiveNote`에 대응 필드 없음(`pinned: boolean` 미정의). 추가하려면 `entities.md` 변경 → `contracts-change` 라벨 + 4역할 review 필요. 별도 결정 없이는 post-MVP로 보류 |
 | 연결된 node | **Inbox 단계에서 표시 안 함** | Inbox 시점엔 `Source`만 존재 — `Concept`/`Relation`은 LLM 처리(§4 `llm_processing`) 이후에야 생성된다. 근거 데이터가 없는 시점에 표시할 수 없음. 처리 완료 후엔 `wiki-view.md`/`graph-view.md`에서 의미를 가짐 |
 
@@ -34,14 +34,14 @@ PiecePool 사용자 첫 진입 화면. 글/이미지를 작성해 하나의 `Sou
 
 ## 3. 화면 구성
 
-Notion 페이지 모델([`../../00-overview/scope-mvp.md`](../../00-overview/scope-mvp.md) §2.3 예시 화면 그대로): 상단 제목 입력 + 속성 패널(project 선택 dropdown, Subject 다중 태그) + 하단 Markdown 본문 편집 영역.
+Notion 페이지 모델([`../../00-overview/scope-mvp.md`](../../00-overview/scope-mvp.md) §2.3 예시 화면 그대로): 상단 제목 입력 + 속성 패널(project 선택 dropdown, 자유 해시태그 입력) + 하단 Markdown 본문 편집 영역.
 
 ```
 ┌─────────────────────────────┐
 │ 제목 입력                    │
 ├─────────────────────────────┤
 │ project: [KnowledgeSpace ▾] │
-│ resource: [Subject 태그 +]  │
+│ resource: [#해시태그 입력 +] │
 ├─────────────────────────────┤
 │ Markdown 본문 편집 영역       │
 │ (markdown-editor.md 컴포넌트 │
@@ -67,7 +67,7 @@ Notion 페이지 모델([`../../00-overview/scope-mvp.md`](../../00-overview/sco
 ## 5. 저장 파이프라인
 
 ```
-Inbox 작성 (제목 + project 선택 + Subject 태그 + Markdown 본문 [+ 이미지])
+Inbox 작성 (제목 + project 선택 + 해시태그(tags) + Markdown 본문 [+ 이미지])
             ↓
         저장 클릭 → save_source IPC (ipc-api.md §4)
             ↓
@@ -104,7 +104,7 @@ Inbox 작성 (제목 + project 선택 + Subject 태그 + Markdown 본문 [+ 이�
 |---|---|---|
 | 제목 입력 | ✅ | — |
 | project(KnowledgeSpace) 선택 | ✅ | — |
-| resource→Subject 다중 태깅 | ✅ (추정 매핑, 리뷰 확인 필요) | — |
+| resource → `tags` 해시태그 | ⏸ `entities.md` 변경 대기 ([#64](https://github.com/gosu1/piecepool/issues/64)) | 변경 머지되면 MVP 포함 |
 | Markdown 본문 + 이미지 인라인 첨부 | ✅ (`markdown-editor.md` 컴포넌트 재사용) | — |
 | 고정하기 | ⛔ | post-MVP, `entities.md` 변경(`contracts-change`) 필요 |
 | 연결된 node 표시 | ⛔ (Inbox 단계엔 근거 데이터 없음) | `wiki-view.md`/`graph-view.md`에서 구현 |
@@ -119,6 +119,7 @@ Inbox 작성 (제목 + project 선택 + Subject 태그 + Markdown 본문 [+ 이�
 - [`../../10-contracts/markdown-frontmatter.md`](../../10-contracts/markdown-frontmatter.md) — ArchiveNote frontmatter 검증
 - [`../../00-overview/scope-mvp.md`](../../00-overview/scope-mvp.md) §2.3 — 화면 모델 SSOT
 - [`../../00-overview/open-questions.md`](../../00-overview/open-questions.md) §3 — 되묻기 UI 미결 항목
+- [이슈 #64](https://github.com/gosu1/piecepool/issues/64) — `Source.tags` 신규 필드 제안 (resource 매핑, `contracts-change` 머지 대기)
 - `../ocr-client.md` — 이미지 첨부 파이프라인 (PR #55, 병합 대기 — 머지 후 링크로 교체)
 - `markdown-editor.md` ([#21](https://github.com/gosu1/piecepool/issues/21)) — 본문 편집 컴포넌트 재사용
 - [`../../20-backend/ipc-api.md`](../../20-backend/ipc-api.md) §4 — `save_source`
