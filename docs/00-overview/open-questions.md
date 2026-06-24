@@ -87,7 +87,7 @@
 | 3-provider 동일성 기준 | schema 통과 / Concept Jaccard ≥ 0.7 / relation 트리플 일치 / must_not 위반 0 | 2026-05-29 | [evals §5](../30-llm/evals.md) |
 | 골든 케이스 카탈로그 MVP | 7건 (case-001 ~ case-007) | 2026-05-29 | [evals §3](../30-llm/evals.md) |
 | LLM 오류 메시지 한국어 표준 | 6 분류 (`auth`/`network`/`rate_limit`/`schema`/`empty`/`partial`) | 2026-05-29 | [output-validation §7](../30-llm/output-validation.md) |
-| OCR 처리 방식 | OCR 라이브러리(Tesseract.js 등) 미채택 — vision-capable LLM 호출 기반 (Free: 로컬 Gemma vision, Premium: GPT/Gemini vision). Apple Vision·Google Vision API/Mathpix는 post-MVP 후보로 보류 | 2026-06-24 | [40-frontend/ocr-client](../40-frontend/ocr-client.md) §2 |
+| OCR 처리 방식 | OCR 라이브러리(Tesseract.js 등) 미채택 — vision-capable LLM 호출 기반 (Free: 로컬 Gemma vision, Premium: GPT/Gemini vision). Apple Vision·Google Vision API/Mathpix는 post-MVP 후보로 보류 | 2026-06-24 | `40-frontend/ocr-client.md` §2 (PR #55, 병합 대기) |
 
 ---
 
