@@ -1761,26 +1761,57 @@ git commit -m "feat: add text source import flow"
 수정: `app/src-tauri/Cargo.toml`:
 
 ```toml
-pdf-extract = "0.7"
+pdf-extract = "0.10"
 ```
+
+> page 단위 추출(`extract_text_from_mem_by_pages`)은 `0.10`부터 제공된다. `0.7`에는 없으므로
+> 단일 문자열 추출(`extract_text_from_mem`)을 폐기하고 `0.10`을 표준으로 한다.
+> 설계 근거: [`pdf-extraction.md §1`](../../20-backend/pdf-extraction.md).
 
 - [ ] **단계 2: PDF command 구현**
 
 생성: `app/src-tauri/src/pdf.rs`:
 
 ```rust
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
+// page 단위 출처(#page=N) 보존을 위한 반환 타입.
+// 엔티티가 아닌 IPC 페이로드 타입 — 정식 위치는 models/ + ts-rs (pdf-extraction.md §2.2).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PageText {
+    pub page: usize, // 1-indexed
+    pub text: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PdfExtractResult {
+    pub page_count: usize,
+    pub pages: Vec<PageText>,
+}
+
 #[tauri::command]
-pub fn extract_pdf_text(file_path: String) -> Result<String, String> {
+pub fn extract_pdf_text(file_path: String) -> Result<PdfExtractResult, String> {
     let path = PathBuf::from(file_path);
     if !path.exists() {
         return Err("PDF file does not exist".to_string());
     }
 
     let bytes = fs::read(path).map_err(|error| error.to_string())?;
-    pdf_extract::extract_text_from_mem(&bytes).map_err(|error| error.to_string())
+    // 0.10부터 제공되는 page 단위 추출. 빈 page도 빈 문자열로 자리를 유지한다.
+    let pages_text =
+        pdf_extract::extract_text_from_mem_by_pages(&bytes).map_err(|error| error.to_string())?;
+
+    let pages: Vec<PageText> = pages_text
+        .into_iter()
+        .enumerate()
+        .map(|(i, text)| PageText { page: i + 1, text }) // 1-indexed
+        .collect();
+
+    Ok(PdfExtractResult { page_count: pages.len(), pages })
 }
 
 #[cfg(test)]
@@ -1823,8 +1854,11 @@ pub fn run() {
 수정: `app/src/workspace/api.ts`:
 
 ```ts
-export async function extractPdfText(filePath: string): Promise<string> {
-  return invoke<string>("extract_pdf_text", { filePath });
+// PdfExtractResult 타입은 ts-rs로 생성된다 (npm run gen:types).
+import type { PdfExtractResult } from "../lib/generated/PdfExtractResult";
+
+export async function extractPdfText(filePath: string): Promise<PdfExtractResult> {
+  return invoke<PdfExtractResult>("extract_pdf_text", { filePath });
 }
 ```
 
