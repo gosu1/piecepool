@@ -10,7 +10,6 @@
 
 | 항목 | 후보 | 책임자 | 결정 기한 |
 |---|---|---|---|
-| Markdown 편집기 라이브러리 | TipTap, Lexical, CodeMirror 6, Monaco | Frontend (#2) | Phase 4 시작 시 |
 | Graph 렌더링 라이브러리 | D3, Cytoscape.js, Sigma.js, React Flow, vis.js | @gosu1 (Graph 전체 담당) | Phase 4 시작 시 |
 | Tauri PDF 파싱 방식 | `pdfium`, `pdf-extract` (Rust), `pdf.js` (Frontend), 외부 CLI | Backend (#1) | Phase 4 `pdf-extraction.md` 작성 시 |
 | 코드 사이닝 (macOS) | Apple Developer Program, ad-hoc, notarization 정책 | Frontend (#2) | `.dmg`/`.pkg` 빌드 도입 시 |
@@ -89,6 +88,7 @@
 | 골든 케이스 카탈로그 MVP | 7건 (case-001 ~ case-007) | 2026-05-29 | [evals §3](../30-llm/evals.md) |
 | LLM 오류 메시지 한국어 표준 | 6 분류 (`auth`/`network`/`rate_limit`/`schema`/`empty`/`partial`) | 2026-05-29 | [output-validation §7](../30-llm/output-validation.md) |
 | OCR 라이브러리 | 별도 OCR 엔진 없음 — vision-capable LLM 호출(Free=로컬 Gemma vision, Premium=GPT/Gemini vision) 단일 경로 | 2026-06-22 | [ocr-client.md](../40-frontend/ocr-client.md) |
+| Markdown 편집기 라이브러리 | CodeMirror 6 (`@uiw/react-codemirror`). 미리보기는 분리, wikilink-embed 커스텀 렌더링과 충돌하는 올인원/WYSIWYG 계열 제외 | 2026-06-25 | [40-frontend/screens/markdown-editor.md §2](../40-frontend/screens/markdown-editor.md) |
 
 ---
 
