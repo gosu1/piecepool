@@ -6,16 +6,33 @@
 pub mod commands;
 pub mod error;
 pub mod import;
+pub mod llm_sidecar;
 pub mod models;
 pub mod pdf;
 pub mod seed;
 pub mod storage;
 
+use std::sync::Arc;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // 로컬 추론 sidecar — env 경로 있으면 백그라운드 spawn (없으면 Disabled no-op).
+    let sidecar = Arc::new(llm_sidecar::SidecarManager::new());
+    llm_sidecar::launch(sidecar.clone());
+    let shutdown = sidecar.clone();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![commands::workspace::get_workspace])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .manage(sidecar)
+        .invoke_handler(tauri::generate_handler![
+            commands::workspace::get_workspace,
+            commands::llm_sidecar::llm_sidecar_status
+        ])
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(move |_app, event| {
+            if let tauri::RunEvent::Exit = event {
+                shutdown.shutdown();
+            }
+        });
 }

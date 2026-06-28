@@ -44,12 +44,17 @@ interface LlmWikiInput {
 | `PIECEPOOL_LLM_MODEL` | provider별 기본값 (§3) | 모델명 override |
 | `PIECEPOOL_LOCAL_LLM_ENDPOINT` | `http://localhost:8080` | local일 때 llama-server endpoint |
 | `PIECEPOOL_LOCAL_LLM_BACKEND` | `llama-server` | local backend (MVP=llama.cpp sidecar 고정) |
+| `PIECEPOOL_LOCAL_LLM_BIN` | (없으면 sidecar Disabled) | Backend가 spawn할 `llama-server` 실행 파일 경로 |
+| `PIECEPOOL_LOCAL_LLM_MODEL_PATH` | (없으면 sidecar Disabled) | Gemma 4 E4B GGUF 파일 경로 |
+| `PIECEPOOL_LOCAL_LLM_PORT` | `8080` | sidecar bind 포트 (ENDPOINT 포트와 일치) |
 | `OPENAI_API_KEY` | (필수) | provider=openai일 때 |
 | `GEMINI_API_KEY` | (필수) | provider=gemini일 때 |
 | `PIECEPOOL_PREMIUM_FACT_CHECK` | `true` | Premium 시 fact-check 토글 |
 | `PIECEPOOL_PREMIUM_CLARIFY` | `true` | Premium 시 되묻기 토글 |
 | `PIECEPOOL_LLM_TIMEOUT_MS` | `60000` | 호출 timeout |
 | `PIECEPOOL_LLM_MAX_RETRIES` | `2` | 재시도 횟수 |
+
+> `PIECEPOOL_LOCAL_LLM_BIN` / `_MODEL_PATH` 미설정 시 sidecar는 **Disabled** (호출 시 §2.1 health-check 실패). 자동 다운로드 슬라이스 전까지 수동 지정. spawn/health/종료 lifecycle은 Backend `llm_sidecar` 모듈 책임.
 
 ### 2.1 provider 선택 로직
 
