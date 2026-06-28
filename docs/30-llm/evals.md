@@ -231,7 +231,18 @@ Free 평가에 추가하여 Premium 전용:
 
 ---
 
-## 8. 미해결 / open-questions 후보
+## 8. QA / retrieval agent eval (post-MVP)
+
+§3 골든 케이스는 **쓰기(추출)** 검증. 질의 에이전트는 **읽기** 검증이 따로 필요하다.
+
+- 상세: [`wiki-qa-agent.md`](wiki-qa-agent.md) §8 — 난이도별 자동 질문(easy/medium/hard/trap) + 파일 attribution + 환각 0 + 추론 격리 + 경로 유효.
+- 하니스 확장: `npm run eval -- --agent --space <slug>` — seed vault 기반, §4 results/ 비교 표 재사용.
+- 저장 전 의미 검증(import 시점)은 [`qa-review-agent.md`](qa-review-agent.md).
+- **멀티에이전트 import eval은 보류** (Premium 후속, [`wiki-qa-agent.md`](wiki-qa-agent.md) §9): 호출 N배 → Free(local) 비용모델과 충돌.
+
+---
+
+## 9. 미해결 / open-questions 후보
 
 - evals 실행 도구 (TypeScript script / Python / 외부 도구) — [`open-questions.md`](../00-overview/open-questions.md) §2 추가 예정
 - similarity 측정 모델 — 같은 §
@@ -240,9 +251,9 @@ Free 평가에 추가하여 Premium 전용:
 
 ---
 
-## 9. 변경 이력 노트
+## 10. 변경 이력 노트
 
 - 본 문서는 신규 작성이다. 초안 = [Phase 4 tracking #3 (LLM)](https://github.com/gosu1/piecepool/issues/3) + [sub-issue #32](https://github.com/gosu1/piecepool/issues/32) 기반.
 - 골든 케이스 7건은 MVP scope. `fixtures/*.json`과 `expected/*.json` 실제 작성은 별도 PR.
 - §5 3-provider 동일성 평가 기준 신규 정의 (PRD-v1에 없던 항목).
-- §6.2 CI 통합 / §6.3 baseline 갱신 / §8 도구 선택 → 결정 보류, [`open-questions.md`](../00-overview/open-questions.md) 추가 예정.
+- §6.2 CI 통합 / §6.3 baseline 갱신 / §9 도구 선택 → 결정 보류, [`open-questions.md`](../00-overview/open-questions.md) 추가 예정.
