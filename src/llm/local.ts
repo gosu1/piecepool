@@ -1,5 +1,5 @@
 import type { LlmProvider, LlmWikiInput, LlmWikiResult } from "./provider";
-import { validateLlmWikiResult } from "./validate";
+import { normalizeLlmResult, validateLlmWikiResult } from "./validate";
 import schema from "./schema/llm-wiki-result.schema.json" with { type: "json" };
 
 // Free 플랜 — Local. Tauri sidecar llama.cpp `llama-server` (OpenAI 호환 localhost HTTP).
@@ -40,7 +40,11 @@ export class LocalProvider implements LlmProvider {
     for (let attempt = 0; attempt <= this.cfg.maxRetries; attempt++) {
       if (attempt > 0) await sleep(this.cfg.backoffMs * 2 ** (attempt - 1));
       const r = await this.attempt(body);
-      if (r.ok) return r.data;
+      if (r.ok) {
+        const { data, warnings } = normalizeLlmResult(r.data, input);
+        for (const w of warnings) console.warn(`[provider=local] ${w}`);
+        return data;
+      }
       lastError = r.error;
       if (!r.retriable) break;
     }
