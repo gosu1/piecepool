@@ -41,11 +41,15 @@ Frontend(`src/`)가 `invoke()`로 호출하는 Tauri command 목록. **Frontend 
 
 | command | 인자 | 반환 | 상태 |
 |---|---|---|---|
-| `extract_pdf_text` | `path` | `string` | 🔜 |
+| `extract_pdf_text` | `path` | `PdfExtractResult` | 🔜 |
 | `ocr_image` | `path` | `string` | ⏳ |
 | `save_source` | `spaceId, input` | `Source` | 🔜 |
 | `list_sources` | `spaceId` | `Source[]` | 🔜 |
 
+> `extract_pdf_text` 반환은 단일 `string`이 아니라 **page 단위 출처(`#page=N`)를 보존하는 객체**
+> `PdfExtractResult { page_count, pages: PageText[] }`다. 설계 근거·필드는
+> [`pdf-extraction.md §2.2`](pdf-extraction.md)를 따른다. (엔티티가 아닌 IPC 페이로드 타입이라
+> `entities.md`가 아닌 `models/`에 ts-rs로 정의)
 > `save_source` 가 `Source` + 연결된 `ArchiveNote`(`archive/*.md`) + 원본(`sources/original-files/`) 기록.
 > Import 흐름/상태(`ImportJob`)는 TS 서비스층이 오케스트레이션 — `import-pipeline.md` (작성 예정).
 
