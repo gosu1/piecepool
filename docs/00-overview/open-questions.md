@@ -13,8 +13,8 @@
 | Markdown 편집기 라이브러리 | TipTap, Lexical, CodeMirror 6, Monaco | Frontend (#2) | Phase 4 시작 시 |
 | Graph 렌더링 라이브러리 | D3, Cytoscape.js, Sigma.js, React Flow, vis.js | @gosu1 (Graph 전체 담당) | Phase 4 시작 시 |
 | Tauri PDF 파싱 방식 | `pdfium`, `pdf-extract` (Rust), `pdf.js` (Frontend), 외부 CLI | Backend (#1) | Phase 4 `pdf-extraction.md` 작성 시 |
-| **OCR 라이브러리** (신규) | Tesseract.js, Apple Vision, 외부 OCR API (Google Vision, Mathpix), 로컬 모델 | Frontend (#2) | Phase 4 `ocr-client.md` 작성 시 |
 | 코드 사이닝 (macOS) | Apple Developer Program, ad-hoc, notarization 정책 | Frontend (#2) | `.dmg`/`.pkg` 빌드 도입 시 |
+| **OCR 보강 옵션** (신규, post-MVP) | Apple Vision (네이티브), Google Vision API, Mathpix — 오프라인 제약·플랫폼 분기 비용 때문에 MVP는 vision LLM 단일 경로로 결정. 후속 검토용 후보만 기록 | Frontend (#2) | post-MVP |
 
 ---
 
@@ -88,6 +88,7 @@
 | 3-provider 동일성 기준 | schema 통과 / Concept Jaccard ≥ 0.7 / relation 트리플 일치 / must_not 위반 0 | 2026-05-29 | [evals §5](../30-llm/evals.md) |
 | 골든 케이스 카탈로그 MVP | 7건 (case-001 ~ case-007) | 2026-05-29 | [evals §3](../30-llm/evals.md) |
 | LLM 오류 메시지 한국어 표준 | 6 분류 (`auth`/`network`/`rate_limit`/`schema`/`empty`/`partial`) | 2026-05-29 | [output-validation §7](../30-llm/output-validation.md) |
+| OCR 라이브러리 | 별도 OCR 엔진 없음 — vision-capable LLM 호출(Free=로컬 Gemma vision, Premium=GPT/Gemini vision) 단일 경로 | 2026-06-22 | [ocr-client.md](../40-frontend/ocr-client.md) |
 
 ---
 
