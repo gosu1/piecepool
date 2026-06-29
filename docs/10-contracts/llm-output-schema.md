@@ -1,6 +1,6 @@
 # LLM Output Schema (SSOT)
 
-PiecePool LLM 호출의 **provider 무관 출력 JSON Schema**. OpenAI / 로컬 Ollama 등 어떤 provider를 쓰든 본 schema로 변환되어 저장된다.
+PiecePool LLM 호출의 **provider 무관 출력 JSON Schema**. OpenAI / 로컬 llama.cpp llama-server 등 어떤 provider를 쓰든 본 schema로 변환되어 저장된다.
 
 > **본 문서가 단일 출처**다. provider별 raw 응답은 본 schema로 정규화 후에만 다른 계층에 노출된다.
 > **계약 변경**: [README.md#변경-절차](README.md#변경-절차) 참조.
@@ -227,7 +227,7 @@ LlmEvidence      → Evidence
 
 | Provider | 플랜 | 호출 방식 |
 |---|---|---|
-| **Local (Ollama)** | Free (기본) | `format: "json"` + schema는 system prompt에 명시 + adapter가 검증 |
+| **Local (llama.cpp llama-server)** | Free (기본) | `response_format: json_schema` (GBNF) + schema는 system prompt에도 명시 + adapter가 검증 |
 | **OpenAI (GPT)** | Premium 선택지 | Responses API + `response_format: { type: "json_schema", ... }` |
 | **Gemini (Google)** | Premium 선택지 | `responseSchema` 파라미터 + adapter가 검증 |
 
