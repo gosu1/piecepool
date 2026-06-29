@@ -1,5 +1,5 @@
 name: LLM Task
-description: LLM 어댑터/프롬프트/검증 작업 (하이브리드: OpenAI + Local Ollama)
+description: LLM 어댑터/프롬프트/검증 작업 (하이브리드: OpenAI + Local llama.cpp llama-server)
 title: "[LLM] "
 labels: ["role:llm"]
 body:
@@ -27,7 +27,7 @@ body:
       label: 대상 Provider
       options:
         - openai
-        - local (Ollama)
+        - local (llama.cpp llama-server)
         - 둘 다 (공통)
         - N/A
     validations:
@@ -38,7 +38,7 @@ body:
     attributes:
       label: 목표
       description: 검증 가능한 성공 기준
-      placeholder: "예: ollama provider adapter 구현, LlmWikiResult 스키마 출력 통과"
+      placeholder: "예: local(llama-server) provider adapter 구현, LlmWikiResult 스키마 출력 통과"
     validations:
       required: true
 

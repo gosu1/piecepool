@@ -72,7 +72,7 @@ PiecePool 용어 정의. **모든 역할 필독**. 협업 시 용어 표류 방�
 
 | 용어 | 정의 |
 |---|---|
-| **Provider** | LLM 호출 대상. 3종: `local` (Ollama), `openai` (GPT), `gemini` (Google) |
+| **Provider** | LLM 호출 대상. 3종: `local` (llama.cpp llama-server), `openai` (GPT), `gemini` (Google) |
 | **Adapter** | provider별 raw 응답을 공통 `LlmWikiResult` schema로 변환하는 계층 |
 | **LlmWikiResult** | provider 무관 출력 JSON Schema ([llm-output-schema](../10-contracts/llm-output-schema.md)) |
 | **Free plan** | Local LLM 무제한 사용 |

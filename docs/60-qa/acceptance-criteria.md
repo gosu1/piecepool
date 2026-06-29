@@ -52,8 +52,8 @@ MVP 합격선. **모든 항목이 통과해야 MVP 완료**다.
 - [ ] Concept / WikiPage / Relation / Evidence / SourceRef가 LLM 출력에서 생성된다
 - [ ] LLM 생성 WikiPage가 사용자 친화 설명 + 구조화 메타데이터 동시 보유
 
-### 3.2 Free (Local Ollama)
-- [ ] `PIECEPOOL_LLM_PROVIDER=local`로 Ollama endpoint 호출
+### 3.2 Free (Local llama.cpp llama-server)
+- [ ] `PIECEPOOL_LLM_PROVIDER=local`로 로컬 llama-server endpoint 호출
 - [ ] `OPENAI_API_KEY`, `GEMINI_API_KEY` 없이도 동작
 - [ ] 인터넷 미연결 환경에서 전체 Free 흐름 통과
 

@@ -10,7 +10,7 @@ PiecePool 제품 모델. 모든 역할이 읽는다.
 
 | 플랜 | LLM 호출 대상 | 한도 | 추가 기능 |
 |---|---|---|---|
-| **Free** | Local LLM (Ollama 기본) | 무제한 | 핵심 기능 모두 (Workspace, archive, wiki 생성, Graph View) |
+| **Free** | Local LLM (llama.cpp llama-server, Gemma 4 E4B) | 무제한 | 핵심 기능 모두 (Workspace, archive, wiki 생성, Graph View) |
 | **Premium** | 외부 API: Gemini **또는** GPT (사용자 선택) | API 비용·rate에 따름 | 되묻기 + fact-check + 웹 검색 기반 비교 + Wiki 강화 |
 
 ---
@@ -18,7 +18,7 @@ PiecePool 제품 모델. 모든 역할이 읽는다.
 ## 2. Free 플랜
 
 ### 2.1 LLM
-- 로컬 모델 (Ollama 기본). 사용자 머신에서 추론
+- 로컬 모델 (llama.cpp llama-server, Gemma 4 E4B). 사용자 머신에서 추론
 - 환경변수 `PIECEPOOL_LLM_PROVIDER=local`
 - 인터넷 미연결 환경에서도 동작
 - 추론 속도/품질은 사용자 머신 성능에 의존
@@ -111,9 +111,9 @@ PiecePool 제품 모델. 모든 역할이 읽는다.
 PIECEPOOL_LLM_PROVIDER=local|openai|gemini   # 기본 local (Free)
 PIECEPOOL_LLM_MODEL=...                      # provider별 기본값
 
-# local (Ollama)
-PIECEPOOL_LOCAL_LLM_ENDPOINT=http://localhost:11434
-PIECEPOOL_LOCAL_LLM_BACKEND=ollama           # MVP 기본
+# local (llama.cpp llama-server — Gemma 4 E4B)
+PIECEPOOL_LOCAL_LLM_ENDPOINT=http://localhost:8080
+PIECEPOOL_LOCAL_LLM_BACKEND=llama-server     # MVP 기본
 
 # openai (Premium)
 OPENAI_API_KEY=...
