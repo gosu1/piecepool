@@ -1,0 +1,12 @@
+{
+  "id": "case-001-self-attention",
+  "title": "Self-Attention 단일 source 추출",
+  "input": {
+    "sourceTitle": "Transformer 강의 3주차",
+    "sourceText": "Self-Attention은 sequence 안의 각 token이 다른 token과의 관계를 계산해 문맥 표현을 만드는 attention mechanism이다. Transformer의 핵심 layer 중 하나로, Multi-Head Attention의 기본 단위가 된다.",
+    "sourceFiles": [],
+    "subjects": [{ "id": "subject-ai", "name": "AI" }],
+    "existingConcepts": []
+  },
+  "tags": ["single-source", "concept-extraction", "relation-part-of"]
+}

@@ -6,6 +6,27 @@ import schema from "./schema/llm-wiki-result.schema.json" with { type: "json" };
 // 출력 검증/정규화는 validate.ts(keystone, 전 provider 공통). 프롬프트 본문 SSOT: prompt-templates.md.
 // 되묻기/fact-check round-trip은 Backend 주도(§6) — 본 어댑터는 단일 구조화 호출만.
 
+// Gemini responseSchema는 OpenAPI 3.0 subset — JSON Schema 전용 키($schema/$comment/$id/additionalProperties)를
+// 재귀 제거해 SSOT 스키마(draft-2020-12)에서 파생한다. min*/enum/required 등 OpenAPI 호환 키는 유지.
+// ($ 접두 키 + additionalProperties만 제거 — "title"은 property명과 충돌하므로 strip 대상 아님.)
+// 출력은 다시 validate.ts가 full 스키마로 재검증하므로 strictness 손실은 keystone에서 보강된다.
+const GEMINI_STRIP = new Set(["$schema", "$comment", "$id", "additionalProperties"]);
+
+function toGeminiSchema(node: unknown): unknown {
+  if (Array.isArray(node)) return node.map(toGeminiSchema);
+  if (node && typeof node === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(node)) {
+      if (GEMINI_STRIP.has(k)) continue;
+      out[k] = toGeminiSchema(v);
+    }
+    return out;
+  }
+  return node;
+}
+
+const GEMINI_SCHEMA = toGeminiSchema(schema);
+
 export type GeminiProviderConfig = {
   apiKey: string;
   endpoint: string; // base URL (default https://generativelanguage.googleapis.com/v1beta)
@@ -57,11 +78,9 @@ export class GeminiProvider implements LlmProvider {
     return {
       contents: buildContents(input),
       systemInstruction: { parts: [{ text: SYSTEM }] },
-      // responseSchema는 OpenAPI 3.0 subset — draft-2020-12 전용 키워드($schema/additionalProperties)는
-      // live key 확보 시 재조정(후속). validate.ts가 provider 무관 최종 게이트라 drift는 거기서 차단.
       generationConfig: {
         responseMimeType: "application/json",
-        responseSchema: schema,
+        responseSchema: GEMINI_SCHEMA,
       },
     };
   }

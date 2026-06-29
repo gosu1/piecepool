@@ -1,0 +1,19 @@
+{
+  "caseId": "case-003-graph-vs-gnn",
+  "must": {
+    "conceptTitles": ["Graph"],
+    "relationsAtLeast": 1,
+    "schemaValid": true
+  },
+  "should": {
+    "conceptTitlesAlsoAcceptable": ["그래프", "GNN", "그래프 신경망", "Graph Neural Network"],
+    "relatedConceptTitles": ["GNN", "그래프 신경망", "Vertex", "Edge"],
+    "relationTypeHints": [
+      { "from": "GNN", "to": "Graph", "type": "used_in" }
+    ]
+  },
+  "must_not": {
+    "relationTypes": ["review_needed"],
+    "concepts": ["CNN", "RNN", "LSTM"]
+  }
+}

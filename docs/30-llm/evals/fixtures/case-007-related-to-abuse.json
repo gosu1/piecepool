@@ -1,0 +1,12 @@
+{
+  "id": "case-007-related-to-abuse",
+  "title": "related_to 과다 응답 경고 검증",
+  "input": {
+    "sourceTitle": "컴퓨터 과학 개요",
+    "sourceText": "컴퓨터 과학(Computer Science)은 알고리즘, 자료구조, 운영체제, 네트워크, 데이터베이스, 인공지능 등 다양한 분야를 포함한다. 알고리즘은 문제를 해결하는 절차다. 자료구조는 데이터를 효율적으로 저장하고 접근하는 방법이다. 운영체제는 하드웨어와 소프트웨어 사이의 인터페이스다. 네트워크는 컴퓨터들이 서로 통신하는 체계다. 데이터베이스는 데이터를 구조적으로 저장하고 관리하는 시스템이다.",
+    "sourceFiles": [],
+    "subjects": [{ "id": "subject-cs", "name": "컴퓨터과학" }],
+    "existingConcepts": []
+  },
+  "tags": ["related-to-ratio", "warning-log"]
+}

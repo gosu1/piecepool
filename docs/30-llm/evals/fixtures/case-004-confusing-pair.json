@@ -1,0 +1,12 @@
+{
+  "id": "case-004-confusing-pair",
+  "title": "Process vs Thread 대조",
+  "input": {
+    "sourceTitle": "운영체제 - 프로세스와 스레드 비교",
+    "sourceText": "프로세스(Process)와 스레드(Thread)는 자주 혼동되는 개념이다. 프로세스는 독립적인 메모리 공간을 가지며 운영체제로부터 자원을 할당받는 실행 단위다. 스레드는 프로세스 내에서 실행되는 흐름으로, 같은 프로세스의 스레드들은 힙 메모리와 전역 변수를 공유한다. 프로세스 간 전환(Context Switching)은 스레드 간 전환보다 비용이 크다.",
+    "sourceFiles": [],
+    "subjects": [{ "id": "subject-os", "name": "운영체제" }],
+    "existingConcepts": []
+  },
+  "tags": ["confusing-pair", "relation-confused-with", "relation-contrasts"]
+}

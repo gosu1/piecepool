@@ -11,6 +11,7 @@
     "gen:types": "cargo test --manifest-path src-tauri/Cargo.toml export_bindings",
     "gen:llm-schema": "node scripts/gen-llm-schema.mjs",
     "eval:preflight": "node scripts/eval-preflight.mjs",
+    "eval": "tsx scripts/eval.ts",
     "tauri": "tauri"
   },
   "dependencies": {
@@ -29,6 +30,7 @@
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^4.6.0",
     "tailwindcss": "^4.1.0",
+    "tsx": "^4.19.0",
     "typescript": "~5.8.3",
     "vite": "^7.0.4"
   }
