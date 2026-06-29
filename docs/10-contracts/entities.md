@@ -97,6 +97,7 @@ type Source = {
   type: SourceType;
   title: string;
   subjectIds: string[];          // 다중 Subject 태깅 가능
+  tags?: string[];               // project 경계와 무관한 자유 해시태그 (예: ["주식", "딥러닝"])
   inboxPath?: string;            // 처음 들어온 위치 (선택)
   archivePath: string;           // <space>/archive/*.md (필수)
   originalFilePath?: string;     // <space>/sources/original-files/* (PDF/이미지)
@@ -107,6 +108,7 @@ type Source = {
 
 - `text` / `summary_text`: 사용자 텍스트. `originalFilePath` 없음
 - `pdf` / `image`: 원본 보존. `originalFilePath`는 `<space>/sources/original-files/` 하위 경로
+- `tags`: `subjectIds`(특정 `KnowledgeSpace`에 종속)와 달리 project 경계와 무관하게 자유롭게 붙이는 해시태그. 선택 필드, 미입력 시 빈 배열/undefined로 동작 (하위 호환)
 
 ---
 
@@ -284,3 +286,4 @@ type ImportJob = {
 - 본 문서는 `docs/archive/PRD-v1.md` §8 (line 270-547)을 분리·재구성한 SSOT다.
 - Relation 엔티티와 RelationType enum은 [relation-types.md](relation-types.md)로 분리했다.
 - 2026-05-29: `ImportJobStatus`에 `clarify_pending` 추가 (Premium 되묻기). 발의 = [output-validation.md §6.4](../30-llm/output-validation.md), 추적 = [#42](https://github.com/gosu1/piecepool/issues/42). `contracts-change` → 4역할 review.
+- 2026-06-25: `Source`에 `tags?: string[]` 추가 (project 경계와 무관한 자유 해시태그, PARA Resource 개념). `subjectIds`는 특정 `KnowledgeSpace`에 종속돼 재사용 불가 판정. 발의 = [#64](https://github.com/gosu1/piecepool/issues/64). `contracts-change` → 4역할 review.
