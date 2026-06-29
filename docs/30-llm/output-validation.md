@@ -30,7 +30,7 @@ LLM 호출 결과를 저장 전에 검증 / 재시도 / 부분 실패 처리하�
 
 | Provider | raw 형식 | 정규화 단계 |
 |---|---|---|
-| Local (Ollama) | `{message: {content: "..."}}` 안의 content가 JSON 문자열 | `JSON.parse(content)` → `LlmWikiResult` |
+| Local (llama.cpp llama-server) | `{choices: [{message: {content: "..."}}]}` content가 JSON 문자열 (OpenAI 호환) | `JSON.parse(choices[0].message.content)` → `LlmWikiResult` |
 | OpenAI | `{output_parsed: {...}}` 또는 Responses API output text | `output_parsed` 우선, 없으면 text parse |
 | Gemini | `{candidates: [{content: {parts: [{text: "..."}]}}]}` text가 JSON 문자열 | `JSON.parse(text)` → `LlmWikiResult` |
 
@@ -214,7 +214,7 @@ LLM 응답에 유효한 부분과 무효한 부분이 섞여 있으면 **유효 
 | 분류 | provider 응답 | 사용자 메시지 |
 |---|---|---|
 | `auth` | 401 / 403 | "API 키를 확인해주세요. 설정에서 재입력하세요." |
-| `network` | timeout, DNS 실패 | "LLM 서버에 연결할 수 없습니다. 네트워크 또는 Ollama를 확인하세요." |
+| `network` | timeout, DNS 실패 | "LLM 서버에 연결할 수 없습니다. 네트워크 또는 로컬 llama-server를 확인하세요." |
 | `rate_limit` | 429 | "잠시 후 재시도하세요." |
 | `schema` | JSON Schema 위반 (재시도 후) | "LLM 응답이 형식에 맞지 않습니다. 입력을 확인하거나 모델을 변경하세요." |
 | `empty` | concepts=0 | "입력에서 추출할 개념을 찾지 못했습니다. 더 자세한 자료를 입력해주세요." |

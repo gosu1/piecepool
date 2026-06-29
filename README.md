@@ -83,7 +83,7 @@
 
 | 플랜 | Provider | 환경변수 |
 |---|---|---|
-| Free (기본) | Local Ollama 무제한 | `PIECEPOOL_LLM_PROVIDER=local` |
+| Free (기본) | Local llama.cpp (Gemma 4 E4B) 무제한 | `PIECEPOOL_LLM_PROVIDER=local` |
 | Premium | OpenAI GPT | `OPENAI_API_KEY` |
 | Premium | Gemini | `GEMINI_API_KEY` |
 

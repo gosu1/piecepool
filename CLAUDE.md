@@ -112,7 +112,7 @@ idle → parsing → archiving → llm_processing → writing → completed
                           user ignores ──► writing (save 1st-call result) → completed
 ```
 
-- `clarify_pending` **never occurs** for Free (local Ollama) users.
+- `clarify_pending` **never occurs** for Free (local llama.cpp llama-server) users.
 - On any unrecoverable error, transition to `failed` and populate `errorMessage`.
 
 ---
@@ -150,11 +150,11 @@ src-tauri/src/
 
 Three providers are supported. The backend must route correctly based on user plan:
 
-| Plan           | Provider     | Env var                        |
-| -------------- | ------------ | ------------------------------ |
-| Free (default) | Local Ollama | `PIECEPOOL_LLM_PROVIDER=local` |
-| Premium        | OpenAI GPT   | `OPENAI_API_KEY`               |
-| Premium        | Gemini       | `GEMINI_API_KEY`               |
+| Plan           | Provider           | Env var                        |
+| -------------- | ------------------ | ------------------------------ |
+| Free (default) | Local llama-server | `PIECEPOOL_LLM_PROVIDER=local` |
+| Premium        | OpenAI GPT         | `OPENAI_API_KEY`               |
+| Premium        | Gemini             | `GEMINI_API_KEY`               |
 
 - All providers must produce output conforming to `LlmWikiResult` (see above).
 - Premium-only features (clarify / fact-check / web-search compare) must be gated — they must not execute on Free plan.

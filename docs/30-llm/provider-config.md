@@ -42,14 +42,19 @@ interface LlmWikiInput {
 |---|---|---|
 | `PIECEPOOL_LLM_PROVIDER` | `local` | `local` \| `openai` \| `gemini` |
 | `PIECEPOOL_LLM_MODEL` | provider별 기본값 (§3) | 모델명 override |
-| `PIECEPOOL_LOCAL_LLM_ENDPOINT` | `http://localhost:11434` | local일 때 Ollama endpoint |
-| `PIECEPOOL_LOCAL_LLM_BACKEND` | `ollama` | local backend (MVP=Ollama 고정) |
+| `PIECEPOOL_LOCAL_LLM_ENDPOINT` | `http://localhost:8080` | local일 때 llama-server endpoint |
+| `PIECEPOOL_LOCAL_LLM_BACKEND` | `llama-server` | local backend (MVP=llama.cpp sidecar 고정) |
+| `PIECEPOOL_LOCAL_LLM_BIN` | (없으면 sidecar Disabled) | Backend가 spawn할 `llama-server` 실행 파일 경로 |
+| `PIECEPOOL_LOCAL_LLM_MODEL_PATH` | (없으면 sidecar Disabled) | Gemma 4 E4B GGUF 파일 경로 |
+| `PIECEPOOL_LOCAL_LLM_PORT` | `8080` | sidecar bind 포트 (ENDPOINT 포트와 일치) |
 | `OPENAI_API_KEY` | (필수) | provider=openai일 때 |
 | `GEMINI_API_KEY` | (필수) | provider=gemini일 때 |
 | `PIECEPOOL_PREMIUM_FACT_CHECK` | `true` | Premium 시 fact-check 토글 |
 | `PIECEPOOL_PREMIUM_CLARIFY` | `true` | Premium 시 되묻기 토글 |
 | `PIECEPOOL_LLM_TIMEOUT_MS` | `60000` | 호출 timeout |
 | `PIECEPOOL_LLM_MAX_RETRIES` | `2` | 재시도 횟수 |
+
+> `PIECEPOOL_LOCAL_LLM_BIN` / `_MODEL_PATH` 미설정 시 sidecar는 **Disabled** (호출 시 §2.1 health-check 실패). 자동 다운로드 슬라이스 전까지 수동 지정. spawn/health/종료 lifecycle은 Backend `llm_sidecar` 모듈 책임.
 
 ### 2.1 provider 선택 로직
 
@@ -63,8 +68,8 @@ if provider == "gemini" and GEMINI_API_KEY is empty
   → 오류: "Premium=gemini requires GEMINI_API_KEY"
 
 if provider == "local"
-  health-check: GET PIECEPOOL_LOCAL_LLM_ENDPOINT/api/tags
-  실패 시 오류: "Ollama not reachable at <endpoint>"
+  health-check: GET PIECEPOOL_LOCAL_LLM_ENDPOINT/health
+  실패 시 오류: "local llama-server not reachable at <endpoint>"
 ```
 
 플랜 결정은 provider 단독 (Free=local / Premium=openai|gemini). 별도 `plan` 환경변수 없음.
@@ -73,12 +78,12 @@ if provider == "local"
 
 ## 3. Provider별 구현 노트
 
-### 3.1 Local (Ollama)
+### 3.1 Local (llama.cpp sidecar)
 
-- **MVP 기본 backend**. MLX / llama.cpp는 후속 ([post-mvp §9.1](../70-roadmap/post-mvp.md))
-- 기본 모델: `gemma4:e4b` (Gemma 4 E4B · Ollama 실제 태그는 [Hub](https://ollama.com/library) 확인 후 `PIECEPOOL_LLM_MODEL`로 override)
-- 호출: `POST <endpoint>/api/chat`
-- structured output: `format: "json"` 파라미터 + system prompt에 JSON Schema 명시
+- **MVP 기본 backend**. Tauri sidecar로 llama.cpp `llama-server` 구동 (GGUF + Metal, 완전 on-device). MLX는 후속 ([post-mvp §9.1](../70-roadmap/post-mvp.md))
+- 기본 모델: Gemma 4 E4B GGUF (~5GB 4-bit, 멀티모달 text/image). 실제 파일/태그는 `PIECEPOOL_LLM_MODEL`로 override
+- 호출: `POST <endpoint>/v1/chat/completions` (OpenAI 호환)
+- structured output: `response_format: { type: "json_schema", json_schema: { name, schema } }` (llama-server가 GBNF로 강제) + system prompt에 schema 명시
 - adapter 책임:
   - 응답 본문이 JSON Schema 통과하는지 검증 (Local 모델은 schema 위반 가능성 ↑)
   - 위반 시 재시도 (max `PIECEPOOL_LLM_MAX_RETRIES`)
@@ -138,7 +143,7 @@ if provider == "local"
 [provider=<id>] <단계>: <원인>
 예시:
   [provider=openai] auth: OPENAI_API_KEY missing
-  [provider=local]  network: Ollama not reachable at http://localhost:11434
+  [provider=local]  network: local llama-server not reachable at http://localhost:8080
   [provider=gemini] schema: response field 'concepts' missing
 ```
 
@@ -182,8 +187,7 @@ Premium 트리거 기준 (되묻기 임계값, fact-check 발동 조건)은 **Ba
 
 | 항목 | 위치 |
 |---|---|
-| MLX backend | 본 문서 §3.1을 별도 backend로 분리. 어댑터 인터페이스 동일 |
-| llama.cpp backend | 같음 |
+| MLX backend | §3.1 llama.cpp를 MLX로 교체/병행. 어댑터 인터페이스 동일 |
 | Anthropic Claude provider | 본 문서 §3에 §3.4 신규 절 추가. `LlmProvider.id` 확장 |
 | 모델 라우팅 (작은 입력 → 작은 모델) | adapter 내부에서 model 선택. 인터페이스 무변경 |
 

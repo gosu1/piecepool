@@ -22,13 +22,12 @@
 | 항목 | 옵션 | 책임자 | 결정 기한 |
 |---|---|---|---|
 | Relation 메타데이터 저장 위치 | 단일 `relations.json`, wiki frontmatter 병행, 하이브리드 | Backend (#1) + LLM (#3) | Phase 4 `import-pipeline.md` |
-| Ollama 외 로컬 backend | MLX, llama.cpp 도입 시점·우선순위 | LLM (#3) | Phase 4 이후 검토 |
+| llama.cpp 외 로컬 backend | MLX 도입 시점·우선순위 | LLM (#3) | Phase 4 이후 검토 |
 | **Gemini 결제/키 관리** | 사용자 자체 키 vs PiecePool 구독, BYOK 정책 | PM (@gosu1) | MVP+1 결제 시스템 설계 시 |
 | **Premium fact-check 도구** | OpenAI tool web_search / Gemini googleSearch grounding 결정 ✅. 외부 검색 API 추가 도입 여부는 보류 | LLM (#3) + Backend (#1) | MVP+1 |
 | **되묻기 트리거 임계값** | `confidence < 0.5` 기본 명시 ([output-validation §6.1](../30-llm/output-validation.md)). 입력 길이 / 일반성 기준은 Backend `prompt-design.md`에서 구체화 | Backend (#1) | Phase 4 `import-pipeline.md` / `prompt-design.md` |
 | **JSON Schema 검증 라이브러리** (신규) | `ajv` / `zod` / json-schema-to-zod | LLM (#3) | Phase 4 코드 작성 시 |
-| **evals 실행 도구** (신규) | TypeScript script (자체) / Python pytest / vitest 통합 | LLM (#3) | Phase 4 코드 작성 시 |
-| **similarity 측정 모델** (신규) | OpenAI text-embedding-3-small / Local Ollama nomic-embed / Cohere | LLM (#3) | evals fixtures 실제 작성 시 |
+| **similarity 측정 모델** (신규) | OpenAI text-embedding-3-small / Local llama.cpp nomic-embed / Cohere | LLM (#3) | evals fixtures 실제 작성 시 |
 | **되묻기 timeout** (신규) | 5분 기본 가정. 실제 UX 검증 후 조정 | Backend (#1) + Design (#4) | Phase 4 `screens/import.md` |
 | **eval-baseline-change 라벨** (신규) | 골든 케이스 기대 결과 변경 PR에 부착할 라벨 신설 | @gosu1 | evals fixtures 실제 작성 PR 직전 |
 
@@ -77,10 +76,11 @@
 | OCR MVP 포함 여부 | MVP 포함 (Frontend 책임) | 2026-05-28 | [scope-mvp §4](scope-mvp.md) |
 | 프롬프트 설계 소유 | Backend 주도 + LLM adapter 분리 | 2026-05-28 | [30-llm/README](../30-llm/README.md) |
 | Freemium 정보 위치 | 신규 `docs/00-overview/pricing-model.md` | 2026-05-28 | [pricing-model](pricing-model.md) |
+| evals 실행 도구 | TS 자체 스크립트 + tsx 실행 | 2026-06-29 | [30-llm/evals §4.4](../30-llm/evals.md) |
 | `mvp.md` 빈 파일 | 삭제 | 2026-05-28 | (파일 제거됨) |
-| 로컬 LLM 기본 backend | Ollama | 2026-05-28 | [30-llm/README](../30-llm/README.md) |
+| 로컬 LLM 기본 backend | llama.cpp `llama-server` (Gemma 4 E4B) | 2026-06-28 | [30-llm/README](../30-llm/README.md) |
 | 협업 모델 | 실제 팀 (Backend 3인, Frontend 2인, LLM/Design 각 1인) | 2026-05-28 | [CODEOWNERS](../../.github/CODEOWNERS) |
-| LLM provider 세부 schema 구현 | OpenAI Responses (`response_format: json_schema strict`), Gemini `responseSchema`, Ollama `format: "json"` + adapter 검증 | 2026-05-29 | [provider-config §3](../30-llm/provider-config.md) |
+| LLM provider 세부 schema 구현 | OpenAI Responses (`response_format: json_schema strict`), Gemini `responseSchema`, llama-server `response_format: json_schema` (GBNF) + adapter 검증 | 2026-05-29 | [provider-config §3](../30-llm/provider-config.md) |
 | LLM 호출 재시도 정책 | 매트릭스 (시나리오별 재시도 여부), schema 위반 시 prompt 보강 | 2026-05-29 | [output-validation §4](../30-llm/output-validation.md) |
 | LLM 출력 부분 실패 처리 | 유효 부분만 저장 + `ImportJob.errorMessage`에 정량 기록 | 2026-05-29 | [output-validation §5](../30-llm/output-validation.md) |
 | 되묻기 round-trip 구조 | 최대 1회, 트리거 매트릭스 정의, 사용자 timeout 시 1차 결과 저장 | 2026-05-29 | [output-validation §6](../30-llm/output-validation.md) |

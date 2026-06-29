@@ -85,7 +85,7 @@ pub struct AppError {
 | kind | 의미 | 사용자 메시지 출처 |
 |---|---|---|
 | `auth` | 401 / 403 (API 키) | → `output-validation §7` |
-| `network` | timeout / DNS / Ollama 연결 실패 | → `output-validation §7` |
+| `network` | timeout / DNS / llama-server 연결 실패 | → `output-validation §7` |
 | `rate_limit` | 429 | → `output-validation §7` |
 | `schema` | JSON Schema 위반 (재시도 후) | → `output-validation §7` |
 | `empty` | 추출 concept 0개 | → `output-validation §7` |

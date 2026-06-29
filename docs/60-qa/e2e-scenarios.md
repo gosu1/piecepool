@@ -28,7 +28,7 @@ End-to-end 시나리오. 각 시나리오는 사용자 관점 1회 흐름이며,
 
 ## 시나리오 2: 텍스트 입력 → archive → wiki → graph (Free)
 
-**전제**: `PIECEPOOL_LLM_PROVIDER=local`, Ollama 실행 중.
+**전제**: `PIECEPOOL_LLM_PROVIDER=local`, 로컬 llama-server 실행 중.
 
 **흐름**:
 1. Inbox에서 Subject 선택 (AI)

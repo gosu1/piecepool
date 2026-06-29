@@ -260,8 +260,8 @@ PIECEPOOL_LLM_MODEL=...               # provider별 기본값 존재
 OPENAI_API_KEY=...
 
 # local일 때만
-PIECEPOOL_LOCAL_LLM_ENDPOINT=http://localhost:11434  # Ollama 기본
-PIECEPOOL_LOCAL_LLM_BACKEND=ollama|mlx|llamacpp      # 기본 ollama
+PIECEPOOL_LOCAL_LLM_ENDPOINT=http://localhost:8080   # llama.cpp llama-server 기본
+PIECEPOOL_LOCAL_LLM_BACKEND=llama-server             # 기본 llama-server (MLX는 후속)
 ```
 
 ### 6.2 adapter 인터페이스 (30-llm/provider-config.md에 정의)
@@ -388,7 +388,7 @@ interface LlmProvider {
 ## 12. Plan에 대한 열린 질문 (서준 확인 필요) — 해결 상태
 
 1. ✅ **`mvp.md` 빈 파일**: 삭제 (Phase 1 commit)
-2. ✅ **로컬 LLM 기본 backend**: Ollama 확정. MLX/llama.cpp는 후속 ([post-mvp §9.1](docs/70-roadmap/post-mvp.md))
+2. ✅ **로컬 LLM 기본 backend**: llama.cpp `llama-server` 확정 (Gemma 4 E4B). MLX는 후속 ([post-mvp §9.1](docs/70-roadmap/post-mvp.md))
 3. ⏸ **Figma 파일 URL**: placeholder 유지. 실제 URL은 Design 작업 시 `50-design/screen-inventory.md`에 추가
 4. ⏸ **`docs/superpowers/plans/tasks` 파일**: 본 refactor와 별개로 유지. 통합 검토는 후속
 5. ✅ **자동 검증 도구**: CI `docs-check.yml` 도입 (link / SSOT grep / prettier). `markdown-link-check` 대신 `lychee` 사용

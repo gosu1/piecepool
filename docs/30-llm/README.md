@@ -1,6 +1,6 @@
 # 30-llm
 
-LLM 호출 계층. **3-provider hybrid** (Free=Local Ollama, Premium=OpenAI 또는 Gemini).
+LLM 호출 계층. **3-provider hybrid** (Free=Local llama.cpp llama-server (Gemma 4 E4B), Premium=OpenAI 또는 Gemini).
 
 > **플랜 모델**: [`../00-overview/pricing-model.md`](../00-overview/pricing-model.md)
 
@@ -29,9 +29,9 @@ LLM 호출 계층. **3-provider hybrid** (Free=Local Ollama, Premium=OpenAI 또�
 PIECEPOOL_LLM_PROVIDER=local|openai|gemini   # 기본 local (Free)
 PIECEPOOL_LLM_MODEL=...                      # provider별 기본값
 
-# local (Ollama, Free)
-PIECEPOOL_LOCAL_LLM_ENDPOINT=http://localhost:11434
-PIECEPOOL_LOCAL_LLM_BACKEND=ollama           # MVP 기본
+# local (llama.cpp llama-server — Gemma 4 E4B, Free)
+PIECEPOOL_LOCAL_LLM_ENDPOINT=http://localhost:8080
+PIECEPOOL_LOCAL_LLM_BACKEND=llama-server     # MVP 기본
 
 # openai (Premium 선택지)
 OPENAI_API_KEY=...

@@ -41,7 +41,7 @@ MVP는 **실제로 동작하는 로컬 앱**이어야 한다. 가짜 화면이�
 - 원본 PDF/이미지 → `<space>/sources/original-files/`
 
 ### 2.5 LLM (3-provider hybrid)
-- **Free**: Local LLM (Ollama 기본) — 무제한
+- **Free**: Local LLM (llama.cpp llama-server, Gemma 4 E4B) — 무제한
 - **Premium**: GPT 또는 Gemini (사용자 선택)
 - Premium 전용: 되묻기, fact-check 기본 흐름
 - 자세한 매트릭스: [`pricing-model.md`](pricing-model.md)
@@ -94,7 +94,7 @@ MVP는 **실제로 동작하는 로컬 앱**이어야 한다. 가짜 화면이�
 | 항목 | PRD-v1 | 현재 | 결정 |
 |---|---|---|---|
 | OCR | MVP+1 (§17.1) | **MVP 포함** | 서준 명시: 어떤 input 타입이든 텍스트화 |
-| LLM provider | OpenAI 단일 | **3-provider hybrid** | 서준 결정: Free=Ollama, Premium=GPT/Gemini |
+| LLM provider | OpenAI 단일 | **3-provider hybrid** | 서준 결정: Free=llama.cpp, Premium=GPT/Gemini |
 | Freemium 모델 | 없음 | **추가** | [pricing-model](pricing-model.md) 신규 |
 | 프롬프트 설계 소유 | 명시 안 됨 | **Backend 주도** | [20-backend](../20-backend/), [30-llm](../30-llm/) 분리 |
 | Graph view 구현 담당 | 명시 안 됨 | **@gosu1 직접** | Frontend tracking #2 명시 |
@@ -112,7 +112,7 @@ MVP는 **실제로 동작하는 로컬 앱**이어야 한다. 가짜 화면이�
 - Markdown 편집기로 wiki 수정·저장 가능, 재실행 후 복원
 - Graph View가 relation 메타데이터로 렌더링, 클릭/필터/검색 동작
 - Seed 데이터가 실제 파일 + 메타데이터로 존재
-- Free(Ollama)와 Premium(GPT/Gemini 중 1개) **둘 다** 작동 입증
+- Free(llama.cpp llama-server)와 Premium(GPT/Gemini 중 1개) **둘 다** 작동 입증
 - OCR이 이미지/필기/스크린샷 입력을 텍스트로 변환
 - `.dmg` 또는 `.pkg` 빌드 산출물 생성
 

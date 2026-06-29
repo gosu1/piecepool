@@ -1,0 +1,197 @@
+{
+  "$comment": "GENERATED from docs/10-contracts/llm-output-schema.md §4 by scripts/gen-llm-schema.mjs — do not edit by hand. Run: npm run gen:llm-schema",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LlmWikiResult",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "concepts",
+    "relations"
+  ],
+  "properties": {
+    "concepts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "title",
+          "summary",
+          "explanation",
+          "examples",
+          "sourceRefs",
+          "sourceEmbeds"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1
+          },
+          "explanation": {
+            "type": "string",
+            "minLength": 1
+          },
+          "examples": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sourceRefs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "sourceId",
+                "file",
+                "embed"
+              ],
+              "properties": {
+                "sourceId": {
+                  "type": "string"
+                },
+                "file": {
+                  "type": "string"
+                },
+                "page": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "embed": {
+                  "type": "boolean"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "sourceEmbeds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "confusingConcepts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "relatedQuestions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "relations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sourceConceptTitle",
+          "targetConceptTitle",
+          "relationType",
+          "strength",
+          "confidence",
+          "explanation",
+          "evidence"
+        ],
+        "properties": {
+          "sourceConceptTitle": {
+            "type": "string"
+          },
+          "targetConceptTitle": {
+            "type": "string"
+          },
+          "relationType": {
+            "type": "string",
+            "enum": [
+              "extracted_from",
+              "explained_by",
+              "prerequisite",
+              "part_of",
+              "used_in",
+              "causes",
+              "solves",
+              "contrasts",
+              "confused_with",
+              "related_to",
+              "tested_in",
+              "review_needed"
+            ]
+          },
+          "strength": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "explanation": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "sourceId",
+                "reason"
+              ],
+              "properties": {
+                "sourceId": {
+                  "type": "string"
+                },
+                "archivePath": {
+                  "type": "string"
+                },
+                "originalFilePath": {
+                  "type": "string"
+                },
+                "page": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "quote": {
+                  "type": "string"
+                },
+                "location": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

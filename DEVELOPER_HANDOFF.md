@@ -22,7 +22,7 @@ PiecePool 신규 합류자 진입 문서. README는 전체 nav, 본 문서는 �
 - macOS (Apple Silicon 권장)
 - Node.js 20+
 - Rust + cargo (Tauri 빌드)
-- Ollama (Free 플랜 테스트용)
+- llama.cpp `llama-server` + Gemma 4 E4B GGUF (Free 플랜 로컬 추론)
 
 ### 2.2 환경변수
 
@@ -31,9 +31,11 @@ PiecePool 신규 합류자 진입 문서. README는 전체 nav, 본 문서는 �
 export PIECEPOOL_LLM_PROVIDER=local                  # local|openai|gemini (기본 local=Free)
 export PIECEPOOL_LLM_MODEL=...                       # provider별 기본값
 
-# Free (local Ollama)
-export PIECEPOOL_LOCAL_LLM_ENDPOINT=http://localhost:11434
-export PIECEPOOL_LOCAL_LLM_BACKEND=ollama            # MVP 기본 (MLX/llamacpp는 후속)
+# Free (local llama.cpp sidecar — Gemma 4 E4B)
+export PIECEPOOL_LOCAL_LLM_ENDPOINT=http://localhost:8080
+export PIECEPOOL_LOCAL_LLM_BACKEND=llama-server      # MVP 기본 (MLX는 후속)
+export PIECEPOOL_LOCAL_LLM_BIN=...                   # llama-server 실행 파일 경로 (없으면 sidecar Disabled)
+export PIECEPOOL_LOCAL_LLM_MODEL_PATH=...            # Gemma 4 E4B GGUF 경로 (없으면 sidecar Disabled)
 
 # Premium 옵션 (택 1)
 export OPENAI_API_KEY="..."                          # OpenAI GPT
@@ -108,7 +110,7 @@ CI `ssot-check`가 grep으로 누출 자동 차단.
 | Frontend | React + TypeScript + Tailwind | ✅ 확정 |
 | Backend | Rust | ✅ 확정 |
 | 저장 | 로컬 파일 시스템 (Markdown + JSON) | ✅ 확정 |
-| LLM provider | Ollama (local) / OpenAI / Gemini | ✅ 확정 (3-provider hybrid) |
+| LLM provider | llama.cpp llama-server (local) / OpenAI / Gemini | ✅ 확정 (3-provider hybrid) |
 | OCR | Tesseract.js / Apple Vision / 외부 API | ⏸ 결정 대기 |
 | PDF 파싱 | pdfium / pdf-extract / pdf.js | ⏸ 결정 대기 |
 | Markdown 편집기 | TipTap / Lexical / CodeMirror 6 | ⏸ 결정 대기 |
@@ -148,7 +150,7 @@ CI `ssot-check`가 grep으로 누출 자동 차단.
 - 실제 LLM 호출 → wiki + relations
 - Markdown 편집기 작동 + 재실행 복원
 - Graph View 클릭 / 필터 / 검색
-- Free (Ollama) + Premium (GPT 또는 Gemini) 둘 다 동작
+- Free (llama.cpp llama-server) + Premium (GPT 또는 Gemini) 둘 다 동작
 - Premium 되묻기 + fact-check 기본 흐름
 - `.dmg` 또는 `.pkg` 빌드 산출물
 - `npm test`, `npm run build`, `npm run e2e`, `cargo test`, `cargo check` 통과
@@ -179,7 +181,7 @@ E2E 시나리오 12개: [`docs/60-qa/e2e-scenarios.md`](docs/60-qa/e2e-scenarios
 - OpenAI Responses API: https://platform.openai.com/docs/api-reference/responses
 - OpenAI Structured Outputs: https://platform.openai.com/docs/guides/structured-outputs
 - Gemini API: https://ai.google.dev/api
-- Ollama: https://ollama.com/
+- llama.cpp: https://github.com/ggml-org/llama.cpp
 - Tauri: https://tauri.app/
 
 ---

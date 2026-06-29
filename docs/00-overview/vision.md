@@ -84,7 +84,7 @@ PiecePool은 대학생을 위한 **로컬 우선 AI 지식 Workspace**다.
 
 | 플랜 | LLM | 추가 |
 |---|---|---|
-| Free | Local Ollama 무제한 | — |
+| Free | Local llama.cpp (Gemma 4 E4B) 무제한 | — |
 | Premium | OpenAI GPT 또는 Gemini (사용자 선택) | 되묻기, fact-check, 웹 검색 비교, suggest |
 
 자세한 매트릭스: [`pricing-model.md`](pricing-model.md)
