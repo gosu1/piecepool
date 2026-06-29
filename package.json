@@ -10,6 +10,7 @@
     "check": "tsc --noEmit",
     "gen:types": "cargo test --manifest-path src-tauri/Cargo.toml export_bindings",
     "gen:llm-schema": "node scripts/gen-llm-schema.mjs",
+    "eval:preflight": "node scripts/eval-preflight.mjs",
     "tauri": "tauri"
   },
   "dependencies": {

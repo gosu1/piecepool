@@ -108,6 +108,23 @@ docs/30-llm/evals/
 
 ## 4. 실행 방법
 
+### 4.0 사전 점검 — 로컬 sidecar 도달성 (preflight)
+
+`--provider local` 실행 전, Gemma 4 E4B를 서빙하는 llama-server가 떠 있어야 한다. 가동 2경로:
+
+1. **PiecePool 앱 실행** → Rust `llm_sidecar`가 자동 spawn (`PIECEPOOL_LOCAL_LLM_BIN` / `_MODEL_PATH` 설정 시).
+2. **수동**: `llama-server --host 127.0.0.1 --port 8080 --model <Gemma-4-E4B.gguf>`
+
+도달성 확인:
+
+```bash
+npm run eval:preflight        # GET <endpoint>/health → ready면 exit 0, 아니면 exit 1 + 안내
+```
+
+- endpoint는 `PIECEPOOL_LOCAL_LLM_ENDPOINT` (기본 `http://localhost:8080`, [provider-config §2](provider-config.md)).
+- ⚠️ **localhost/::1 주의**: macOS dual-stack에서 `localhost`가 `::1`(IPv6)로 풀리면 `127.0.0.1` 바인드 서버에 연결 실패할 수 있다. 권장: `PIECEPOOL_LOCAL_LLM_ENDPOINT=http://127.0.0.1:8080`.
+- preflight는 **도달성 게이트만** — 실제 추론/러너와 무관(§4.4). 러너 확정 시 LocalProvider(`src/llm/local.ts`)의 단일 HTTP 경로를 재사용한다.
+
 ### 4.1 단일 case 실행
 
 ```bash
