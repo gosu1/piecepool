@@ -27,3 +27,6 @@ src-tauri/target/
 .env
 .env.local
 .env.*.local
+
+# Eval 산출물 (docs/30-llm/evals.md §2.1)
+docs/30-llm/evals/results/

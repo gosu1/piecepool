@@ -1,0 +1,19 @@
+{
+  "caseId": "case-002-deadlock",
+  "must": {
+    "conceptTitles": ["데드락"],
+    "relationsAtLeast": 1,
+    "schemaValid": true
+  },
+  "should": {
+    "conceptTitlesAlsoAcceptable": ["Deadlock", "교착상태"],
+    "relatedConceptTitles": ["상호 배제", "환형 대기", "시스템 행", "Mutual Exclusion", "Circular Wait"],
+    "relationTypeHints": [
+      { "from": "데드락", "to": "시스템 행", "type": "causes" }
+    ]
+  },
+  "must_not": {
+    "relationTypes": ["review_needed"],
+    "concepts": ["스케줄링", "페이징"]
+  }
+}
