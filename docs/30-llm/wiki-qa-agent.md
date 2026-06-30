@@ -82,12 +82,11 @@
 
 ---
 
-## 6. 모호 질문 — 되묻기 연계 (Premium)
+## 6. 모호 질문 — 되묻기 연계
 
 질문이 모호하거나 여러 개념에 걸치면 바로 답하지 말고 **되물어** 좁힌다. import 되묻기와 같은 메커니즘 재사용: [`output-validation.md`](output-validation.md) §6.
 
-- Free: 되묻기 없이 최선 후보 + 후보 목록 제시.
-- Premium: clarify round-trip 1회.
+- clarify round-trip 1회. 불충분하면 최선 후보 + 후보 목록 제시.
 
 ---
 
@@ -137,14 +136,14 @@ skill-kit "난이도별 질문 10개로 검증"을 PiecePool eval에 흡수. **s
 
 ---
 
-## 9. 멀티에이전트 (idea ⑥) — Premium 후속
+## 9. 멀티에이전트 (idea ⑥) — 후속
 
-단일 QA 에이전트로 시작. 추출/연결/근거/dedup을 분리한 **멀티에이전트 파이프라인은 호출 N배** → Free(local Ollama) 비용모델과 충돌. **Premium 플랜 전용으로 후속 구현**(사용자 결정). 설계 시 본 문서 §5 가드를 단계별로 분산.
+단일 QA 에이전트로 시작. 추출/연결/근거/dedup을 분리한 **멀티에이전트 파이프라인은 호출 N배** → 비용모델과 충돌. **후속 구현**(사용자 결정). 설계 시 본 문서 §5 가드를 단계별로 분산.
 
 ---
 
 ## 10. 스코프 요약
 
-- 전체 **post-MVP**. premium-gate 후보(품질·비용).
+- 전체 **post-MVP** 후보(품질·비용).
 - §5 grounding guard는 우선순위 최상(저장형 신뢰 직결).
 - 같은 검색/근거 규칙을 [`skill-export.md`](skill-export.md)와 공유(SSOT 1벌).

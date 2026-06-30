@@ -1,6 +1,6 @@
 # PRD 리팩토링 Plan
 
-> 본 문서는 **PiecePool PRD.md (1152줄 모놀리식)** 를 4개 역할(Backend / Frontend / 하이브리드 LLM / Figma UI·UX) 협업용 다중 문서 구조로 재편하기 위한 실행 계획이었다.
+> 본 문서는 **PiecePool PRD.md (1152줄 모놀리식)** 를 4개 역할(Backend / Frontend / LLM / Figma UI·UX) 협업용 다중 문서 구조로 재편하기 위한 실행 계획이었다.
 >
 > ⚠️ **현재 상태**: 대부분 실행 완료. Phase 4 실작업만 남음. 본 문서는 의사결정 trace 목적으로 보존.
 
@@ -11,7 +11,7 @@
 | Phase | 내용 | 상태 | Commit |
 |---|---|---|---|
 | 1 | Skeleton (디렉토리 + archive + placeholder README) | ✅ | `d670f92` |
-| 2 | SSOT (10-contracts 6 문서) | ✅ | `9989319`, `d265c3d` (3-provider 확장) |
+| 2 | SSOT (10-contracts 6 문서) | ✅ | `9989319`, `d265c3d` |
 | 3 | Overview (vision, scope-mvp, glossary, pricing-model, open-questions) | ✅ | `bb61432` |
 | 4 | Roles 병렬 (Backend / Frontend / LLM / Design) | ⏸ **진행 중** | 37 이슈 (#1~#37) |
 | 5 | QA & Roadmap (acceptance-criteria, e2e-scenarios, post-mvp) | ✅ | `d5e6f18` |
@@ -34,12 +34,12 @@
 
 | 항목 | 초기 결정 | 후속 변경 |
 |---|---|---|
-| LLM provider 방향 | 하이브리드 (Local + OpenAI) | **3-provider hybrid** (Local + OpenAI + Gemini, `d265c3d`) |
+| LLM provider 방향 | OpenAI 단일 | **OpenAI 단일** (`d265c3d`) |
 | 기존 PRD.md 처리 | archive 이동 → `docs/archive/PRD-v1.md` | ✅ 실행 (`d670f92`) |
 | 문서 언어 | 한국어 유지 (코드/식별자만 영문) | ✅ 유지 |
 | 이번 턴 산출물 | Plan 문서만 | (이미 종료, 후속 turn에서 실행) |
 | OCR | MVP+1 (PRD §17.1) | **MVP 흡수** (Frontend 책임) |
-| Freemium 모델 | 없음 | **추가** (`pricing-model.md`) |
+| Freemium 모델 | 없음 | **폐기** — 단일 tier (`pricing-model.md`) |
 | 프롬프트 설계 소유 | 미명시 | **Backend 주도** + LLM adapter 분리 |
 | Graph view 구현 담당 | 미명시 | @gosu1 직접 |
 | `.dmg` / `.pkg` 배포 | 미명시 | **MVP 포함** (Frontend) |
@@ -64,10 +64,10 @@
 | Workspace 폴더 구조가 §7, §9, §11에 분산 중복 | 변경 시 표류 위험 |
 | RelationType enum 12종이 §8.8 안에만 정의 | 시각화/검증 다른 절에서 hard reference 어려움 |
 | LLM 요구가 §10 단일 절 | 프롬프트/스키마/provider 분리 불가 |
-| OpenAI `gpt-5-mini` 가정만 존재 | **로컬 LLM 추가**(결정사항) 시 전면 재구성 필요 |
+| OpenAI `gpt-5-mini` 가정이 본문에 산재 | 어댑터 계층 분리 시 정리 필요 |
 
 ### 1.3 핵심 모순 (해소 필요)
-- HANDOFF는 `OPENAI_API_KEY` 환경변수만 명시 → 하이브리드 결정에 따라 `PIECEPOOL_LLM_PROVIDER` 추가 필요
+- HANDOFF는 `OPENAI_API_KEY` 환경변수만 명시 → 어댑터 계층(`provider-config.md`)으로 분리 필요
 
 ---
 
@@ -109,7 +109,7 @@ piecepool/
       error-handling.md           # PDF/LLM/저장/embed/relation 오류 처리
     30-llm/                       # Owner: LLM 개발자
       README.md
-      provider-config.md          # 하이브리드 adapter, 환경변수, fallback
+      provider-config.md          # OpenAI adapter, 환경변수, fallback
       prompt-templates.md         # system/user 프롬프트 (한국어/영어)
       output-validation.md        # schema 검증 + 재시도 + 부분 실패
       evals.md                    # 골든 케이스, 회귀 방지
@@ -245,40 +245,35 @@ piecepool/
 
 ---
 
-## 6. 하이브리드 LLM 설계 (신규 작업)
+## 6. LLM 어댑터 설계 (신규 작업)
 
-PRD가 OpenAI 단일 가정이므로 본 리팩토링이 **추가 설계 필요**.
+PRD가 OpenAI 단일 가정이므로 본 리팩토링이 어댑터 계층 **추가 설계 필요**.
 
 ### 6.1 환경변수 (신규)
 
 ```bash
 # 공통
-PIECEPOOL_LLM_PROVIDER=openai|local   # 기본 openai
-PIECEPOOL_LLM_MODEL=...               # provider별 기본값 존재
+PIECEPOOL_LLM_MODEL=...               # 모델명 override (기본값 존재)
 
-# openai일 때만
+# OpenAI (필수)
 OPENAI_API_KEY=...
-
-# local일 때만
-PIECEPOOL_LOCAL_LLM_ENDPOINT=http://localhost:8080   # llama.cpp llama-server 기본
-PIECEPOOL_LOCAL_LLM_BACKEND=llama-server             # 기본 llama-server (MLX는 후속)
 ```
 
 ### 6.2 adapter 인터페이스 (30-llm/provider-config.md에 정의)
 
 ```ts
 interface LlmProvider {
-  id: "openai" | "local";
+  id: "openai";
   generateWikiStructured(input: LlmWikiInput): Promise<LlmWikiResult>;
 }
 ```
 
 - `LlmWikiResult` 자체는 `10-contracts/llm-output-schema.md` 소유 (provider 무관)
-- provider별 raw → 공통 schema 변환은 `30-llm/output-validation.md` 책임
-- fallback 정책: local 실패 시 openai 자동 fallback 여부는 `provider-config.md`에서 결정 (기본은 fallback 없음, 사용자 명시 재시도)
+- raw → 공통 schema 변환은 `30-llm/output-validation.md` 책임
+- fallback 정책: `provider-config.md`에서 결정 (기본은 fallback 없음, 사용자 명시 재시도)
 
 ### 6.3 프롬프트 분리
-- system prompt: provider 무관 공통 (한국어 학습 컨텍스트)
+- system prompt: 공통 (한국어 학습 컨텍스트)
 - user prompt: Source 내용 주입
 - 둘 다 `30-llm/prompt-templates.md`에 버전 관리 (v1, v2 ...)
 
@@ -330,19 +325,19 @@ interface LlmProvider {
 12. `vision.md` (PRD §2+§3)
 13. `scope-mvp.md` (PRD §4+§5)
 14. `glossary.md` (신규 — 용어 정의)
-15. `open-questions.md` (PRD §18 + 하이브리드 LLM 추가 결정 사항)
+15. `open-questions.md` (PRD §18 + LLM 어댑터 추가 결정 사항)
 16. `README.md` (역할별 진입 경로 nav)
 
 ### Phase 4: 역할별 (병렬 가능)
 17. **20-backend**: architecture, storage-io, pdf-extraction, import-pipeline, import-job-states, ipc-api, seed-data, error-handling
-18. **30-llm**: provider-config (하이브리드 신규), prompt-templates, output-validation, evals
+18. **30-llm**: provider-config (OpenAI 어댑터 신규), prompt-templates, output-validation, evals
 19. **40-frontend**: architecture, screens/* 5개, components/* 3개
 20. **50-design**: screen-inventory, user-flows, component-states, design-tokens, handoff-checklist
 
 ### Phase 5: 마무리
 21. **60-qa**: acceptance-criteria (PRD §16), e2e-scenarios
 22. **70-roadmap**: post-mvp (PRD §17 통합)
-23. `DEVELOPER_HANDOFF.md` 갱신 (새 docs 경로, 하이브리드 env vars, 환경변수 안내)
+23. `DEVELOPER_HANDOFF.md` 갱신 (새 docs 경로, OpenAI env vars, 환경변수 안내)
 24. 깨진 link 전수 검사 (스크립트 또는 수동)
 25. 4개 역할 sign-off (각 owner 폴더 review)
 
@@ -358,7 +353,7 @@ interface LlmProvider {
 | 역할 진입성 | 각 역할 필독 3~4개 파일 안에서 작업 착수 가능 |
 | 깨진 링크 | `markdown-link-check` 0건 |
 | PRD-v1 보존 | `docs/archive/PRD-v1.md` git history 추적 가능 |
-| 하이브리드 LLM | `30-llm/provider-config.md`에 openai+local 두 adapter 명시 |
+| LLM 어댑터 | `30-llm/provider-config.md`에 openai adapter 명시 |
 
 ---
 
@@ -369,7 +364,7 @@ interface LlmProvider {
 | 분할 중 정보 누락 | §4 매핑 표 100% cover 강제, Phase 2 끝나면 PRD-v1과 diff 점검 |
 | 계약 표류 | §5 SSOT 원칙 + `contracts-change` PR 라벨 |
 | Figma↔코드 불일치 | design-tokens.md를 양쪽 SSOT, 후속에 자동 생성 검토 |
-| 로컬 LLM 품질 차이 | 30-llm/evals.md에 골든 케이스 필수, schema 엄격 |
+| LLM 출력 품질 편차 | 30-llm/evals.md에 골든 케이스 필수, schema 엄격 |
 | 외부에서 PRD.md 직접 link 깨짐 | `docs/archive/PRD-v1.md` 상단에 "이 문서는 archive. 최신은 루트 `README.md` 참조" 안내 |
 | 한국어 문서 + 영문 코드 충돌 | 식별자/타입명/enum 값은 영문 유지, 본문 설명만 한국어. 표 머리글도 한국어 |
 | `mvp.md` 빈 파일 의도 불명 | archive로 보존 (삭제 X). 의도 확인 후 후속 처리 |
@@ -388,12 +383,11 @@ interface LlmProvider {
 ## 12. Plan에 대한 열린 질문 (서준 확인 필요) — 해결 상태
 
 1. ✅ **`mvp.md` 빈 파일**: 삭제 (Phase 1 commit)
-2. ✅ **로컬 LLM 기본 backend**: llama.cpp `llama-server` 확정 (Gemma 4 E4B). MLX는 후속 ([post-mvp §9.1](docs/70-roadmap/post-mvp.md))
-3. ⏸ **Figma 파일 URL**: placeholder 유지. 실제 URL은 Design 작업 시 `50-design/screen-inventory.md`에 추가
-4. ⏸ **`docs/superpowers/plans/tasks` 파일**: 본 refactor와 별개로 유지. 통합 검토는 후속
-5. ✅ **자동 검증 도구**: CI `docs-check.yml` 도입 (link / SSOT grep / prettier). `markdown-link-check` 대신 `lychee` 사용
+2. ⏸ **Figma 파일 URL**: placeholder 유지. 실제 URL은 Design 작업 시 `50-design/screen-inventory.md`에 추가
+3. ⏸ **`docs/superpowers/plans/tasks` 파일**: 본 refactor와 별개로 유지. 통합 검토는 후속
+4. ✅ **자동 검증 도구**: CI `docs-check.yml` 도입 (link / SSOT grep / prettier). `markdown-link-check` 대신 `lychee` 사용
 
-5개 중 3개 해결. 2개 ⏸ 보류는 [`docs/00-overview/open-questions.md`](docs/00-overview/open-questions.md)에서 추적.
+4개 중 2개 해결. 2개 ⏸ 보류는 [`docs/00-overview/open-questions.md`](docs/00-overview/open-questions.md)에서 추적.
 
 ---
 
@@ -401,6 +395,6 @@ interface LlmProvider {
 - PRD §1~§18 라인 번호: 직접 Read 결과 기반 (line 3-1152). 매핑 표 항목별 라인 범위는 PRD 본문 직접 인용
 - DEVELOPER_HANDOFF.md `OPENAI_API_KEY` 명시: line 84-91 확인
 - mvp.md 0줄: Read 도구 "file is shorter than offset 1, has 1 lines" 응답
-- 하이브리드 LLM 환경변수/adapter 인터페이스: 본 plan 신규 제안 (PRD에 없음, 결정사항 기반 설계)
+- LLM 어댑터 환경변수/인터페이스: 본 plan 신규 제안 (PRD에 없음, 결정사항 기반 설계)
 - `docs/superpowers/plans/tasks` 파일 존재: `find docs/` 결과 확인. 내용은 미확인
 - 정확성: 매핑 표는 PRD 절 제목과 1:1 대응. 추측 0

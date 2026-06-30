@@ -70,7 +70,7 @@ PiecePool은 대학생을 위한 **로컬 우선 AI 지식 Workspace**다.
 
 | 원칙 | 의미 |
 |---|---|
-| **로컬 우선** | 모든 데이터는 사용자 머신. 외부 의존은 LLM API 호출(Premium)만. Free는 완전 오프라인 가능 |
+| **로컬 우선** | 모든 데이터는 사용자 머신에 저장. 외부 의존은 LLM API(OpenAI) 호출뿐 |
 | **원문 보존** | LLM 정리가 archive 노트를 덮어쓰지 않는다 |
 | **타입 있는 지식 그래프** | edge가 단순 선이 아니라 의미(`part_of`, `used_in` 등)를 갖는다 |
 | **Obsidian 호환** | `[[파일]]`, `![[파일]]` 문법 그대로. 추후 vault로 이식 가능 |
@@ -78,14 +78,9 @@ PiecePool은 대학생을 위한 **로컬 우선 AI 지식 Workspace**다.
 
 ---
 
-## 7. Free vs Premium
+## 7. LLM
 
-핵심 기능은 **두 플랜 모두 동일**. Premium은 LLM 품질과 검증을 강화한다.
-
-| 플랜 | LLM | 추가 |
-|---|---|---|
-| Free | Local llama.cpp (Gemma 4 E4B) 무제한 | — |
-| Premium | OpenAI GPT 또는 Gemini (사용자 선택) | 되묻기, fact-check, 웹 검색 비교, suggest |
+LLM 처리는 **OpenAI**(GPT)를 사용한다. 되묻기, fact-check, 웹 검색 비교, suggest로 Wiki 품질·검증을 강화한다.
 
 자세한 매트릭스: [`pricing-model.md`](pricing-model.md)
 

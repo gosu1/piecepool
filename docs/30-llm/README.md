@@ -1,6 +1,6 @@
 # 30-llm
 
-LLM 호출 계층. **3-provider hybrid** (Free=Local llama.cpp llama-server (Gemma 4 E4B), Premium=OpenAI 또는 Gemini).
+LLM 호출 계층. **OpenAI 단일 provider**.
 
 > **플랜 모델**: [`../00-overview/pricing-model.md`](../00-overview/pricing-model.md)
 
@@ -17,16 +17,16 @@ LLM 호출 계층. **3-provider hybrid** (Free=Local llama.cpp llama-server (Gem
 - 최대 **1~3개** 선택지로 _"이렇게 생각하신 게 맞나요?"_ 가이드 제공
 - **기타** 칸 1개 추가 — 사용자가 직접 서술 (소크라테스식 · 하브루타식 학습법, Claude Plan 스킬과 동형)
 
-> 구현은 아래 **되묻기**(clarify) round-trip 활용. 현재 Premium 기능으로 게이트 (Free=local은 `clarify_pending` 미발생). `LlmWikiResult` JSON Schema는 무변경.
+> 구현은 아래 **되묻기**(clarify) round-trip 활용. `LlmWikiResult` JSON Schema는 무변경.
 
 ## 포함 문서 (작성 예정)
 
 | 파일 | 내용 | 1차 소유 |
 |---|---|---|
-| `provider-config.md` | 3개 Adapter 인터페이스, 환경변수, fallback 정책 | LLM (@gosu1) |
+| `provider-config.md` | OpenAI Adapter 인터페이스, 환경변수, fallback 정책 | LLM (@gosu1) |
 | `prompt-templates.md` | system/user 프롬프트 (한국어 학습 컨텍스트) | **Backend 주도** (@ChangSik88, @O6west) + LLM 구조화 |
 | `output-validation.md` | 구조화 출력 schema 검증 + 재시도 + 부분 실패 + 되묻기 round-trip | LLM (@gosu1) |
-| `evals.md` | 골든 케이스, 회귀 방지, 3-provider 동일성 입증 | LLM (@gosu1) |
+| `evals.md` | 골든 케이스, 회귀 방지 | LLM (@gosu1) |
 | `wiki-qa-agent.md` | 질의 계층 에이전트 + grounding guard + 에이전트 eval (**post-MVP 제안**) | LLM (@gosu1) |
 | `qa-review-agent.md` | 저장 전 의미 검증: 환각/추측/경로 (**post-MVP 제안**) | LLM (@gosu1) |
 | `skill-export.md` | vault → SKILL.md export, 외부 에이전트 질의 (**post-MVP 제안**) | LLM (@gosu1) |
@@ -41,29 +41,20 @@ LLM 호출 계층. **3-provider hybrid** (Free=Local llama.cpp llama-server (Gem
 
 ```bash
 # 공통
-PIECEPOOL_LLM_PROVIDER=local|openai|gemini   # 기본 local (Free)
-PIECEPOOL_LLM_MODEL=...                      # provider별 기본값
+PIECEPOOL_LLM_MODEL=...                      # 모델명 override (기본값 존재)
 
-# local (llama.cpp llama-server — Gemma 4 E4B, Free)
-PIECEPOOL_LOCAL_LLM_ENDPOINT=http://localhost:8080
-PIECEPOOL_LOCAL_LLM_BACKEND=llama-server     # MVP 기본
-
-# openai (Premium 선택지)
+# OpenAI (필수)
 OPENAI_API_KEY=...
 
-# gemini (Premium 선택지)
-GEMINI_API_KEY=...
-
-# 공통 (Premium 기능 토글)
+# 기능 토글
 PIECEPOOL_PREMIUM_FACT_CHECK=true|false
-PIECEPOOL_PREMIUM_CLARIFY=true|false
 ```
 
-## Premium 흐름 (schema 무변경)
+## 부가 흐름 (schema 무변경)
 
 - **되묻기**: Backend가 import-pipeline에서 LLM 1차 응답 분석 → 불확실 판정 시 사용자에게 재질의
 - **Fact-check**: LLM이 웹 검색 도구 호출 → `evidence[].reason`에 출처 URL 누적
-- 둘 다 `LlmWikiResult` JSON Schema는 그대로 ([`../10-contracts/llm-output-schema.md#7-provider-무관성-보장-3-provider`](../10-contracts/llm-output-schema.md))
+- 둘 다 `LlmWikiResult` JSON Schema는 그대로 ([`../10-contracts/llm-output-schema.md`](../10-contracts/llm-output-schema.md))
 
 ## 의존
 

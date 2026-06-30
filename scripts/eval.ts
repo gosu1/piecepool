@@ -1,7 +1,6 @@
 // LLM 골든 케이스 eval 러너. 실행: tsx(devDep) — `npm run eval -- <args>`.
-//   npm run eval -- --case case-001-self-attention --provider gemini
-//   npm run eval -- --all --provider local
-//   npm run eval -- --all --all-providers
+//   npm run eval -- --case case-001-self-attention
+//   npm run eval -- --all
 //   npm run eval -- --compare case-001-self-attention
 //
 // 핵심: provider는 앱과 동일한 src/llm 경로를 in-process 직호출(selectProvider) — JS 재구현 없음.
@@ -21,7 +20,7 @@ const DEFAULT_DIRS: Dirs = {
   expectedDir: join(EVALS_DIR, "expected"),
   resultsDir: join(EVALS_DIR, "results"),
 };
-const PROVIDERS: ProviderId[] = ["local", "openai", "gemini"];
+const PROVIDERS: ProviderId[] = ["openai"];
 
 // fixtures/*.json, expected/*.expected.json 스키마: docs/30-llm/evals.md §2.2, §2.3.
 type Fixture = { id: string; title: string; input: LlmWikiInput; tags?: string[] };
@@ -167,7 +166,7 @@ export async function runCase(
   return outcome;
 }
 
-// --compare: 저장된 results/*.json을 읽어 3-provider 표 출력(호출 없음). evals.md §4.3.
+// --compare: 저장된 results/*.json을 읽어 provider 표 출력(호출 없음). evals.md §4.3.
 function compareCase(caseId: string, dirs: Dirs = DEFAULT_DIRS): void {
   const cell = (v: string) => v.padEnd(12);
   const rows = PROVIDERS.map((provider) => {
@@ -210,9 +209,9 @@ async function main(): Promise<void> {
     return;
   }
 
-  const provider = (get("--provider") ?? "gemini") as ProviderId;
+  const provider = (get("--provider") ?? "openai") as ProviderId;
   const allProviders = has("--all-providers");
-  if (!allProviders && !PROVIDERS.includes(provider)) return fail(`알 수 없는 provider: ${provider}. local | openai | gemini`);
+  if (!allProviders && !PROVIDERS.includes(provider)) return fail(`알 수 없는 provider: ${provider}. openai`);
 
   let caseIds: string[];
   if (has("--all")) {

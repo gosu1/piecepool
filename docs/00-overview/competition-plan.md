@@ -28,7 +28,7 @@ PiecePool로 출전하는 SW 경진대회 제출물·마감·역산 실행 계�
 - **예선 ①(7.7)이 생사 게이트.** 가장 쉽고 가장 치명적. 가장 먼저 끝낸다.
 - **예선 평가 = 투표.** "선택"인 시연영상이 사실상 표를 가른다 → **필수 취급**.
 - **본선 코드 = github 링크 대체** → 이미 `gosu1/piecepool` 푸시 중. 거의 공짜로 충족.
-- 7.7까지 ~5.5주. 시간은 여유. 진짜 함정은 **과제작**: [`scope-mvp.md`](scope-mvp.md) 전체(OCR + 3-provider LLM + Graph)를 다 만들려다 데모를 못 만든다.
+- 7.7까지 ~5.5주. 시간은 여유. 진짜 함정은 **과제작**: [`scope-mvp.md`](scope-mvp.md) 전체(OCR + LLM + Graph)를 다 만들려다 데모를 못 만든다.
 
 ---
 
@@ -50,7 +50,6 @@ PDF 드롭(Inbox)
 | 컷 항목 | 사유 |
 |---|---|
 | 이미지/필기 OCR | 데모 핵심 경로 밖. PDF 텍스트 추출로 대체 |
-| 3-provider 스위칭 | provider 1개만(local 또는 API 1개) 고정 |
 | prioritization / Question 생성 | 데모 설득력에 기여 낮음 |
 
 근거: 예선은 투표다. 위 한 흐름이 깔끔하면 표를 이긴다. ([`relation-types.md`](../10-contracts/relation-types.md) 그래프가 시각적 임팩트 담당.)
@@ -91,7 +90,7 @@ PDF 드롭(Inbox)
 | 리스크 | 대응 |
 |---|---|
 | ts-rs export 경로 버그(진행중 작업) | 곪기 전 fix. 타입 seam 먼저 잠금 |
-| LLM 키/비용 | provider 1개 + seed 결정적 입력으로 데모 안정화 |
+| LLM 키/비용 | OpenAI + seed 결정적 입력으로 데모 안정화 |
 | `.dmg` 공증(Apple notarization) | 미서명 + 실행 안내로 회피, 여력 되면 서명 |
 | 팀 코디네이션 | §7 산출물별 오너 지정 |
 

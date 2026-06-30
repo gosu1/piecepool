@@ -2,7 +2,7 @@
 
 LLM 추출 결과를 **디스크에 쓰기 전에** 환각·추측·경로오류를 잡는 검증 단계.
 
-> **상태**: 제안. 규칙기반 일부는 MVP 흡수 가능, LLM self-check는 post-MVP/Premium.
+> **상태**: 제안. 규칙기반 일부는 MVP 흡수 가능, LLM self-check는 post-MVP.
 > 외부 영감: research-wiki-skill-kit "QA 리뷰"(환각/추측/경로의존 가드).
 > 보완 대상: [`output-validation.md`](output-validation.md)는 **구문/스키마** 검증. 본 문서는 그 위의 **의미** 검증.
 
@@ -32,7 +32,7 @@ llm_processing → [output-validation §3 구문검증]
 
 - 통과: 그대로 `writing`.
 - 부분 위반: 해당 concept/relation drop → 기존 부분 실패([`output-validation.md`](output-validation.md) §5)와 동일 경로.
-- 의심 다수(Premium): 되묻기 트리거([`output-validation.md`](output-validation.md) §6).
+- 의심 다수: 되묻기 트리거([`output-validation.md`](output-validation.md) §6).
 
 ---
 
@@ -51,17 +51,17 @@ llm_processing → [output-validation §3 구문검증]
 
 ---
 
-## 4. 검증 방식 (provider별 비용 차등)
+## 4. 검증 방식 (단계별 비용 차등)
 
-| 플랜 | 방식 | 비용 |
+| 단계 | 방식 | 비용 |
 |---|---|---|
-| **Free (local)** | 규칙기반: quote substring 매칭, page 범위, 경로 실존, related_to 비율. LLM 추가 호출 **없음** | 0 |
-| **Premium** | 위 + LLM self-check 1회: "이 concept이 원문에 근거하는가? 추측이면 표시하라" | 호출 +1 |
+| **MVP** | 규칙기반: quote substring 매칭, page 범위, 경로 실존, related_to 비율. LLM 추가 호출 **없음** | 0 |
+| **post-MVP** | 위 + LLM self-check 1회: "이 concept이 원문에 근거하는가? 추측이면 표시하라" | 호출 +1 |
 
-- Free도 1·2·4·5는 규칙으로 상당 부분 커버(substring/경로/비율).
-- 3(추측 확장)은 의미 판단 → Premium LLM self-check가 강함.
+- 규칙기반으로 1·2·4·5는 상당 부분 커버(substring/경로/비율).
+- 3(추측 확장)은 의미 판단 → LLM self-check가 강함.
 
-### 4.1 LLM self-check 프롬프트 (Premium)
+### 4.1 LLM self-check 프롬프트
 
 ```text
 아래 [원문]과 [추출 결과]가 주어진다.
@@ -92,6 +92,6 @@ llm_processing → [output-validation §3 구문검증]
 ## 6. 스코프
 
 - 규칙기반(1·2·4·5·6): **MVP 흡수 가능** — 가볍고 저장 품질 직결.
-- LLM self-check(3): **post-MVP / Premium**.
-- 에이전트형(자율 재검토·재호출)은 [`wiki-qa-agent.md`](wiki-qa-agent.md) §9 멀티에이전트와 함께 Premium 후속.
+- LLM self-check(3): **post-MVP**.
+- 에이전트형(자율 재검토·재호출)은 [`wiki-qa-agent.md`](wiki-qa-agent.md) §9 멀티에이전트와 함께 후속.
 - 추적: [#3](https://github.com/gosu1/piecepool/issues/3) / [#30](https://github.com/gosu1/piecepool/issues/30)(output-validation 연계).

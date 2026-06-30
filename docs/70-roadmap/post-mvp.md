@@ -133,18 +133,13 @@ MVP는 같은 KnowledgeSpace 안의 `[[...]]` / `![[...]]`만 해석.
 
 ## 9. LLM 확장
 
-### 9.1 추가 로컬 backend
-- **MLX** (Apple Silicon 최적화) — 우선순위 후보
-- **llama.cpp** (포터빌리티)
-- 선택 우선순위: [open-questions §2](../00-overview/open-questions.md#2-llm--provider)
-
-### 9.2 추가 외부 provider
-- Anthropic Claude (Premium 옵션 추가)
+### 9.1 추가 provider
+- Anthropic Claude
 - Mistral
 - Cohere
 - 추가 시 [llm-output-schema](../10-contracts/llm-output-schema.md) §7에 명시 (Adapter 패턴)
 
-### 9.3 모델 라우팅
+### 9.2 모델 라우팅
 - 작은 input은 작은 모델, 큰 input은 큰 모델 자동 선택
 - 비용/품질 trade-off 사용자 설정
 
@@ -181,7 +176,7 @@ MVP는 같은 KnowledgeSpace 안의 `[[...]]` / `![[...]]`만 해석.
 | 단계 | 항목 |
 |---|---|
 | MVP+1 | OCR 정밀화, fact-check 정밀화, branch protection, 자동 릴리즈 |
-| MVP+2 | Today Task, Relation scoring, file watcher, MLX backend |
+| MVP+2 | Today Task, Relation scoring, file watcher |
 | MVP+3 | 결제 시스템, cross-space link, Project Flow |
 | MVP+4 | 모바일 viewer, Obsidian vault 호환, Anthropic Claude provider |
 | 신중 검토 | 협업, 텔레메트리 |

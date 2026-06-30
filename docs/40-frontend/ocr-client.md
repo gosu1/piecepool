@@ -25,7 +25,7 @@ PiecePool의 이미지/필기/스크린샷 → 텍스트 변환 파이프라인.
 | Tesseract.js | 한글 인식 약함(초성/중성/종성 조합 구조), handwritten traineddata 부재. 차트·그림 같은 비텍스트 시각 요소는 원천적으로 처리 불가 |
 | Python 기반 (PaddleOCR, EasyOCR 등) | GitHub 스타 수는 높지만 전부 Python — 사이드카 프로세스 관리, `.dmg`/`.pkg` 패키징 용량·서명 대상 증가, pip/cargo/npm 툴체인 이원화가 새로 생김. 이 비용을 감수해도 한글 인식이 vision LLM보다 우월하다고 보기 어려움 |
 | Apple Vision (네이티브) | macOS 전용이라 플랫폼 분기 필요. post-MVP 후보로 [`open-questions.md`](../00-overview/open-questions.md) 유지 |
-| Google Vision API / Mathpix | Free 플랜의 "인터넷 미연결 동작" 전제와 충돌. post-MVP 후보로 유지 |
+| Google Vision API / Mathpix | 외부 OCR API 도입은 vision LLM 단일 경로 결정과 중복. post-MVP 후보로 유지 |
 
 **결정**: `image` 입력은 전부 vision-capable LLM 호출 1단계로 처리한다. 별도 OCR 엔진을 두지 않는다.
 
@@ -35,12 +35,10 @@ PiecePool의 이미지/필기/스크린샷 → 텍스트 변환 파이프라인.
 
 텍스트 단계와 동일한 provider를 vision에도 그대로 쓴다. 새 환경변수 분기 없음 ([`pricing-model.md`](../00-overview/pricing-model.md) §6 매트릭스 재사용).
 
-| 단계 | Free | Premium |
-|---|---|---|
-| 1차 — 이미지 vision | 로컬 Gemma (vision 변형) | GPT/Gemini vision |
-| 2차 — 텍스트 요약/Concept 추출 | 로컬 Gemma | GPT/Gemini |
-
-Free의 vision 모델은 로컬 Gemma의 vision 지원 변형(4b/12b/27b 등)을 쓴다. 이 작업(이미지→구조화 텍스트)에 맞춘 파인튜닝은 로드맵 항목이다 (§7).
+| 단계 | OpenAI |
+|---|---|
+| 1차 — 이미지 vision | GPT vision |
+| 2차 — 텍스트 요약/Concept 추출 | GPT |
 
 ---
 
@@ -103,7 +101,6 @@ vision 호출 결과 + 사용자 입력을 세 블록으로 명확히 구분한�
 | Tesseract.js / Python OCR | ⛔ 미채택 | — |
 | Apple Vision (네이티브) | ⛔ | post-MVP 후보, [`open-questions.md`](../00-overview/open-questions.md) 유지 |
 | Google Vision API / Mathpix | ⛔ | post-MVP 후보 (오프라인 제약 해소 필요) |
-| Gemma vision 파인튜닝 | ⛔ (base 모델 사용) | 품질 개선 로드맵 |
 | 텍스트/사용자 설명/그림 설명 마커 분리 | ✅ | — |
 | 사용자 이미지 설명 입력 (첨부 시) | ✅ | — |
 | wiki 단계 그림 설명 2차 정제 | ✅ | — |
