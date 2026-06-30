@@ -100,15 +100,13 @@ LLM은 이 간극을 캐치하고 검증한 뒤, 사용자에게 선택지를 �
 - Backend / Frontend / LLM / Design 4역할 owner review 모두 승인
 - 의존 문서 동기화 PR을 issue로 trace
 
-### 3. LLM Provider (3-provider hybrid)
+### 3. LLM Provider (OpenAI 단일)
 
-| 플랜 | Provider | 환경변수 |
-|---|---|---|
-| Free (기본) | Local llama.cpp (Gemma 4 E4B) 무제한 | `PIECEPOOL_LLM_PROVIDER=local` |
-| Premium | OpenAI GPT | `OPENAI_API_KEY` |
-| Premium | Gemini | `GEMINI_API_KEY` |
+| Provider | 환경변수 |
+|---|---|
+| OpenAI GPT | `OPENAI_API_KEY` |
 
-Premium 추가 기능: 되묻기 + fact-check + 웹 검색 비교 + suggest. 자세히: [`docs/00-overview/pricing-model.md`](docs/00-overview/pricing-model.md)
+추가 기능: 되묻기 + fact-check + 웹 검색 비교 + suggest. 자세히: [`docs/00-overview/pricing-model.md`](docs/00-overview/pricing-model.md)
 
 ### 4. 문서 규약
 

@@ -26,13 +26,11 @@ LLM 호출 결과를 저장 전에 검증 / 재시도 / 부분 실패 처리하�
 
 ## 2. 변환 단계
 
-3 provider 모두 raw JSON → `LlmWikiResult` 정규화.
+OpenAI raw JSON → `LlmWikiResult` 정규화.
 
 | Provider | raw 형식 | 정규화 단계 |
 |---|---|---|
-| Local (llama.cpp llama-server) | `{choices: [{message: {content: "..."}}]}` content가 JSON 문자열 (OpenAI 호환) | `JSON.parse(choices[0].message.content)` → `LlmWikiResult` |
 | OpenAI | `{output_parsed: {...}}` 또는 Responses API output text | `output_parsed` 우선, 없으면 text parse |
-| Gemini | `{candidates: [{content: {parts: [{text: "..."}]}}]}` text가 JSON 문자열 | `JSON.parse(text)` → `LlmWikiResult` |
 
 ### 2.1 정규화 실패 처리
 
@@ -97,7 +95,7 @@ LLM 호출 결과를 저장 전에 검증 / 재시도 / 부분 실패 처리하�
 | 조건 | 재시도 | 같은 입력? |
 |---|---|---|
 | network timeout | ✅ | 동일 |
-| JSON 파싱 실패 (Local provider) | ✅ | 동일 (Local 모델 비결정성 활용) |
+| JSON 파싱 실패 | ✅ | 동일 |
 | JSON Schema 위반 (필드 누락) | ✅ | 동일 + system prompt에 schema reminder 추가 |
 | Concept title 미스매치만 | ❌ | 해당 relation drop (§3.2), 재시도 안 함 |
 | 노드 호환성 위반만 | ❌ | 해당 relation drop |
@@ -123,7 +121,7 @@ JSON Schema 위반으로 재시도 시 system prompt에 다음 추가:
 JSON Schema를 엄격히 따르세요.
 ```
 
-위반 정보 주입은 Local provider에서 효과 큼. Premium provider (strict mode)는 거의 발생 안 함.
+OpenAI strict mode(`json_schema`)에서는 schema 위반이 거의 발생하지 않지만, 발생 시 위반 정보 주입으로 재시도한다.
 
 ---
 
@@ -214,7 +212,7 @@ LLM 응답에 유효한 부분과 무효한 부분이 섞여 있으면 **유효 
 | 분류 | provider 응답 | 사용자 메시지 |
 |---|---|---|
 | `auth` | 401 / 403 | "API 키를 확인해주세요. 설정에서 재입력하세요." |
-| `network` | timeout, DNS 실패 | "LLM 서버에 연결할 수 없습니다. 네트워크 또는 로컬 llama-server를 확인하세요." |
+| `network` | timeout, DNS 실패 | "LLM 서버에 연결할 수 없습니다. 네트워크를 확인하세요." |
 | `rate_limit` | 429 | "잠시 후 재시도하세요." |
 | `schema` | JSON Schema 위반 (재시도 후) | "LLM 응답이 형식에 맞지 않습니다. 입력을 확인하거나 모델을 변경하세요." |
 | `empty` | concepts=0 | "입력에서 추출할 개념을 찾지 못했습니다. 더 자세한 자료를 입력해주세요." |

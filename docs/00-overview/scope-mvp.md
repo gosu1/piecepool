@@ -40,10 +40,9 @@ MVP는 **실제로 동작하는 로컬 앱**이어야 한다. 가짜 화면이�
 - Relation → `<space>/relations/relations.json`
 - 원본 PDF/이미지 → `<space>/sources/original-files/`
 
-### 2.5 LLM (3-provider hybrid)
-- **Free**: Local LLM (llama.cpp llama-server, Gemma 4 E4B) — 무제한
-- **Premium**: GPT 또는 Gemini (사용자 선택)
-- Premium 전용: 되묻기, fact-check 기본 흐름
+### 2.5 LLM (OpenAI)
+- **OpenAI** (GPT) — `OPENAI_API_KEY` 필요
+- 되묻기, fact-check 기본 흐름
 - 자세한 매트릭스: [`pricing-model.md`](pricing-model.md)
 
 ### 2.6 Markdown
@@ -94,8 +93,7 @@ MVP는 **실제로 동작하는 로컬 앱**이어야 한다. 가짜 화면이�
 | 항목 | PRD-v1 | 현재 | 결정 |
 |---|---|---|---|
 | OCR | MVP+1 (§17.1) | **MVP 포함** | 서준 명시: 어떤 input 타입이든 텍스트화 |
-| LLM provider | OpenAI 단일 | **3-provider hybrid** | 서준 결정: Free=llama.cpp, Premium=GPT/Gemini |
-| Freemium 모델 | 없음 | **추가** | [pricing-model](pricing-model.md) 신규 |
+| LLM provider | OpenAI 단일 | **OpenAI 단일** | 서준 결정: premium-only, OpenAI API |
 | 프롬프트 설계 소유 | 명시 안 됨 | **Backend 주도** | [20-backend](../20-backend/), [30-llm](../30-llm/) 분리 |
 | Graph view 구현 담당 | 명시 안 됨 | **@gosu1 직접** | Frontend tracking #2 명시 |
 | .dmg/.pkg 배포 | 명시 안 됨 | **MVP 포함** | Frontend 책임 |
@@ -112,7 +110,7 @@ MVP는 **실제로 동작하는 로컬 앱**이어야 한다. 가짜 화면이�
 - Markdown 편집기로 wiki 수정·저장 가능, 재실행 후 복원
 - Graph View가 relation 메타데이터로 렌더링, 클릭/필터/검색 동작
 - Seed 데이터가 실제 파일 + 메타데이터로 존재
-- Free(llama.cpp llama-server)와 Premium(GPT/Gemini 중 1개) **둘 다** 작동 입증
+- OpenAI 실제 호출이 작동 입증
 - OCR이 이미지/필기/스크린샷 입력을 텍스트로 변환
 - `.dmg` 또는 `.pkg` 빌드 산출물 생성
 
@@ -124,4 +122,5 @@ MVP는 **실제로 동작하는 로컬 앱**이어야 한다. 가짜 화면이�
 
 - 본 문서는 `docs/archive/PRD-v1.md` §4 (line 39-58) + §5 (line 60-73) + §16 (line 1014-1062)에서 분리·정렬한 결과다.
 - §4 (기존 PRD 대비 변경)는 본 리팩토링과 서준 결정사항을 반영한 신규 표다.
-- OCR/3-provider/freemium/Graph 담당자 명시는 모두 신규 결정사항이다.
+- OCR/Graph 담당자 명시는 모두 신규 결정사항이다.
+- 2026-06-30: 3-provider hybrid + freemium 폐기 → **OpenAI 단일 tier** (premium-only). local(Gemma)/Gemini 제거.

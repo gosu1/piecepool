@@ -22,28 +22,19 @@ PiecePool 신규 합류자 진입 문서. README는 전체 nav, 본 문서는 �
 - macOS (Apple Silicon 권장)
 - Node.js 20+
 - Rust + cargo (Tauri 빌드)
-- llama.cpp `llama-server` + Gemma 4 E4B GGUF (Free 플랜 로컬 추론)
+- OpenAI API 키 (`OPENAI_API_KEY`)
 
 ### 2.2 환경변수
 
 ```bash
 # 공통
-export PIECEPOOL_LLM_PROVIDER=local                  # local|openai|gemini (기본 local=Free)
-export PIECEPOOL_LLM_MODEL=...                       # provider별 기본값
+export PIECEPOOL_LLM_MODEL=...                       # 모델명 override (기본값 존재)
 
-# Free (local llama.cpp sidecar — Gemma 4 E4B)
-export PIECEPOOL_LOCAL_LLM_ENDPOINT=http://localhost:8080
-export PIECEPOOL_LOCAL_LLM_BACKEND=llama-server      # MVP 기본 (MLX는 후속)
-export PIECEPOOL_LOCAL_LLM_BIN=...                   # llama-server 실행 파일 경로 (없으면 sidecar Disabled)
-export PIECEPOOL_LOCAL_LLM_MODEL_PATH=...            # Gemma 4 E4B GGUF 경로 (없으면 sidecar Disabled)
-
-# Premium 옵션 (택 1)
+# OpenAI (필수)
 export OPENAI_API_KEY="..."                          # OpenAI GPT
-export GEMINI_API_KEY="..."                          # Google Gemini
 
-# Premium 기능 토글
+# 기능 토글
 export PIECEPOOL_PREMIUM_FACT_CHECK=true
-export PIECEPOOL_PREMIUM_CLARIFY=true
 ```
 
 ### 2.3 본인 sub-issue claim
@@ -74,9 +65,9 @@ export PIECEPOOL_PREMIUM_CLARIFY=true
 - 실제 LLM 호출. 정적 데모 X
 - PDF 텍스트 추출 MVP 범위
 - **OCR MVP 범위** (PRD-v1 §17.1에서 MVP로 이동)
-- **3-provider hybrid** (Local / OpenAI / Gemini)
+- **OpenAI 단일 provider**
 - **`.dmg` / `.pkg` 배포 MVP 범위**
-- Premium 흐름은 `LlmWikiResult` schema 무변경 원칙 유지
+- LLM 흐름은 `LlmWikiResult` schema 무변경 원칙 유지
 
 ---
 
@@ -110,7 +101,7 @@ CI `ssot-check`가 grep으로 누출 자동 차단.
 | Frontend | React + TypeScript + Tailwind | ✅ 확정 |
 | Backend | Rust | ✅ 확정 |
 | 저장 | 로컬 파일 시스템 (Markdown + JSON) | ✅ 확정 |
-| LLM provider | llama.cpp llama-server (local) / OpenAI / Gemini | ✅ 확정 (3-provider hybrid) |
+| LLM provider | OpenAI | ✅ 확정 (단일 provider) |
 | OCR | Tesseract.js / Apple Vision / 외부 API | ⏸ 결정 대기 |
 | PDF 파싱 | pdfium / pdf-extract / pdf.js | ⏸ 결정 대기 |
 | Markdown 편집기 | TipTap / Lexical / CodeMirror 6 | ⏸ 결정 대기 |
@@ -150,8 +141,8 @@ CI `ssot-check`가 grep으로 누출 자동 차단.
 - 실제 LLM 호출 → wiki + relations
 - Markdown 편집기 작동 + 재실행 복원
 - Graph View 클릭 / 필터 / 검색
-- Free (llama.cpp llama-server) + Premium (GPT 또는 Gemini) 둘 다 동작
-- Premium 되묻기 + fact-check 기본 흐름
+- OpenAI 호출 동작
+- 되묻기 + fact-check 기본 흐름
 - `.dmg` 또는 `.pkg` 빌드 산출물
 - `npm test`, `npm run build`, `npm run e2e`, `cargo test`, `cargo check` 통과
 - CI docs-check 통과
@@ -180,8 +171,6 @@ E2E 시나리오 12개: [`docs/60-qa/e2e-scenarios.md`](docs/60-qa/e2e-scenarios
 
 - OpenAI Responses API: https://platform.openai.com/docs/api-reference/responses
 - OpenAI Structured Outputs: https://platform.openai.com/docs/guides/structured-outputs
-- Gemini API: https://ai.google.dev/api
-- llama.cpp: https://github.com/ggml-org/llama.cpp
 - Tauri: https://tauri.app/
 
 ---
@@ -192,7 +181,7 @@ E2E 시나리오 12개: [`docs/60-qa/e2e-scenarios.md`](docs/60-qa/e2e-scenarios
 |---|---|
 | Backend | [#6 architecture.md](https://github.com/gosu1/piecepool/issues/6) (모듈 경계 잡기, 다른 sub-task의 기준이 됨) |
 | Frontend | [#16 architecture.md](https://github.com/gosu1/piecepool/issues/16) (라우팅 + 상태 관리 기준) |
-| LLM | [#29 provider-config.md](https://github.com/gosu1/piecepool/issues/29) (3-provider adapter 인터페이스 확정) |
+| LLM | [#29 provider-config.md](https://github.com/gosu1/piecepool/issues/29) (OpenAI adapter 인터페이스 확정) |
 | Design | [#33 screen-inventory.md](https://github.com/gosu1/piecepool/issues/33) (5화면 카드, Frontend 의존 unblock) |
 
 ---
@@ -200,5 +189,5 @@ E2E 시나리오 12개: [`docs/60-qa/e2e-scenarios.md`](docs/60-qa/e2e-scenarios
 ## 11. 변경 이력 노트
 
 - 본 문서는 PRD-v1 시절 기준에서 현재 구조 (Phase 1~3, 5 완료 + Phase 4 진행)로 전면 재작성한 결과다.
-- 환경변수 (3-provider), CODEOWNERS, CI, Project board, 라벨 / 템플릿 / 마일스톤 등 인프라는 본 리팩토링에서 신규 추가했다.
+- 환경변수 (OpenAI), CODEOWNERS, CI, Project board, 라벨 / 템플릿 / 마일스톤 등 인프라는 본 리팩토링에서 신규 추가했다.
 - 기존 reference (`PRD.md`, `docs/superpowers/plans/tasks`)는 제거. 새 reference는 `docs/00-overview/`와 `docs/10-contracts/`.

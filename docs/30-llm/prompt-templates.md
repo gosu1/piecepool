@@ -18,7 +18,7 @@ Import 호출의 system/user 프롬프트 (한국어 학습 컨텍스트).
 
 ---
 
-## 2. System Prompt (기본 / Free·Premium 공용)
+## 2. System Prompt (기본)
 
 ```text
 너는 대학생의 학습 자료를 "개념 중심 위키 + 타입 있는 지식 그래프"로
@@ -122,7 +122,7 @@ skill-kit 핵심 두 규칙을 프롬프트에 상수로 둔다:
 
 ---
 
-## 7. Premium 전용 추가 (schema 무변경)
+## 7. 부가 기능 (schema 무변경)
 
 - **되묻기 트리거 문구**: 1차 응답이 약할 때 사용자에게 물을 재확인 질문 생성. 트리거 조건·흐름은 [`output-validation.md`](output-validation.md) §6. 프롬프트는 별도 round-trip system 블록으로 주입.
 - **fact-check**: web search 도구 호출 결과를 `evidence[].reason`에 출처 URL로 누적([`../10-contracts/entities.md#evidence`](../10-contracts/entities.md#evidence)).

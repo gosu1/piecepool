@@ -3,7 +3,7 @@
 // 본 파일 타입은 위 SSOT 문서의 TS 정의를 그대로 실현한다. 런타임 검증 schema는
 // docs 문서에서 생성: npm run gen:llm-schema → src/llm/schema/llm-wiki-result.schema.json.
 
-export type ProviderId = "local" | "openai" | "gemini";
+export type ProviderId = "openai";
 
 // 입력 — provider-config.md §1.
 export type LlmWikiInput = {
@@ -12,9 +12,9 @@ export type LlmWikiInput = {
   sourceFiles?: Array<{ id: string; file: string; type: "pdf" | "image" }>;
   subjects: Array<{ id: string; name: string }>;
   existingConcepts: Array<{ id: string; title: string; normalizedTitle: string }>;
-  premium?: {
-    clarify: boolean; // 되묻기 활성 (Free 호출에서 무시)
-    factCheck: boolean; // fact-check 활성 (Free 호출에서 무시)
+  features?: {
+    clarify: boolean; // 되묻기 활성
+    factCheck: boolean; // fact-check 활성
   };
 };
 

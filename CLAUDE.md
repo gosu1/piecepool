@@ -104,7 +104,7 @@ The backend owns the `ImportJob` status transitions. Never skip or reorder state
 ```
 idle → parsing → archiving → llm_processing → writing → completed
                                     │
-                          (Premium only)
+                          (clarify enabled)
                                     ↓
                              clarify_pending  ← waiting for user response
                                     │
@@ -112,7 +112,6 @@ idle → parsing → archiving → llm_processing → writing → completed
                           user ignores ──► writing (save 1st-call result) → completed
 ```
 
-- `clarify_pending` **never occurs** for Free (local llama.cpp llama-server) users.
 - On any unrecoverable error, transition to `failed` and populate `errorMessage`.
 
 ---
@@ -141,23 +140,21 @@ src-tauri/src/
 
 - **Never use `unwrap()` or `panic!()` in production code.** Always propagate errors via `AppError` with `?`.
 - `models/` structs use `#[serde(rename_all = "camelCase")]` — Rust identifiers stay `snake_case`, JSON output is `camelCase`.
-- `ImportJobStatus::ClarifyPending` is **not yet in the code** (only in `entities.md`). Add it before implementing the Premium clarify flow.
+- `ImportJobStatus::ClarifyPending` is **not yet in the code** (only in `entities.md`). Add it before implementing the clarify flow.
 - LLM orchestration is handled by the TypeScript layer (`src/llm/`), not Rust. The `import/` module coordinates with it but does not own LLM logic.
 
 ---
 
 ## 🌐 LLM Provider Rules
 
-Three providers are supported. The backend must route correctly based on user plan:
+OpenAI is the only LLM provider.
 
-| Plan           | Provider           | Env var                        |
-| -------------- | ------------------ | ------------------------------ |
-| Free (default) | Local llama-server | `PIECEPOOL_LLM_PROVIDER=local` |
-| Premium        | OpenAI GPT         | `OPENAI_API_KEY`               |
-| Premium        | Gemini             | `GEMINI_API_KEY`               |
+| Provider   | Env var          |
+| ---------- | ---------------- |
+| OpenAI GPT | `OPENAI_API_KEY` |
 
-- All providers must produce output conforming to `LlmWikiResult` (see above).
-- Premium-only features (clarify / fact-check / web-search compare) must be gated — they must not execute on Free plan.
+- The provider must produce output conforming to `LlmWikiResult` (see above).
+- Features (clarify / fact-check / web-search compare) use the OpenAI API via the TypeScript adapter (`src/llm/`).
 
 ---
 
