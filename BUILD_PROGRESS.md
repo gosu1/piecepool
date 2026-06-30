@@ -10,14 +10,14 @@
 ## VERIFY GATE
 - MUST: `npm run check` · `npm run build` · `cargo check --manifest-path src-tauri/Cargo.toml`
 - 품질: `npm test`(vitest) · `cargo test --manifest-path src-tauri/Cargo.toml` · `cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings`
-- 마지막 baseline 결과(2026-06-30): MUST 3종 green. `npm test` 5 테스트 green. `cargo test` 15(ts-rs)+1(smoke) green.
+- 마지막 결과(2026-06-30, #2 후): MUST 3종 green. `npm test` 5 green. `cargo test` 25(15 ts-rs + 10 storage)+1(smoke) green. clippy 0 lint.
 - 기존 경고(내 코드 아님, drive-by 수정 안 함): models/mod.rs ts-rs "failed to parse serde attribute"(skip_serializing_if) — 런타임 매크로 노이즈, clippy lint 아님. CI(code-check.yml)는 cargo check만 돌려 무관.
 
 ## WORK ORDER
 | # | 단위 | status | 비고 |
 |---|---|---|---|
 | 1 | 베이스라인(ledger·vitest·rust test 골격) | **done** | vitest 도입, `test` 스크립트, validate.test.ts(normalize-drop 회귀), tests/smoke.rs |
-| 2 | storage/ (경로해석·atomic write·space read) | todo | spec: 20-backend/storage-io.md, 10-contracts/workspace-layout.md |
+| 2 | storage/ (경로해석·atomic write·space read) | **done** | safe_join(.. /절대/null 차단)·write_atomic(tmp→fsync→rename)·list_files/read_to_string/ensure_dir. 단위테스트 10. notify watcher(§3)는 #2 밖→보류 |
 | 3 | commands/ + src/lib/ipc.ts (IPC surface) | todo | spec: 20-backend/ipc-api.md. 타입은 models/mod.rs·src/lib/generated/*만 |
 | 4 | seed/ (AI 6 concept + relation 5↑ 실제 파일) | todo | spec 문서 없음 → acceptance §9 + e2e 시나리오1에서 도출 |
 | 5 | 프론트 ipc 래퍼 + Inbox 화면(첫 진입) | todo | spec: 40-frontend/screens/inbox.md, architecture.md |
@@ -45,6 +45,9 @@
 
 ## 설계 결정 로그
 - 2026-06-30: 테스트 러너 = vitest(TS), cargo test(Rust). e2e(Playwright 등)는 GUI라 MANUAL 처리, 자동화는 post.
+- 2026-06-30(#2): storage가 tokio::fs 의무(storage-io.md §2.3) → Cargo에 tokio(fs,io-util,rt,macros) + tempfile(dev) 추가. storage는 엔티티 무관(byte/string·경로만 주고받음); relations.json serde는 import/ 계층 몫.
+- 2026-06-30(#2): storage §3 외부수정감지(notify watcher)는 #2 범위 밖 → 보류. 필요 시 별도 단위로.
+- 2026-06-30 ⚠HAZARD: 인터럽트 시 'epitaxy' 도구가 feat/mvp-build→main 전환 + 미커밋 변경 stash함. ORIENT 브랜치체크로 복구(git checkout feat/mvp-build → git stash pop). 교훈: 게이트 green 되면 즉시 커밋해 stash 유실 위험 최소화.
 
 ## NEXT
-→ WORK ORDER #2: storage/ 모듈. workspace 루트 경로 해석 + `<space>/{inbox,archive,wiki,relations,sources,config}` 읽기 + atomic write 헬퍼. 단위테스트 동반.
+→ WORK ORDER #3: commands/ + src/lib/ipc.ts. ipc-api.md 🔜 command 구현 + lib.rs invoke_handler 등록 + TS 래퍼. storage 모듈(safe_join/write_atomic/list_files) 활용. 데모 핵심 경로 우선: save_source → save_wiki_page + save_relations → list_wiki_pages/read_wiki_page → list_relations. 페이로드 타입은 models/mod.rs·src/lib/generated/*만.
