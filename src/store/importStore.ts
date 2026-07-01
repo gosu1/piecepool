@@ -5,6 +5,7 @@ import { runWikiGeneration } from "../llm/generate";
 import type { LlmWikiInput, LlmWikiResult } from "../llm/provider";
 import { heuristicGaps, type GapQuestion } from "../llm/gaps";
 import { applyLlmResult } from "../lib/llmApply";
+import { chunkOpts } from "../lib/settings";
 
 // ImportJob 상태머신 소유 = TS 오케스트레이터(결정 A). useImportStore 가 상태 전이 + Rust atomic-step
 // 커맨드(create_note/save_wiki/append_relations) + OpenAI 어댑터 호출을 조율한다.
@@ -134,7 +135,7 @@ export const useImportStore = create<ImportState>((set, get) => {
 
         job = commit({ ...job, status: "llm_processing" });
         const input = buildInput(note, p.existing);
-        const { result, engine } = await runWikiGeneration(input, apiKey());
+        const { result, engine } = await runWikiGeneration(input, apiKey(), { chunk: chunkOpts() });
 
         // clarify(되묻기) 분기 — 간극이 있으면 저장 전 사용자에게 되묻는다
         if (p.clarify) {
@@ -166,7 +167,7 @@ export const useImportStore = create<ImportState>((set, get) => {
               "\n\n[사용자 확인 응답]\n" +
               gaps.map((g, i) => `Q: ${g.prompt}\nA: ${answers[i] ?? ""}`).join("\n"),
           };
-          const r2 = await runWikiGeneration(augmented, apiKey());
+          const r2 = await runWikiGeneration(augmented, apiKey(), { chunk: chunkOpts() });
           result = r2.result;
           engine = r2.engine;
         }

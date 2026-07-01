@@ -30,6 +30,7 @@ import { applyLlmResult } from "../lib/llmApply";
 import { heuristicGaps } from "../llm/gaps";
 import type { GapQuestion } from "../llm/gaps";
 import { runImageOcr } from "../llm/ocr";
+import { chunkOpts, getChunkSettings, setChunkEnabled, setChunkPercentile } from "../lib/settings";
 
 // 상단 섹션
 type Section = "inbox" | "wiki" | "source" | "graph";
@@ -251,7 +252,7 @@ export default function PiecePoolApp() {
         existingConcepts: (wikiBySlug[space] ?? []).map((w) => ({ id: w.conceptId, title: w.title, normalizedTitle: w.title.toLowerCase() })),
       };
       const apiKey = (typeof localStorage !== "undefined" && localStorage.getItem("openai-key")) || "";
-      const { result, engine, warning } = await runWikiGeneration(input, apiKey);
+      const { result, engine, warning, promotion } = await runWikiGeneration(input, apiKey, { chunk: chunkOpts() });
       const applied = await applyLlmResult(
         space,
         sp?.id ?? "",
@@ -264,9 +265,11 @@ export default function PiecePoolApp() {
       setWikiBySlug((m) => ({ ...m, [space]: wikis }));
       setGraphBySlug((m) => ({ ...m, [space]: g }));
       const mergedNote = applied.merged > 0 ? ` (기존 ${applied.merged}개 병합)` : "";
+      // [E] 연결성 게이트 advisory — 이번 추출에서 어디에도 안 붙은(고립) 개념 수 표시.
+      const isoNote = promotion && promotion.staging > 0 ? ` · 고립 ${promotion.staging}개` : "";
       setAiStatus((s) => ({
         ...s,
-        [key]: `${engine === "openai" ? "GPT" : "휴리스틱"}로 위키 ${applied.pages.length}개 · 관계 ${applied.relationCount}개${mergedNote}${warning ? " · GPT 실패→휴리스틱" : ""}`,
+        [key]: `${engine === "openai" ? "GPT" : "휴리스틱"}로 위키 ${applied.pages.length}개 · 관계 ${applied.relationCount}개${mergedNote}${isoNote}${warning ? " · GPT 실패→휴리스틱" : ""}`,
       }));
       if (applied.pages[0]) openWiki(space, applied.pages[0].path);
     } catch (e) {
@@ -1311,6 +1314,17 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
   const [key, setKey] = useState((typeof localStorage !== "undefined" && localStorage.getItem("openai-key")) || "");
   const [saved, setSaved] = useState(false);
   const hasKey = key.trim().length > 0;
+  const [chunkOn, setChunkOn] = useState(getChunkSettings().enabled);
+  const [pct, setPct] = useState(getChunkSettings().percentile);
+  const toggleChunk = () => {
+    const next = !chunkOn;
+    setChunkEnabled(next);
+    setChunkOn(next);
+  };
+  const changePct = (v: number) => {
+    setChunkPercentile(v);
+    setPct(v);
+  };
   const save = () => {
     localStorage.setItem("openai-key", key.trim());
     setSaved(true);
@@ -1355,6 +1369,30 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
             <span className={cn("rounded-full px-2 py-0.5 text-[12px] font-semibold", hasKey ? "bg-primary text-on-primary" : "bg-surface-soft text-ink-muted")}>
               {hasKey ? "OpenAI GPT" : "휴리스틱(오프라인)"}
             </span>
+          </div>
+          <div className="space-y-2 rounded-md border border-hairline p-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-[14px] text-ink-2">의미 청킹 (semantic chunking)</span>
+                <p className="text-[12px] text-ink-muted">원문을 의미 경계에서 조각내 조각별로 추출합니다. API Key 필요.</p>
+              </div>
+              <Button variant={chunkOn ? "solid" : "utility"} size="sm" onClick={toggleChunk}>
+                {chunkOn ? "켜짐" : "꺼짐"}
+              </Button>
+            </div>
+            {chunkOn && (
+              <div className="flex items-center justify-between pl-0.5">
+                <span className="text-[13px] text-ink-muted">경계 임계값 (하위 %)</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={pct}
+                  onChange={(e) => changePct(Number(e.target.value) || 10)}
+                  className="w-20 rounded-md border border-hairline bg-surface px-2 py-1 text-[13px] text-ink outline-none focus-visible:shadow-soft"
+                />
+              </div>
+            )}
           </div>
           <div className="flex items-center justify-between rounded-md border border-hairline p-3">
             <span className="text-[14px] text-ink-2">테마</span>
