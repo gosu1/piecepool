@@ -39,6 +39,7 @@
     "eval": "tsx scripts/eval.ts",
     "chunk": "tsx scripts/chunk-preview.ts",
     "promote": "tsx scripts/promote-preview.ts",
+    "classify": "tsx scripts/classify-preview.ts",
     "tauri": "tauri"
   },
   "dependencies": {
