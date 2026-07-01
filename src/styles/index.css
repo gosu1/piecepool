@@ -1,1 +1,178 @@
 @import "tailwindcss";
+
+/* PiecePool Design System — Notion 디자인 언어 기반 (DESIGN-notion.md).
+   따뜻한 페이퍼 캔버스 + 흰 카드 + 단 하나의 구조적 액센트(Notion 블루) + 모노크롬 크롬.
+   시맨틱 토큰(--ds-*)을 @theme inline 으로 Tailwind 유틸리티에 연결 → [data-theme] 에 따라 자동 반전. */
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme inline {
+  /* surfaces */
+  --color-canvas: var(--ds-canvas);
+  --color-surface: var(--ds-surface);
+  --color-surface-soft: var(--ds-surface-soft);
+
+  /* ink (text) */
+  --color-ink: var(--ds-ink);
+  --color-ink-2: var(--ds-ink-2);
+  --color-ink-muted: var(--ds-ink-muted);
+  --color-ink-faint: var(--ds-ink-faint);
+
+  /* line */
+  --color-hairline: var(--ds-hairline);
+
+  /* the single structural accent — Notion 블루 (CTA · 링크 · active/focus) */
+  --color-primary: var(--ds-primary);
+  --color-primary-active: var(--ds-primary-active);
+  --color-on-primary: var(--ds-on-primary);
+
+  /* strong neutral fill — 다크 아일랜드 / solid 버튼(위키 헤더, AI 배너, 파일 선택) */
+  --color-fill: var(--ds-fill);
+  --color-on-fill: var(--ds-on-fill);
+
+  /* deep indigo — 단 하나의 dark "night" 모먼트 */
+  --color-secondary: var(--ds-secondary);
+  --color-on-secondary: var(--ds-on-secondary);
+
+  /* graph (라이트=모노크롬 그레이, 다크=블루 코어) */
+  --color-graph-core: var(--ds-graph-core);
+  --color-graph-result: var(--ds-graph-result);
+  --color-graph-edge: var(--ds-graph-edge);
+
+  /* 장식 전용 스티커 팔레트 — 일러스트/카테고리 점에만, 구조/CTA에는 절대 쓰지 않음 */
+  --color-sticker-sky: #62aef0;
+  --color-sticker-purple: #d6b6f6;
+  --color-sticker-pink: #ff64c8;
+  --color-sticker-orange: #dd5b00;
+  --color-sticker-teal: #2a9d99;
+  --color-sticker-green: #1aae39;
+
+  /* radius scale (DESIGN-notion.md) */
+  --radius-xs: 4px;
+  --radius-sm: 5px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  /* elevation — barely-there 다층 마이크로 섀도 */
+  --shadow-soft:
+    0 0.175px 1.041px rgba(0, 0, 0, 0.01), 0 0.8px 2.925px rgba(0, 0, 0, 0.02),
+    0 2.025px 7.847px rgba(0, 0, 0, 0.027), 0 4px 18px rgba(0, 0, 0, 0.04);
+  --shadow-elevated:
+    0 1px 2px rgba(0, 0, 0, 0.02), 0 4px 9px rgba(0, 0, 0, 0.03),
+    0 10px 22px rgba(0, 0, 0, 0.04), 0 23px 52px rgba(0, 0, 0, 0.05);
+
+  --font-sans:
+    "Inter", "Pretendard Variable", "Pretendard", -apple-system,
+    BlinkMacSystemFont, "Apple SD Gothic Neo", system-ui, "Segoe UI",
+    Helvetica, Arial, sans-serif;
+}
+
+/* ── 라이트(기본): 따뜻한 페이퍼 데이라이트 ─────────────────── */
+:root,
+[data-theme="light"] {
+  --ds-canvas: #f6f5f4;
+  --ds-surface: #ffffff;
+  --ds-surface-soft: #f0eeea;
+
+  --ds-ink: #1f1e1c;
+  --ds-ink-2: #31302e;
+  --ds-ink-muted: #615d59;
+  --ds-ink-faint: #a39e98;
+
+  --ds-hairline: #e6e6e6;
+
+  --ds-primary: #0075de;
+  --ds-primary-active: #005bab;
+  --ds-on-primary: #ffffff;
+
+  --ds-fill: #1f1e1c;
+  --ds-on-fill: #ffffff;
+
+  --ds-secondary: #213183;
+  --ds-on-secondary: #ffffff;
+
+  --ds-graph-core: #6b6863;
+  --ds-graph-result: #b8b5ad;
+  --ds-graph-edge: #c9c6bd;
+
+  color-scheme: light;
+}
+
+/* ── 다크: Notion 다크 (블루 코어 유지) ───────────────────── */
+[data-theme="dark"] {
+  --ds-canvas: #191817;
+  --ds-surface: #242321;
+  --ds-surface-soft: #201f1d;
+
+  --ds-ink: #ededea;
+  --ds-ink-2: #c4c1bb;
+  --ds-ink-muted: #918d86;
+  --ds-ink-faint: #6b6863;
+
+  --ds-hairline: #322f2c;
+
+  --ds-primary: #4d8df0;
+  --ds-primary-active: #3b7ad6;
+  --ds-on-primary: #ffffff;
+
+  /* 다크 아일랜드(위키 헤더·AI 배너·solid 버튼)는 다크에서도 어둡게 유지(캔버스보다 더 검게) */
+  --ds-fill: #0e0e0c;
+  --ds-on-fill: #ece9e3;
+
+  --ds-secondary: #2c3aa0;
+  --ds-on-secondary: #ffffff;
+
+  --ds-graph-core: #4d8df0;
+  --ds-graph-result: #8a8780;
+  --ds-graph-edge: #3a3934;
+
+  color-scheme: dark;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    margin: 0;
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv11", "ss01", "lnum";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  @keyframes ds-shimmer {
+    100% {
+      transform: translateX(100%);
+    }
+  }
+  @keyframes ds-wave {
+    0%,
+    100% {
+      transform: scaleY(0.35);
+    }
+    50% {
+      transform: scaleY(1);
+    }
+  }
+}
+
+/* ── 타이포그래피 역할 클래스 (DESIGN-notion.md 정확값) ──────
+   헤드라인은 무겁고 음수 자간이 클수록 큰 사이즈. 본문은 400, 1.5 라인하이트. */
+@layer components {
+  .ds-display-1 { font-size: 64px; font-weight: 700; line-height: 1; letter-spacing: -2.125px; }
+  .ds-display-2 { font-size: 54px; font-weight: 700; line-height: 1.04; letter-spacing: -1.875px; }
+  .ds-h1 { font-size: 40px; font-weight: 700; line-height: 1.1; letter-spacing: -1px; }
+  .ds-h2 { font-size: 26px; font-weight: 700; line-height: 1.23; letter-spacing: -0.625px; }
+  .ds-h3 { font-size: 22px; font-weight: 700; line-height: 1.27; letter-spacing: -0.25px; }
+  .ds-title { font-size: 20px; font-weight: 600; line-height: 1.4; letter-spacing: -0.125px; }
+  .ds-body { font-size: 16px; font-weight: 400; line-height: 1.5; }
+  .ds-body-sm { font-size: 15px; font-weight: 400; line-height: 1.33; }
+  .ds-button { font-size: 16px; font-weight: 500; line-height: 1.5; }
+  .ds-caption { font-size: 14px; font-weight: 400; line-height: 1.43; }
+  .ds-eyebrow { font-size: 12px; font-weight: 600; line-height: 1.33; letter-spacing: 0.125px; }
+}

@@ -195,7 +195,7 @@ pub struct Evidence {
 
 // ── Relation ────────────────────────────────────────────────
 /// relation-types.md#1-relationtype-enum
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../src/lib/generated/")]
 #[serde(rename_all = "snake_case")]
 pub enum RelationType {
@@ -245,9 +245,27 @@ pub struct Question {
     pub created_at: String,
 }
 
+// ── PdfExtractResult (커맨드 DTO) ────────────────────────────
+/// pdf/ 추출 결과. page_count 는 #page=N 범위 검사의 SSOT. 빈 페이지는 "" 로 보존(인덱스 유지).
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../src/lib/generated/")]
+#[serde(rename_all = "camelCase")]
+pub struct PageText {
+    pub page: u32, // 1-indexed
+    pub text: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../src/lib/generated/")]
+#[serde(rename_all = "camelCase")]
+pub struct PdfExtractResult {
+    pub page_count: u32,
+    pub pages: Vec<PageText>,
+}
+
 // ── ImportJob ───────────────────────────────────────────────
-/// entities.md#importjob
-/// 주의: Premium 되묻기용 `clarify_pending`은 contracts-change 머지 후 추가 (output-validation.md §6.4).
+/// entities.md#importjob — 상태 전이는 entities.md ImportJobStatus (SSOT) 를 미러한다.
+/// clarify 전이: llm_processing(1차) → clarify_pending(응답 대기) → llm_processing(2차) → writing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../src/lib/generated/")]
 #[serde(rename_all = "snake_case")]
@@ -256,6 +274,7 @@ pub enum ImportJobStatus {
     Parsing,
     Archiving,
     LlmProcessing,
+    ClarifyPending,
     Writing,
     Completed,
     Failed,
