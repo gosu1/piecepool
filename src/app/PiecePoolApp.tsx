@@ -252,7 +252,7 @@ export default function PiecePoolApp() {
         existingConcepts: (wikiBySlug[space] ?? []).map((w) => ({ id: w.conceptId, title: w.title, normalizedTitle: w.title.toLowerCase() })),
       };
       const apiKey = (typeof localStorage !== "undefined" && localStorage.getItem("openai-key")) || "";
-      const { result, engine, warning, promotion } = await runWikiGeneration(input, apiKey, { chunk: chunkOpts() });
+      const { result, engine, warning, promotion, nodeTypes } = await runWikiGeneration(input, apiKey, { chunk: chunkOpts() });
       const applied = await applyLlmResult(
         space,
         sp?.id ?? "",
@@ -267,9 +267,12 @@ export default function PiecePoolApp() {
       const mergedNote = applied.merged > 0 ? ` (기존 ${applied.merged}개 병합)` : "";
       // [E] 연결성 게이트 advisory — 이번 추출에서 어디에도 안 붙은(고립) 개념 수 표시.
       const isoNote = promotion && promotion.staging > 0 ? ` · 고립 ${promotion.staging}개` : "";
+      // [B] 청킹 켰을 때 조각 정보 유형 분포.
+      const TYPE_KO: Record<string, string> = { concept: "개념", fact: "사실", claim: "주장", example: "예시", method: "방법", question: "질문" };
+      const typeNote = nodeTypes ? ` · 유형 ${Object.entries(nodeTypes).map(([t, n]) => `${TYPE_KO[t] ?? t} ${n}`).join(", ")}` : "";
       setAiStatus((s) => ({
         ...s,
-        [key]: `${engine === "openai" ? "GPT" : "휴리스틱"}로 위키 ${applied.pages.length}개 · 관계 ${applied.relationCount}개${mergedNote}${isoNote}${warning ? " · GPT 실패→휴리스틱" : ""}`,
+        [key]: `${engine === "openai" ? "GPT" : "휴리스틱"}로 위키 ${applied.pages.length}개 · 관계 ${applied.relationCount}개${mergedNote}${isoNote}${typeNote}${warning ? " · GPT 실패→휴리스틱" : ""}`,
       }));
       if (applied.pages[0]) openWiki(space, applied.pages[0].path);
     } catch (e) {

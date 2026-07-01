@@ -14,6 +14,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { semanticChunk, splitSentences, percentile, type EmbedFn } from "../src/llm/chunk";
 import { createOpenAiEmbedder } from "../src/llm/embeddings";
+import { classify } from "../src/llm/classify";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const FIXTURES_DIR = join(ROOT, "docs/30-llm/evals/fixtures");
@@ -52,11 +53,11 @@ async function main(): Promise<void> {
   );
 
   for (const pct of percentiles) {
-    const r = await semanticChunk(text, { embed, percentile: pct, minSentences });
+    const r = await semanticChunk(text, { embed, percentile: pct, minSentences, classify });
     console.log(`\n── percentile ${pct}% (threshold ${fmt(r.threshold)}) → ${r.chunks.length} chunk / 경계 ${r.boundaries.length}개 ──`);
     r.chunks.forEach((c, i) => {
       const preview = c.text.length > 90 ? c.text.slice(0, 90) + "…" : c.text;
-      console.log(`  [${i + 1}] (문장 ${c.sentences.length}) ${preview}`);
+      console.log(`  [${i + 1}] (문장 ${c.sentences.length} · ${c.nodeType ?? "?"}) ${preview}`);
     });
   }
   console.log("");

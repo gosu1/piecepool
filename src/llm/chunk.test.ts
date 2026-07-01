@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { semanticChunk, splitSentences, cosine, percentile, type EmbedFn } from "./chunk";
+import { classify } from "./classify";
 
 // 가짜 임베더 — 문장을 토픽 키워드로 2D 벡터에 매핑. 같은 토픽=동일 벡터라 유사도가 급락 지점만 떨어진다.
 // (실 API 없이 percentile 경계 감지 로직을 결정적으로 검증한다.)
@@ -61,5 +62,22 @@ describe("semanticChunk (percentile boundary detection)", () => {
     const r = await semanticChunk("문장 하나뿐이다.", { embed: topicEmbed });
     expect(r.chunks.length).toBe(1);
     expect(r.boundaries).toEqual([]);
+  });
+});
+
+describe("semanticChunk — [B] classify 주입 시 조각 타입 부여", () => {
+  it("주입한 classify 결과가 각 청크 nodeType에 실림", async () => {
+    const r = await semanticChunk("문장 하나뿐이다.", { embed: topicEmbed, classify: () => "method" });
+    expect(r.chunks[0].nodeType).toBe("method");
+  });
+
+  it("classify 미주입 시 nodeType 없음(하위호환)", async () => {
+    const r = await semanticChunk("문장 하나뿐이다.", { embed: topicEmbed });
+    expect(r.chunks[0].nodeType).toBeUndefined();
+  });
+
+  it("real classify로 정의 문장은 concept 태깅", async () => {
+    const r = await semanticChunk("스택이란 LIFO 자료구조를 말한다.", { embed: topicEmbed, classify });
+    expect(r.chunks[0].nodeType).toBe("concept");
   });
 });

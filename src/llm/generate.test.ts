@@ -118,5 +118,17 @@ describe("runWikiGeneration — [C] chunking (opt-in)", () => {
     const out = await runWikiGeneration({ ...base, sourceText: twoTopics }, undefined, { provider });
     expect(calls).toHaveLength(1);
     expect(out.chunks).toBeUndefined();
+    expect(out.nodeTypes).toBeUndefined();
+  });
+
+  it("[B] 청킹 시 조각 정보 유형 분포(nodeTypes) 부착", async () => {
+    const { provider } = fakeProvider(() => ({ concepts: [c("x")], relations: [] }));
+    const out = await runWikiGeneration({ ...base, sourceText: twoTopics }, undefined, {
+      provider,
+      chunk: { enabled: true, embed: topicEmbed, percentile: 10 },
+    });
+    expect(out.nodeTypes).toBeDefined();
+    const total = Object.values(out.nodeTypes!).reduce((a, b) => a + b, 0);
+    expect(total).toBe(2); // 조각 2개 각각 분류됨
   });
 });

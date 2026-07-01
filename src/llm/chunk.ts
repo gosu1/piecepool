@@ -6,6 +6,8 @@
 //
 // embed는 주입형(EmbedFn) — provider(openai.ts)가 fetchFn을 주입하는 패턴과 동일하게,
 // 테스트/오프라인에서 가짜 임베더를 넣을 수 있다. 실 임베더는 embeddings.ts가 제공.
+// classify도 주입형(ClassifyFn) — 있으면 [B] 정보 유형을 조각별로 부여(classify.ts). 타입만 import(런타임 결합 없음).
+import type { ClassifyFn, NodeType } from "./classify";
 
 // texts → 각 text의 임베딩 벡터. 순서 보존.
 export type EmbedFn = (texts: string[]) => Promise<number[][]>;
@@ -15,12 +17,14 @@ export interface Chunk {
   sentences: string[];
   start: number; // 문장 인덱스 (inclusive)
   end: number; // 문장 인덱스 (exclusive)
+  nodeType?: NodeType; // [B] classify 주입 시 부여되는 정보 유형.
 }
 
 export interface SemanticChunkOptions {
   embed: EmbedFn;
   percentile?: number; // 하위 N% drop을 경계로 (기본 10). 실데이터로 튜닝하는 핵심 파라미터.
   minSentences?: number; // 이보다 작은 청크는 이전 청크에 병합 (기본 1 = 병합 안 함).
+  classify?: ClassifyFn; // 있으면 각 청크에 nodeType 부여 ([C]→[B] 연결).
 }
 
 export interface SemanticChunkResult {
@@ -94,8 +98,9 @@ export async function semanticChunk(
 
   const sentences = splitSentences(text);
   if (sentences.length <= 1) {
+    const chunks0 = sentences.length ? [makeChunk(sentences, 0, sentences.length)] : [];
     return {
-      chunks: sentences.length ? [makeChunk(sentences, 0, sentences.length)] : [],
+      chunks: applyTypes(chunks0, opts.classify),
       sentences,
       similarities: [],
       threshold: NaN,
@@ -123,7 +128,13 @@ export async function semanticChunk(
   }
 
   const chunks = enforceMinSentences(groupByBoundaries(sentences, boundaries), minSentences);
-  return { chunks, sentences, similarities, threshold, boundaries };
+  return { chunks: applyTypes(chunks, opts.classify), sentences, similarities, threshold, boundaries };
+}
+
+// classify 주입 시 각 청크에 nodeType 부여. 없으면 그대로.
+function applyTypes(chunks: Chunk[], classify?: ClassifyFn): Chunk[] {
+  if (!classify) return chunks;
+  return chunks.map((c) => ({ ...c, nodeType: classify(c.text) }));
 }
 
 // 경계 인덱스로 문장을 청크로 묶는다. boundary i = 문장 i 다음에서 자름.

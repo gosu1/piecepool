@@ -1,8 +1,9 @@
 import type { LlmProvider, LlmWikiInput, LlmWikiResult, LlmConcept, LlmRelation } from "./provider";
 import { OpenAiProvider } from "./openai";
-import { semanticChunk, type EmbedFn } from "./chunk";
+import { semanticChunk, type EmbedFn, type Chunk } from "./chunk";
 import { createOpenAiEmbedder } from "./embeddings";
 import { promote } from "./promote";
+import { classify, type NodeType } from "./classify";
 
 // LLM 위키 생성 오케스트레이션 (README §LLM ①).
 //  - apiKey 있으면 OpenAI(Responses API, 구조화 출력) 호출.
@@ -15,6 +16,7 @@ export interface WikiGenResult {
   warning?: string;
   promotion?: PromotionReport; // [E] 이번 추출 그래프의 연결성 게이트 리포트(비파괴 advisory).
   chunks?: number; // [C] 청킹으로 처리한 조각 수(청킹 켰을 때만).
+  nodeTypes?: Partial<Record<NodeType, number>>; // [B] 조각별 정보 유형 분포(청킹 켰을 때만).
 }
 
 // [E] 연결성 게이트 결과 — round=0 단발 추출이라 고립=staging, 연결=active만(archive는 다라운드 persistence 몫).
@@ -50,8 +52,8 @@ export async function runWikiGeneration(
 
   try {
     if (opts?.chunk?.enabled) {
-      const { result, chunkCount } = await chunkedExtract(input, provider, opts.chunk, key);
-      return withPromotion({ result, engine: "openai", chunks: chunkCount });
+      const { result, chunkCount, nodeTypes } = await chunkedExtract(input, provider, opts.chunk, key);
+      return withPromotion({ result, engine: "openai", chunks: chunkCount, nodeTypes });
     }
     const result = await provider.generateWikiStructured(input);
     return withPromotion({ result, engine: "openai" });
@@ -69,16 +71,18 @@ async function chunkedExtract(
   provider: LlmProvider,
   chunkOpts: NonNullable<WikiGenOptions["chunk"]>,
   key?: string,
-): Promise<{ result: LlmWikiResult; chunkCount: number }> {
+): Promise<{ result: LlmWikiResult; chunkCount: number; nodeTypes: Partial<Record<NodeType, number>> }> {
   const embed = chunkOpts.embed ?? createOpenAiEmbedder({ config: { apiKey: key ?? "" } });
   const { chunks } = await semanticChunk(input.sourceText, {
     embed,
     percentile: chunkOpts.percentile,
     minSentences: chunkOpts.minSentences,
+    classify, // [C]→[B]: 각 조각에 정보 유형 부여
   });
+  const nodeTypes = typeDistribution(chunks);
 
   if (chunks.length <= 1) {
-    return { result: await provider.generateWikiStructured(input), chunkCount: chunks.length };
+    return { result: await provider.generateWikiStructured(input), chunkCount: chunks.length, nodeTypes };
   }
 
   const cap = chunkOpts.maxChunks ?? 12;
@@ -103,7 +107,14 @@ async function chunkedExtract(
     relations.push(...r.relations);
   }
 
-  return { result: { concepts, relations: dedupeRelations(relations) }, chunkCount: used.length };
+  return { result: { concepts, relations: dedupeRelations(relations) }, chunkCount: used.length, nodeTypes };
+}
+
+// [B] 조각별 nodeType 분포 집계(advisory).
+function typeDistribution(chunks: Chunk[]): Partial<Record<NodeType, number>> {
+  const dist: Partial<Record<NodeType, number>> = {};
+  for (const c of chunks) if (c.nodeType) dist[c.nodeType] = (dist[c.nodeType] ?? 0) + 1;
+  return dist;
 }
 
 // 동일 (source|target|type) 관계 중복 제거(조각 간 중복 산출 방지).
