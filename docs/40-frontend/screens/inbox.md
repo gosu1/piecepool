@@ -78,7 +78,7 @@ Inbox 작성 (제목 + project 선택 + 해시태그(tags) + Markdown 본문 [+ 
             ↓
         status: llm_processing — Concept/WikiPage/Relation 추출 (2차 LLM 호출)
             │
-      (Premium만) status: clarify_pending — 사용자 응답 대기
+      (되묻기 on) status: clarify_pending — 사용자 응답 대기
             │
         status: writing — wiki/*.md + relations.json 저장
             ↓
@@ -89,10 +89,10 @@ Inbox 작성 (제목 + project 선택 + 해시태그(tags) + Markdown 본문 [+ 
 
 ---
 
-## 6. Free / Premium 차이
+## 6. 되묻기 토글 차이
 
-- Free: `clarify_pending` 발생 안 함, `parsing`→`archiving`→`llm_processing`→`writing`→`completed`로 직행
-- Premium: 저신뢰·모호 판정 시 `clarify_pending` 경유 가능
+- 되묻기 off: `clarify_pending` 발생 안 함, `parsing`→`archiving`→`llm_processing`→`writing`→`completed`로 직행
+- 되묻기 on(기본): 저신뢰·모호 판정 시 `clarify_pending` 경유 가능
 
 되묻기를 Inbox 화면 안에서 모달로 보여줄지, 별도 알림으로 보여줄지는 아직 미결 — [`open-questions.md`](../../00-overview/open-questions.md) §3 "되묻기 UI 모달 vs 인라인" (Design #4 + Frontend #2, 결정 기한: `component-states.md` 작성 시). 본 문서는 저장 직후 화면 전환만 다루고, 되묻기 UI 자체는 범위에서 제외한다.
 

@@ -107,7 +107,7 @@ MVP 합격선. **모든 항목이 통과해야 MVP 완료**다.
 - [ ] Markdown 편집기에서 archive/wiki 둘 다 편집 가능
 - [ ] Wiki View가 Concept 중심 탐색 지원
 - [ ] Graph View가 정적 이미지가 아닌 실제 클릭/필터/검색 작동
-- [ ] Premium 사용자에게 plan-toggle UI 노출 ([pricing-model](../00-overview/pricing-model.md))
+- [ ] 되묻기·fact-check 토글이 기본 on으로 동작 ([pricing-model](../00-overview/pricing-model.md))
 
 ---
 

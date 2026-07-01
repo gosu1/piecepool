@@ -15,7 +15,7 @@
 ## 결과
 
 - (+) 플랜 분기 코드·UI 제거.
-- (−) 기존 문서의 "Premium" 표현이 잔재로 남음 → 점진 정리 필요(레거시 env 이름 포함).
+- 기존 문서의 "Premium" 표현·레거시 env 이름(`PIECEPOOL_PREMIUM_*` → `PIECEPOOL_CLARIFY`/`PIECEPOOL_FACT_CHECK`)은 정리 완료. ADR·changelog의 결정 이력만 유지.
 
 ## 대안
 

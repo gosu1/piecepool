@@ -43,7 +43,7 @@ Inbox 자료 한 건이 **archive → LLM 재구성 → wiki/relations 영속화
 
 ```
 idle → parsing → archiving → llm_processing → writing → completed
-                                   │ (Premium only)
+                                   │ (되묻기 on)
                                    ▼
                             clarify_pending ── 사용자 응답 ─► llm_processing(2차) → writing → completed
                                    │           사용자 무시 ─► writing(1차 결과 저장) → completed
@@ -72,7 +72,7 @@ LLM/검증/저장 단계의 **비치명적** 결과는 실패가 아니다. `?`�
 
 ---
 
-## 5. Premium 되묻기 (clarify) round-trip
+## 5. 되묻기 (clarify) round-trip
 
 1차 `LlmWikiResult`가 불확실 임계치를 넘으면 `clarify_pending`으로 사용자에게 재질의한다. 트리거 조건·흐름·1회 제한은 [output-validation §6](../30-llm/output-validation.md) SSOT.
 
