@@ -18,7 +18,7 @@ jobs:
     name: Internal link check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Lychee (offline, internal links only)
         uses: lycheeverse/lychee-action@v2
@@ -34,7 +34,7 @@ jobs:
     name: SSOT guard (10-contracts is single source)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: No TypeScript type definitions outside 10-contracts
         run: |
@@ -87,7 +87,7 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:
