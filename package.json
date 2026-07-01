@@ -2,6 +2,30 @@
   "name": "piecepool",
   "private": true,
   "version": "0.1.0",
+  "description": "Local-first AI knowledge workspace for university students — Tauri + Rust + React/TS",
+  "license": "UNLICENSED",
+  "author": "gosu1",
+  "homepage": "https://github.com/gosu1/piecepool#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gosu1/piecepool.git"
+  },
+  "bugs": {
+    "url": "https://github.com/gosu1/piecepool/issues"
+  },
+  "keywords": [
+    "knowledge-management",
+    "knowledge-graph",
+    "wiki",
+    "tauri",
+    "local-first",
+    "llm",
+    "openai",
+    "note-taking"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",
