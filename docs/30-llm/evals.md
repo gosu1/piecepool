@@ -155,7 +155,7 @@ must_not.confused            ✅
 | `llm-output-schema.md` JSON Schema | 전체 (SSOT contracts-change) |
 | `output-validation.md` 검증 단계 | 전체 |
 | 모델 변경 (`PIECEPOOL_LLM_MODEL`) | 전체 |
-| 기능 토글 (`PIECEPOOL_PREMIUM_*`) | 해당 흐름만 |
+| 기능 토글 (`PIECEPOOL_*`) | 해당 흐름만 |
 
 ### 5.2 CI 통합 (후속)
 

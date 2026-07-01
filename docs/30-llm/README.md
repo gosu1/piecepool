@@ -50,7 +50,7 @@ OPENAI_API_KEY=...
 LINER_API_KEY=...
 
 # 기능 토글 (레거시 이름 · 유료 tier 아님 · 기본 on)
-PIECEPOOL_PREMIUM_FACT_CHECK=true|false
+PIECEPOOL_FACT_CHECK=true|false
 ```
 
 ## 부가 흐름 (schema 무변경)

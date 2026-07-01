@@ -179,7 +179,7 @@ End-to-end 시나리오. 각 시나리오는 사용자 관점 1회 흐름이며,
 
 ## 시나리오 10: fact-check suggest
 
-**전제**: `PIECEPOOL_PREMIUM_FACT_CHECK=true`.
+**전제**: `PIECEPOOL_FACT_CHECK=true`.
 
 **흐름**:
 1. WikiPage 생성 직후 fact-check 자동 실행 (또는 수동 트리거)

@@ -10,7 +10,7 @@
 
 ## 결정
 
-가격 구조를 **단일 tier**로 한다(경진대회 출품, 과금 없음). Free/Premium 플랜 구분·과금 UI 없음. 되묻기(clarify)·fact-check는 유료 플랜이 아니라 **기본 on, env 토글**로 제어하는 기능이다(`PIECEPOOL_PREMIUM_*`는 레거시 이름의 기능 토글, 유료 tier 아님, 기본 true).
+가격 구조를 **단일 tier**로 한다(경진대회 출품, 과금 없음). Free/Premium 플랜 구분·과금 UI 없음. 되묻기(clarify)·fact-check는 유료 플랜이 아니라 **기본 on, env 토글**로 제어하는 기능이다(`PIECEPOOL_CLARIFY`/`PIECEPOOL_FACT_CHECK`, 기본 true).
 
 ## 결과
 

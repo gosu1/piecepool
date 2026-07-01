@@ -55,7 +55,7 @@ MVP 합격선. **모든 항목이 통과해야 MVP 완료**다.
 ### 3.2 OpenAI
 - [ ] `OPENAI_API_KEY`로 OpenAI 호출 성공
 - [ ] LLM 출력이 `LlmWikiResult` schema 통과 ([evals](../30-llm/) 입증)
-- [ ] 되묻기 round-trip 작동 (`PIECEPOOL_PREMIUM_CLARIFY=true`)
+- [ ] 되묻기 round-trip 작동 (`PIECEPOOL_CLARIFY=true`)
 - [ ] Fact-check 기본 흐름 작동 (웹 검색 → `evidence[].reason`에 URL 누적)
 
 ### 3.3 검증 규칙

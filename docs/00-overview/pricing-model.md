@@ -18,7 +18,7 @@ PiecePool은 **OpenAI**(GPT)를 LLM provider로, **Liner API**를 출처 기반 
 | **LLM 강화 기능** | 되묻기 + fact-check + 웹 검색 기반 비교 + Wiki 강화 |
 | **한도** | OpenAI·Liner API 비용·rate에 따름 |
 
-API 키는 사용자 본인이 발급/관리하거나 PiecePool 구독으로 제공 (정책은 별도 결정).
+API 키는 사용자 본인이 발급/관리한다. (PiecePool 구독 제공은 **경진대회 이후 BM 계획** — §7 참조.)
 
 ---
 
@@ -99,8 +99,8 @@ LINER_API_ENDPOINT=...                        # (선택) Liner API 엔드포인�
 PIECEPOOL_LLM_MODEL=...                        # 모델명 override (provider-config.md §3 기본값)
 
 # LLM 기능 토글 (유료 tier 아님 — 레거시 이름의 기본 on 토글)
-PIECEPOOL_PREMIUM_FACT_CHECK=true|false        # fact-check, 기본 true
-PIECEPOOL_PREMIUM_CLARIFY=true|false           # 되묻기, 기본 true
+PIECEPOOL_FACT_CHECK=true|false        # fact-check, 기본 true
+PIECEPOOL_CLARIFY=true|false           # 되묻기, 기본 true
 ```
 
 전체 매트릭스: [`../30-llm/provider-config.md`](../30-llm/provider-config.md) §2.
@@ -119,7 +119,7 @@ PIECEPOOL_PREMIUM_CLARIFY=true|false           # 되묻기, 기본 true
 | 결제/구독 시스템 | ⛔ | ✅ |
 | API 키 관리 UI | 환경변수만 | 키 보관 UI |
 
-결제/구독은 MVP 범위 외. MVP는 `OPENAI_API_KEY` 환경변수로 동작한다.
+결제/구독은 MVP 범위 외 — **경진대회 이후 BM(비즈니스 모델) 계획**이다. 현재는 사용자가 `OPENAI_API_KEY`(+`LINER_API_KEY`)를 직접 설정한다.
 
 ---
 

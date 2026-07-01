@@ -44,7 +44,7 @@ interface LlmWikiInput {
 | `OPENAI_API_KEY` | (필수) | OpenAI 호출 키 (LLM) |
 | `LINER_API_KEY` | (feature 3 필수) | Liner 출처 검색·검증 키 |
 | `LINER_API_ENDPOINT` | 기본 endpoint | Liner API endpoint override |
-| `PIECEPOOL_PREMIUM_FACT_CHECK` | `true` | fact-check 토글 (레거시 이름 · 유료 tier 아님 · 기본 on) |
+| `PIECEPOOL_FACT_CHECK` | `true` | fact-check 토글 (유료 tier 아님 · 기본 on) |
 | `PIECEPOOL_LLM_TIMEOUT_MS` | `60000` | 호출 timeout |
 | `PIECEPOOL_LLM_MAX_RETRIES` | `2` | 재시도 횟수 |
 
