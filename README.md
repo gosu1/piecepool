@@ -28,7 +28,7 @@ LLM이 하는 일 세 가지:
 
 1. **Wiki 생성** — 사용자 원본 노트(`archive/`)를 Concept 중심 WikiPage로 재구성한다. 원문은 절대 덮어쓰지 않는다.
 2. **타입 있는 Graph** — Wiki를 12종 RelationType(strength / confidence / 근거 evidence)으로 연결한다. 과목을 넘나드는 지식 지도가 자연히 생긴다.
-3. **정보 간극 메우기 (label ↔ user)** — 교수 자료(정답=label)와 사용자 필기 사이의 간극을 LLM이 검증한다. 정답을 바로 주입하지 않고 1~3개 선택지 + 기타 칸으로 **소크라테스식·하브루타식**으로 되묻는다.
+3. **정보 간극 메우기 (label ↔ user)** — **Liner API**(주)가 권위 있는 출처를 검색해 정답 기준(label)을 세우고 사용자 필기 사이의 간극을 검증·보강한다(fact-check·출처 provenance). Liner 미가용 시 **OpenAI**(보조)가 정답을 바로 주입하지 않고 1~3개 선택지 + 기타 칸으로 **소크라테스식·하브루타식** 되묻기 질문을 생성한다.
 
 Obsidian(단순 링크)·Notion(SaaS DB)·Anki(고립 카드)와 달리 **LLM 재구성 Wiki + 타입 관계 + 누적 지식 지도**가 차별점이다.
 
@@ -37,7 +37,7 @@ Obsidian(단순 링크)·Notion(SaaS DB)·Anki(고립 카드)와 달리 **LLM �
 
 교수님이 주신 PDF에는 정답인 정보(**label**)가 들어 있다. 하지만 사용자가 필기노트를 작성할 때 틀리거나, 다르게 적거나, 잘못 이해한 부분이 생긴다. 여기서 **정보의 간극**이 발생한다.
 
-LLM은 이 간극을 캐치하고 검증한 뒤, 사용자에게 최대 1~3개의 선택지로 _"이렇게 생각하신 게 맞나요?"_ 가이드를 주고, **기타** 칸으로 직접 설명하게 한다. Claude의 Plan 스킬과 같은 결로, 정답을 주입하지 않고 스스로 다시 생각하게 만든다.
+Liner API가 권위 있는 출처를 검색해 이 간극을 검증한 뒤, 사용자에게 최대 1~3개의 선택지로 _"이렇게 생각하신 게 맞나요?"_ 가이드를 주고, **기타** 칸으로 직접 설명하게 한다. Claude의 Plan 스킬과 같은 결로, 정답을 주입하지 않고 스스로 다시 생각하게 만든다.
 
 </details>
 
@@ -52,12 +52,12 @@ LLM은 이 간극을 캐치하고 검증한 뒤, 사용자에게 최대 1~3개�
 ```bash
 npm install
 (cd src-tauri && cargo fetch)
-cp .env.example .env      # OPENAI_API_KEY 입력
+cp .env.example .env      # OPENAI_API_KEY / LINER_API_KEY 입력
 npm run tauri dev         # Tauri 창 + Vite 개발 서버
 ```
 
 - 첫 실행 시 `~/PiecePool`에 시드 데이터(운영체제·AI 딥러닝 공간, Wiki/Graph)가 생성된다.
-- **OpenAI API Key**는 좌하단 계정 → 설정에서 입력한다(이 기기에만 저장). 키가 없으면 heuristic fallback으로 축소 동작한다.
+- **OpenAI API Key**(및 정보 간극 메우기용 **Liner API Key**)는 좌하단 계정 → 설정에서 입력한다(이 기기에만 저장).
 
 빌드 · 미리보기 · 테스트:
 
@@ -82,7 +82,8 @@ npm run e2e           # Playwright e2e
 | Frontend | React + TypeScript + Tailwind |
 | Backend | Rust — 파일 I/O · PDF 추출 · import 파이프라인 · IPC |
 | 저장 | 로컬 파일시스템 (Markdown + JSON), Obsidian 호환 `[[파일]]` / `![[파일]]` |
-| LLM | OpenAI (`OPENAI_API_KEY`) |
+| LLM | OpenAI (`OPENAI_API_KEY`) — Wiki 생성 · 타입 Graph |
+| 출처 검색 | Liner API (`LINER_API_KEY`) — 정보 간극 메우기(fact-check · provenance) |
 
 파이프라인: **Inbox → `archive/`(원문 보존) → LLM Wiki → 타입 Graph**. 확정된 기술 결정과 근거는 [`docs/`](docs/) 트리를 참조한다.
 

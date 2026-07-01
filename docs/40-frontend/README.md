@@ -36,7 +36,6 @@ React + TypeScript + Tailwind 프론트엔드. Markdown 편집기, Wiki/Graph Vi
 | `wikilink.md` | `[[...]]` 링크 렌더링 |
 | `graph-canvas.md` | node/edge 인터랙션 (Graph 파트는 @gosu1 직접) |
 | `ocr-dropzone.md` | 다양한 input 드롭/업로드 UI |
-| `plan-toggle.md` | Free/Premium 토글 UI ([pricing-model](../00-overview/pricing-model.md)) |
 
 ## Owner
 
@@ -50,7 +49,7 @@ Frontend (@gosu1, @dbstpgns789-eng)
 - [`../10-contracts/`](../10-contracts/) — 엔티티/frontmatter/wikilink 계약 (SSOT)
 - [`../20-backend/ipc-api.md`](../20-backend/) — Tauri command 호출
 - [`../50-design/`](../50-design/) — 화면 시각 요구, 컴포넌트 상태, design tokens
-- [`../00-overview/pricing-model.md`](../00-overview/) — Free/Premium UI 분기
+- [`../00-overview/pricing-model.md`](../00-overview/) — 단일 tier · 기능 토글
 
 ## 작성 일정
 

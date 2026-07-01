@@ -14,7 +14,7 @@ PiecePool에 기여하기 전에 이 문서를 읽어주세요. 상세 스펙은
 - macOS (Apple Silicon 권장)
 - **Node.js 22** (`.nvmrc` 참조 — `nvm use`)
 - Rust + cargo (Tauri 빌드)
-- `OPENAI_API_KEY` — [`.env.example`](.env.example)를 `.env`로 복사해 작성 (없으면 heuristic fallback 동작)
+- `OPENAI_API_KEY` · `LINER_API_KEY` — [`.env.example`](.env.example)를 `.env`로 복사해 작성
 
 ```bash
 npm install
@@ -25,7 +25,8 @@ npm run tauri dev      # Tauri + Vite 동시 실행
 
 | 변수 | 필수 | 설명 |
 |---|---|---|
-| `OPENAI_API_KEY` | ✅ | OpenAI API 키 (없으면 heuristic fallback) |
+| `OPENAI_API_KEY` | ✅ | OpenAI API 키 — Wiki 생성 · 타입 Graph |
+| `LINER_API_KEY` | | Liner API 키 — 정보 간극 메우기(label↔user) 출처 검색 · fact-check |
 | `PIECEPOOL_LLM_MODEL` | | 모델명 override (기본값 존재) |
 
 ## 브랜치 & PR

@@ -20,7 +20,7 @@
 | 항목 | 옵션 | 책임자 | 결정 기한 |
 |---|---|---|---|
 | Relation 메타데이터 저장 위치 | 단일 `relations.json`, wiki frontmatter 병행, 하이브리드 | Backend (#1) + LLM (#3) | Phase 4 `import-pipeline.md` |
-| **fact-check 도구** | OpenAI tool web_search 결정 ✅. 외부 검색 API 추가 도입 여부는 보류 | LLM (#3) + Backend (#1) | MVP+1 |
+| **fact-check 도구** | Liner 출처 검색 API(feature 3 주 해결책) + OpenAI tool web_search(보조) 결정 ✅. 추가 외부 검색 API 도입 여부는 보류 | LLM (#3) + Backend (#1) | MVP+1 |
 | **되묻기 트리거 임계값** | `confidence < 0.5` 기본 명시 ([output-validation §6.1](../30-llm/output-validation.md)). 입력 길이 / 일반성 기준은 Backend `prompt-design.md`에서 구체화 | Backend (#1) | Phase 4 `import-pipeline.md` / `prompt-design.md` |
 | **JSON Schema 검증 라이브러리** (신규) | `ajv` / `zod` / json-schema-to-zod | LLM (#3) | Phase 4 코드 작성 시 |
 | **similarity 측정 모델** (신규) | OpenAI text-embedding-3-small / Cohere | LLM (#3) | Concept 중복 판정 구현 시 |
@@ -67,10 +67,10 @@
 
 | 항목 | 결정 | 결정 일자 | 위치 |
 |---|---|---|---|
-| LLM provider 방향 | OpenAI 단일 provider | 2026-05-28 | [pricing-model](pricing-model.md) |
+| LLM provider 방향 | OpenAI 단일 LLM provider | 2026-05-28 | [pricing-model](pricing-model.md) |
 | OCR MVP 포함 여부 | MVP 포함 (Frontend 책임) | 2026-05-28 | [scope-mvp §4](scope-mvp.md) |
 | 프롬프트 설계 소유 | Backend 주도 + LLM adapter 분리 | 2026-05-28 | [30-llm/README](../30-llm/README.md) |
-| LLM tier 구조 | 단일 tier (freemium 폐기, OpenAI premium-only) | 2026-06-30 | [pricing-model](pricing-model.md) |
+| LLM tier 구조 | 단일 tier (OpenAI LLM + Liner 출처 검색) | 2026-06-30 | [pricing-model](pricing-model.md) |
 | evals 실행 도구 | TS 자체 스크립트 + tsx 실행 | 2026-06-29 | [30-llm/evals §4.4](../30-llm/evals.md) |
 | `mvp.md` 빈 파일 | 삭제 | 2026-05-28 | (파일 제거됨) |
 | 협업 모델 | 실제 팀 (Backend 3인, Frontend 2인, LLM/Design 각 1인) | 2026-05-28 | [CODEOWNERS](../../.github/CODEOWNERS) |

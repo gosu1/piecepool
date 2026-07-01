@@ -39,7 +39,6 @@
 | 문서 언어 | 한국어 유지 (코드/식별자만 영문) | ✅ 유지 |
 | 이번 턴 산출물 | Plan 문서만 | (이미 종료, 후속 turn에서 실행) |
 | OCR | MVP+1 (PRD §17.1) | **MVP 흡수** (Frontend 책임) |
-| Freemium 모델 | 없음 | **폐기** — 단일 tier (`pricing-model.md`) |
 | 프롬프트 설계 소유 | 미명시 | **Backend 주도** + LLM adapter 분리 |
 | Graph view 구현 담당 | 미명시 | @gosu1 직접 |
 | `.dmg` / `.pkg` 배포 | 미명시 | **MVP 포함** (Frontend) |

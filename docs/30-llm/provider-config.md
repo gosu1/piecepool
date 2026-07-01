@@ -1,6 +1,6 @@
 # Provider Config
 
-PiecePool LLM **OpenAI 단일 provider** 어댑터 인터페이스 / 환경변수 / fallback 정책.
+PiecePool 어댑터 인터페이스 / 환경변수 / fallback 정책. LLM은 **OpenAI 단일 provider**, feature 3 출처 검색·검증은 **Liner API**.
 
 > SSOT: [`../10-contracts/llm-output-schema.md`](../10-contracts/llm-output-schema.md). 본 문서는 어댑터 계층(provider별 호출)만 정의하며 출력 schema는 SSOT를 그대로 따른다.
 > 플랜 모델: [`../00-overview/pricing-model.md`](../00-overview/pricing-model.md).
@@ -32,6 +32,7 @@ interface LlmWikiInput {
 
 - `LlmWikiResult` 타입 정의는 [`llm-output-schema.md`](../10-contracts/llm-output-schema.md) SSOT 참조 (본 문서는 복붙 X)
 - adapter는 raw 응답 → `LlmWikiResult` 변환 + JSON Schema 검증까지 책임 (`output-validation.md` (작성 예정) 작성 예정)
+- feature 3(정보 간극 메우기)·fact-check의 출처 검색은 별도 **Liner 어댑터**가 담당(§3.3). LLM 어댑터와 분리한다.
 
 ---
 
@@ -40,8 +41,10 @@ interface LlmWikiInput {
 | 변수 | 기본값 | 설명 |
 |---|---|---|
 | `PIECEPOOL_LLM_MODEL` | 기본값 (§3) | 모델명 override |
-| `OPENAI_API_KEY` | (필수) | OpenAI 호출 키 |
-| `PIECEPOOL_PREMIUM_FACT_CHECK` | `true` | fact-check 토글 |
+| `OPENAI_API_KEY` | (필수) | OpenAI 호출 키 (LLM) |
+| `LINER_API_KEY` | (feature 3 필수) | Liner 출처 검색·검증 키 |
+| `LINER_API_ENDPOINT` | 기본 endpoint | Liner API endpoint override |
+| `PIECEPOOL_FACT_CHECK` | `true` | fact-check 토글 (유료 tier 아님 · 기본 on) |
 | `PIECEPOOL_LLM_TIMEOUT_MS` | `60000` | 호출 timeout |
 | `PIECEPOOL_LLM_MAX_RETRIES` | `2` | 재시도 횟수 |
 
@@ -50,6 +53,8 @@ interface LlmWikiInput {
 ```
 if OPENAI_API_KEY is empty
   → 오류: "OpenAI requires OPENAI_API_KEY"
+if feature 3 활성 && LINER_API_KEY is empty
+  → 오류: "Liner requires LINER_API_KEY"
 ```
 
 ---
@@ -64,7 +69,7 @@ if OPENAI_API_KEY is empty
 - schema strict=true로 SDK 차원에서 schema 위반 차단
 - adapter 책임:
   - `response_format`에 `LlmWikiResult` JSON Schema 주입
-  - fact-check: tool use로 `web_search` 등 호출 (OpenAI tool support 활용)
+  - fact-check(대안): tool use로 `web_search` 등 호출 — 주 경로는 Liner 어댑터(§3.3)
   - 되묻기: 1차 응답 분석 → confidence 임계값 미달 시 별도 round-trip (`output-validation.md` (작성 예정))
 
 ### 3.2 schema 정규화
@@ -72,6 +77,16 @@ if OPENAI_API_KEY is empty
 adapter는 OpenAI raw 응답을 SSOT `LlmWikiResult`로 정규화한다. 검증:
 - 응답이 `LlmWikiResult` JSON Schema 통과
 - 케이스 테스트는 `evals.md` (작성 예정)
+
+### 3.3 Liner
+
+- 역할: feature 3(정보 간극 메우기)·fact-check의 출처 검색·검증·provenance. LLM 아님(위키 생성 X).
+- 키: `LINER_API_KEY` (필수), endpoint: `LINER_API_ENDPOINT` (override 가능)
+- 모드: source-based search API — 권위 있는 출처를 검색해 정답 기준(label)을 세우고 사용자 필기 간극을 검증
+- adapter 책임:
+  - 사용자 필기·label(교수 자료)을 질의로 출처 검색
+  - 검증 결과(출처 URL·인용)를 `evidence[].reason`에 누적 (schema 무변경)
+  - Liner 미가용 시 OpenAI 되묻기(§6)로 대안 처리
 
 ---
 
@@ -125,8 +140,8 @@ Backend import-pipeline
 
 | 기능 | 어댑터 동작 |
 |---|---|
-| **되묻기** | 1차 응답의 `relations[].confidence` 평균이 임계값(TBD, [open-questions](../00-overview/open-questions.md#2-llm--provider))보다 낮으면 별도 round-trip. 사용자 응답 받아 2차 호출 |
-| **fact-check** | tool use로 web search. 결과 URL을 `evidence[].reason`에 누적 |
+| **되묻기** | **주: Liner 출처 검증으로 간극 판정.** 대안(Liner 미가용): 1차 응답의 `relations[].confidence` 평균이 임계값(TBD, [open-questions](../00-overview/open-questions.md#2-llm--provider))보다 낮으면 OpenAI 별도 round-trip. 사용자 응답 받아 2차 호출 |
+| **fact-check** | **주: Liner API 출처 검색·검증.** 결과 URL을 `evidence[].reason`에 누적 (대안: OpenAI web_search tool) |
 | **suggest** | fact-check 결과 차이는 Frontend 패널에 표시 (어댑터는 변환만, UI 책임 X) |
 
 트리거 기준 (되묻기 임계값, fact-check 발동 조건)은 **Backend 책임** ([`../20-backend/prompt-design.md`](../20-backend/) 작성 예정). 어댑터는 Backend가 명시한 파라미터 그대로 따른다.
@@ -147,5 +162,5 @@ Backend import-pipeline
 ## 8. 변경 이력 노트
 
 - 본 문서는 신규 작성이다. 초안 = [Phase 4 tracking #3 (LLM)](https://github.com/gosu1/piecepool/issues/3) + [sub-issue #29](https://github.com/gosu1/piecepool/issues/29) 기반.
-- OpenAI 단일 provider 결정을 반영.
+- OpenAI 단일 LLM provider + Liner 출처 검색(feature 3) 결정을 반영.
 - SSOT `LlmWikiResult` 타입은 [llm-output-schema.md](../10-contracts/llm-output-schema.md)만 정의. 본 문서는 어댑터 interface만 정의 (SSOT 위반 아님).

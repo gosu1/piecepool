@@ -2,7 +2,7 @@ import type { LlmProvider, LlmWikiInput, LlmWikiResult } from "./provider";
 import { normalizeLlmResult, validateLlmWikiResult } from "./validate";
 import schema from "./schema/llm-wiki-result.schema.json" with { type: "json" };
 
-// Premium — OpenAI GPT (Responses API, json_schema strict). SSOT: docs/30-llm/provider-config.md §3.2, §4.
+// OpenAI GPT (Responses API, json_schema strict). SSOT: docs/30-llm/provider-config.md §3.2, §4.
 // 출력 검증/정규화는 validate.ts(keystone, 전 provider 공통). 프롬프트 본문 SSOT: prompt-templates.md.
 // 되묻기/fact-check round-trip은 Backend 주도(§6) — 본 어댑터는 단일 구조화 호출만.
 

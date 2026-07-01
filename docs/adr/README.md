@@ -6,7 +6,7 @@
 
 | ADR | 결정 | 상태 |
 |---|---|---|
-| [0001](0001-llm-provider-openai.md) | LLM provider = OpenAI 단일 | 채택 |
+| [0001](0001-llm-provider-openai.md) | LLM provider = OpenAI 단일 (feature 3 출처검색 = Liner API) | 채택 |
 | [0002](0002-single-tier-pricing.md) | 단일 tier (freemium 폐기) | 채택 |
 | [0003](0003-ocr-vision-llm.md) | OCR = vision LLM (별도 엔진 없음) | 채택 |
 | [0004](0004-markdown-editor-codemirror6.md) | Markdown 편집기 = CodeMirror 6 | 채택 |

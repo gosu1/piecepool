@@ -11,7 +11,7 @@ Tauri + Rust 백엔드. 파일 I/O, PDF/OCR 텍스트 처리, Import 파이프�
 | **노드 추출** | Concept (= graph node) 추출 |
 | **노드 관계 매핑** | RelationType 분류 + Evidence 부착 |
 | **인박스 중요도 판별** | 우선순위 결정 (시험 임박, 사용자 클릭 등) |
-| **Premium 되묻기** | 입력이 불확실할 때 사용자에게 재질의. 트리거 기준 설계 |
+| **되묻기(clarify)** | 입력이 불확실할 때 사용자에게 재질의. 기본 on(env 토글). 트리거 기준 설계 |
 
 ## 포함 문서 (작성 예정)
 
@@ -36,7 +36,7 @@ Backend (@gosu1, @ChangSik88, @O6west)
 
 - [`../10-contracts/`](../10-contracts/) — 엔티티/layout/frontmatter 계약 (SSOT)
 - [`../30-llm/`](../30-llm/) — LLM adapter 인터페이스. **`prompt-templates.md`는 Backend 주도** (공동 owner)
-- [`../00-overview/pricing-model.md`](../00-overview/) — Free/Premium 기능 차이
+- [`../00-overview/pricing-model.md`](../00-overview/) — 단일 tier · 기능 토글(clarify/fact-check)
 
 ## 작성 일정
 

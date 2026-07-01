@@ -155,7 +155,7 @@ must_not.confused            ✅
 | `llm-output-schema.md` JSON Schema | 전체 (SSOT contracts-change) |
 | `output-validation.md` 검증 단계 | 전체 |
 | 모델 변경 (`PIECEPOOL_LLM_MODEL`) | 전체 |
-| 기능 토글 (`PIECEPOOL_PREMIUM_*`) | 해당 흐름만 |
+| 기능 토글 (`PIECEPOOL_*`) | 해당 흐름만 |
 
 ### 5.2 CI 통합 (후속)
 
@@ -184,7 +184,7 @@ must_not.confused            ✅
 ### 6.2 fact-check
 
 - fixture에 의도적 사실 오류 포함 (예: "Transformer는 2010년 발표")
-- LLM이 web search 도구 호출했는지 (provider raw 응답에 tool call 흔적)
+- Liner API 출처 검색 호출했는지 (또는 대안 OpenAI web_search tool call 흔적)
 - suggest 패널에 수정안 등장 (Frontend test와 연계)
 - `evidence[].reason`에 출처 URL 누적
 
