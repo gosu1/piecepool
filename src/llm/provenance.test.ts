@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildProvenance, mergeBySources, tierFromSourceType, type SourceMeta } from "./provenance";
+import { buildProvenance, mergeBySources, tierFromSourceType, aggregateProvenance, type SourceMeta } from "./provenance";
 
 const reg = (metas: SourceMeta[]) => new Map(metas.map((m) => [m.sourceId, m]));
 
@@ -73,6 +73,25 @@ describe("mergeBySources — 같은 개념 다출처 병합", () => {
       reg([]),
     );
     expect(merged).toHaveLength(2);
+  });
+});
+
+describe("aggregateProvenance — 병합 개념 집계(라이브 연결용)", () => {
+  it("2개 이상 출처로 뒷받침된 개념 수(multiSource)와 평균 score", () => {
+    const r = aggregateProvenance([["a", "b"], ["c"], ["d", "e", "f"]]);
+    expect(r.count).toBe(3);
+    expect(r.multiSource).toBe(2); // 첫째(2개)·셋째(3개)
+    expect(r.avgScore).toBeGreaterThan(0);
+  });
+
+  it("registry로 tier 반영 시 score 상승", () => {
+    const noReg = aggregateProvenance([["a", "b"]]);
+    const withReg = aggregateProvenance([["a", "b"]], new Map([["a", { sourceId: "a", tier: "primary" }], ["b", { sourceId: "b", tier: "primary" }]]));
+    expect(withReg.avgScore).toBeGreaterThan(noReg.avgScore);
+  });
+
+  it("빈 입력은 0", () => {
+    expect(aggregateProvenance([])).toEqual({ count: 0, multiSource: 0, avgScore: 0 });
   });
 });
 

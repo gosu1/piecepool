@@ -87,6 +87,23 @@ export function tierFromSourceType(type: "text" | "pdf" | "summary_text" | "imag
   return type === "pdf" || type === "image" ? "primary" : "secondary";
 }
 
+// 병합된 개념들의 출처 집계(advisory) — applyLlmResult 결과의 WikiPage.sourceIds 리스트에 그대로 쓴다.
+// registry 없으면 전부 2차로 간주(교차검증 개수=multiSource는 tier 무관 핵심 신호).
+export function aggregateProvenance(
+  conceptSourceIds: string[][],
+  registry: Map<string, SourceMeta> = new Map(),
+): { count: number; multiSource: number; avgScore: number } {
+  if (!conceptSourceIds.length) return { count: 0, multiSource: 0, avgScore: 0 };
+  let multiSource = 0;
+  let sum = 0;
+  for (const ids of conceptSourceIds) {
+    const p = buildProvenance(ids, registry);
+    if (p.sources.length >= 2) multiSource++; // 2개 이상 출처가 뒷받침 = 교차검증
+    sum += p.score;
+  }
+  return { count: conceptSourceIds.length, multiSource, avgScore: sum / conceptSourceIds.length };
+}
+
 // noisy-OR: 각 출처가 독립적으로 사실을 뒷받침한다고 보고 corroboration을 합산. 출처 없으면 0.
 function noisyOr(trusts: number[]): number {
   let complement = 1;
