@@ -99,7 +99,7 @@ Guidelines and commands for PiecePool Backend (Tauri + Rust) development.
 
 ## 🤖 ImportJob State Machine
 
-The backend owns the `ImportJob` status transitions. Never skip or reorder states.
+The TS service layer (`useImportStore`) owns the `ImportJob` state-machine sequencing; the Rust `import/` module executes each step and records state, but does not own the sequencing trigger (ADR-0007). Never skip or reorder states.
 
 ```
 idle → parsing → archiving → llm_processing → writing → completed
@@ -131,8 +131,8 @@ src-tauri/src/
                   Every command returns Result<T, String> so the frontend can handle failures.
   storage/     ← All filesystem I/O (read/write workspace directories). No business logic.
                   Use tokio::fs for async ops; std::fs only in sync contexts.
-  import/      ← ImportJob state machine and the full import pipeline orchestration
-                  (parsing → archiving → llm_processing → writing → completed).
+  import/      ← Executes each import step (file I/O for parsing/archiving/writing) and records
+                  ImportJob state. State-machine sequencing is owned by the TS service layer (ADR-0007), not Rust.
   pdf/         ← PDF-to-text extraction only. Page indexing lives here.
   seed/        ← First-run demo data generation. Writes to archive/, wiki/, relations/.
                   Never hard-code demo content in the UI layer.

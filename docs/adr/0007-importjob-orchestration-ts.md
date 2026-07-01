@@ -16,7 +16,7 @@
 
 - (+) LLM 단계가 TS에 있는 현실과 정합, 재진입 경계 불필요.
 - (+) Inbox UI가 store에서 실시간 상태를 직접 관찰.
-- (−) `architecture.md`·CLAUDE.md의 "import/가 상태머신 소유" 표현과 어긋남 → 후속 문서 동기화 필요.
+- 문서 동기화: `architecture.md`·CLAUDE.md·`import-pipeline.md`·`pdf-extraction.md`의 "import/가 상태머신 소유" 표현을 본 결정(TS 주도)에 맞춰 정합화 완료.
 - 상태 전이 다이어그램: [import-job-states.md](../20-backend/import-job-states.md).
 
 ## 대안
