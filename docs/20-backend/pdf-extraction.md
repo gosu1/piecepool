@@ -3,7 +3,7 @@
 `pdf/` 모듈의 PDF → 텍스트 추출 설계. 라이브러리 선정 근거, 추출 파이프라인, 추출 실패 복구를 다룬다.
 
 > **계층 경계**: 이 모듈은 **PDF 바이너리 → 텍스트/페이지 메타데이터 변환에만 집중한다.**
-> 결과 저장은 `storage/`, 파이프라인 상태 전이는 `import/`가 소유한다 ([architecture.md §1](architecture.md)).
+> 결과 저장은 `storage/`, 파이프라인 각 단계 실행·상태 기록은 `import/`가 담당한다(상태머신 시퀀싱 소유는 TS — [architecture.md §1](architecture.md), [ADR-0007](../adr/0007-importjob-orchestration-ts.md)).
 > PDF **page preview 렌더링은 백엔드 책임이 아니다** — 프론트(PDF.js)가 담당한다
 > ([wikilink-embed.md §8](../10-contracts/wikilink-embed.md)). 백엔드는 텍스트와 **총 page 수**만 제공한다.
 

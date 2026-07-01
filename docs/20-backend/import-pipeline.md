@@ -14,11 +14,11 @@ Inbox 자료 한 건이 **archive → LLM 재구성 → wiki/relations 영속화
 
 ## 1. 책임 & 경계
 
-`import/`는 **단계 오케스트레이션 + `ImportJob` 상태 소유**만 한다.
+`import/`는 **각 단계 실행(파일 I/O) + `ImportJob` 상태 기록**을 담당한다. 상태머신 **시퀀싱 소유는 TS 서비스층**이다([ADR-0007](../adr/0007-importjob-orchestration-ts.md), §2).
 
 | 다루는 것 | 다루지 않는 것 (위임) |
 |---|---|
-| 단계 진행(parsing→…→completed) 조율 | 파일 읽기/쓰기 → `storage/` |
+| 각 단계 실행(파싱·저장 등) | 파일 읽기/쓰기 → `storage/` · 시퀀싱 주도 → TS `useImportStore` |
 | `ImportJob` 상태 전이 기록 | PDF→텍스트 변환 → `pdf/` |
 | warn·partial 수집(`Outcome`) | LLM 요약/개념추출/관계생성 → TS `src/llm/` |
 | 동시 쓰기 직렬화(§6) | 상태 **다이어그램 정의** → `import-job-states.md` |
