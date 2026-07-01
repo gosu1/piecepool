@@ -228,8 +228,8 @@ Race Condition Wiki Page
 
 | 자료 | 설명 |
 |---|---|
-| [`PRD_REFACTOR_PLAN.md`](PRD_REFACTOR_PLAN.md) | 리팩토링 계획 (대부분 실행 완료) |
-| [`DEVELOPER_HANDOFF.md`](DEVELOPER_HANDOFF.md) | 개발자 진입 가이드 |
+| [`docs/archive/PRD_REFACTOR_PLAN.md`](docs/archive/PRD_REFACTOR_PLAN.md) | 리팩토링 계획 (대부분 실행 완료) |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | 개발자 진입·기여 가이드 |
 | [`docs/archive/PRD-v1.md`](docs/archive/PRD-v1.md) | 기존 PRD v1 보존본 |
 | [GitHub Issues](https://github.com/gosu1/piecepool/issues) | Phase 4 작업 분배 |
 | [Project board](https://github.com/users/gosu1/projects/2) | Roadmap 시각 추적 |

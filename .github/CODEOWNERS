@@ -3,7 +3,7 @@
 #
 # 규칙: 폴더별 owner. 후행 패턴이 우선.
 # - 10-contracts는 SSOT라 4개 역할 owner 모두 review 필요.
-# - 변경 절차: README.md "협업 규칙" + PRD_REFACTOR_PLAN.md §5 참조.
+# - 변경 절차: CONTRIBUTING.md + docs/archive/PRD_REFACTOR_PLAN.md §5 참조.
 
 # 기본 (모든 파일) — PM/Tech Lead
 *                                @gosu1
@@ -43,5 +43,3 @@
 
 # 루트 메타 문서
 /README.md                       @gosu1
-/PRD_REFACTOR_PLAN.md            @gosu1
-/DEVELOPER_HANDOFF.md            @gosu1

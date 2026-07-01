@@ -13,7 +13,7 @@
 - [ ] `docs/60-qa/`
 - [ ] `docs/70-roadmap/`
 - [ ] 코드 (src, src-tauri 등)
-- [ ] 메타 (README, .github, PRD_REFACTOR_PLAN 등)
+- [ ] 메타 (README, .github, CONTRIBUTING, docs 등)
 
 ## Phase
 

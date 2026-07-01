@@ -387,7 +387,7 @@ interface LlmProvider {
 3. ⏸ **`docs/superpowers/plans/tasks` 파일**: 본 refactor와 별개로 유지. 통합 검토는 후속
 4. ✅ **자동 검증 도구**: CI `docs-check.yml` 도입 (link / SSOT grep / prettier). `markdown-link-check` 대신 `lychee` 사용
 
-4개 중 2개 해결. 2개 ⏸ 보류는 [`docs/00-overview/open-questions.md`](docs/00-overview/open-questions.md)에서 추적.
+4개 중 2개 해결. 2개 ⏸ 보류는 [`docs/00-overview/open-questions.md`](../00-overview/open-questions.md)에서 추적.
 
 ---
 
