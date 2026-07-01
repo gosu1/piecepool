@@ -27,6 +27,61 @@ LLM은 이 간극을 캐치하고 검증한 뒤, 사용자에게 선택지를 �
 
 ---
 
+## 🚀 실행 방법
+
+로컬 데스크톱 앱(Tauri v2)이다. 웹 서버가 아니라 네이티브 창으로 뜬다.
+
+### 요구사항
+
+- **Node.js** 18+
+- **Rust** (stable) + Cargo — Tauri 빌드 전제
+- **macOS** (현재 `aarch64` 번들 확인됨). PDF 미리보기·번들은 OS 도구 사용
+
+### 설치
+
+```bash
+npm install                 # 프론트엔드 의존성
+(cd src-tauri && cargo fetch)   # Rust 의존성
+```
+
+### 개발 실행 (데스크톱 앱)
+
+```bash
+npm run tauri dev
+```
+
+- Tauri 창 + Vite 개발 서버가 함께 뜬다.
+- **첫 실행 시 `~/PiecePool`에 시드 데이터**(운영체제·AI 딥러닝 공간, Wiki/Graph)가 생성된다.
+- **OpenAI API Key**: 좌하단 계정 → **설정**에서 입력. 없으면 오프라인 **휴리스틱 엔진**으로 동작한다(키는 이 기기에만 저장).
+
+### 빌드 (배포용)
+
+```bash
+npm run tauri build
+# → src-tauri/target/release/bundle/macos/PiecePool.app
+#    src-tauri/target/release/bundle/dmg/PiecePool_<ver>_aarch64.dmg
+```
+
+> 서명·notarization·Gatekeeper 통과는 Apple Developer 인증서가 있는 환경에서 별도로 수행한다.
+
+### 브라우저로 UI만 미리보기 (백엔드 없이)
+
+```bash
+npm run dev      # http://localhost:5173 — mock 데이터로 UI 확인
+```
+
+### 검사 · 테스트
+
+```bash
+npm run check    # tsc 타입 검사
+npm test         # vitest 단위 테스트
+npm run e2e      # Playwright e2e (build + preview 대상)
+(cd src-tauri && cargo test)               # Rust 통합 테스트
+(cd src-tauri && cargo clippy -- -D warnings)
+```
+
+---
+
 ## 📚 문서 진입
 
 ### 모든 역할 필독
