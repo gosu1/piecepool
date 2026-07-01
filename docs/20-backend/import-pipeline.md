@@ -4,7 +4,7 @@ Inbox 자료 한 건이 **archive → LLM 재구성 → wiki/relations 영속화
 `import/` 모듈이 단계 실행과 `ImportJob` 상태를 조율한다.
 
 > 경계 / SSOT 링크 (본 문서에 규칙 복붙 금지 — 링크만):
-> - 상태 **전이 다이어그램** = `import-job-states.md`(작성 예정) (Cooperative)
+> - 상태 **전이 다이어그램** = [`import-job-states.md`](import-job-states.md) (Cooperative)
 > - 인박스 **우선도** = `prioritization.md`(작성 예정)
 > - LLM 호출·검증·재시도·되묻기 = [`../30-llm/output-validation.md`](../30-llm/output-validation.md), 변환 스키마 = [`../10-contracts/llm-output-schema.md`](../10-contracts/llm-output-schema.md)
 > - PDF 추출 = [`pdf-extraction.md`](pdf-extraction.md), 파일 I/O·저장 = [`storage-io.md`](storage-io.md)
@@ -28,12 +28,12 @@ Inbox 자료 한 건이 **archive → LLM 재구성 → wiki/relations 영속화
 
 ---
 
-## 2. 오케스트레이션 주도 (⚠️ 확정 필요)
+## 2. 오케스트레이션 주도 (✅ 결정: TS 주도)
 
-- TS 서비스층이 단계 **시퀀싱**을 주도하고, 각 단계에서 Rust IPC command를 호출한다 ([ipc-api.md §4](ipc-api.md)).
-- Rust `import/`는 각 단계 **실행 + `ImportJob` 상태 전이**를 소유한다 (CLAUDE.md, [architecture.md §2](architecture.md)).
+- TS 서비스층(`useImportStore`)이 상태머신 **시퀀싱**을 주도하고, 각 단계에서 Rust의 원자적 IPC command를 호출한다 ([ipc-api.md §4](ipc-api.md)).
+- Rust `import/`는 각 단계 **실행**(파싱·저장 등 파일 I/O)을 담당하고, LLM 호출은 TS 어댑터가 수행한다. 시퀀싱 **트리거는 TS**가 소유한다 (option A).
 
-> ⚠️ **미확정(TBD)**: "TS가 흐름 주도" vs "Rust가 상태머신 소유" 표현이 `ipc-api.md`/`architecture.md`에서 미묘하게 다르다. 상태 전이 **트리거 주체**(누가 다음 단계로 넘기는가)를 `import-job-states.md`(작성 예정)에서 @gosu1(LLM/TS)과 함께 못박는다.
+> ✅ **결정 (2026-07-01)**: 시퀀싱 주체 = **TS 서비스층**(option A). 근거·대안은 [ADR-0007](../adr/0007-importjob-orchestration-ts.md), 전이 다이어그램은 [`import-job-states.md`](import-job-states.md). `architecture.md`·CLAUDE.md의 "import/ 상태머신 소유" 표현은 후속 동기화 대상.
 
 ---
 
@@ -76,8 +76,8 @@ LLM/검증/저장 단계의 **비치명적** 결과는 실패가 아니다. `?`�
 
 1차 `LlmWikiResult`가 불확실 임계치를 넘으면 `clarify_pending`으로 사용자에게 재질의한다. 트리거 조건·흐름·1회 제한은 [output-validation §6](../30-llm/output-validation.md) SSOT.
 
-- **Free(local)는 되묻기 없음** — `llm_processing` → 바로 `writing`.
-- ⚠️ `clarify_pending`은 현재 `entities.md` `ImportJobStatus` enum에 **없다**. 구현 전 `contracts-change`(4역할 승인)로 추가 필요 ([output-validation §6.4](../30-llm/output-validation.md)).
+- **되묻기 토글 off면 되묻기 없음** — `llm_processing` → 바로 `writing` (단일 tier, [ADR-0002](../adr/0002-single-tier-pricing.md)).
+- `clarify_pending`은 [`entities.md`](../10-contracts/entities.md) `ImportJobStatus` enum에 **정의됨**(2026-05-29 `contracts-change` 추가). 전이는 [`import-job-states.md`](import-job-states.md) 참조.
 
 ---
 
@@ -100,7 +100,7 @@ LLM/검증/저장 단계의 **비치명적** 결과는 실패가 아니다. `?`�
 
 | 문서 | 내용 |
 |---|---|
-| `import-job-states.md`(작성 예정) | `ImportJobStatus` 전이 다이어그램 (되묻기 round-trip) |
+| [`import-job-states.md`](import-job-states.md) | `ImportJobStatus` 전이 다이어그램 (되묻기 round-trip) |
 | `prioritization.md`(작성 예정) | 인박스 중요도/우선도 |
 | [`pdf-extraction.md`](pdf-extraction.md) · [`storage-io.md`](storage-io.md) | parsing·저장 단계가 호출하는 모듈 |
 | [`error-handling.md`](error-handling.md) | `Outcome` 모델 · 오류 `kind` |
@@ -112,5 +112,5 @@ LLM/검증/저장 단계의 **비치명적** 결과는 실패가 아니다. `?`�
 ## 9. 변경 이력 노트
 
 - 신규 작성 (@O6west). storage-io·pdf-extraction 인터페이스에 맞춰 단계별 호출을 정의.
-- §2 오케스트레이션 주도(TS sequencing ↔ Rust 상태 소유) **미확정** → `import-job-states.md`에서 확정.
+- §2 오케스트레이션 주도 = **TS 주도(option A) 결정** ([ADR-0007](../adr/0007-importjob-orchestration-ts.md), [`import-job-states.md`](import-job-states.md)).
 - `clarify_pending`은 enum 미존재 — `contracts-change` 선행 필요.

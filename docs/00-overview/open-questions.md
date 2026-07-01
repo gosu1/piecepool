@@ -10,8 +10,6 @@
 
 | 항목 | 후보 | 책임자 | 결정 기한 |
 |---|---|---|---|
-| Graph 렌더링 라이브러리 | D3, Cytoscape.js, Sigma.js, React Flow, vis.js | @gosu1 (Graph 전체 담당) | Phase 4 시작 시 |
-| Tauri PDF 파싱 방식 | `pdfium`, `pdf-extract` (Rust), `pdf.js` (Frontend), 외부 CLI | Backend (#1) | Phase 4 `pdf-extraction.md` 작성 시 |
 | 코드 사이닝 (macOS) | Apple Developer Program, ad-hoc, notarization 정책 | Frontend (#2) | `.dmg`/`.pkg` 빌드 도입 시 |
 | **OCR 보강 옵션** (신규, post-MVP) | Apple Vision (네이티브), Google Vision API, Mathpix — 오프라인 제약·플랫폼 분기 비용 때문에 MVP는 vision LLM 단일 경로로 결정. 후속 검토용 후보만 기록 | Frontend (#2) | post-MVP |
 
@@ -84,6 +82,8 @@
 | LLM 오류 메시지 한국어 표준 | 6 분류 (`auth`/`network`/`rate_limit`/`schema`/`empty`/`partial`) | 2026-05-29 | [output-validation §7](../30-llm/output-validation.md) |
 | OCR 라이브러리 | 별도 OCR 엔진 없음 — vision-capable LLM 호출(GPT vision) 단일 경로 | 2026-06-22 | [ocr-client.md](../40-frontend/ocr-client.md) |
 | Markdown 편집기 라이브러리 | CodeMirror 6 (`@uiw/react-codemirror`). 미리보기는 분리, wikilink-embed 커스텀 렌더링과 충돌하는 올인원/WYSIWYG 계열 제외 | 2026-06-25 | [40-frontend/screens/markdown-editor.md §2](../40-frontend/screens/markdown-editor.md) |
+| Graph 렌더링 라이브러리 | Cytoscape.js | 2026-07-01 | [ADR-0006](../adr/0006-graph-rendering-cytoscape.md) |
+| PDF 텍스트 추출 | `pdf-extract` 0.10.0 (Rust) | 2026-07-01 | [ADR-0005](../adr/0005-pdf-extract-crate.md) · [pdf-extraction.md](../20-backend/pdf-extraction.md) |
 
 ---
 
