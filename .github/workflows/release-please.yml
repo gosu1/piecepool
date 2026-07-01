@@ -1,0 +1,19 @@
+name: release-please
+
+# main push마다 릴리즈 PR을 생성/갱신한다. 릴리즈 PR 머지 시 tag + GitHub Release 생성.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
