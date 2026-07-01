@@ -40,6 +40,7 @@
     "chunk": "tsx scripts/chunk-preview.ts",
     "promote": "tsx scripts/promote-preview.ts",
     "classify": "tsx scripts/classify-preview.ts",
+    "provenance": "tsx scripts/provenance-preview.ts",
     "tauri": "tauri"
   },
   "dependencies": {
