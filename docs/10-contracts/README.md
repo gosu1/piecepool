@@ -36,5 +36,4 @@ Tech Lead (@gosu1). 변경은 4개 역할 합의 필요. CODEOWNERS:
 ## 작성 일정
 
 Phase 2 — ✅ 완료 (2026-05-28).
-3-provider 확장 — ✅ 완료 (`d265c3d`, 2026-05-28).
-OpenAI 단일화 (local/Gemini 제거) — ✅ premium-only, 2026-06-30.
+LLM provider = OpenAI 단일 (feature 3 출처 검색 = Liner API) — ✅ 단일 tier, 2026-06-30.

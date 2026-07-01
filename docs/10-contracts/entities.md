@@ -257,7 +257,7 @@ type ImportJobStatus =
   | "parsing"          // PDF 텍스트 추출 등
   | "archiving"        // <space>/archive/*.md 저장
   | "llm_processing"   // LLM 호출 진행 (1차/2차 공용)
-  | "clarify_pending"  // Premium 되묻기: 사용자 응답 대기
+  | "clarify_pending"  // 되묻기: 사용자 응답 대기
   | "writing"          // <space>/wiki/*.md + relations.json 저장
   | "completed"
   | "failed";
@@ -275,8 +275,8 @@ type ImportJob = {
 
 **상태 전이 다이어그램**: `docs/20-backend/import-job-states.md` (작성 예정)
 
-- `clarify_pending`은 Premium 되묻기(clarify) 흐름 전용이다.
-- Premium round-trip 시 전이: `llm_processing` (1차) → `clarify_pending` (사용자 응답 대기) → `llm_processing` (2차) → `writing` → `completed`. 상세는 [`../30-llm/output-validation.md`](../30-llm/output-validation.md) §6.4.
+- `clarify_pending`은 되묻기(clarify) 흐름 전용이다(기본 기능, 유료 tier 아님).
+- 되묻기 round-trip 시 전이: `llm_processing` (1차) → `clarify_pending` (사용자 응답 대기) → `llm_processing` (2차) → `writing` → `completed`. 상세는 [`../30-llm/output-validation.md`](../30-llm/output-validation.md) §6.4.
 - 사용자가 되묻기를 무시/timeout 시 `clarify_pending` → `writing` (1차 결과 저장).
 
 ---
@@ -285,5 +285,5 @@ type ImportJob = {
 
 - 본 문서는 `docs/archive/PRD-v1.md` §8 (line 270-547)을 분리·재구성한 SSOT다.
 - Relation 엔티티와 RelationType enum은 [relation-types.md](relation-types.md)로 분리했다.
-- 2026-05-29: `ImportJobStatus`에 `clarify_pending` 추가 (Premium 되묻기). 발의 = [output-validation.md §6.4](../30-llm/output-validation.md), 추적 = [#42](https://github.com/gosu1/piecepool/issues/42). `contracts-change` → 4역할 review.
+- 2026-05-29: `ImportJobStatus`에 `clarify_pending` 추가 (되묻기). 발의 = [output-validation.md §6.4](../30-llm/output-validation.md), 추적 = [#42](https://github.com/gosu1/piecepool/issues/42). `contracts-change` → 4역할 review.
 - 2026-06-25: `Source`에 `tags?: string[]` 추가 (project 경계와 무관한 자유 해시태그, PARA Resource 개념). `subjectIds`는 특정 `KnowledgeSpace`에 종속돼 재사용 불가 판정. 발의 = [#64](https://github.com/gosu1/piecepool/issues/64). `contracts-change` → 4역할 review.
