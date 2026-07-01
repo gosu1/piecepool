@@ -40,8 +40,9 @@ MVP는 **실제로 동작하는 로컬 앱**이어야 한다. 가짜 화면이�
 - Relation → `<space>/relations/relations.json`
 - 원본 PDF/이미지 → `<space>/sources/original-files/`
 
-### 2.5 LLM (OpenAI)
+### 2.5 LLM (OpenAI) + 출처 검색 (Liner)
 - **OpenAI** (GPT) — `OPENAI_API_KEY` 필요
+- **Liner API** — `LINER_API_KEY` 필요 (feature 3 정보 간극 메우기·fact-check 출처 검색)
 - 되묻기, fact-check 기본 흐름
 - 자세한 매트릭스: [`pricing-model.md`](pricing-model.md)
 
@@ -82,7 +83,7 @@ MVP는 **실제로 동작하는 로컬 앱**이어야 한다. 가짜 화면이�
 | Today Task 화면 | [post-mvp](../70-roadmap/) (작성 예정) |
 | Project Flow 화면 | [post-mvp](../70-roadmap/) |
 | 결제/구독 시스템 | MVP는 환경변수 토글만. 결제 UI는 후속 |
-| Premium fact-check 정밀화 | MVP는 기본 흐름만. 정밀화는 후속 |
+| fact-check 정밀화 | MVP는 기본 흐름만. 정밀화는 후속 |
 | 협업 기능 | 후속 |
 | 고급 relation 강도 자동 점수화 | MVP는 LLM 부여 값 사용. 후속에 가중 합산 ([post-mvp](../70-roadmap/)) |
 
@@ -93,7 +94,7 @@ MVP는 **실제로 동작하는 로컬 앱**이어야 한다. 가짜 화면이�
 | 항목 | PRD-v1 | 현재 | 결정 |
 |---|---|---|---|
 | OCR | MVP+1 (§17.1) | **MVP 포함** | 서준 명시: 어떤 input 타입이든 텍스트화 |
-| LLM provider | OpenAI 단일 | **OpenAI 단일** | 서준 결정: premium-only, OpenAI API |
+| LLM provider | OpenAI 단일 | **OpenAI + Liner** | 서준 결정: 단일 tier, OpenAI(LLM) + Liner(feature 3 출처 검색) |
 | 프롬프트 설계 소유 | 명시 안 됨 | **Backend 주도** | [20-backend](../20-backend/), [30-llm](../30-llm/) 분리 |
 | Graph view 구현 담당 | 명시 안 됨 | **@gosu1 직접** | Frontend tracking #2 명시 |
 | .dmg/.pkg 배포 | 명시 안 됨 | **MVP 포함** | Frontend 책임 |
@@ -123,4 +124,4 @@ MVP는 **실제로 동작하는 로컬 앱**이어야 한다. 가짜 화면이�
 - 본 문서는 `docs/archive/PRD-v1.md` §4 (line 39-58) + §5 (line 60-73) + §16 (line 1014-1062)에서 분리·정렬한 결과다.
 - §4 (기존 PRD 대비 변경)는 본 리팩토링과 서준 결정사항을 반영한 신규 표다.
 - OCR/Graph 담당자 명시는 모두 신규 결정사항이다.
-- 2026-06-30: 3-provider hybrid + freemium 폐기 → **OpenAI 단일 tier** (premium-only). local(Gemma)/Gemini 제거.
+- 2026-06-30: 단일 tier 확정 — LLM은 OpenAI, feature 3(정보 간극 메우기·fact-check) 출처 검색은 Liner API.

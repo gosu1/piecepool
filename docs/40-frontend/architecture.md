@@ -118,9 +118,9 @@ src/lib/types.ts                   # re-export 배럴
 
 ---
 
-## 5. Free / Premium 분기
+## 5. 기능 토글 (clarify / fact-check)
 
-플랜에 따른 provider 전환은 환경변수로 동작한다 ([`../00-overview/pricing-model.md`](../00-overview/pricing-model.md) §6). UI 토글은 `components/plan-toggle.md` (작성 예정)에서 다룬다.
+단일 tier이며 플랜 전환 UI는 없다. 되묻기(clarify)·fact-check는 유료 플랜이 아니라 **기본 on, env 토글**로 동작한다 ([`../00-overview/pricing-model.md`](../00-overview/pricing-model.md) §6).
 
 ---
 
@@ -129,5 +129,5 @@ src/lib/types.ts                   # re-export 배럴
 - [`../10-contracts/entities.md`](../10-contracts/entities.md) — 엔티티 타입 (SSOT)
 - [`../20-backend/ipc-api.md`](../20-backend/ipc-api.md) — Tauri command 계약
 - [`../00-overview/scope-mvp.md`](../00-overview/scope-mvp.md) — MVP 범위, 첫 진입 화면
-- [`../00-overview/pricing-model.md`](../00-overview/pricing-model.md) — Free/Premium UI 분기
+- [`../00-overview/pricing-model.md`](../00-overview/pricing-model.md) — 단일 tier · 기능 토글
 - [`README.md`](README.md) — 40-frontend 영역 개요

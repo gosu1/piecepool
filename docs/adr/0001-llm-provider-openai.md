@@ -6,20 +6,19 @@
 
 ## 배경
 
-초기에는 OpenAI + 로컬 llama.cpp(Gemma) + Gemini 하이브리드를 검토했다. 로컬 provider는 sidecar 수명주기·GGUF 배포·품질 편차·플랫폼 분기 비용이 컸고, Gemini는 `responseSchema`가 OpenAPI subset이라 변환 부담이 있었다.
+LLM은 Wiki 생성·타입 그래프 관계 추출·일반 추론에 쓰인다. provider를 하나로 고정해 어댑터·검증·eval 경로를 단일화할 필요가 있었다. 한편 feature 3(정보 간극 메우기, label↔user)은 권위 있는 출처를 검색해 정답 기준(label)을 세우는 별도 역량이 필요하다.
 
 ## 결정
 
-LLM provider를 **OpenAI 단일**로 확정한다. 로컬(Gemma)·Gemini 어댑터를 제거한다. 출력은 OpenAI Responses API의 structured output(`json_schema`, `strict: true`)으로 받아 [`LlmWikiResult`](../10-contracts/llm-output-schema.md)로 정규화한다.
+LLM provider를 **OpenAI 단일**로 확정한다. 출력은 OpenAI Responses API의 structured output(`json_schema`, `strict: true`)으로 받아 [`LlmWikiResult`](../10-contracts/llm-output-schema.md)로 정규화한다. feature 3(정보 간극 메우기, label↔user)의 출처 기반 검색·답변·fact-check는 **Liner API**를 주 해결책으로 두고, OpenAI는 Liner 미가용 시 소크라테스식 되묻기 질문 생성으로 보조한다.
 
 ## 결과
 
 - (+) 어댑터·검증·eval 경로가 단일화되어 유지비 감소.
 - (+) structured output strict로 스키마 준수 강제.
-- (−) 오프라인 동작 불가 — 키 없을 때는 heuristic fallback(마크다운 `##` 분할)로만 축소 동작.
-- 환경변수: `OPENAI_API_KEY`(필수), `PIECEPOOL_LLM_MODEL`(override).
+- (−) 클라우드 API 전제 — 키를 설정에 입력해 사용한다.
+- 환경변수: `OPENAI_API_KEY`(필수), `PIECEPOOL_LLM_MODEL`(override), `LINER_API_KEY`(feature 3 출처 검색; 필요 시 `LINER_API_ENDPOINT`).
 
 ## 대안
 
-- 하이브리드 유지: 운영 복잡도·품질 편차로 기각.
-- Gemini 단독: structured output 호환성·생태계 성숙도로 기각.
+- feature 3을 OpenAI만으로 처리: 출처(provenance)·fact-check 근거가 약해 기각. Liner를 주 해결책으로, OpenAI를 보조로 둔다.

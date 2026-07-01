@@ -19,7 +19,7 @@ LLM 호출 결과를 저장 전에 검증 / 재시도 / 부분 실패 처리하�
 | JSON Schema 검증 | 본 문서 §3 |
 | 재시도 정책 | 본 문서 §4 (provider-config §4.1 확장) |
 | 부분 실패 처리 | 본 문서 §5 |
-| Premium 되묻기 round-trip | 본 문서 §6 |
+| 되묻기 round-trip | 본 문서 §6 |
 | ImportJob 상태 전이 | `../20-backend/import-job-states.md` (작성 예정) |
 
 ---
@@ -157,13 +157,15 @@ LLM 응답에 유효한 부분과 무효한 부분이 섞여 있으면 **유효 
 
 ---
 
-## 6. Premium 되묻기 round-trip
+## 6. 되묻기 round-trip
 
-[`pricing-model.md`](../00-overview/pricing-model.md) §3.3의 되묻기를 어댑터가 구현.
+되묻기(기본 기능, 유료 tier 아님)를 어댑터가 구현. **주 경로는 Liner 출처 검증**으로 간극을 판정하고, Liner 미가용 시 OpenAI round-trip(§6.1 대안 트리거)으로 대안 처리한다.
 
 ### 6.1 트리거 조건
 
-1차 응답이 다음 중 1개 이상 만족 시 round-trip 진입:
+**주 경로 — Liner 출처 검증:** Liner API가 label(권위 출처)과 사용자 필기를 대조해 간극(오기·오해·누락)을 검출하면 round-trip 진입. 출처 기반이라 판정 근거가 명확하다.
+
+**대안 경로 — OpenAI (Liner 미가용):** 1차 응답이 다음 중 1개 이상 만족 시 round-trip 진입:
 
 | 조건 | 임계값 (기본) |
 |---|---|

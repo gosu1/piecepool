@@ -1,6 +1,6 @@
 # 30-llm
 
-LLM 호출 계층. **OpenAI 단일 provider**.
+LLM 호출 계층. LLM은 **OpenAI 단일 provider**. feature 3(정보 간극 메우기) 출처 검색·검증은 **Liner API**.
 
 > **플랜 모델**: [`../00-overview/pricing-model.md`](../00-overview/pricing-model.md)
 
@@ -8,22 +8,22 @@ LLM 호출 계층. **OpenAI 단일 provider**.
 
 1. **LLM Wiki 생성** — 사용자 원본 노트(`archive/`)를 입력으로 Concept 중심 `WikiPage`를 생성한다. 출력은 `LlmWikiResult` 스키마([`../10-contracts/llm-output-schema.md`](../10-contracts/llm-output-schema.md))를 따른다.
 2. **Graph View 데이터** — LLM이 타입 있는 `Relation`(엣지)을 산출한다([`../10-contracts/relation-types.md`](../10-contracts/relation-types.md)의 12종 enum). 그래프 렌더는 프론트(`40-frontend`)가 담당.
-3. **정보 간극 메우기 (label ↔ user)** — 교수 자료(정답=label)와 사용자 필기 간 간극을 검증하고 사용자에게 선택지를 제시한다.
+3. **정보 간극 메우기 (label ↔ user)** — **Liner API가 권위 있는 출처를 검색해 정답 기준(label)을 세우고**, 교수 자료와 사용자 필기 간 간극을 검증·보강한다. 사용자에게 선택지를 제시한다. (Liner 미가용 시 OpenAI 소크라테스식 되묻기로 대안 처리.)
 
 ### 3. 정보 간극 메우기 상세
 
-교수님 PDF = 정답(**label**). 사용자 필기에는 오기·오해가 섞일 수 있고, 여기서 정보 간극이 발생한다. LLM이 간극을 캐치·검증한 뒤:
+교수님 PDF = 정답(**label**). 사용자 필기에는 오기·오해가 섞일 수 있고, 여기서 정보 간극이 발생한다. **Liner API가 권위 있는 출처를 검색해 정답 기준을 세우고** 간극을 검증·보강한 뒤 (Liner 미가용 시 OpenAI 되묻기로 대안):
 
 - 최대 **1~3개** 선택지로 _"이렇게 생각하신 게 맞나요?"_ 가이드 제공
 - **기타** 칸 1개 추가 — 사용자가 직접 서술 (소크라테스식 · 하브루타식 학습법, Claude Plan 스킬과 동형)
 
-> 구현은 아래 **되묻기**(clarify) round-trip 활용. `LlmWikiResult` JSON Schema는 무변경.
+> 주 구현은 Liner 출처 검증. Liner 미가용 시 아래 **되묻기**(clarify) round-trip(OpenAI)로 대안. `LlmWikiResult` JSON Schema는 무변경.
 
 ## 포함 문서 (작성 예정)
 
 | 파일 | 내용 | 1차 소유 |
 |---|---|---|
-| `provider-config.md` | OpenAI Adapter 인터페이스, 환경변수, fallback 정책 | LLM (@gosu1) |
+| `provider-config.md` | OpenAI + Liner Adapter 인터페이스, 환경변수, fallback 정책 | LLM (@gosu1) |
 | `prompt-templates.md` | system/user 프롬프트 (한국어 학습 컨텍스트) | **Backend 주도** (@ChangSik88, @O6west) + LLM 구조화 |
 | `output-validation.md` | 구조화 출력 schema 검증 + 재시도 + 부분 실패 + 되묻기 round-trip | LLM (@gosu1) |
 | `evals.md` | 골든 케이스, 회귀 방지 | LLM (@gosu1) |
@@ -43,17 +43,20 @@ LLM 호출 계층. **OpenAI 단일 provider**.
 # 공통
 PIECEPOOL_LLM_MODEL=...                      # 모델명 override (기본값 존재)
 
-# OpenAI (필수)
+# OpenAI (필수) — LLM 호출
 OPENAI_API_KEY=...
 
-# 기능 토글
+# Liner — feature 3 출처 검색·검증
+LINER_API_KEY=...
+
+# 기능 토글 (레거시 이름 · 유료 tier 아님 · 기본 on)
 PIECEPOOL_PREMIUM_FACT_CHECK=true|false
 ```
 
 ## 부가 흐름 (schema 무변경)
 
-- **되묻기**: Backend가 import-pipeline에서 LLM 1차 응답 분석 → 불확실 판정 시 사용자에게 재질의
-- **Fact-check**: LLM이 웹 검색 도구 호출 → `evidence[].reason`에 출처 URL 누적
+- **되묻기**: 주 경로는 Liner 출처 검증. Backend가 import-pipeline에서 간극 판정 → 불확실 시 사용자에게 재질의 (Liner 미가용 시 OpenAI 1차 응답 분석으로 대안)
+- **Fact-check**: Liner API가 출처 검색·검증 → `evidence[].reason`에 출처 URL 누적
 - 둘 다 `LlmWikiResult` JSON Schema는 그대로 ([`../10-contracts/llm-output-schema.md`](../10-contracts/llm-output-schema.md))
 
 ## 의존

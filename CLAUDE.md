@@ -147,14 +147,16 @@ src-tauri/src/
 
 ## 🌐 LLM Provider Rules
 
-OpenAI is the only LLM provider.
+OpenAI is the only LLM provider. Liner is an additional source-search API used by feature 3 (label ↔ user gap filling).
 
-| Provider   | Env var          |
-| ---------- | ---------------- |
-| OpenAI GPT | `OPENAI_API_KEY` |
+| Provider   | Env var          | Role                                                 |
+| ---------- | ---------------- | ---------------------------------------------------- |
+| OpenAI GPT | `OPENAI_API_KEY` | Wiki 생성 · 타입 Graph · 일반 추론                   |
+| Liner      | `LINER_API_KEY`  | 정보 간극 메우기(label↔user) 출처 검색 · fact-check   |
 
-- The provider must produce output conforming to `LlmWikiResult` (see above).
-- Features (clarify / fact-check / web-search compare) use the OpenAI API via the TypeScript adapter (`src/llm/`).
+- The OpenAI provider must produce output conforming to `LlmWikiResult` (see above).
+- 정보 간극 메우기(feature 3)의 주 해결책은 Liner API — 권위 있는 출처를 검색해 정답 기준(label)을 세우고 사용자 필기의 간극을 검증·보강한다. Liner 미가용 시 OpenAI가 보조로 소크라테스식 되묻기 질문을 생성한다.
+- Clarify (되묻기)는 OpenAI, fact-check · web-search compare(출처 provenance)는 Liner API를 TypeScript adapter (`src/llm/`)로 호출한다.
 
 ---
 
