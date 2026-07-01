@@ -31,7 +31,7 @@ import { heuristicGaps } from "../llm/gaps";
 import type { GapQuestion } from "../llm/gaps";
 import { runImageOcr } from "../llm/ocr";
 import { chunkOpts, getChunkSettings, setChunkEnabled, setChunkPercentile } from "../lib/settings";
-import { aggregateProvenance } from "../llm/provenance";
+import { aggregateProvenance, tierFromSourceType, type SourceMeta } from "../llm/provenance";
 
 // 상단 섹션
 type Section = "inbox" | "wiki" | "source" | "graph";
@@ -271,9 +271,14 @@ export default function PiecePoolApp() {
       // [B] 청킹 켰을 때 조각 정보 유형 분포.
       const TYPE_KO: Record<string, string> = { concept: "개념", fact: "사실", claim: "주장", example: "예시", method: "방법", question: "질문" };
       const typeNote = nodeTypes ? ` · 유형 ${Object.entries(nodeTypes).map(([t, n]) => `${TYPE_KO[t] ?? t} ${n}`).join(", ")}` : "";
-      // [D] 병합 후 2개 이상 출처가 뒷받침하는(교차검증) 개념 수. tier 미상이라 개수 신호만(secondary 기본).
-      const prov = aggregateProvenance(applied.pages.map((p) => p.sourceIds));
-      const provNote = prov.multiSource > 0 ? ` · 교차검증 ${prov.multiSource}개` : "";
+      // [D] 출처 tier(Source.type→1차/2차) 레지스트리로 병합 개념의 신뢰도·교차검증 집계.
+      const srcTypes = await ipc.listSourceTypes(space);
+      const registry = new Map<string, SourceMeta>(srcTypes.map(([id, t]) => [id, { sourceId: id, tier: tierFromSourceType(t) }]));
+      const prov = aggregateProvenance(applied.pages.map((p) => p.sourceIds), registry);
+      const provNote =
+        prov.count > 0
+          ? ` · 출처신뢰 ${Math.round(prov.avgScore * 100)}%${prov.multiSource > 0 ? ` · 교차검증 ${prov.multiSource}개` : ""}`
+          : "";
       setAiStatus((s) => ({
         ...s,
         [key]: `${engine === "openai" ? "GPT" : "휴리스틱"}로 위키 ${applied.pages.length}개 · 관계 ${applied.relationCount}개${mergedNote}${isoNote}${typeNote}${provNote}${warning ? " · GPT 실패→휴리스틱" : ""}`,

@@ -201,6 +201,7 @@ pub fn run() {
             commands::workspace::extract_pdf_text,
             commands::workspace::read_file_bytes,
             commands::notes::list_notes,
+            commands::notes::list_source_types,
             commands::notes::read_note,
             commands::notes::create_note,
             commands::notes::save_note,

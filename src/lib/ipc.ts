@@ -8,6 +8,7 @@ import type {
   Relation,
   GraphData,
   PdfExtractResult,
+  SourceType,
 } from "./types";
 import { mock } from "./mockIpc";
 
@@ -23,6 +24,7 @@ const real = {
   extractPdfText: (space: string, file: string) => invoke<PdfExtractResult>("extract_pdf_text", { space, file }),
   readFileBytes: (space: string, file: string) => invoke<string>("read_file_bytes", { space, file }),
   listNotes: (space: string) => invoke<ArchiveNote[]>("list_notes", { space }),
+  listSourceTypes: (space: string) => invoke<[string, SourceType][]>("list_source_types", { space }),
   readNote: (space: string, file: string) => invoke<ArchiveNote>("read_note", { space, file }),
   createNote: (space: string, title: string, markdown: string, subjectIds: string[]) =>
     invoke<ArchiveNote>("create_note", { space, title, markdown, subjectIds }),
@@ -43,6 +45,7 @@ export const listSources = api.listSources;
 export const extractPdfText = api.extractPdfText;
 export const readFileBytes = api.readFileBytes;
 export const listNotes = api.listNotes;
+export const listSourceTypes = api.listSourceTypes;
 export const readNote = api.readNote;
 export const createNote = api.createNote;
 export const saveNote = api.saveNote;

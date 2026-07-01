@@ -9,6 +9,7 @@ import type {
   Relation,
   GraphData,
   GraphNode,
+  SourceType,
 } from "./types";
 
 const NOW = "2026-07-01T00:00:00Z";
@@ -130,6 +131,7 @@ export const mock = {
     delay({ pageCount: 1, pages: [{ page: 1, text: `(브라우저 mock — ${file} 의 PDF 추출은 Tauri 데스크톱에서)` }] }),
   readFileBytes: (_space: string, _file: string) => delay<string>(""),
   listNotes: (space: string) => delay(memNotes[space] ?? []),
+  listSourceTypes: (_space: string) => delay<[string, SourceType][]>([]),
   readNote: (space: string, file: string) => delay((memNotes[space] ?? []).find((n) => n.path === file)!),
   createNote: (space: string, title: string, markdown: string, subjectIds: string[]) => {
     const n: ArchiveNote = {
