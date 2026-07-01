@@ -20,6 +20,23 @@ pub fn list_notes(space: String) -> Result<Vec<ArchiveNote>, String> {
     Ok(out)
 }
 
+/// archive/*.md 의 (sourceId, sourceType) 목록 — provenance tier 추론용([D]).
+/// ArchiveNote 계약은 sourceType을 갖지 않으므로 frontmatter에서 직접 뽑아 별도로 노출한다.
+#[tauri::command]
+pub fn list_source_types(space: String) -> Result<Vec<(String, SourceType)>, String> {
+    let sp = space_by_slug(&space)?;
+    let dir = storage::space_subdir(&space, "archive");
+    let files = storage::list_files(&dir, ".md").map_err(|e| e.to_string())?;
+    let mut out = vec![];
+    for f in files {
+        let md = storage::read_text(&dir.join(&f)).map_err(|e| e.to_string())?;
+        if let Ok(n) = frontmatter::md_to_archive(&sp.id, &f, &md) {
+            out.push((n.source_id, frontmatter::archive_source_type(&md)));
+        }
+    }
+    Ok(out)
+}
+
 #[tauri::command]
 pub fn read_note(space: String, file: String) -> Result<ArchiveNote, String> {
     let sp = space_by_slug(&space)?;

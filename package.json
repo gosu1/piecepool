@@ -37,6 +37,10 @@
     "gen:types": "cargo test --manifest-path src-tauri/Cargo.toml export_bindings",
     "gen:llm-schema": "node scripts/gen-llm-schema.mjs",
     "eval": "tsx scripts/eval.ts",
+    "chunk": "tsx scripts/chunk-preview.ts",
+    "promote": "tsx scripts/promote-preview.ts",
+    "classify": "tsx scripts/classify-preview.ts",
+    "provenance": "tsx scripts/provenance-preview.ts",
     "tauri": "tauri"
   },
   "dependencies": {
