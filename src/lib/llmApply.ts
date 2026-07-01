@@ -1,0 +1,133 @@
+import type { LlmWikiResult, LlmConcept, LlmEvidence } from "../llm/provider";
+import type { WikiPage, Relation, Evidence } from "./types";
+import * as ipc from "./ipc";
+
+// LlmWikiResult → WikiPage[] + Relation[] 변환 후 백엔드에 저장.
+// 변환 파이프라인: docs/10-contracts/llm-output-schema.md (LlmConcept→Concept+WikiPage, LlmRelation→Relation).
+// dedup: normalizedTitle(NFC+소문자+공백정규화) 이 기존 위키와 일치하면 그 파일에 MERGE(새 .md 만들지 않음).
+
+export function normalizeTitle(t: string): string {
+  return t.normalize("NFC").toLowerCase().replace(/\s+/g, " ").trim();
+}
+function slugify(t: string): string {
+  return t
+    .normalize("NFC")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+function hash8(t: string): string {
+  const n = normalizeTitle(t);
+  let h = 5381;
+  for (let i = 0; i < n.length; i++) h = ((h << 5) + h + n.charCodeAt(i)) >>> 0;
+  return h.toString(16);
+}
+// 파일/개념 slug — ASCII 슬러그 우선, 한글 등 비ASCII 제목은 normalizedTitle 해시로 안정화(같은 개념 → 같은 파일 → merge).
+export function slugOrHash(title: string): string {
+  const s = slugify(title);
+  return s || `c-${hash8(title)}`;
+}
+
+function conceptMarkdown(c: LlmConcept): string {
+  const parts = [`# ${c.title}`, "", c.summary];
+  if (c.explanation && c.explanation.trim() !== c.summary.trim()) parts.push("", c.explanation.trim());
+  if (c.examples && c.examples.length) parts.push("", "## 예시", ...c.examples.map((e) => `- ${e}`));
+  if (c.sourceEmbeds && c.sourceEmbeds.length) parts.push("", "## 근거", ...c.sourceEmbeds.map((e) => `![[${e}]]`));
+  if (c.confusingConcepts && c.confusingConcepts.length)
+    parts.push("", "## 헷갈리는 개념", ...c.confusingConcepts.map((e) => `- [[${e}]]`));
+  if (c.relatedQuestions && c.relatedQuestions.length)
+    parts.push("", "## 관련 질문", ...c.relatedQuestions.map((q) => `- ${q}`));
+  return parts.join("\n");
+}
+
+function toEvidence(e: LlmEvidence): Evidence {
+  return {
+    sourceId: e.sourceId,
+    archivePath: e.archivePath,
+    originalFilePath: e.originalFilePath,
+    page: e.page,
+    quote: e.quote,
+    location: e.location,
+    reason: e.reason,
+  };
+}
+
+export interface ApplyResult {
+  pages: WikiPage[];
+  relationCount: number;
+  merged: number;
+}
+
+/** source = 이 위키/관계를 만든 원본 노트(evidence 근거). existing = 현재 공간의 위키(dedup 대상). */
+export async function applyLlmResult(
+  space: string,
+  spaceId: string,
+  subjectIds: string[],
+  result: LlmWikiResult,
+  source: { sourceId: string; archivePath: string },
+  existing: WikiPage[],
+): Promise<ApplyResult> {
+  const now = new Date().toISOString();
+  const byNorm = new Map<string, WikiPage>();
+  for (const p of existing) byNorm.set(normalizeTitle(p.title), p);
+
+  const conceptMap = new Map<string, string>(); // normalizedTitle → conceptId
+  const pages: WikiPage[] = [];
+  let merged = 0;
+
+  for (const c of result.concepts) {
+    const norm = normalizeTitle(c.title);
+    const ex = byNorm.get(norm); // 기존과 동일 개념이면 그 파일에 병합
+    if (ex) merged++;
+    const cid = ex ? ex.conceptId : `concept-${slugOrHash(c.title)}`;
+    const page: WikiPage = {
+      id: ex ? ex.id : `wiki-${slugOrHash(c.title)}`,
+      spaceId,
+      conceptId: cid,
+      title: c.title,
+      path: ex ? ex.path : `${slugOrHash(c.title)}.md`,
+      subjectIds,
+      sourceIds: ex ? Array.from(new Set([...ex.sourceIds, source.sourceId])) : [source.sourceId],
+      sourceRefs: ex ? ex.sourceRefs : [],
+      markdown: conceptMarkdown(c),
+      createdAt: ex ? ex.createdAt : now, // 병합 시 생성시각 보존
+      updatedAt: now,
+    };
+    pages.push(page);
+    conceptMap.set(norm, cid);
+  }
+  for (const p of pages) await ipc.saveWiki(space, p);
+
+  // 관계: 개념 제목 → conceptId (이번 결과 ∪ 기존). 미해결이면 스킵.
+  const resolve = (title: string): string | null => {
+    const norm = normalizeTitle(title);
+    return conceptMap.get(norm) ?? byNorm.get(norm)?.conceptId ?? null;
+  };
+  const relations: Relation[] = [];
+  result.relations.forEach((r, i) => {
+    const s = resolve(r.sourceConceptTitle);
+    const t = resolve(r.targetConceptTitle);
+    if (!s || !t) return;
+    // 모든 관계는 evidence ≥ 1 — LLM evidence 있으면 관통, 없으면 원본 노트 근거로 합성.
+    const evidence: Evidence[] =
+      r.evidence && r.evidence.length
+        ? r.evidence.map(toEvidence)
+        : [{ sourceId: source.sourceId, archivePath: source.archivePath, reason: r.explanation || "원본 노트 근거" }];
+    relations.push({
+      id: `rel-${slugOrHash(r.sourceConceptTitle + r.targetConceptTitle)}-${i}`,
+      spaceId,
+      sourceNodeId: s,
+      targetNodeId: t,
+      relationType: r.relationType as Relation["relationType"],
+      strength: r.strength,
+      confidence: r.confidence,
+      explanation: r.explanation,
+      evidence,
+      createdAt: now,
+      updatedAt: now,
+    });
+  });
+  const relationCount = relations.length ? await ipc.appendRelations(space, relations) : 0;
+
+  return { pages, relationCount, merged };
+}

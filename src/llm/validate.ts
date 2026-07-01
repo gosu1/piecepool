@@ -51,13 +51,36 @@ export function sanitizeSourceRefs(
 }
 
 function normTitle(t: string): string {
-  return t.toLowerCase().replace(/\s+/g, " ").trim();
+  return t.normalize("NFC").toLowerCase().replace(/\s+/g, " ").trim();
 }
 
-// LLM relation은 전부 Concept→Concept(title↔title)이라 node 호환 매트릭스상 아래 타입은 표현
-// 불가하거나 금지다: extracted_from(target=Source), explained_by(target=WikiPage),
-// review_needed(사용자 전용, LLM 자동 부여 금지). SSOT: docs/10-contracts/relation-types.md §6.
-const RELATION_NODE_INVALID = new Set(["extracted_from", "explained_by", "review_needed"]);
+// 12행 node-compat 매트릭스 (relation-types.md §6). Rust graph.rs::compat 와 동일 규약을
+// 하나의 canonical predicate 로 구현한다(enum 값 복붙 아님 — 로직).
+type NodeKind = "concept" | "wikiPage" | "source";
+function compat(s: NodeKind, t: NodeKind, rt: string): boolean {
+  switch (rt) {
+    case "extracted_from":
+      return (s === "concept" || s === "wikiPage") && t === "source";
+    case "explained_by":
+      return s === "concept" && t === "wikiPage";
+    case "prerequisite":
+    case "part_of":
+    case "used_in":
+    case "causes":
+    case "solves":
+    case "contrasts":
+    case "confused_with":
+      return s === "concept" && t === "concept";
+    case "related_to":
+      return s === "concept" || s === "wikiPage";
+    case "tested_in":
+      return s === "concept" && (t === "source" || t === "concept");
+    case "review_needed":
+      return s === "concept" && t === "concept"; // 자동 경로에서는 아래에서 별도 거부
+    default:
+      return false;
+  }
+}
 
 // §5(2)(3) — relation 양끝 title이 알려진 Concept(같은 응답 concepts ∪ 기존 workspace)과 일치하고,
 // relationType이 node 호환 매트릭스에 부합해야 한다. 위반 edge는 정규화에서 제거한다.
@@ -73,8 +96,10 @@ export function normalizeRelations(
   let droppedTitle = 0;
   let droppedNode = 0;
 
+  // LLM 관계는 title↔title = Concept→Concept. review_needed 는 사용자 전용(자동 부여 금지),
+  // 나머지는 12행 매트릭스의 Concept→Concept 슬라이스로 판별한다.
   const relations = result.relations.filter((r) => {
-    if (RELATION_NODE_INVALID.has(r.relationType)) {
+    if (r.relationType === "review_needed" || !compat("concept", "concept", r.relationType)) {
       droppedNode++;
       return false;
     }

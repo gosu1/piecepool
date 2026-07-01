@@ -20,6 +20,12 @@ build/
 .next/
 target/
 
+# Test 산출물
+test-results/
+playwright-report/
+playwright/.cache/
+coverage/
+
 # Tauri
 src-tauri/target/
 
