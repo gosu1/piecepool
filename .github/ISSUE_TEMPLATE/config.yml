@@ -1,7 +1,7 @@
 blank_issues_enabled: false
 contact_links:
   - name: PRD 리팩토링 계획
-    url: https://github.com/gosu1/piecepool/blob/main/PRD_REFACTOR_PLAN.md
+    url: https://github.com/gosu1/piecepool/blob/main/docs/archive/PRD_REFACTOR_PLAN.md
     about: 전체 리팩토링 단계·매핑·검증 기준 참조.
   - name: 협업 규칙
     url: https://github.com/gosu1/piecepool/blob/main/README.md#협업-규칙

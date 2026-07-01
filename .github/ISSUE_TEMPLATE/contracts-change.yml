@@ -7,7 +7,7 @@ body:
     attributes:
       value: |
         ⚠️ **SSOT 변경**. 본 이슈와 후속 PR은 Backend/Frontend/LLM/Design 4개 역할 owner 모두 review 필요.
-        근거: `README.md` 협업 규칙 §3, `PRD_REFACTOR_PLAN.md` §5.
+        근거: `README.md` 협업 규칙 §3, `docs/archive/PRD_REFACTOR_PLAN.md` §5.
 
   - type: dropdown
     id: target

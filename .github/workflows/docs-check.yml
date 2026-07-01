@@ -5,14 +5,12 @@ on:
     paths:
       - 'docs/**'
       - 'README.md'
-      - 'PRD_REFACTOR_PLAN.md'
       - '.github/workflows/docs-check.yml'
   push:
     branches: [main]
     paths:
       - 'docs/**'
       - 'README.md'
-      - 'PRD_REFACTOR_PLAN.md'
       - '.github/workflows/docs-check.yml'
 
 jobs:
@@ -30,7 +28,6 @@ jobs:
             --offline
             'docs/**/*.md'
             'README.md'
-            'PRD_REFACTOR_PLAN.md'
           fail: true
 
   ssot-check:
@@ -101,5 +98,4 @@ jobs:
           npx --yes prettier@3 --check \
             'docs/**/*.md' \
             'README.md' \
-            'PRD_REFACTOR_PLAN.md' \
             || echo "::warning::Prettier formatting suggestions exist. 본 job는 advisory, blocking 아님"
