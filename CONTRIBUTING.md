@@ -83,3 +83,14 @@ cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
 ## 리뷰 할당
 
 [`.github/CODEOWNERS`](.github/CODEOWNERS)가 폴더별 리뷰어를 자동 지정합니다. 행동 규범은 [행동 강령](.github/CODE_OF_CONDUCT.md)을 따릅니다.
+
+## 브랜치 보호
+
+`main`은 GitHub Settings → Branches에서 보호 규칙을 적용한다(관리자 수동 또는 `gh api`):
+
+- 필수 상태 체크: `code-check`, `docs-check`
+- merge 전 최소 1인 review + CODEOWNERS review (`docs/10-contracts/`는 4역할)
+- stale approval 자동 해제, merge 후 브랜치 자동 삭제
+- `main` 직접 push 금지 (관리자 포함)
+
+버전·릴리즈는 `release-please`가 관리한다. Conventional Commits가 다음 버전을 결정하고, 릴리즈 PR 머지 시 tag + Release + macOS 번들이 생성된다.
