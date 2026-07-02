@@ -3,9 +3,21 @@ import type { ReactNode } from "react";
 import { Button, Card, WikiPage, Icons, cn } from "../../ds";
 import { Markdown } from "../../lib/markdown";
 import { SlashBlockEditor } from "../../lib/SlashBlockEditor";
-import type { GapQuestion } from "../../llm/gaps";
+import { EDGE_COLOR } from "../../lib/CytoscapeGraph";
+import type { RefConflict } from "../../lib/sourceRefConflicts";
+import type { GapQuestion, GapEngine } from "../../llm/gaps";
 
-// ══ 문서 뷰 (위키/원본 공통) — 읽기 ↔ 편집 + 관련 개념 ══
+// ══ 문서 뷰 (위키/원본 공통) — 읽기 ↔ 편집 + 개념 중심 섹션(소스·관계·헷갈리는 개념) ══
+export interface DocLinkItem {
+  label: string;
+  onClick?: () => void;
+}
+
+export interface RelationGroup {
+  type: string;
+  items: { label: string; dir: "out" | "in"; onClick: () => void }[];
+}
+
 export function DocView({
   docType,
   title,
@@ -18,7 +30,10 @@ export function DocView({
   onSave,
   onLink,
   linkExists,
-  related,
+  sources,
+  relationGroups,
+  confused,
+  conflicts,
   topSlot,
   bottomSlot,
   embedSpace,
@@ -34,11 +49,19 @@ export function DocView({
   onSave: () => void | Promise<void>;
   onLink: (target: string) => void;
   linkExists?: (target: string) => boolean;
-  related?: { title: string; onClick: () => void }[];
+  /** 위키 개념 섹션 — 관련 소스(원본 노트/파일) */
+  sources?: DocLinkItem[];
+  /** 위키 개념 섹션 — 타입별 관계 그룹 */
+  relationGroups?: RelationGroup[];
+  /** 위키 개념 섹션 — confused_with 이웃 */
+  confused?: { title: string; onClick: () => void }[];
+  /** sourceRefs ↔ 본문 embed 충돌 (감지만, 자동 수정 금지 — 수용기준 §2.3) */
+  conflicts?: RefConflict[];
   topSlot?: ReactNode;
   bottomSlot?: ReactNode;
   embedSpace?: string;
 }) {
+  const hasConceptPanel = !!(sources?.length || relationGroups?.length || confused?.length);
   return (
     <div className="mx-auto max-w-3xl space-y-3 pb-6">
       {topSlot}
@@ -52,6 +75,8 @@ export function DocView({
           {isEditing ? "읽기" : "편집"}
         </Button>
       </div>
+
+      {conflicts && conflicts.length > 0 && <ConflictBanner conflicts={conflicts} />}
 
       {isEditing ? (
         <div className="grid gap-3 md:grid-cols-2">
@@ -77,21 +102,78 @@ export function DocView({
         </>
       )}
 
-      {docType === "wiki" && !isEditing && related && related.length > 0 && (
-        <div className="space-y-2 pt-1">
-          <p className="ds-eyebrow text-ink-faint">관련 개념</p>
-          <div className="flex flex-wrap gap-2">
-            {related.map((r, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={r.onClick}
-                className="rounded-full border border-hairline px-3 py-1 text-[13px] text-primary transition-colors hover:bg-surface-soft"
-              >
-                {r.title}
-              </button>
-            ))}
-          </div>
+      {/* 개념 중심 섹션 (scope §2.7) — 관련 소스 · 관계 · 헷갈리는 개념 */}
+      {docType === "wiki" && !isEditing && hasConceptPanel && (
+        <div className="space-y-4 border-t border-hairline pt-4">
+          {sources && sources.length > 0 && (
+            <section className="space-y-2">
+              <p className="ds-eyebrow text-ink-faint">관련 소스</p>
+              <div className="flex flex-wrap gap-2">
+                {sources.map((s, i) =>
+                  s.onClick ? (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={s.onClick}
+                      className="rounded-full border border-hairline px-3 py-1 text-[13px] text-primary transition-colors hover:bg-surface-soft"
+                    >
+                      {s.label}
+                    </button>
+                  ) : (
+                    <span key={i} className="rounded-full border border-hairline px-3 py-1 text-[13px] text-ink-muted">
+                      {s.label}
+                    </span>
+                  ),
+                )}
+              </div>
+            </section>
+          )}
+
+          {relationGroups && relationGroups.length > 0 && (
+            <section className="space-y-2">
+              <p className="ds-eyebrow text-ink-faint">관계</p>
+              <div className="space-y-1.5">
+                {relationGroups.map((g) => (
+                  <div key={g.type} className="flex flex-wrap items-center gap-2">
+                    <span className="flex items-center gap-1.5 rounded-full border border-hairline px-2.5 py-0.5 text-[12px] text-ink-2">
+                      <span className="h-2 w-2 rounded-full" style={{ background: EDGE_COLOR[g.type] ?? "#a39e98" }} />
+                      {g.type}
+                    </span>
+                    {g.items.map((it, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={it.onClick}
+                        className="rounded-full border border-hairline px-3 py-1 text-[13px] text-primary transition-colors hover:bg-surface-soft"
+                        title={it.dir === "out" ? "이 개념 → 대상" : "대상 → 이 개념"}
+                      >
+                        {it.dir === "out" ? "→ " : "← "}
+                        {it.label}
+                      </button>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {confused && confused.length > 0 && (
+            <section className="space-y-2">
+              <p className="ds-eyebrow text-ink-faint">헷갈리는 개념</p>
+              <div className="flex flex-wrap gap-2">
+                {confused.map((c, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={c.onClick}
+                    className="rounded-full border border-warning/50 bg-warning/10 px-3 py-1 text-[13px] text-ink-2 transition-colors hover:bg-warning/20"
+                  >
+                    ⚠ {c.title}
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
         </div>
       )}
 
@@ -100,17 +182,49 @@ export function DocView({
   );
 }
 
+// sourceRefs ↔ 본문 embed 충돌 배너 — 자동 삭제/재작성 금지, 상태만 표시.
+function ConflictBanner({ conflicts }: { conflicts: RefConflict[] }) {
+  return (
+    <div className="space-y-1 rounded-md border border-warning/50 bg-warning/10 px-3 py-2 text-[13px]">
+      <p className="font-semibold text-ink">frontmatter 출처와 본문 embed가 어긋나요 — 자동으로 고치지 않습니다.</p>
+      <ul className="list-disc pl-5 text-ink-2">
+        {conflicts.map((c, i) => (
+          <li key={i}>
+            <code className="text-[12px]">
+              {c.file}
+              {c.page ? `#page=${c.page}` : ""}
+            </code>
+            {c.kind === "missing-embed" ? " — frontmatter에는 있는데 본문에 없음" : " — 본문에만 있고 frontmatter에 없음"}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 // ══ LLM 액션 바 (원본 노트) ══
-export function AiBar({ busy, status, onGen, onGaps }: { busy: boolean; status?: string; onGen: () => void; onGaps: () => void }) {
+export function AiBar({
+  busy,
+  gapBusy,
+  status,
+  onGen,
+  onGaps,
+}: {
+  busy: boolean;
+  gapBusy?: boolean;
+  status?: string;
+  onGen: () => void;
+  onGaps: () => void;
+}) {
   return (
     <Card padding="md" featured className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
         <span className="ds-eyebrow text-primary">AI</span>
-        <Button variant="primary" size="sm" onClick={onGen} disabled={busy} leftIcon={<Icons.SparkleIcon size={14} />}>
+        <Button variant="primary" size="sm" onClick={onGen} disabled={busy || gapBusy} leftIcon={<Icons.SparkleIcon size={14} />}>
           {busy ? "생성 중…" : "AI 위키 생성"}
         </Button>
-        <Button variant="utility" size="sm" onClick={onGaps} disabled={busy}>
-          간극 점검
+        <Button variant="utility" size="sm" onClick={onGaps} disabled={busy || gapBusy}>
+          {gapBusy ? "점검 중…" : "간극 점검"}
         </Button>
         {status && <span className="text-[13px] text-ink-muted">{status}</span>}
       </div>
@@ -118,12 +232,20 @@ export function AiBar({ busy, status, onGen, onGaps }: { busy: boolean; status?:
   );
 }
 
+const GAP_ENGINE_LABEL: Record<GapEngine, string> = {
+  liner: "Liner 출처 기반",
+  openai: "GPT 소크라테스",
+  heuristic: "오프라인 점검",
+};
+
 export function GapPanel({
   questions,
+  engine,
   onClose,
   onSubmit,
 }: {
   questions: GapQuestion[];
+  engine?: GapEngine;
   onClose: () => void;
   onSubmit?: (answers: { prompt: string; answer: string }[]) => void | Promise<void>;
 }) {
@@ -132,7 +254,10 @@ export function GapPanel({
   return (
     <Card padding="lg" className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="ds-eyebrow text-primary">정보 간극 메우기 · 이렇게 생각하신 게 맞나요?</p>
+        <p className="ds-eyebrow text-primary">
+          정보 간극 메우기 · 이렇게 생각하신 게 맞나요?
+          {engine && <span className="ml-2 rounded-full bg-surface-soft px-2 py-0.5 text-[11px] font-medium text-ink-muted">{GAP_ENGINE_LABEL[engine]}</span>}
+        </p>
         <button type="button" onClick={onClose} aria-label="닫기" className="rounded p-1 text-ink-faint hover:bg-surface-soft hover:text-ink">
           <Icons.CloseIcon size={14} />
         </button>
@@ -206,6 +331,21 @@ function GapItem({ q, onAnswer }: { q: GapQuestion; onAnswer: (a: string) => voi
             </button>
           ))}
       </div>
+      {q.sources && q.sources.length > 0 && (
+        <div className="flex flex-wrap gap-2 pt-0.5">
+          {q.sources.map((s, i) => (
+            <a
+              key={i}
+              href={s.url}
+              target="_blank"
+              rel="noreferrer"
+              className="text-[12px] text-primary underline-offset-2 hover:underline"
+            >
+              ↗ {s.title}
+            </a>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

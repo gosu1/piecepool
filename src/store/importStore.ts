@@ -3,9 +3,10 @@ import type { ImportJobStatus, WikiPage, ArchiveNote } from "../lib/types";
 import * as ipc from "../lib/ipc";
 import { runWikiGeneration } from "../llm/generate";
 import type { LlmWikiInput, LlmWikiResult } from "../llm/provider";
-import { heuristicGaps, type GapQuestion } from "../llm/gaps";
+import { buildGaps, type GapQuestion } from "../llm/gaps";
 import { applyLlmResult } from "../lib/llmApply";
-import { chunkOpts } from "../lib/settings";
+import { maybeFactCheck } from "../lib/factCheck";
+import { chunkOpts, getLinerKey } from "../lib/settings";
 
 // ImportJob 상태머신 소유 = TS 오케스트레이터(결정 A). useImportStore 가 상태 전이 + Rust atomic-step
 // 커맨드(create_note/save_wiki/append_relations) + OpenAI 어댑터 호출을 조율한다.
@@ -23,6 +24,7 @@ export interface ImportJobView {
   wikiCount?: number;
   relationCount?: number;
   mergedCount?: number;
+  factChecked?: number; // Liner fact-check 로 출처가 붙은 관계 수
 }
 
 export interface RunImportParams {
@@ -92,7 +94,7 @@ export const useImportStore = create<ImportState>((set, get) => {
     return s;
   };
 
-  // writing → completed 공통 단계
+  // writing → completed 공통 단계. 저장 직전 Liner fact-check(설정 게이트, advisory).
   const writeAndComplete = async (
     job: ImportJobView,
     result: LlmWikiResult,
@@ -101,11 +103,12 @@ export const useImportStore = create<ImportState>((set, get) => {
     p: RunImportParams,
   ) => {
     commit({ ...job, status: "writing", engine });
+    const fc = await maybeFactCheck(result);
     const applied = await applyLlmResult(
       p.space,
       p.spaceId,
       note.subjectIds,
-      result,
+      fc.result,
       { sourceId: note.sourceId, archivePath: `archive/${note.path}` },
       p.existing,
     );
@@ -116,6 +119,7 @@ export const useImportStore = create<ImportState>((set, get) => {
       wikiCount: applied.pages.length,
       relationCount: applied.relationCount,
       mergedCount: applied.merged,
+      factChecked: fc.checked,
     });
   };
 
@@ -141,9 +145,10 @@ export const useImportStore = create<ImportState>((set, get) => {
         const input = buildInput(note, p.existing);
         const { result, engine } = await runWikiGeneration(input, apiKey(), { chunk: chunkOpts() });
 
-        // clarify(되묻기) 분기 — 간극이 있으면 저장 전 사용자에게 되묻는다
+        // clarify(되묻기) 분기 — 간극이 있으면 저장 전 사용자에게 되묻는다.
+        // 엔진: Liner 출처 기반(주) → OpenAI 소크라테스(보조) → 휴리스틱(오프라인).
         if (p.clarify) {
-          const gaps = heuristicGaps(note.title, note.markdown);
+          const { questions: gaps } = await buildGaps(note.title, note.markdown, { liner: getLinerKey(), openai: apiKey() });
           if (gaps.length > 0) {
             set({ pending: { result, input, note, engine, params: p }, gaps });
             return commit({ ...job, status: "clarify_pending", engine });

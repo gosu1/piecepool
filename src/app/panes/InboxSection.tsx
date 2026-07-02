@@ -283,6 +283,7 @@ export function InboxSection({
                     · {job.engine === "openai" ? "GPT" : "휴리스틱"}
                     {typeof job.wikiCount === "number" && ` · 위키 ${job.wikiCount} · 관계 ${job.relationCount}`}
                     {job.mergedCount ? ` · 병합 ${job.mergedCount}` : ""}
+                    {job.factChecked ? ` · 출처검증 ${job.factChecked}건` : ""}
                   </span>
                 )}
               </div>

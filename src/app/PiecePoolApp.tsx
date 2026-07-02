@@ -6,9 +6,11 @@ import * as ipc from "../lib/ipc";
 import { runWikiGeneration } from "../llm/generate";
 import type { LlmWikiInput } from "../llm/provider";
 import { applyLlmResult } from "../lib/llmApply";
-import { heuristicGaps } from "../llm/gaps";
-import type { GapQuestion } from "../llm/gaps";
-import { chunkOpts } from "../lib/settings";
+import { buildGaps } from "../llm/gaps";
+import type { GapReport } from "../llm/gaps";
+import { maybeFactCheck } from "../lib/factCheck";
+import { detectSourceRefConflicts } from "../lib/sourceRefConflicts";
+import { chunkOpts, getLinerKey } from "../lib/settings";
 import { aggregateProvenance, tierFromSourceType, type SourceMeta } from "../llm/provenance";
 import { docKey } from "./types";
 import type { SearchItem } from "./types";
@@ -56,7 +58,8 @@ export default function PiecePoolApp() {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [aiBusy, setAiBusy] = useState<string>("");
   const [aiStatus, setAiStatus] = useState<Record<string, string>>({});
-  const [gaps, setGaps] = useState<Record<string, GapQuestion[]>>({});
+  const [gaps, setGaps] = useState<Record<string, GapReport>>({});
+  const [gapBusy, setGapBusy] = useState<string>("");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -76,6 +79,7 @@ export default function PiecePoolApp() {
   const setActiveTab = useWorkspaceStore((s) => s.setActiveTab);
   const setTabDirty = useWorkspaceStore((s) => s.setTabDirty);
   const renameTab = useWorkspaceStore((s) => s.renameTab);
+  const reorderTab = useWorkspaceStore((s) => s.reorderTab);
   const leftCollapsed = useWorkspaceStore((s) => s.leftCollapsed);
   const toggleLeftPane = useWorkspaceStore((s) => s.toggleLeftPane);
   const sidebarWidth = useWorkspaceStore((s) => s.sidebarWidth);
@@ -355,21 +359,44 @@ export default function PiecePoolApp() {
     }
   };
 
-  // 위키 페이지의 관련 개념(그래프 relation 이웃) — Karpathy식 "see also"
-  const relatedConcepts = (space: string, conceptId: string): { title: string; path: string }[] => {
+  // 위키 개념 중심 섹션 데이터 (scope §2.7) — 관련 소스 · 타입별 관계 · confused_with · ref 충돌.
+  const conceptSections = (space: string, page: WikiPageT) => {
     const g = graphBySlug[space];
-    if (!g) return [];
-    const ids = new Set<string>();
-    for (const r of g.relations) {
-      if (r.sourceNodeId === conceptId) ids.add(r.targetNodeId);
-      else if (r.targetNodeId === conceptId) ids.add(r.sourceNodeId);
+    const byType = new Map<string, { label: string; dir: "out" | "in"; onClick: () => void }[]>();
+    if (g) {
+      for (const r of g.relations) {
+        const out = r.sourceNodeId === page.conceptId;
+        if (!out && r.targetNodeId !== page.conceptId) continue;
+        const otherId = out ? r.targetNodeId : r.sourceNodeId;
+        const node = g.nodes.find((n) => n.id === otherId);
+        if (!node) continue;
+        const items = byType.get(r.relationType) ?? [];
+        items.push({ label: node.title, dir: out ? "out" : "in", onClick: () => openWiki(space, node.path) });
+        byType.set(r.relationType, items);
+      }
     }
-    const out: { title: string; path: string }[] = [];
-    ids.forEach((id) => {
-      const node = g.nodes.find((x) => x.id === id);
-      if (node) out.push({ title: node.title, path: node.path });
-    });
-    return out;
+    const confused = (byType.get("confused_with") ?? []).map((it) => ({ title: it.label, onClick: it.onClick }));
+    // confused_with 는 전용 섹션으로 — 관계 그룹에서 중복 표기하지 않는다.
+    const relationGroups = Array.from(byType, ([type, items]) => ({ type, items })).filter((x) => x.type !== "confused_with");
+
+    const notes = notesBySlug[space] ?? [];
+    const seen = new Set<string>();
+    const sources: { label: string; onClick?: () => void }[] = [];
+    for (const sid of page.sourceIds) {
+      const n = notes.find((x) => x.sourceId === sid);
+      if (n && !seen.has(n.path)) {
+        seen.add(n.path);
+        sources.push({ label: n.title, onClick: () => openArchive(space, n.path) });
+      }
+    }
+    for (const r of page.sourceRefs) {
+      const label = `${r.file}${r.page ? `#p${r.page}` : ""}`;
+      if (!seen.has(label)) {
+        seen.add(label);
+        sources.push({ label });
+      }
+    }
+    return { sources, relationGroups, confused, conflicts: detectSourceRefConflicts(page.sourceRefs, page.markdown) };
   };
 
   // [[대상]] → 같은 공간 위키 탭 열기. linkExists 로 깨진 링크 표식(수용기준 §2.3).
@@ -425,11 +452,13 @@ export default function PiecePoolApp() {
       };
       const apiKey = (typeof localStorage !== "undefined" && localStorage.getItem("openai-key")) || "";
       const { result, engine, warning, promotion, nodeTypes } = await runWikiGeneration(input, apiKey, { chunk: chunkOpts() });
+      // feature 3: Liner fact-check — 관계 근거에 권위 출처 URL 누적(설정 게이트, advisory).
+      const fc = await maybeFactCheck(result);
       const applied = await applyLlmResult(
         space,
         sp?.id ?? "",
         note.subjectIds,
-        result,
+        fc.result,
         { sourceId: note.sourceId, archivePath: `archive/${note.path}` },
         wikiBySlug[space] ?? [],
       );
@@ -450,9 +479,10 @@ export default function PiecePoolApp() {
         prov.count > 0
           ? ` · 출처신뢰 ${Math.round(prov.avgScore * 100)}%${prov.multiSource > 0 ? ` · 교차검증 ${prov.multiSource}개` : ""}`
           : "";
+      const fcNote = fc.checked > 0 ? ` · 출처검증 ${fc.checked}건` : "";
       setAiStatus((s) => ({
         ...s,
-        [key]: `${engine === "openai" ? "GPT" : "휴리스틱"}로 위키 ${applied.pages.length}개 · 관계 ${applied.relationCount}개${mergedNote}${isoNote}${typeNote}${provNote}${warning ? " · GPT 실패→휴리스틱" : ""}`,
+        [key]: `${engine === "openai" ? "GPT" : "휴리스틱"}로 위키 ${applied.pages.length}개 · 관계 ${applied.relationCount}개${mergedNote}${isoNote}${typeNote}${provNote}${fcNote}${warning ? " · GPT 실패→휴리스틱" : ""}`,
       }));
       if (applied.pages[0]) openWiki(space, applied.pages[0].path);
     } catch (e) {
@@ -461,8 +491,18 @@ export default function PiecePoolApp() {
       setAiBusy("");
     }
   };
-  const checkGaps = (space: string, note: ArchiveNote) =>
-    setGaps((g) => ({ ...g, [docKey(space, note.path)]: heuristicGaps(note.title, note.markdown) }));
+  // 간극 점검 — Liner(주) → OpenAI 소크라테스(보조) → 휴리스틱(오프라인) 3단 폴백.
+  const checkGaps = async (space: string, note: ArchiveNote) => {
+    const key = docKey(space, note.path);
+    setGapBusy(key);
+    try {
+      const openaiKey = (typeof localStorage !== "undefined" && localStorage.getItem("openai-key")) || "";
+      const report = await buildGaps(note.title, note.markdown, { liner: getLinerKey(), openai: openaiKey });
+      setGaps((g) => ({ ...g, [key]: report }));
+    } finally {
+      setGapBusy("");
+    }
+  };
   const clearGaps = (key: string) =>
     setGaps((g) => {
       const next = { ...g };
@@ -506,6 +546,7 @@ export default function PiecePoolApp() {
   const wikiReader = (space: string, page: WikiPageT) => {
     const key = docKey(space, page.path);
     const tabId = `wiki:${space}:${page.path}`;
+    const sections = conceptSections(space, page);
     return (
       <DocView
         docType="wiki"
@@ -522,7 +563,10 @@ export default function PiecePoolApp() {
         onLink={(t) => resolveLink(space, t)}
         linkExists={linkExistsIn(space)}
         embedSpace={space}
-        related={relatedConcepts(space, page.conceptId).map((r) => ({ title: r.title, onClick: () => openWiki(space, r.path) }))}
+        sources={sections.sources}
+        relationGroups={sections.relationGroups}
+        confused={sections.confused}
+        conflicts={sections.conflicts}
       />
     );
   };
@@ -548,13 +592,16 @@ export default function PiecePoolApp() {
         onLink={(t) => resolveLink(space, t)}
         linkExists={linkExistsIn(space)}
         embedSpace={space}
-        topSlot={<AiBar busy={aiBusy === key} status={aiStatus[key]} onGen={() => genWiki(space, note)} onGaps={() => checkGaps(space, note)} />}
+        topSlot={
+          <AiBar busy={aiBusy === key} gapBusy={gapBusy === key} status={aiStatus[key]} onGen={() => genWiki(space, note)} onGaps={() => checkGaps(space, note)} />
+        }
         bottomSlot={
           gaps[key] ? (
             <GapPanel
               // 질문 목록이 바뀌면 리마운트 — 이전 선택이 새 질문에 매핑되는 것 방지
-              key={gaps[key].map((g) => g.prompt).join("|")}
-              questions={gaps[key]}
+              key={gaps[key].questions.map((g) => g.prompt).join("|")}
+              questions={gaps[key].questions}
+              engine={gaps[key].engine}
               onClose={() => clearGaps(key)}
               onSubmit={(answers) => appendGapAnswers(space, note, answers)}
             />
@@ -587,6 +634,7 @@ export default function PiecePoolApp() {
           onOpenArchive={openArchive}
           onNewNote={() => openInbox(currentSpace)}
           onOpenGraph={openGraph}
+          onSelectSpace={selectSpace}
         />
       );
     }
@@ -714,7 +762,7 @@ export default function PiecePoolApp() {
           </Card>
         )}
 
-        <TabStrip tabs={openTabs} activeId={activeTabId} onSelect={setActiveTab} onClose={requestCloseTab} />
+        <TabStrip tabs={openTabs} activeId={activeTabId} onSelect={setActiveTab} onClose={requestCloseTab} onReorder={reorderTab} />
 
         <div className={fullBleed ? "min-h-0 flex-1 overflow-hidden" : "min-h-0 flex-1 overflow-y-auto p-6"}>
           {booting ? <p className="p-6 text-[15px] text-ink-muted">불러오는 중…</p> : renderActiveTab()}

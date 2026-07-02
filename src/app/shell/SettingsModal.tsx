@@ -1,6 +1,17 @@
 import { useEffect, useState } from "react";
 import { Button, useTheme, cn } from "../../ds";
-import { getChunkSettings, setChunkEnabled, setChunkPercentile, getInboxView, setInboxView, type InboxView } from "../../lib/settings";
+import {
+  getChunkSettings,
+  setChunkEnabled,
+  setChunkPercentile,
+  getInboxView,
+  setInboxView,
+  getLinerKey,
+  setLinerKey,
+  getFactCheck,
+  setFactCheck,
+  type InboxView,
+} from "../../lib/settings";
 
 // ══ 설정 모달 (§I) ══
 export function SettingsModal({ onClose, workspacePath }: { onClose: () => void; workspacePath?: string }) {
@@ -14,6 +25,19 @@ export function SettingsModal({ onClose, workspacePath }: { onClose: () => void;
   const changeInboxView = (v: InboxView) => {
     setInboxView(v);
     setInboxViewState(v);
+  };
+  const [liner, setLiner] = useState(getLinerKey());
+  const [linerSaved, setLinerSaved] = useState(false);
+  const [factOn, setFactOn] = useState(getFactCheck());
+  const saveLiner = () => {
+    setLinerKey(liner);
+    setLinerSaved(true);
+    setTimeout(() => setLinerSaved(false), 1500);
+  };
+  const toggleFact = () => {
+    const next = !factOn;
+    setFactCheck(next);
+    setFactOn(next);
   };
   const toggleChunk = () => {
     const next = !chunkOn;
@@ -70,6 +94,31 @@ export function SettingsModal({ onClose, workspacePath }: { onClose: () => void;
             <span className={cn("rounded-full px-2 py-0.5 text-[12px] font-semibold", hasKey ? "bg-primary text-on-primary" : "bg-surface-soft text-ink-muted")}>
               {hasKey ? "OpenAI GPT" : "휴리스틱(오프라인)"}
             </span>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[14px] font-semibold text-ink">Liner API Key</label>
+            <p className="text-[12px] text-ink-muted">정보 간극 메우기·fact-check의 출처 검색(feature 3). 비우면 OpenAI 되묻기 → 오프라인 순서로 폴백합니다.</p>
+            <div className="flex gap-2">
+              <input
+                type="password"
+                value={liner}
+                onChange={(e) => setLiner(e.target.value)}
+                placeholder="liner-…"
+                className="flex-1 rounded-md border border-hairline bg-surface px-3 py-2 text-[14px] text-ink outline-none focus-visible:shadow-soft"
+              />
+              <Button variant="solid" onClick={saveLiner}>
+                {linerSaved ? "저장됨" : "저장"}
+              </Button>
+            </div>
+          </div>
+          <div className="flex items-center justify-between rounded-md border border-hairline p-3">
+            <div>
+              <span className="text-[14px] text-ink-2">Fact-check</span>
+              <p className="text-[12px] text-ink-muted">위키 생성 시 관계 근거에 권위 출처 URL을 붙입니다. Liner Key 필요 · 기본 켜짐.</p>
+            </div>
+            <Button variant={factOn ? "solid" : "utility"} size="sm" onClick={toggleFact}>
+              {factOn ? "켜짐" : "꺼짐"}
+            </Button>
           </div>
           <div className="space-y-2 rounded-md border border-hairline p-3">
             <div className="flex items-center justify-between">

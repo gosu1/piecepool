@@ -33,6 +33,7 @@ interface WorkspaceState {
   setActiveTab: (id: string) => void;
   setTabDirty: (id: string, dirty: boolean) => void;
   renameTab: (id: string, title: string) => void;
+  reorderTab: (dragId: string, targetId: string) => void;
   toggleLeftPane: () => void;
   setSidebarWidth: (w: number) => void;
   toggleTreeNode: (id: string) => void;
@@ -75,6 +76,18 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 
       renameTab: (id, title) =>
         set((s) => ({ openTabs: s.openTabs.map((t) => (t.id === id ? { ...t, title } : t)) })),
+
+      // 드래그 재정렬 — dragId 탭을 targetId 위치로 이동(target 앞에 삽입)
+      reorderTab: (dragId, targetId) =>
+        set((s) => {
+          const tabs = [...s.openTabs];
+          const from = tabs.findIndex((t) => t.id === dragId);
+          const to = tabs.findIndex((t) => t.id === targetId);
+          if (from === -1 || to === -1 || from === to) return s;
+          const [moved] = tabs.splice(from, 1);
+          tabs.splice(to, 0, moved);
+          return { openTabs: tabs };
+        }),
 
       toggleLeftPane: () => set((s) => ({ leftCollapsed: !s.leftCollapsed })),
 
