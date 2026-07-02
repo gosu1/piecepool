@@ -4,7 +4,7 @@ import * as ipc from "../lib/ipc";
 import { runWikiGeneration } from "../llm/generate";
 import type { LlmWikiInput, LlmWikiResult } from "../llm/provider";
 import { buildGaps, type GapQuestion } from "../llm/gaps";
-import { applyLlmResult, embedSourceFiles } from "../lib/llmApply";
+import { applyLlmResult, embedSourceFiles, isSynthesisPage } from "../lib/llmApply";
 import { maybeFactCheck } from "../lib/factCheck";
 import { chunkOpts, getLinerKey } from "../lib/settings";
 
@@ -85,7 +85,10 @@ function buildInput(note: ArchiveNote, existing: WikiPage[]): LlmWikiInput {
     // 노트가 참조하는 원본 파일 — 없으면 sanitizeSourceRefs 가 모든 sourceRefs 를 제거한다.
     sourceFiles: embedSourceFiles(note.sourceId, note.markdown),
     subjects: note.subjectIds.map((id) => ({ id, name: id })),
-    existingConcepts: existing.map((w) => ({ id: w.conceptId, title: w.title, normalizedTitle: w.title.toLowerCase() })),
+    // 정리 글(합성) 페이지는 개념이 아니다 — 중복 힌트에서 제외.
+    existingConcepts: existing
+      .filter((w) => !isSynthesisPage(w))
+      .map((w) => ({ id: w.conceptId, title: w.title, normalizedTitle: w.title.toLowerCase() })),
   };
 }
 

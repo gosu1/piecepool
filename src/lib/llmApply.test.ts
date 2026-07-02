@@ -1,7 +1,12 @@
-import { describe, it, expect } from "vitest";
-import { normalizeTitle, slugOrHash, toSourceRefs, embedSourceFiles } from "./llmApply";
+import { describe, it, expect, vi } from "vitest";
+import { normalizeTitle, slugOrHash, toSourceRefs, embedSourceFiles, synthesisPage, isSynthesisPage, applyLlmResult } from "./llmApply";
 import type { LlmConcept } from "../llm/provider";
-import type { SourceRef } from "./types";
+import type { ArchiveNote, SourceRef, WikiPage } from "./types";
+
+vi.mock("./ipc", () => ({
+  saveWiki: vi.fn(async (_space: string, page: unknown) => page),
+  appendRelations: vi.fn(async () => 0),
+}));
 
 describe("concept dedup key (normalizedTitle)", () => {
   it("collapses case + whitespace, NFC — 'Self-Attention' == 'self attention'", () => {
@@ -63,6 +68,76 @@ describe("toSourceRefs", () => {
     expect(toSourceRefs(concept([{ sourceId: "s1", file: "", embed: false }]), new Set(["s1"]), "t")).toEqual([]);
     const existing: SourceRef[] = [{ id: "r", sourceId: "s1", file: "a.pdf", embed: false }];
     expect(toSourceRefs(concept([]), new Set(["s1"]), "t", existing)).toEqual(existing);
+  });
+});
+
+// ── 정리 글(합성) 페이지 — ADR-0008 ─────────────────────────
+const NOTE: ArchiveNote = {
+  id: "note-1",
+  spaceId: "sp-1",
+  sourceId: "source-1a2b3c",
+  path: "2026-07-03-os.md",
+  title: "OS 3주차",
+  markdown: "파편",
+  subjectIds: ["subj-1"],
+  createdAt: "2026-07-03T10:00:00+09:00",
+  updatedAt: "2026-07-03T10:00:00+09:00",
+};
+
+describe("synthesisPage", () => {
+  it("정체성은 sourceId 에서 결정적으로 파생 (제목 아님)", () => {
+    const p = synthesisPage("sp-1", NOTE, "# OS 3주차 정리\n본문", []);
+    expect(p.conceptId).toBe("concept-syn-source-1a2b3c");
+    expect(p.id).toBe("wiki-syn-source-1a2b3c");
+    expect(p.path).toBe("syn-source-1a2b3c.md");
+    expect(p.title).toBe("OS 3주차 정리");
+    expect(p.subjectIds).toEqual(["subj-1"]);
+    expect(p.sourceIds).toEqual(["source-1a2b3c"]);
+    expect(isSynthesisPage(p)).toBe(true);
+  });
+
+  it("재변환은 기존 페이지의 id/path/createdAt 을 보존하고 본문만 갱신", () => {
+    const first = synthesisPage("sp-1", NOTE, "v1", []);
+    const second = synthesisPage("sp-1", { ...NOTE, title: "OS 3주차 (수정)" }, "v2", [first]);
+    expect(second.id).toBe(first.id);
+    expect(second.path).toBe(first.path);
+    expect(second.createdAt).toBe(first.createdAt);
+    expect(second.markdown).toBe("v2");
+    expect(second.title).toBe("OS 3주차 (수정) 정리"); // 제목은 노트 따라감, 파일은 고정
+  });
+
+  it("본문 embed → sourceRefs (dedup, [[링크]]는 제외) — 충돌 배너 방지", () => {
+    const md = "![[lec.pdf#page=3]] 글 [[개념링크]] ![[lec.pdf#page=3]] ![[img.png]]";
+    const p = synthesisPage("sp-1", NOTE, md, []);
+    expect(p.sourceRefs).toEqual([
+      { id: "ref-syn-0", sourceId: "source-1a2b3c", file: "lec.pdf", page: 3, embed: true },
+      { id: "ref-syn-1", sourceId: "source-1a2b3c", file: "img.png", page: undefined, embed: true },
+    ]);
+  });
+
+  it("일반 추출 페이지는 isSynthesisPage 아님", () => {
+    expect(isSynthesisPage({ conceptId: "concept-transformer" } as WikiPage)).toBe(false);
+  });
+});
+
+describe("applyLlmResult 클로버 가드", () => {
+  it("추출 개념 제목이 정리 글 제목과 겹쳐도 정리 글 파일에 병합하지 않는다", async () => {
+    const synPage = synthesisPage("sp-1", NOTE, "# OS 3주차 정리\n소중한 정리 글", []);
+    const result = {
+      concepts: [{ title: "OS 3주차 정리", summary: "s", explanation: "e", examples: [], sourceRefs: [], sourceEmbeds: [] }],
+      relations: [],
+    };
+    const applied = await applyLlmResult(
+      "space",
+      "sp-1",
+      ["subj-1"],
+      result,
+      { sourceId: NOTE.sourceId, archivePath: `archive/${NOTE.path}` },
+      [synPage],
+    );
+    expect(applied.merged).toBe(0); // 병합 안 됨 — 새 개념 페이지로 생성
+    expect(applied.pages[0].path).not.toBe(synPage.path);
+    expect(applied.pages[0].conceptId).not.toBe(synPage.conceptId);
   });
 });
 

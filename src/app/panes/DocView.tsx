@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { Button, Card, WikiPage, Icons, cn } from "../../ds";
+import { AIWritingBanner, Button, Card, SkeletonText, WikiPage, Icons, cn } from "../../ds";
 import { Markdown } from "../../lib/markdown";
 import { SlashBlockEditor } from "../../lib/SlashBlockEditor";
 import { RELATION_LABEL } from "../../lib/relationMeta";
 import type { RelationType } from "../../lib/generated/RelationType";
 import type { RefConflict } from "../../lib/sourceRefConflicts";
 import type { GapQuestion, GapEngine } from "../../llm/gaps";
+import type { ConvertJob } from "../../store/convertStore";
 
 // ══ 문서 뷰 (위키/원본 공통) — 읽기 ↔ 편집 + 개념 중심 섹션(소스·관계·헷갈리는 개념) ══
 export interface DocLinkItem {
@@ -37,6 +38,7 @@ export function DocView({
   conflicts,
   topSlot,
   bottomSlot,
+  sideSlot,
   embedSpace,
 }: {
   docType: "wiki" | "archive";
@@ -60,6 +62,8 @@ export function DocView({
   conflicts?: RefConflict[];
   topSlot?: ReactNode;
   bottomSlot?: ReactNode;
+  /** 읽기 모드(archive)에서 본문 옆에 나란히 붙는 패널 — 정리 글 스트리밍 미리보기 */
+  sideSlot?: ReactNode;
   embedSpace?: string;
 }) {
   const hasConceptPanel = !!(sources?.length || relationGroups?.length || confused?.length);
@@ -91,6 +95,20 @@ export function DocView({
         <WikiPage title={title}>
           <Markdown source={savedMd} onLink={onLink} linkExists={linkExists} embedSpace={embedSpace} />
         </WikiPage>
+      ) : sideSlot ? (
+        // 변환 중: 파편 원문(좌) | 정리 글 스트리밍(우) — 편집 모드 그리드와 동일 패턴
+        <div className="grid items-start gap-3 md:grid-cols-2">
+          <div className="space-y-3">
+            <div>
+              <h1 className="ds-h3 text-ink">{title}</h1>
+              {meta && <p className="text-[12px] text-ink-faint">{meta}</p>}
+            </div>
+            <Card padding="lg">
+              <Markdown source={savedMd} onLink={onLink} linkExists={linkExists} embedSpace={embedSpace} />
+            </Card>
+          </div>
+          {sideSlot}
+        </div>
       ) : (
         <>
           <div>
@@ -209,12 +227,22 @@ export function AiBar({
   status,
   onGen,
   onGaps,
+  convertBusy,
+  convertStreaming,
+  onConvert,
+  onCancelConvert,
 }: {
   busy: boolean;
   gapBusy?: boolean;
   status?: string;
   onGen: () => void;
   onGaps: () => void;
+  /** 변환 진행 중(전역 single-flight) — 버튼 비활성 */
+  convertBusy?: boolean;
+  /** 이 노트가 스트리밍 중 — 버튼이 '중단'으로 전환 */
+  convertStreaming?: boolean;
+  onConvert?: () => void;
+  onCancelConvert?: () => void;
 }) {
   return (
     <Card padding="md" featured className="space-y-2">
@@ -226,9 +254,139 @@ export function AiBar({
         <Button variant="utility" size="sm" onClick={onGaps} disabled={busy || gapBusy}>
           {gapBusy ? "점검 중…" : "간극 점검"}
         </Button>
+        {onConvert &&
+          (convertStreaming ? (
+            <Button variant="utility" size="sm" onClick={onCancelConvert}>
+              중단
+            </Button>
+          ) : (
+            <Button variant="solid" size="sm" onClick={onConvert} disabled={busy || gapBusy || convertBusy} leftIcon={<Icons.SparkleIcon size={14} />}>
+              정리 글 변환
+            </Button>
+          ))}
         {status && <span className="text-[13px] text-ink-muted">{status}</span>}
       </div>
     </Card>
+  );
+}
+
+// ══ 정리 글 변환 패널 — 스트리밍 미리보기 (docs/40-frontend/screens/convert.md) ══
+const CONVERT_ENGINE_LABEL: Record<string, string> = { openai: "GPT", heuristic: "휴리스틱" };
+
+export function ConvertPanel({
+  job,
+  onCancel,
+  onClose,
+  onOpen,
+  onRetry,
+  onLink,
+  linkExists,
+}: {
+  job: ConvertJob;
+  onCancel: () => void;
+  onClose: () => void;
+  onOpen: () => void;
+  onRetry: () => void;
+  onLink: (target: string) => void;
+  linkExists?: (target: string) => boolean;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const stickRef = useRef(true); // 바닥 48px 이내면 자동 스크롤 유지, 위로 올리면 해제
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el && stickRef.current) el.scrollTop = el.scrollHeight;
+  }, [job.text]);
+  const streaming = job.status === "streaming";
+  return (
+    <div className="space-y-3">
+      {streaming ? (
+        <AIWritingBanner label="AI가 글을 정리하고 있어요" />
+      ) : (
+        <div className="flex items-center justify-between">
+          <p className="ds-eyebrow text-primary">
+            파편 → 정리 글
+            {job.engine && (
+              <span className="ml-2 rounded-full bg-surface-soft px-2 py-0.5 text-[11px] font-medium text-ink-muted">
+                {CONVERT_ENGINE_LABEL[job.engine]}
+              </span>
+            )}
+          </p>
+          <button type="button" onClick={onClose} aria-label="닫기" className="rounded p-1 text-ink-faint hover:bg-surface-soft hover:text-ink">
+            <Icons.CloseIcon size={14} />
+          </button>
+        </div>
+      )}
+      <Card padding="lg">
+        <div
+          ref={scrollRef}
+          onScroll={(e) => {
+            const el = e.currentTarget;
+            stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
+          }}
+          className="max-h-[480px] overflow-y-auto"
+        >
+          {streaming && !job.text ? (
+            <SkeletonText lines={3} />
+          ) : (
+            <>
+              {/* 스트리밍 중 embedSpace 미전달 — 재파싱마다 FilePreview 가 파일을 다시 읽는 churn 방지 */}
+              <Markdown source={job.text} onLink={onLink} linkExists={linkExists} />
+              {streaming && <span className="animate-pulse text-ink-muted">▍</span>}
+            </>
+          )}
+        </div>
+      </Card>
+      <div className="flex flex-wrap items-center gap-2 text-[13px] text-ink-muted">
+        {streaming && (
+          <>
+            <span>{job.text.length.toLocaleString()}자</span>
+            <span className="flex-1" />
+            <Button variant="utility" size="sm" onClick={onCancel}>
+              중단
+            </Button>
+          </>
+        )}
+        {job.status === "saving" && <span>저장 중…</span>}
+        {job.status === "done" && (
+          <>
+            <span>
+              저장됨 · {job.noteTitle} 정리{job.warning ? ` · ${job.warning}` : ""}
+            </span>
+            <span className="flex-1" />
+            <Button variant="solid" size="sm" onClick={onOpen}>
+              열기
+            </Button>
+            <Button variant="utility" size="sm" onClick={onClose}>
+              닫기
+            </Button>
+          </>
+        )}
+        {job.status === "cancelled" && (
+          <>
+            <span>중단됨 — 저장 안 됨 (개념 추출은 계속 진행돼요)</span>
+            <span className="flex-1" />
+            <Button variant="utility" size="sm" onClick={onRetry}>
+              다시 시도
+            </Button>
+            <Button variant="ghost" size="sm" onClick={onClose}>
+              닫기
+            </Button>
+          </>
+        )}
+        {job.status === "failed" && (
+          <>
+            <span className="text-danger">실패 — 저장 안 됨{job.error ? ` · ${job.error}` : ""}</span>
+            <span className="flex-1" />
+            <Button variant="utility" size="sm" onClick={onRetry}>
+              다시 시도
+            </Button>
+            <Button variant="ghost" size="sm" onClick={onClose}>
+              닫기
+            </Button>
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 

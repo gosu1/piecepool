@@ -1,5 +1,5 @@
 import type { LlmWikiResult, LlmConcept, LlmEvidence, LlmWikiInput } from "../llm/provider";
-import type { WikiPage, Relation, Evidence, SourceRef } from "./types";
+import type { WikiPage, Relation, Evidence, SourceRef, ArchiveNote } from "./types";
 import { parseWikilinks, parseEmbedTarget } from "./wikilink";
 import * as ipc from "./ipc";
 
@@ -77,6 +77,49 @@ export function toSourceRefs(c: LlmConcept, allowed: Set<string>, baseSlug: stri
   return out;
 }
 
+// ── 정리 글(합성) 페이지 — ADR-0008 / docs/30-llm/note-synthesis.md §6 ──────────────
+// 정체성(conceptId/path/id/title)은 노트 sourceId 에서 결정적으로 파생 — LLM 이 소유하지 않는다.
+// 재변환 = 같은 파일 갱신(제목 드리프트 무관), "syn-" 접두사로 추출 개념과 네임스페이스 분리.
+const SYN_CONCEPT_PREFIX = "concept-syn-";
+
+export function isSynthesisPage(p: WikiPage): boolean {
+  return p.conceptId.startsWith(SYN_CONCEPT_PREFIX);
+}
+
+export function synthesisConceptId(sourceId: string): string {
+  return `${SYN_CONCEPT_PREFIX}${sourceId}`;
+}
+
+export function synthesisPage(spaceId: string, note: ArchiveNote, markdown: string, existing: WikiPage[]): WikiPage {
+  const now = new Date().toISOString();
+  const conceptId = synthesisConceptId(note.sourceId);
+  const ex = existing.find((p) => p.conceptId === conceptId);
+  // 본문 embed → sourceRefs — 비우면 frontmatter↔본문 embed 충돌 배너가 뜬다(sourceRefConflicts).
+  const refs: SourceRef[] = [];
+  const seen = new Set<string>();
+  for (const t of parseWikilinks(markdown)) {
+    if (t.kind !== "embed") continue;
+    const { file, page } = parseEmbedTarget(t.value);
+    const k = `${file}|${page ?? ""}`;
+    if (!file || seen.has(k)) continue;
+    seen.add(k);
+    refs.push({ id: `ref-syn-${refs.length}`, sourceId: note.sourceId, file, page, embed: true });
+  }
+  return {
+    id: ex?.id ?? `wiki-syn-${note.sourceId}`,
+    spaceId,
+    conceptId,
+    title: `${note.title} 정리`,
+    path: ex?.path ?? `syn-${note.sourceId}.md`,
+    subjectIds: note.subjectIds,
+    sourceIds: [note.sourceId],
+    sourceRefs: refs,
+    markdown,
+    createdAt: ex?.createdAt ?? now, // 재변환 시 생성시각 보존
+    updatedAt: now,
+  };
+}
+
 function toEvidence(e: LlmEvidence): Evidence {
   return {
     sourceId: e.sourceId,
@@ -106,7 +149,8 @@ export async function applyLlmResult(
 ): Promise<ApplyResult> {
   const now = new Date().toISOString();
   const byNorm = new Map<string, WikiPage>();
-  for (const p of existing) byNorm.set(normalizeTitle(p.title), p);
+  // 합성(정리 글) 페이지는 병합 대상에서 제외 — 제목이 우연히 겹치면 conceptMarkdown 이 정리 글 본문을 덮어쓴다(클로버 가드).
+  for (const p of existing) if (!isSynthesisPage(p)) byNorm.set(normalizeTitle(p.title), p);
 
   const conceptMap = new Map<string, string>(); // normalizedTitle → conceptId
   const pages: WikiPage[] = [];
