@@ -12,6 +12,7 @@ PiecePool 전체 비전·범위·용어·플랜·결정 보류. **모든 역할 
 | [`pricing-model.md`](pricing-model.md) | provider·tier·환경변수, 되묻기/fact-check 흐름 | ✅ |
 | [`open-questions.md`](open-questions.md) | 결정 보류 항목 (라이브러리, LLM, UX, 인프라, 데이터) | ✅ |
 | [`competition-plan.md`](competition-plan.md) | SW부문 대회 제출물·마감·역산 실행 계획 | ✅ |
+| [`journey.md`](journey.md) | 여정 기록 — 큰 사건·피벗·아이디어 발전 과정 (보고서·사업·PPT 원재료) | ✅ |
 
 ## 읽기 순서 (권장)
 
