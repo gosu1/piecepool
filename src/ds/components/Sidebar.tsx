@@ -49,9 +49,11 @@ export function Sidebar({
           <IconButton size="sm" aria-label="파일 추가" onClick={onAddFile}>
             <FileUpIcon size={16} />
           </IconButton>
-          <IconButton size="sm" aria-label="그래프 뷰" onClick={onToggleGraph}>
-            <GraphIcon size={16} />
-          </IconButton>
+          {onToggleGraph && (
+            <IconButton size="sm" aria-label="그래프 뷰" onClick={onToggleGraph}>
+              <GraphIcon size={16} />
+            </IconButton>
+          )}
         </div>
       </div>
 

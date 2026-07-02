@@ -33,7 +33,7 @@ export function IconButton({
       type={type}
       className={cn(
         "inline-flex items-center justify-center text-ink-muted transition-colors duration-150",
-        circular ? "rounded-full bg-black/5 dark:bg-white/10" : "rounded-md",
+        circular ? "rounded-full bg-fill-subtle" : "rounded-md",
         "hover:bg-surface-soft hover:text-ink active:scale-95",
         "outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
         "disabled:pointer-events-none disabled:opacity-50",
