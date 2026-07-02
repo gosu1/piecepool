@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AppShell, TopBar, Sidebar, ConceptGraph, Card, EmptyState, IconButton, Icons } from "../ds";
+import { AppShell, TopBar, Sidebar, ConceptGraph, Card, EmptyState, Icons } from "../ds";
 import type { TreeNode } from "../ds";
 import type { KnowledgeSpace, WikiPage as WikiPageT, ArchiveNote, GraphData } from "../lib/types";
 import * as ipc from "../lib/ipc";
@@ -18,10 +18,16 @@ import { WikiSection } from "./panes/WikiSection";
 import { SourceSection } from "./panes/SourceSection";
 import { GraphSection } from "./panes/GraphSection";
 import { InboxSection } from "./panes/InboxSection";
-import { SectionNav } from "./shell/SectionNav";
+import { Ribbon } from "./shell/Ribbon";
+import { VaultSwitcher } from "./shell/VaultSwitcher";
+import { Breadcrumb } from "./shell/Breadcrumb";
+import { StatusBar } from "./shell/StatusBar";
 import { SearchPalette } from "./shell/SearchPalette";
 import { SettingsModal } from "./shell/SettingsModal";
 import { AccountFooter } from "./shell/AccountFooter";
+import { useWorkspaceStore } from "../store/workspaceStore";
+
+const SECTION_LABEL: Record<Section, string> = { inbox: "Inbox", wiki: "Wiki", source: "Source", graph: "Graph" };
 
 export default function PiecePoolApp() {
   const [spaces, setSpaces] = useState<KnowledgeSpace[]>([]);
@@ -108,6 +114,10 @@ export default function PiecePoolApp() {
   const notes = notesBySlug[currentSpace] ?? [];
   const sources = sourcesBySlug[currentSpace] ?? [];
   const graph = graphBySlug[currentSpace];
+
+  // 셸 UI 상태(P0 workspaceStore) — 좌측 사이드바 접기
+  const leftCollapsed = useWorkspaceStore((s) => s.leftCollapsed);
+  const toggleLeftPane = useWorkspaceStore((s) => s.toggleLeftPane);
 
   // ── 네비게이션 ──
   const openWiki = (space: string, file: string) => {
@@ -345,32 +355,60 @@ export default function PiecePoolApp() {
 
   const laid = graph ? layoutGraph(graph) : null;
 
+  // 상태바 경로 라벨
+  const pathLabel =
+    section === "wiki" && wikiMode === "doc" && selectedWiki
+      ? `${currentSpace} / wiki / ${selectedWiki}`
+      : section === "source" && selectedSource
+        ? `${currentSpace} / archive / ${selectedSource}`
+        : currentSpace
+          ? `${currentSpace} / ${section}`
+          : "";
+
+  // TopBar breadcrumb
+  const crumbs = ["PiecePool", spaceName || currentSpace, SECTION_LABEL[section]].filter(Boolean) as string[];
+  const activeDocTitle =
+    section === "wiki" && wikiMode === "doc" ? selectedWikiPage?.title : section === "source" ? selectedSourceNote?.title : undefined;
+  if (activeDocTitle) crumbs.push(activeDocTitle);
+
   return (
     <div className="h-screen">
       <AppShell
         topBar={
           <TopBar
             showActions={false}
-            searchSlot={<SectionNav spaces={spaces} currentSpace={currentSpace} onSpace={selectSpace} section={section} onSection={setSection} />}
-            actions={
-              <IconButton aria-label="검색 (⌘K)" onClick={() => setPaletteOpen(true)}>
-                <Icons.SearchIcon size={18} />
-              </IconButton>
+            searchSlot={
+              <div className="flex min-w-0 items-center gap-3">
+                <VaultSwitcher spaces={spaces} currentSpace={currentSpace} onSpace={selectSpace} />
+                <Breadcrumb crumbs={crumbs} />
+              </div>
             }
           />
         }
-        sidebar={
-          <Sidebar
-            key={`sb-${spaces.length}`}
-            nodes={tree}
-            selectedId={selectedTreeId}
-            defaultExpandedIds={spaces.flatMap((s) => [`sp:${s.slug}`, `wf:${s.slug}`, `af:${s.slug}`])}
-            onSelect={onTreeSelect}
-            onToggleGraph={() => setSection("graph")}
-            onAddFile={() => setSection("inbox")}
-            footer={<AccountFooter onSettings={openSettings} />}
+        leftRibbon={
+          <Ribbon
+            section={section}
+            onSection={setSection}
+            onSearch={() => setPaletteOpen(true)}
+            onToggleFiles={toggleLeftPane}
+            filesOpen={!leftCollapsed}
+            onSettings={openSettings}
           />
         }
+        sidebar={
+          leftCollapsed ? undefined : (
+            <Sidebar
+              key={`sb-${spaces.length}`}
+              nodes={tree}
+              selectedId={selectedTreeId}
+              defaultExpandedIds={spaces.flatMap((s) => [`sp:${s.slug}`, `wf:${s.slug}`, `af:${s.slug}`])}
+              onSelect={onTreeSelect}
+              onAddFile={() => setSection("inbox")}
+              footer={<AccountFooter onSettings={openSettings} />}
+            />
+          )
+        }
+        statusBar={<StatusBar pathLabel={pathLabel} />}
         contentClassName="!p-0 !overflow-hidden flex min-h-0 flex-col"
       >
         {error && (
