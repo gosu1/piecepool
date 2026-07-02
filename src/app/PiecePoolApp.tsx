@@ -637,7 +637,6 @@ export default function PiecePoolApp() {
           graphBySlug={graphBySlug}
           currentSpace={currentSpace}
           onOpenWiki={openWiki}
-          onOpenArchive={openArchive}
           onNewNote={() => openInbox(currentSpace)}
           onOpenGraph={openGraph}
           onSelectSpace={selectSpace}
