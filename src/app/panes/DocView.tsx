@@ -3,7 +3,8 @@ import type { ReactNode } from "react";
 import { Button, Card, WikiPage, Icons, cn } from "../../ds";
 import { Markdown } from "../../lib/markdown";
 import { SlashBlockEditor } from "../../lib/SlashBlockEditor";
-import { EDGE_COLOR } from "../../lib/CytoscapeGraph";
+import { RELATION_LABEL } from "../../lib/relationMeta";
+import type { RelationType } from "../../lib/generated/RelationType";
 import type { RefConflict } from "../../lib/sourceRefConflicts";
 import type { GapQuestion, GapEngine } from "../../llm/gaps";
 
@@ -135,9 +136,8 @@ export function DocView({
               <div className="space-y-1.5">
                 {relationGroups.map((g) => (
                   <div key={g.type} className="flex flex-wrap items-center gap-2">
-                    <span className="flex items-center gap-1.5 rounded-full border border-hairline px-2.5 py-0.5 text-[12px] text-ink-2">
-                      <span className="h-2 w-2 rounded-full" style={{ background: EDGE_COLOR[g.type] ?? "#a39e98" }} />
-                      {g.type}
+                    <span className="flex items-center gap-1.5 rounded-full border border-hairline px-2.5 py-0.5 text-[12px] font-medium text-ink-2">
+                      {RELATION_LABEL[g.type as RelationType] ?? g.type}
                     </span>
                     {g.items.map((it, i) => (
                       <button

@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef } from "react";
 import cytoscape from "cytoscape";
 import type { Core, ElementDefinition } from "cytoscape";
-import { forceSimulation, forceLink, forceManyBody, forceCenter, forceCollide, forceRadial } from "d3-force";
+import { forceSimulation, forceLink, forceManyBody, forceCenter, forceCollide, forceRadial, forceX, forceY } from "d3-force";
 import type { Simulation, SimulationNodeDatum } from "d3-force";
 import type { GraphData } from "./types";
+import { RELATION_LABEL, REVIEW_COLOR, computeDepth, groupOf } from "./relationMeta";
 import { useTheme } from "../ds";
 
 // 옵시디언식 물리: d3-force 시뮬레이션이 cytoscape 노드 위치를 구동한다.
@@ -20,7 +21,8 @@ interface SimLink {
 
 // cy 요소로부터 시뮬레이션을 구성한다. 노드 x/y 를 비워 두면 d3 가 나선형으로 초기 배치(겹침 방지),
 // 매 tick 에 좌표를 cy 로 흘려보낸다. (링크 거리·반발·중심·충돌 힘 = 옵시디언 그래프 힘 구성)
-function buildSim(cy: Core): { sim: Simulation<SimNode, SimLink>; map: Map<string, SimNode> } {
+// layout="hier": part_of·prerequisite 로 유도한 깊이(computeDepth)를 forceY 목표로 — 위=기초/전체, 아래=심화/부분.
+function buildSim(cy: Core, layout: "force" | "hier"): { sim: Simulation<SimNode, SimLink>; map: Map<string, SimNode> } {
   const w = cy.width() || 800;
   const h = cy.height() || 600;
   const nodes: SimNode[] = cy.nodes().map((n) => ({ id: n.id(), space: n.data("space") as string | undefined }));
@@ -44,6 +46,13 @@ function buildSim(cy: Core): { sim: Simulation<SimNode, SimLink>; map: Map<strin
   // space별 그리드 앵커를 중심으로 한 radial 로 군집 + degree 배치(허브=앵커중심, 리프=바깥링)를
   // 클러스터마다 재현한다. 단일 뷰의 "연결 적은 노드 바깥" 느낌을 각 공간에서 유지.
   const spacesPresent = Array.from(new Set(nodes.map((n) => n.space).filter(Boolean))) as string[];
+
+  // 계층 깊이 — 단일 뷰 + 계층 모드에서만. 계층 엣지(part_of·prerequisite) 없으면 비어서 force 폴백.
+  const depth =
+    layout === "hier" && spacesPresent.length <= 1
+      ? computeDepth(cy.edges().map((e) => ({ source: e.source().id(), target: e.target().id(), rel: e.data("rel") as string })))
+      : new Map<string, number>();
+
   if (spacesPresent.length > 1) {
     const cols = Math.ceil(Math.sqrt(spacesPresent.length));
     const rows = Math.ceil(spacesPresent.length / cols);
@@ -72,6 +81,22 @@ function buildSim(cy: Core): { sim: Simulation<SimNode, SimLink>; map: Map<strin
     sim
       .force("charge", forceManyBody<SimNode>().strength(-120).distanceMax(220))
       .force("cluster", clusterRadial);
+  } else if (depth.size > 0) {
+    // ── 계층 모드: 세로축 = 논리 계층. 계층 노드는 제 층으로 강하게, 고아(일반 엣지만)는
+    // 링크 힘으로 이웃 곁 정착(0), 완전 고립만 하단 미분류 밴드로 약하게 당긴다.
+    // forceCenter 는 무게중심을 평행이동시켜 절대 y 목표와 싸우므로 약한 forceX 로 수평만 잡는다.
+    const maxDepth = Math.max(...depth.values());
+    const layerGap = Math.min(110, Math.max(70, (h * 0.76) / Math.max(1, maxDepth)));
+    const topY = h * 0.12;
+    sim
+      .force("charge", forceManyBody<SimNode>().strength(-160).distanceMax(500))
+      .force("x", forceX<SimNode>(w / 2).strength(0.04))
+      .force(
+        "layerY",
+        forceY<SimNode>((d) => (depth.has(d.id) ? topY + depth.get(d.id)! * layerGap : topY + (maxDepth + 1) * layerGap)).strength((d) =>
+          depth.has(d.id) ? 0.5 : (deg.get(d.id) ?? 0) === 0 ? 0.12 : 0,
+        ),
+      );
   } else {
     sim
       .force("charge", forceManyBody<SimNode>().strength(-160).distanceMax(500))
@@ -90,23 +115,13 @@ function buildSim(cy: Core): { sim: Simulation<SimNode, SimLink>; map: Map<strin
 }
 
 // 인터랙티브 타입드 그래프 (Cytoscape.js 직접 제어).
-// 방향 화살표 · 타입별 엣지색 · 강도별 두께 · 약한 관계 점선 · 차수 비례 노드 크기 ·
+// 모노크롬 엣지 언어(논리 그룹별 모양: 실선=뼈대·점선=느슨한 연결·빨강=복습만) · 강도별 두께 ·
+// 확대/hover 시 한국어 관계 라벨(progressive disclosure) · 차수 비례 노드 크기 ·
 // hover 이웃 하이라이트 · 컨테이너 반응형 · 다크모드(DS 토큰) · 줌/맞춤/재배치 컨트롤.
-// 규약: docs/10-contracts/relation-types.md (12 enum). 색은 sticker 팔레트 기반 구분값.
-export const EDGE_COLOR: Record<string, string> = {
-  extracted_from: "#8a8780",
-  explained_by: "#0075de",
-  prerequisite: "#dd5b00",
-  part_of: "#2a9d99",
-  used_in: "#1aae39",
-  causes: "#e64980",
-  solves: "#7048e8",
-  contrasts: "#f08c00",
-  confused_with: "#e8590c",
-  related_to: "#a39e98",
-  tested_in: "#1c7ed6",
-  review_needed: "#e03131",
-};
+// 규약: docs/10-contracts/relation-types.md (12 enum) · 분류: src/lib/relationMeta.ts · 설계: docs/40-frontend/graph-view.md.
+
+// 이 배율 이상 확대하면 모든 엣지에 한국어 라벨 노출 (읽을 거리에서만 설명 등장)
+const LABEL_ZOOM = 1.1;
 
 export interface CytoscapeGraphProps {
   data: GraphData;
@@ -122,6 +137,8 @@ export interface CytoscapeGraphProps {
   focus?: { id: string; n: number } | null;
   /** 지정 시(전체 과목 뷰) 노드를 소속 space 색으로 칠한다. slug → 색. 미지정이면 kind 색(기본). */
   spaceColors?: Record<string, string>;
+  /** 레이아웃: 자유 배치(force) ↔ 계층 보기(hier). 계층 관계 없으면 hier 도 force 로 폴백. */
+  layout?: "force" | "hier";
   className?: string;
 }
 
@@ -134,23 +151,28 @@ function readTokens() {
     labelBg: v("--ds-canvas", "#ffffff"),
     core: v("--ds-primary", "#0075de"),
     result: v("--ds-ink-faint", "#b8b5ad"),
+    edge: v("--ds-ink-faint", "#b8b5ad"), // 모노크롬 엣지 — 의미는 색이 아니라 모양·라벨이 나른다
     selection: v("--ds-primary", "#0075de"),
   };
 }
 
-export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, typeFilter, selectedId, focus, spaceColors, className }: CytoscapeGraphProps) {
+export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, typeFilter, selectedId, focus, spaceColors, layout = "force", className }: CytoscapeGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<Core | null>(null);
   const simRef = useRef<Simulation<SimNode, SimLink> | null>(null);
   const mapRef = useRef<Map<string, SimNode>>(new Map());
   const { theme } = useTheme();
 
-  // 시뮬레이션 (재)구성 → 첫 정착 시 1회 화면 맞춤. 데이터 변경·재배치 버튼이 호출한다.
+  // 재배치 버튼·이벤트 콜백이 최신 레이아웃 모드를 참조하도록 ref 로.
+  const layoutRef = useRef(layout);
+  layoutRef.current = layout;
+
+  // 시뮬레이션 (재)구성 → 첫 정착 시 1회 화면 맞춤. 데이터 변경·모드 전환·재배치 버튼이 호출한다.
   const rebuild = () => {
     const cy = cyRef.current;
     if (!cy) return;
     simRef.current?.stop();
-    const { sim, map } = buildSim(cy);
+    const { sim, map } = buildSim(cy, layoutRef.current);
     simRef.current = sim;
     mapRef.current = map;
     let fitted = false;
@@ -199,9 +221,10 @@ export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, t
         id: r.id,
         source: r.sourceNodeId,
         target: r.targetNodeId,
-        color: EDGE_COLOR[r.relationType] ?? "#a39e98",
-        w: 1 + r.strength * 3,
-        dash: r.relationType === "related_to" || r.strength < 0.6 ? "dashed" : "solid",
+        rel: r.relationType, // 계층 레이아웃(computeDepth) 식별용
+        grp: groupOf(r.relationType).id, // 논리 그룹 → 모양 selector (점선·화살표·복습색)
+        label: RELATION_LABEL[r.relationType] ?? r.relationType, // 확대/hover 시 노출되는 한국어 라벨
+        w: 1 + r.strength * 3, // strength → 굵기 (점선/실선은 그룹 의미 전용)
       },
     }));
     return [...nodeEls, ...edgeEls];
@@ -246,12 +269,22 @@ export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, t
       }
       simRef.current?.alphaTarget(0);
     });
-    // hover → 이웃만 남기고 흐리게
+    // hover → 이웃만 남기고 흐리게 + 이웃 관계의 한국어 라벨 노출
     cy.on("mouseover", "node", (e) => {
       const hood = e.target.closedNeighborhood();
       cy.elements().not(hood).addClass("faded");
+      hood.edges().addClass("hl");
     });
-    cy.on("mouseout", "node", () => cy.elements().removeClass("faded"));
+    cy.on("mouseout", "node", () => cy.elements().removeClass("faded hl"));
+
+    // 확대 시 전 엣지 라벨 노출 — 임계 교차 때만 클래스 토글(줌 틱마다 재계산 방지)
+    let labelZoomed = false;
+    cy.on("zoom", () => {
+      const z = cy.zoom() >= LABEL_ZOOM;
+      if (z === labelZoomed) return;
+      labelZoomed = z;
+      cy.edges().toggleClass("zoomed", z);
+    });
 
     // 컨테이너 크기 추적 (분할 패널 리사이즈 대응)
     const ro = new ResizeObserver(() => cy.resize());
@@ -300,20 +333,35 @@ export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, t
       {
         selector: "edge",
         style: {
-          "line-color": "data(color)",
+          // 모노크롬: 의미는 색이 아니라 모양(실선/점선·화살표 유무)과 한국어 라벨이 나른다.
+          "line-color": t.edge,
           width: "data(w)",
           "curve-style": "bezier",
-          "line-style": "data(dash)",
           "target-arrow-shape": "triangle",
-          "target-arrow-color": "data(color)",
+          "target-arrow-color": t.edge,
           "arrow-scale": 0.8,
-          opacity: 0.75,
+          opacity: 0.7,
+          // 한국어 관계 라벨 — 평소 숨김(text-opacity 0), 확대(.zoomed)·이웃 hover(.hl)·선택 시 노출
+          label: "data(label)",
+          "font-size": 7,
+          color: t.label,
+          "text-rotation": "autorotate",
+          "text-background-color": t.labelBg,
+          "text-background-opacity": 0.75,
+          "text-background-padding": "1px",
+          "text-opacity": 0,
           "transition-property": "opacity",
           "transition-duration": 120,
         },
       },
+      // 논리 그룹별 모양 (relationMeta 분류): 대칭(연관)은 방향이 없으니 화살표 제거, 출처는 배경으로,
+      // 복습만 유일한 색. 실선=뼈대(구조·순서·인과·활용)는 base 그대로.
+      { selector: 'edge[grp = "assoc"]', style: { "line-style": "dashed", "target-arrow-shape": "none" } },
+      { selector: 'edge[grp = "prov"]', style: { "line-style": "dashed", opacity: 0.4 } },
+      { selector: 'edge[grp = "review"]', style: { "line-style": "dashed", "target-arrow-shape": "none", "line-color": REVIEW_COLOR, opacity: 0.9 } },
+      { selector: "edge.zoomed, edge.hl", style: { "text-opacity": 1 } },
       { selector: "node:selected", style: { "border-width": 3, "border-color": t.selection } },
-      { selector: "edge:selected", style: { opacity: 1, width: 4 } },
+      { selector: "edge:selected", style: { opacity: 1, width: 4, "text-opacity": 1 } },
       { selector: ".faded", style: { opacity: 0.12 } },
     ] as never);
   }, [theme]);
@@ -326,9 +374,21 @@ export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, t
       cy.elements().remove();
       cy.add(elements);
       if (selRef.current) cy.getElementById(selRef.current).select();
+      // 확대 상태에서 요소가 교체되면 새 엣지에도 라벨 노출 상태를 이어준다
+      cy.edges().toggleClass("zoomed", cy.zoom() >= LABEL_ZOOM);
     });
     rebuild();
   }, [elements]);
+
+  // ── 레이아웃 모드 전환 → 요소는 그대로 두고 시뮬만 재구성 (마운트 직후는 elements effect 가 담당) ──
+  const firstLayout = useRef(true);
+  useEffect(() => {
+    if (firstLayout.current) {
+      firstLayout.current = false;
+      return;
+    }
+    rebuild();
+  }, [layout]);
 
   // ── 노드 선택 동기화 (검색 등 외부에서 선택이 바뀔 때). 엣지 선택은 cy 네이티브에 맡긴다 ──
   useEffect(() => {
