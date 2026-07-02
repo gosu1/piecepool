@@ -1,18 +1,20 @@
 import type { ReactNode } from "react";
 import { cn, Icons } from "../../ds";
-import type { Section } from "../types";
 
-// ══ 좌측 리본 (Obsidian식 세로 아이콘 네비) — 파일트리 토글 · 검색 · 섹션 · 설정 ══
+// ══ 좌측 리본 (Obsidian식 세로 아이콘 네비) — 파일트리 토글 · 검색 · 새 노트 · 그래프 · 설정 ══
+// Wiki/Source 는 파일 트리로 접근(리본에서 제거). 활성 표시는 현재 탭 kind 기준.
 export function Ribbon({
-  section,
-  onSection,
+  activeKind,
+  onGraph,
+  onCapture,
   onSearch,
   onToggleFiles,
   filesOpen,
   onSettings,
 }: {
-  section: Section;
-  onSection: (s: Section) => void;
+  activeKind?: string;
+  onGraph: () => void;
+  onCapture: () => void;
   onSearch: () => void;
   onToggleFiles: () => void;
   filesOpen: boolean;
@@ -30,17 +32,11 @@ export function Ribbon({
 
       <Divider />
 
-      {/* 섹션 그룹 */}
-      <RibbonButton label="Inbox" active={section === "inbox"} onClick={() => onSection("inbox")}>
-        <Icons.FileUpIcon size={18} />
+      {/* 액션: 새 노트 · 그래프 */}
+      <RibbonButton label="새 노트 (Inbox)" active={activeKind === "inbox"} onClick={onCapture}>
+        <Icons.PlusIcon size={18} />
       </RibbonButton>
-      <RibbonButton label="Wiki" active={section === "wiki"} onClick={() => onSection("wiki")}>
-        <Icons.FileIcon size={18} />
-      </RibbonButton>
-      <RibbonButton label="Source" active={section === "source"} onClick={() => onSection("source")}>
-        <Icons.FolderIcon size={18} />
-      </RibbonButton>
-      <RibbonButton label="Graph" active={section === "graph"} onClick={() => onSection("graph")}>
+      <RibbonButton label="Graph" active={activeKind === "graph"} onClick={onGraph}>
         <Icons.GraphIcon size={18} />
       </RibbonButton>
 

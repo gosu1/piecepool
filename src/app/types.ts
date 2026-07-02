@@ -1,7 +1,4 @@
-// PiecePoolApp 이 소유하던 공유 타입/헬퍼 — 섹션 · ⌘K 검색 항목 · 문서 키.
-
-// 상단 섹션
-export type Section = "inbox" | "wiki" | "source" | "graph";
+// PiecePoolApp 이 소유하던 공유 타입/헬퍼 — ⌘K 검색 항목 · 문서 키.
 
 // ⌘K 검색 항목 (제목 + 본문 전문 검색)
 export interface SearchItem {

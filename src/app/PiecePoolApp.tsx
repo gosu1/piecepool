@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
-import { AppShell, TopBar, Sidebar, ConceptGraph, Card, EmptyState, Icons } from "../ds";
+import { AppShell, TopBar, Sidebar, Card, EmptyState, Icons } from "../ds";
 import type { TreeNode } from "../ds";
 import type { KnowledgeSpace, WikiPage as WikiPageT, ArchiveNote, GraphData } from "../lib/types";
 import * as ipc from "../lib/ipc";
-import { layoutGraph } from "../lib/graphLayout";
 import { runWikiGeneration } from "../llm/generate";
 import type { LlmWikiInput } from "../llm/provider";
 import { applyLlmResult } from "../lib/llmApply";
@@ -12,36 +11,30 @@ import type { GapQuestion } from "../llm/gaps";
 import { chunkOpts } from "../lib/settings";
 import { aggregateProvenance, tierFromSourceType, type SourceMeta } from "../llm/provenance";
 import { docKey } from "./types";
-import type { Section, SearchItem } from "./types";
+import type { SearchItem } from "./types";
 import { DocView, AiBar, GapPanel } from "./panes/DocView";
-import { WikiSection } from "./panes/WikiSection";
-import { SourceSection } from "./panes/SourceSection";
 import { GraphSection } from "./panes/GraphSection";
 import { InboxSection } from "./panes/InboxSection";
 import { Ribbon } from "./shell/Ribbon";
 import { VaultSwitcher } from "./shell/VaultSwitcher";
 import { Breadcrumb } from "./shell/Breadcrumb";
 import { StatusBar } from "./shell/StatusBar";
+import { TabStrip } from "./shell/TabStrip";
 import { SearchPalette } from "./shell/SearchPalette";
 import { SettingsModal } from "./shell/SettingsModal";
 import { AccountFooter } from "./shell/AccountFooter";
 import { useWorkspaceStore } from "../store/workspaceStore";
+import type { TabKind } from "../store/workspaceStore";
 
-const SECTION_LABEL: Record<Section, string> = { inbox: "Inbox", wiki: "Wiki", source: "Source", graph: "Graph" };
+const KIND_LABEL: Record<TabKind, string> = { wiki: "Wiki", archive: "Source", source: "Source", inbox: "Inbox", graph: "Graph", home: "Home" };
 
 export default function PiecePoolApp() {
   const [spaces, setSpaces] = useState<KnowledgeSpace[]>([]);
   const [wikiBySlug, setWikiBySlug] = useState<Record<string, WikiPageT[]>>({});
   const [notesBySlug, setNotesBySlug] = useState<Record<string, ArchiveNote[]>>({});
   const [graphBySlug, setGraphBySlug] = useState<Record<string, GraphData>>({});
-  const [sourcesBySlug, setSourcesBySlug] = useState<Record<string, string[]>>({});
 
-  // 상단 섹션 + 현재 공간 + 섹션별 선택 상태
-  const [section, setSection] = useState<Section>("wiki");
   const [currentSpaceSlug, setCurrentSpaceSlug] = useState<string>("");
-  const [selectedWiki, setSelectedWiki] = useState<string>(""); // wiki 파일명
-  const [wikiMode, setWikiMode] = useState<"doc" | "project">("doc"); // project = 그래프
-  const [selectedSource, setSelectedSource] = useState<string>(""); // archive 파일명
 
   // 인라인 편집 / LLM / 검색 팔레트
   const [editing, setEditing] = useState<Set<string>>(new Set());
@@ -55,7 +48,16 @@ export default function PiecePoolApp() {
   const [error, setError] = useState("");
   const [booting, setBooting] = useState(true);
 
-  // 부팅: 시드 → spaces → 각 공간 wiki/notes/graph/sources
+  // 셸 상태(P0 workspaceStore) — 열린 탭 · 활성 탭 · 사이드바 접기
+  const openTabs = useWorkspaceStore((s) => s.openTabs);
+  const activeTabId = useWorkspaceStore((s) => s.activeTabId);
+  const openTab = useWorkspaceStore((s) => s.openTab);
+  const closeTab = useWorkspaceStore((s) => s.closeTab);
+  const setActiveTab = useWorkspaceStore((s) => s.setActiveTab);
+  const leftCollapsed = useWorkspaceStore((s) => s.leftCollapsed);
+  const toggleLeftPane = useWorkspaceStore((s) => s.toggleLeftPane);
+
+  // 부팅: 시드 → spaces → 각 공간 wiki/notes/graph/sources → 첫 위키를 탭으로 연다
   useEffect(() => {
     (async () => {
       try {
@@ -65,29 +67,23 @@ export default function PiecePoolApp() {
         const w: Record<string, WikiPageT[]> = {};
         const n: Record<string, ArchiveNote[]> = {};
         const g: Record<string, GraphData> = {};
-        const src: Record<string, string[]> = {};
         await Promise.all(
           sp.map(async (s) => {
-            const [wikis, notes, graph, sources] = await Promise.all([
-              ipc.listWiki(s.slug),
-              ipc.listNotes(s.slug),
-              ipc.getGraph(s.slug),
-              ipc.listSources(s.slug),
-            ]);
+            const [wikis, notes, graph] = await Promise.all([ipc.listWiki(s.slug), ipc.listNotes(s.slug), ipc.getGraph(s.slug)]);
             w[s.slug] = wikis;
             n[s.slug] = notes;
             g[s.slug] = graph;
-            src[s.slug] = sources;
           }),
         );
         setWikiBySlug(w);
         setNotesBySlug(n);
         setGraphBySlug(g);
-        setSourcesBySlug(src);
         if (sp[0]) {
           setCurrentSpaceSlug(sp[0].slug);
-          setSelectedWiki(w[sp[0].slug]?.[0]?.path ?? "");
-          setSelectedSource(n[sp[0].slug]?.[0]?.path ?? "");
+          const firstWiki = w[sp[0].slug]?.[0];
+          if (firstWiki) {
+            openTab({ id: `wiki:${sp[0].slug}:${firstWiki.path}`, kind: "wiki", title: firstWiki.title, space: sp[0].slug, file: firstWiki.path });
+          }
         }
       } catch (e) {
         setError(String(e));
@@ -95,6 +91,7 @@ export default function PiecePoolApp() {
         setBooting(false);
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ⌘K → 검색 팔레트
@@ -109,36 +106,29 @@ export default function PiecePoolApp() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const currentSpace = currentSpaceSlug || spaces[0]?.slug || "";
-  const wikiPages = wikiBySlug[currentSpace] ?? [];
-  const notes = notesBySlug[currentSpace] ?? [];
-  const sources = sourcesBySlug[currentSpace] ?? [];
-  const graph = graphBySlug[currentSpace];
+  // 활성 탭 → 현재 공간 컨텍스트(브레드크럼·트리·VaultSwitcher가 따라감)
+  const activeTab = openTabs.find((t) => t.id === activeTabId) ?? null;
+  const currentSpace = activeTab?.space || currentSpaceSlug || spaces[0]?.slug || "";
+  const spaceName = spaces.find((s) => s.slug === currentSpace)?.name ?? "";
 
-  // 셸 UI 상태(P0 workspaceStore) — 좌측 사이드바 접기
-  const leftCollapsed = useWorkspaceStore((s) => s.leftCollapsed);
-  const toggleLeftPane = useWorkspaceStore((s) => s.toggleLeftPane);
-
-  // ── 네비게이션 ──
+  // ── 탭 열기(=네비게이션) ──
   const openWiki = (space: string, file: string) => {
-    setSection("wiki");
-    setCurrentSpaceSlug(space);
-    setWikiMode("doc");
-    setSelectedWiki(file);
+    const title = (wikiBySlug[space] ?? []).find((w) => w.path === file)?.title ?? file;
+    openTab({ id: `wiki:${space}:${file}`, kind: "wiki", title, space, file });
   };
   const openArchive = (space: string, file: string) => {
-    setSection("source");
-    setCurrentSpaceSlug(space);
-    setSelectedSource(file);
+    const title = (notesBySlug[space] ?? []).find((n) => n.path === file)?.title ?? file;
+    openTab({ id: `archive:${space}:${file}`, kind: "archive", title, space, file });
   };
+  const openInbox = (space: string) => openTab({ id: `inbox:${space}`, kind: "inbox", title: "Inbox", space });
+  const openGraph = (space: string) => openTab({ id: `graph:${space}`, kind: "graph", title: "Graph", space });
   const selectSpace = (slug: string) => {
     setCurrentSpaceSlug(slug);
-    setSelectedWiki(wikiBySlug[slug]?.[0]?.path ?? "");
-    setSelectedSource(notesBySlug[slug]?.[0]?.path ?? "");
-    setWikiMode("doc");
+    const firstWiki = wikiBySlug[slug]?.[0];
+    if (firstWiki) openWiki(slug, firstWiki.path);
   };
 
-  // ── 사이드바 vault 트리 ──
+  // ── 사이드바 vault 트리(전체 vault) ──
   const tree: TreeNode[] = spaces.map((s) => ({
     id: `sp:${s.slug}`,
     label: s.name,
@@ -165,11 +155,9 @@ export default function PiecePoolApp() {
     else openArchive(slug, file);
   };
   const selectedTreeId =
-    section === "wiki" && wikiMode === "doc"
-      ? `doc:wiki:${currentSpace}:${selectedWiki}`
-      : section === "source"
-        ? `doc:archive:${currentSpace}:${selectedSource}`
-        : "";
+    activeTab && (activeTab.kind === "wiki" || activeTab.kind === "archive")
+      ? `doc:${activeTab.kind === "wiki" ? "wiki" : "archive"}:${activeTab.space}:${activeTab.file}`
+      : "";
 
   // 위키 페이지의 관련 개념(그래프 relation 이웃) — Karpathy식 "see also"
   const relatedConcepts = (space: string, conceptId: string): { title: string; path: string }[] => {
@@ -188,7 +176,7 @@ export default function PiecePoolApp() {
     return out;
   };
 
-  // [[대상]] → 같은 공간 위키 선택
+  // [[대상]] → 같은 공간 위키 탭 열기
   const resolveLink = (space: string, target: string) => {
     const pages = wikiBySlug[space] ?? [];
     const hit = pages.find((p) => p.title === target) || pages.find((p) => p.title.toLowerCase() === target.toLowerCase());
@@ -284,7 +272,6 @@ export default function PiecePoolApp() {
       return next;
     });
 
-  // 새 노트 생성(Inbox) → archive 저장 → Source 에서 열기
   // Import 완료 후 해당 공간의 notes/wiki/graph 재로딩
   const refreshSpace = async (space: string) => {
     const [n, w, g] = await Promise.all([ipc.listNotes(space), ipc.listWiki(space), ipc.getGraph(space)]);
@@ -295,7 +282,7 @@ export default function PiecePoolApp() {
 
   const openSettings = () => setSettingsOpen(true);
 
-  // ⌘K 검색 대상
+  // ⌘K 검색 대상(전체 vault)
   const allFiles: SearchItem[] = spaces.flatMap((s) => [
     ...(wikiBySlug[s.slug] ?? []).map((w) => ({ kind: "wiki" as const, space: s.slug, spaceName: s.name, file: w.path, title: w.title, body: w.markdown })),
     ...(notesBySlug[s.slug] ?? []).map((nt) => ({ kind: "archive" as const, space: s.slug, spaceName: s.name, file: nt.path, title: nt.title, body: nt.markdown })),
@@ -306,14 +293,9 @@ export default function PiecePoolApp() {
     setPaletteOpen(false);
   };
 
-  // 선택된 문서
-  const selectedWikiPage = wikiPages.find((w) => w.path === selectedWiki) ?? wikiPages[0];
-  const selectedSourceNote = notes.find((n) => n.path === selectedSource) ?? notes[0];
-  const spaceName = spaces.find((s) => s.slug === currentSpace)?.name ?? "";
-
   // 위키 리더(DocView)
-  const wikiReader = (page: WikiPageT) => {
-    const key = docKey(currentSpace, page.path);
+  const wikiReader = (space: string, page: WikiPageT) => {
+    const key = docKey(space, page.path);
     return (
       <DocView
         docType="wiki"
@@ -323,17 +305,17 @@ export default function PiecePoolApp() {
         draft={drafts[key] ?? page.markdown}
         onToggleEdit={() => toggleEdit(key, page.markdown)}
         onChangeDraft={(md) => setDraft(key, md)}
-        onSave={() => saveWikiDoc(currentSpace, page, drafts[key] ?? page.markdown)}
-        onLink={(t) => resolveLink(currentSpace, t)}
-        embedSpace={currentSpace}
-        related={relatedConcepts(currentSpace, page.conceptId).map((r) => ({ title: r.title, onClick: () => openWiki(currentSpace, r.path) }))}
+        onSave={() => saveWikiDoc(space, page, drafts[key] ?? page.markdown)}
+        onLink={(t) => resolveLink(space, t)}
+        embedSpace={space}
+        related={relatedConcepts(space, page.conceptId).map((r) => ({ title: r.title, onClick: () => openWiki(space, r.path) }))}
       />
     );
   };
 
   // 원본 리더(DocView + AI)
-  const sourceReader = (note: ArchiveNote) => {
-    const key = docKey(currentSpace, note.path);
+  const sourceReader = (space: string, note: ArchiveNote) => {
+    const key = docKey(space, note.path);
     return (
       <DocView
         docType="archive"
@@ -344,32 +326,81 @@ export default function PiecePoolApp() {
         draft={drafts[key] ?? note.markdown}
         onToggleEdit={() => toggleEdit(key, note.markdown)}
         onChangeDraft={(md) => setDraft(key, md)}
-        onSave={() => saveArchiveDoc(currentSpace, note.path, drafts[key] ?? note.markdown)}
-        onLink={(t) => resolveLink(currentSpace, t)}
-        embedSpace={currentSpace}
-        topSlot={<AiBar busy={aiBusy === key} status={aiStatus[key]} onGen={() => genWiki(currentSpace, note)} onGaps={() => checkGaps(currentSpace, note)} />}
+        onSave={() => saveArchiveDoc(space, note.path, drafts[key] ?? note.markdown)}
+        onLink={(t) => resolveLink(space, t)}
+        embedSpace={space}
+        topSlot={<AiBar busy={aiBusy === key} status={aiStatus[key]} onGen={() => genWiki(space, note)} onGaps={() => checkGaps(space, note)} />}
         bottomSlot={gaps[key] ? <GapPanel questions={gaps[key]} onClose={() => clearGaps(key)} /> : undefined}
       />
     );
   };
 
-  const laid = graph ? layoutGraph(graph) : null;
+  // 활성 탭 본문 렌더 (Obsidian pane)
+  const renderActiveTab = () => {
+    if (!activeTab) {
+      return (
+        <EmptyState
+          icon={<Icons.FileIcon size={28} />}
+          title="열린 노트가 없어요"
+          description="왼쪽 파일 트리에서 노트를 열거나, 리본의 '새 노트'로 시작하세요."
+        />
+      );
+    }
+    const sp = activeTab.space ?? currentSpace;
+    const spName = spaces.find((s) => s.slug === sp)?.name ?? "";
+    switch (activeTab.kind) {
+      case "wiki": {
+        const page = (wikiBySlug[sp] ?? []).find((w) => w.path === activeTab.file);
+        return page ? wikiReader(sp, page) : <EmptyState icon={<Icons.FileIcon size={28} />} title="위키를 찾을 수 없어요" description={activeTab.file} />;
+      }
+      case "archive": {
+        const note = (notesBySlug[sp] ?? []).find((n) => n.path === activeTab.file);
+        return note ? sourceReader(sp, note) : <EmptyState icon={<Icons.FileUpIcon size={28} />} title="원본을 찾을 수 없어요" description={activeTab.file} />;
+      }
+      case "graph":
+        return (
+          <GraphSection
+            graph={graphBySlug[sp]}
+            spaceName={spName}
+            wikiPages={wikiBySlug[sp] ?? []}
+            onOpenWiki={(file) => openWiki(sp, file)}
+            onOpenArchive={(file) => openArchive(sp, file)}
+          />
+        );
+      case "inbox":
+        return (
+          <InboxSection
+            space={sp}
+            spaceId={spaces.find((s) => s.slug === sp)?.id ?? ""}
+            spaceName={spName}
+            subjectIdsDefault={wikiBySlug[sp]?.[0]?.subjectIds ?? []}
+            existing={wikiBySlug[sp] ?? []}
+            notes={notesBySlug[sp] ?? []}
+            onOpenNote={(n) => openArchive(sp, n.path)}
+            onRefresh={() => refreshSpace(sp)}
+          />
+        );
+      default:
+        return null;
+    }
+  };
 
   // 상태바 경로 라벨
-  const pathLabel =
-    section === "wiki" && wikiMode === "doc" && selectedWiki
-      ? `${currentSpace} / wiki / ${selectedWiki}`
-      : section === "source" && selectedSource
-        ? `${currentSpace} / archive / ${selectedSource}`
-        : currentSpace
-          ? `${currentSpace} / ${section}`
-          : "";
+  const pathLabel = activeTab
+    ? activeTab.kind === "wiki"
+      ? `${activeTab.space} / wiki / ${activeTab.file}`
+      : activeTab.kind === "archive"
+        ? `${activeTab.space} / archive / ${activeTab.file}`
+        : `${activeTab.space ?? currentSpace} / ${activeTab.kind}`
+    : currentSpace || "";
 
   // TopBar breadcrumb
-  const crumbs = ["PiecePool", spaceName || currentSpace, SECTION_LABEL[section]].filter(Boolean) as string[];
-  const activeDocTitle =
-    section === "wiki" && wikiMode === "doc" ? selectedWikiPage?.title : section === "source" ? selectedSourceNote?.title : undefined;
-  if (activeDocTitle) crumbs.push(activeDocTitle);
+  const crumbs = ["PiecePool", spaceName || currentSpace];
+  if (activeTab) {
+    crumbs.push(KIND_LABEL[activeTab.kind]);
+    if (activeTab.kind === "wiki" || activeTab.kind === "archive") crumbs.push(activeTab.title);
+  }
+  const cleanCrumbs = crumbs.filter(Boolean) as string[];
 
   return (
     <div className="h-screen">
@@ -380,15 +411,16 @@ export default function PiecePoolApp() {
             searchSlot={
               <div className="flex min-w-0 items-center gap-3">
                 <VaultSwitcher spaces={spaces} currentSpace={currentSpace} onSpace={selectSpace} />
-                <Breadcrumb crumbs={crumbs} />
+                <Breadcrumb crumbs={cleanCrumbs} />
               </div>
             }
           />
         }
         leftRibbon={
           <Ribbon
-            section={section}
-            onSection={setSection}
+            activeKind={activeTab?.kind}
+            onGraph={() => openGraph(currentSpace)}
+            onCapture={() => openInbox(currentSpace)}
             onSearch={() => setPaletteOpen(true)}
             onToggleFiles={toggleLeftPane}
             filesOpen={!leftCollapsed}
@@ -403,7 +435,7 @@ export default function PiecePoolApp() {
               selectedId={selectedTreeId}
               defaultExpandedIds={spaces.flatMap((s) => [`sp:${s.slug}`, `wf:${s.slug}`, `af:${s.slug}`])}
               onSelect={onTreeSelect}
-              onAddFile={() => setSection("inbox")}
+              onAddFile={() => openInbox(currentSpace)}
               footer={<AccountFooter onSettings={openSettings} />}
             />
           )
@@ -417,80 +449,10 @@ export default function PiecePoolApp() {
           </Card>
         )}
 
-        <div className="min-h-0 flex-1 overflow-hidden p-6">
-          {booting ? (
-            <p className="text-[15px] text-ink-muted">불러오는 중…</p>
-          ) : section === "inbox" ? (
-            <div className="h-full overflow-y-auto">
-              <InboxSection
-                space={currentSpace}
-                spaceId={spaces.find((s) => s.slug === currentSpace)?.id ?? ""}
-                spaceName={spaceName}
-                subjectIdsDefault={wikiBySlug[currentSpace]?.[0]?.subjectIds ?? []}
-                existing={wikiPages}
-                notes={notes}
-                onOpenNote={(n) => openArchive(currentSpace, n.path)}
-                onRefresh={() => refreshSpace(currentSpace)}
-              />
-            </div>
-          ) : section === "graph" ? (
-            <GraphSection
-              graph={graph}
-              spaceName={spaceName}
-              wikiPages={wikiPages}
-              onOpenWiki={(file) => openWiki(currentSpace, file)}
-              onOpenArchive={(file) => openArchive(currentSpace, file)}
-            />
-          ) : section === "source" ? (
-            <SourceSection
-              spaceName={spaceName}
-              notes={notes}
-              files={sources}
-              selected={selectedSourceNote?.path ?? ""}
-              onSelect={setSelectedSource}
-              onGoInbox={() => setSection("inbox")}
-            >
-              {selectedSourceNote ? sourceReader(selectedSourceNote) : null}
-            </SourceSection>
-          ) : (
-            <WikiSection
-              spaceName={spaceName}
-              pages={wikiPages}
-              selected={wikiMode === "doc" ? selectedWiki : "__project__"}
-              onSelect={(f) => {
-                setWikiMode("doc");
-                setSelectedWiki(f);
-              }}
-              onProject={() => setWikiMode("project")}
-            >
-              {wikiMode === "project" ? (
-                <Card padding="lg">
-                  {laid && laid.nodes.length > 0 ? (
-                    <ConceptGraph
-                      title={`${spaceName} · project 그래프`}
-                      nodes={laid.nodes}
-                      edges={laid.edges}
-                      height={460}
-                      caption="노드를 클릭하면 해당 위키로 이동합니다."
-                      onNodeClick={(cid) => {
-                        const node = graph?.nodes.find((nx) => nx.id === cid);
-                        if (node?.path) {
-                          setWikiMode("doc");
-                          setSelectedWiki(node.path);
-                        }
-                      }}
-                    />
-                  ) : (
-                    <p className="text-[15px] text-ink-muted">그래프 데이터가 없습니다.</p>
-                  )}
-                </Card>
-              ) : selectedWikiPage ? (
-                wikiReader(selectedWikiPage)
-              ) : (
-                <EmptyState icon={<Icons.FileIcon size={28} />} title="위키가 없어요" description="Source 의 원본에서 'AI 위키 생성'으로 만들 수 있어요." />
-              )}
-            </WikiSection>
-          )}
+        <TabStrip tabs={openTabs} activeId={activeTabId} onSelect={setActiveTab} onClose={closeTab} />
+
+        <div className="min-h-0 flex-1 overflow-y-auto p-6">
+          {booting ? <p className="text-[15px] text-ink-muted">불러오는 중…</p> : renderActiveTab()}
         </div>
       </AppShell>
 
