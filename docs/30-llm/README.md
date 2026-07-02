@@ -30,6 +30,7 @@ LLM 호출 계층. LLM은 **OpenAI 단일 provider**. feature 3(정보 간극 �
 | `wiki-qa-agent.md` | 질의 계층 에이전트 + grounding guard + 에이전트 eval (**post-MVP 제안**) | LLM (@gosu1) |
 | `qa-review-agent.md` | 저장 전 의미 검증: 환각/추측/경로 (**post-MVP 제안**) | LLM (@gosu1) |
 | `skill-export.md` | vault → SKILL.md export, 외부 에이전트 질의 (**post-MVP 제안**) | LLM (@gosu1) |
+| `note-synthesis.md` | 파편 노트 → 정리 글 합성 (스트리밍) 파이프라인 ([ADR-0008](../adr/0008-note-synthesis-streaming.md)) | LLM (@gosu1) |
 
 ## 소유권 분리 (중요)
 
