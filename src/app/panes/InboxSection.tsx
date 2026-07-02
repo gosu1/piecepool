@@ -126,17 +126,26 @@ export function InboxSection({
       };
       reader.readAsText(f);
     } else if (f.type.startsWith("image")) {
-      // 이미지 → OCR(vision)로 3-block 마크다운. 키 없으면 오프라인 폴백.
+      // 이미지 → 원본 보존(수용기준 §5, 키 무관) + OCR(vision) 3-block 마크다운. 키 없으면 오프라인 폴백.
       const reader = new FileReader();
       reader.onload = async () => {
         const dataUrl = String(reader.result ?? "");
         setTitle((t) => t || stem);
+        // 원본 이미지를 sources/original-files 에 저장하고 embed 로 연결 — OCR 실패/키 없음이어도 이미지는 남는다.
+        let embed = "";
+        try {
+          const stored = await ipc.saveSourceFile(space, f.name, dataUrl.split(",")[1] ?? "");
+          embed = `![[${stored}]]\n\n`;
+          void loadSources();
+        } catch {
+          // 저장 실패해도 OCR 은 계속
+        }
         const apiKey = (typeof localStorage !== "undefined" && localStorage.getItem("openai-key")) || "";
         try {
           const { markdown } = await runImageOcr(dataUrl, apiKey);
-          setBody((b) => (b ? b + "\n\n" : "") + markdown);
+          setBody((b) => (b ? b + "\n\n" : "") + embed + markdown);
         } catch {
-          setBody((b) => b + `\n\n> ${f.name} OCR 실패 — 텍스트를 직접 입력하세요.`);
+          setBody((b) => b + `\n\n${embed}> ${f.name} OCR 실패 — 텍스트를 직접 입력하세요.`);
         }
       };
       reader.readAsDataURL(f);
