@@ -1,8 +1,56 @@
 import { useEffect, useMemo, useRef } from "react";
 import cytoscape from "cytoscape";
 import type { Core, ElementDefinition } from "cytoscape";
+import { forceSimulation, forceLink, forceManyBody, forceCenter, forceCollide, forceRadial } from "d3-force";
+import type { Simulation, SimulationNodeDatum } from "d3-force";
 import type { GraphData } from "./types";
 import { useTheme } from "../ds";
+
+// 옵시디언식 물리: d3-force 시뮬레이션이 cytoscape 노드 위치를 구동한다.
+// alpha 냉각으로 스스로 식어 정지 → idle CPU ≈ 0. 노드를 잡으면 alphaTarget 로 재가열되어
+// 이웃이 스프링처럼 유기적으로 재배치되고, 놓으면 다시 식어 멈춘다.
+interface SimNode extends SimulationNodeDatum {
+  id: string;
+}
+interface SimLink {
+  source: string;
+  target: string;
+}
+
+// cy 요소로부터 시뮬레이션을 구성한다. 노드 x/y 를 비워 두면 d3 가 나선형으로 초기 배치(겹침 방지),
+// 매 tick 에 좌표를 cy 로 흘려보낸다. (링크 거리·반발·중심·충돌 힘 = 옵시디언 그래프 힘 구성)
+function buildSim(cy: Core): { sim: Simulation<SimNode, SimLink>; map: Map<string, SimNode> } {
+  const w = cy.width() || 800;
+  const h = cy.height() || 600;
+  const nodes: SimNode[] = cy.nodes().map((n) => ({ id: n.id() }));
+  const links: SimLink[] = cy.edges().map((e) => ({ source: e.source().id(), target: e.target().id() }));
+  const map = new Map(nodes.map((n) => [n.id, n]));
+
+  // 차수 집계 → radial 힘: 연결 많은 허브는 중심(반지름 0), 적은 노드는 외곽(큰 반지름)으로 당긴다.
+  const deg = new Map<string, number>();
+  for (const l of links) {
+    deg.set(l.source, (deg.get(l.source) ?? 0) + 1);
+    deg.set(l.target, (deg.get(l.target) ?? 0) + 1);
+  }
+  const maxDeg = Math.max(1, ...deg.values());
+  const R = Math.min(w, h) * 0.42; // 최외곽 반지름
+
+  const sim = forceSimulation<SimNode, SimLink>(nodes)
+    .force("link", forceLink<SimNode, SimLink>(links).id((d) => d.id).distance(70).strength(0.4))
+    .force("charge", forceManyBody<SimNode>().strength(-160).distanceMax(500))
+    .force("center", forceCenter(w / 2, h / 2))
+    .force("radial", forceRadial<SimNode>((d) => R * (1 - (deg.get(d.id) ?? 0) / maxDeg), w / 2, h / 2).strength(0.12))
+    .force("collide", forceCollide<SimNode>(14));
+
+  sim.on("tick", () => {
+    cy.batch(() => {
+      for (const nd of nodes) {
+        if (nd.x != null && nd.y != null) cy.getElementById(nd.id).position({ x: nd.x, y: nd.y });
+      }
+    });
+  });
+  return { sim, map };
+}
 
 // 인터랙티브 타입드 그래프 (Cytoscape.js 직접 제어).
 // 방향 화살표 · 타입별 엣지색 · 강도별 두께 · 약한 관계 점선 · 차수 비례 노드 크기 ·
@@ -51,21 +99,28 @@ function readTokens() {
   };
 }
 
-const LAYOUT = {
-  name: "cose",
-  animate: false,
-  fit: true,
-  padding: 40,
-  nodeRepulsion: () => 8000,
-  idealEdgeLength: () => 90,
-  gravity: 0.25,
-  numIter: 1000,
-} as const;
-
 export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, typeFilter, selectedId, focus, className }: CytoscapeGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<Core | null>(null);
+  const simRef = useRef<Simulation<SimNode, SimLink> | null>(null);
+  const mapRef = useRef<Map<string, SimNode>>(new Map());
   const { theme } = useTheme();
+
+  // 시뮬레이션 (재)구성 → 첫 정착 시 1회 화면 맞춤. 데이터 변경·재배치 버튼이 호출한다.
+  const rebuild = () => {
+    const cy = cyRef.current;
+    if (!cy) return;
+    simRef.current?.stop();
+    const { sim, map } = buildSim(cy);
+    simRef.current = sim;
+    mapRef.current = map;
+    let fitted = false;
+    sim.on("end", () => {
+      if (fitted) return;
+      fitted = true;
+      cy.animate({ fit: { eles: cy.elements(), padding: 40 }, duration: 250 });
+    });
+  };
 
   // 콜백은 ref 로 우회 — cy 이벤트 바인딩을 재생성하지 않기 위해.
   const cbRef = useRef({ onNode, onEdge, onClear });
@@ -82,7 +137,7 @@ export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, t
       .filter((r) => nodeIds.has(r.sourceNodeId) && nodeIds.has(r.targetNodeId))
       .filter((r) => !typeFilter?.length || typeFilter.includes(r.relationType));
 
-    // 차수 비례 노드 크기 (12px ~ 30px)
+    // 차수 비례 노드 크기 (6px ~ 18px)
     const deg: Record<string, number> = {};
     for (const r of rels) {
       deg[r.sourceNodeId] = (deg[r.sourceNodeId] ?? 0) + 1;
@@ -94,7 +149,7 @@ export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, t
         id: n.id,
         label: n.title,
         kind: n.kind,
-        size: 12 + Math.min(deg[n.id] ?? 0, 9) * 2,
+        size: 6 + Math.min(deg[n.id] ?? 0, 8) * 1.5,
       },
     }));
     const edgeEls: ElementDefinition[] = rels.map((r) => ({
@@ -126,6 +181,29 @@ export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, t
     cy.on("tap", (e) => {
       if (e.target === cy) cbRef.current.onClear?.();
     });
+    // 드래그: 잡으면 재가열(alphaTarget↑) + 노드 고정, 끌면 커서 추종, 놓으면 해제 후 냉각(alphaTarget 0).
+    cy.on("grab", "node", (e) => {
+      const nd = mapRef.current.get(e.target.id());
+      if (!nd) return;
+      simRef.current?.alphaTarget(0.3).restart();
+      nd.fx = nd.x ?? null;
+      nd.fy = nd.y ?? null;
+    });
+    cy.on("drag", "node", (e) => {
+      const nd = mapRef.current.get(e.target.id());
+      if (!nd) return;
+      const p = e.target.position();
+      nd.fx = p.x;
+      nd.fy = p.y;
+    });
+    cy.on("free", "node", (e) => {
+      const nd = mapRef.current.get(e.target.id());
+      if (nd) {
+        nd.fx = null;
+        nd.fy = null;
+      }
+      simRef.current?.alphaTarget(0);
+    });
     // hover → 이웃만 남기고 흐리게
     cy.on("mouseover", "node", (e) => {
       const hood = e.target.closedNeighborhood();
@@ -139,6 +217,8 @@ export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, t
 
     return () => {
       ro.disconnect();
+      simRef.current?.stop();
+      simRef.current = null;
       cy.destroy();
       cyRef.current = null;
     };
@@ -155,10 +235,10 @@ export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, t
         style: {
           "background-color": t.result,
           label: "data(label)",
-          "font-size": 11,
+          "font-size": 7,
           color: t.label,
           "text-valign": "bottom",
-          "text-margin-y": 5,
+          "text-margin-y": 3,
           "text-background-color": t.labelBg,
           "text-background-opacity": 0.75,
           "text-background-padding": "2px",
@@ -199,7 +279,7 @@ export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, t
       cy.add(elements);
       if (selRef.current) cy.getElementById(selRef.current).select();
     });
-    cy.layout(LAYOUT as never).run();
+    rebuild();
   }, [elements]);
 
   // ── 노드 선택 동기화 (검색 등 외부에서 선택이 바뀔 때). 엣지 선택은 cy 네이티브에 맡긴다 ──
@@ -239,7 +319,7 @@ export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, t
         <GraphCtl label="화면 맞춤" onClick={() => cyRef.current?.animate({ fit: { eles: cyRef.current.elements(), padding: 40 }, duration: 250 })}>
           ⤢
         </GraphCtl>
-        <GraphCtl label="재배치" onClick={() => cyRef.current?.layout(LAYOUT as never).run()}>
+        <GraphCtl label="재배치" onClick={rebuild}>
           ↺
         </GraphCtl>
       </div>
