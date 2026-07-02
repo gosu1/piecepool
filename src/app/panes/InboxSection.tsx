@@ -99,7 +99,7 @@ export function InboxSection({
       const stored = await ipc.saveSourceFile(space, f.name, await fileToBase64(f));
       await loadSources();
       setRefSource(stored);
-      if (!title) setTitle(f.name.replace(/\.[^.]+$/, ""));
+      setTitle((t) => t || f.name.replace(/\.[^.]+$/, ""));
       try {
         const ext = await ipc.extractPdfText(space, stored);
         const text = ext.pages.map((p) => p.text).join("\n\n").trim();
@@ -114,14 +114,15 @@ export function InboxSection({
     }
   };
 
-  const onFiles = (files: FileList) => {
-    const f = files[0];
-    if (!f) return;
+  // 파일 1개 처리 — 여러 개 드랍/선택 시 각각 순서대로 에디터에 누적된다.
+  const addFile = (f: File) => {
+    const stem = f.name.replace(/\.[^.]+$/, "");
     if (f.type.startsWith("text") || /\.(md|markdown|txt)$/i.test(f.name)) {
       const reader = new FileReader();
       reader.onload = () => {
-        setBody(String(reader.result ?? ""));
-        if (!title) setTitle(f.name.replace(/\.[^.]+$/, ""));
+        const text = String(reader.result ?? "").trim();
+        setBody((b) => (b ? b + "\n\n" : "") + text);
+        setTitle((t) => t || stem);
       };
       reader.readAsText(f);
     } else if (f.type.startsWith("image")) {
@@ -129,7 +130,7 @@ export function InboxSection({
       const reader = new FileReader();
       reader.onload = async () => {
         const dataUrl = String(reader.result ?? "");
-        if (!title) setTitle(f.name.replace(/\.[^.]+$/, ""));
+        setTitle((t) => t || stem);
         const apiKey = (typeof localStorage !== "undefined" && localStorage.getItem("openai-key")) || "";
         try {
           const { markdown } = await runImageOcr(dataUrl, apiKey);
@@ -145,6 +146,7 @@ export function InboxSection({
       setBody((b) => b + `\n\n> ${f.name} — 지원하지 않는 형식이에요 (md/txt/pdf/이미지).`);
     }
   };
+  const onFiles = (files: FileList) => Array.from(files).forEach(addFile);
 
   const run = async () => {
     if (!title.trim() || busy) return;

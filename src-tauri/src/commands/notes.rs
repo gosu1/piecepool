@@ -103,9 +103,16 @@ pub fn save_note(space: String, file: String, markdown: String) -> Result<Archiv
     note.markdown = markdown;
     note.updated_at = storage::now_iso();
     let st = frontmatter::archive_source_type(&existing);
-    frontmatter::validate_archive(&note, st, None, &crate::commands::subject_ids(&space))
-        .map_err(|e| e.to_string())?;
-    let md = frontmatter::archive_to_md(&note, st, None);
+    // originalFilePath 는 기존 frontmatter 값을 보존 — 누락 시 pdf/image 노트는 저장 자체가 불가능해진다.
+    let original = frontmatter::archive_original_file_path(&existing);
+    frontmatter::validate_archive(
+        &note,
+        st,
+        original.as_deref(),
+        &crate::commands::subject_ids(&space),
+    )
+    .map_err(|e| e.to_string())?;
+    let md = frontmatter::archive_to_md(&note, st, original.as_deref());
     storage::write_text(&path, &md).map_err(|e| e.to_string())?;
     Ok(note)
 }
@@ -164,14 +171,21 @@ pub fn move_note(space: String, file: String, to_space: String) -> Result<Archiv
     frontmatter::validate_archive(&note, st, original.as_deref(), &target_subjects)
         .map_err(|e| e.to_string())?;
 
+    // 부분 실패 안전 순서: 복사 → 대상 노트 기록 → 원본 삭제.
+    // 대상 기록이 실패해도 소스 쪽은 온전하다(대상에 복사본만 남음 — 무해).
+    let mut copied_original_from: Option<std::path::PathBuf> = None;
     if let Some((from, to)) = original_move {
         let bytes = storage::read_bytes(&from).map_err(|e| e.to_string())?;
         storage::write_bytes(&to, &bytes).map_err(|e| e.to_string())?;
-        storage::remove_file(&from).map_err(|e| e.to_string())?;
+        copied_original_from = Some(from);
     }
     let md = frontmatter::archive_to_md(&note, st, original.as_deref());
     storage::write_text(&to_path, &md).map_err(|e| e.to_string())?;
     storage::remove_file(&src_path).map_err(|e| e.to_string())?;
+    // 이동은 이미 성공 — 소스 원본 정리 실패(잠금 등)는 무해한 복사본만 남기므로 오류로 만들지 않는다.
+    if let Some(from) = copied_original_from {
+        let _ = storage::remove_file(&from);
+    }
     Ok(note)
 }
 

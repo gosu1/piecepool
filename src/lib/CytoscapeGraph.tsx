@@ -31,8 +31,10 @@ export interface CytoscapeGraphProps {
   onClear?: () => void;
   subjectFilter?: string[]; // 비면 전체
   typeFilter?: string[]; // 비면 전체
-  /** 지정 시 해당 노드로 애니메이션 포커스(검색 → 노드 찾기) */
-  focusNodeId?: string | null;
+  /** 선택된 노드 id — 필터 변경으로 요소를 다시 그려도 선택 링을 유지한다. */
+  selectedId?: string | null;
+  /** 지정 시 해당 노드로 애니메이션 포커스. n(논스)으로 같은 노드 재검색도 다시 발화. */
+  focus?: { id: string; n: number } | null;
   className?: string;
 }
 
@@ -60,7 +62,7 @@ const LAYOUT = {
   numIter: 1000,
 } as const;
 
-export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, typeFilter, focusNodeId, className }: CytoscapeGraphProps) {
+export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, typeFilter, selectedId, focus, className }: CytoscapeGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<Core | null>(null);
   const { theme } = useTheme();
@@ -68,6 +70,9 @@ export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, t
   // 콜백은 ref 로 우회 — cy 이벤트 바인딩을 재생성하지 않기 위해.
   const cbRef = useRef({ onNode, onEdge, onClear });
   cbRef.current = { onNode, onEdge, onClear };
+  // 요소 교체 effect 가 재실행되지 않도록 선택 id 도 ref 로.
+  const selRef = useRef<string | null | undefined>(selectedId);
+  selRef.current = selectedId;
 
   // ── 필터 적용된 요소 계산 ──
   const elements = useMemo<ElementDefinition[]>(() => {
@@ -185,27 +190,34 @@ export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, t
     ] as never);
   }, [theme]);
 
-  // ── 데이터/필터 변경 → 요소 교체 + 재배치 ──
+  // ── 데이터/필터 변경 → 요소 교체 + 재배치 (React 쪽 선택은 다시 그려도 유지) ──
   useEffect(() => {
     const cy = cyRef.current;
     if (!cy) return;
     cy.batch(() => {
       cy.elements().remove();
       cy.add(elements);
+      if (selRef.current) cy.getElementById(selRef.current).select();
     });
     cy.layout(LAYOUT as never).run();
   }, [elements]);
 
-  // ── 검색 포커스: 노드 선택 + 줌인 ──
+  // ── 노드 선택 동기화 (검색 등 외부에서 선택이 바뀔 때). 엣지 선택은 cy 네이티브에 맡긴다 ──
   useEffect(() => {
     const cy = cyRef.current;
-    if (!cy || !focusNodeId) return;
-    const node = cy.getElementById(focusNodeId);
+    if (!cy) return;
+    cy.nodes().unselect();
+    if (selectedId) cy.getElementById(selectedId).select();
+  }, [selectedId]);
+
+  // ── 검색 포커스: 노드로 줌인. n(논스) 덕에 같은 노드 재검색도 재발화 ──
+  useEffect(() => {
+    const cy = cyRef.current;
+    if (!cy || !focus) return;
+    const node = cy.getElementById(focus.id);
     if (node.empty()) return;
-    cy.elements().unselect();
-    node.select();
     cy.animate({ fit: { eles: node.closedNeighborhood(), padding: 80 }, duration: 300 });
-  }, [focusNodeId]);
+  }, [focus]);
 
   const zoom = (factor: number) => {
     const cy = cyRef.current;

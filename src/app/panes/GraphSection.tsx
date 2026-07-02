@@ -27,7 +27,7 @@ export function GraphSection({
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
   const [subjectFilter, setSubjectFilter] = useState<string[]>([]);
   const [query, setQuery] = useState("");
-  const [focusId, setFocusId] = useState<string | null>(null);
+  const [focus, setFocus] = useState<{ id: string; n: number } | null>(null);
   const [subjects, setSubjects] = useState<Subject[]>([]);
 
   useEffect(() => {
@@ -36,6 +36,13 @@ export function GraphSection({
       .then(setSubjects)
       .catch(() => setSubjects([]));
   }, [space]);
+
+  // subject 필터로 선택 노드가 화면에서 사라지면 상세 패널도 비운다(데스ync 방지).
+  useEffect(() => {
+    if (!selNode || subjectFilter.length === 0) return;
+    const visible = graph?.nodes.some((n) => n.id === selNode && n.subjectIds.some((s) => subjectFilter.includes(s)));
+    if (!visible) setSelNode(null);
+  }, [subjectFilter, graph, selNode]);
 
   const node = graph?.nodes.find((n) => n.id === selNode) ?? null;
   const page = node ? wikiPages.find((w) => w.path === node.path) : undefined;
@@ -57,7 +64,7 @@ export function GraphSection({
   const pickMatch = (id: string) => {
     setSelNode(id);
     setSelEdge(null);
-    setFocusId(id);
+    setFocus((f) => ({ id, n: (f?.n ?? 0) + 1 })); // 논스 — 같은 노드 재검색도 재포커스
     setQuery("");
   };
 
@@ -142,7 +149,8 @@ export function GraphSection({
               data={graph}
               typeFilter={typeFilter}
               subjectFilter={subjectFilter}
-              focusNodeId={focusId}
+              selectedId={selNode}
+              focus={focus}
               onNode={(id) => {
                 setSelNode(id);
                 setSelEdge(null);
@@ -154,7 +162,7 @@ export function GraphSection({
               onClear={() => {
                 setSelNode(null);
                 setSelEdge(null);
-                setFocusId(null);
+                setFocus(null);
               }}
             />
           ) : (

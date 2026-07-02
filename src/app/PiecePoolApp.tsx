@@ -168,21 +168,27 @@ export default function PiecePoolApp() {
     if (tab?.dirty) setDialog({ kind: "close-dirty", tabId: id });
     else closeTab(id);
   };
+  // 문서별 세션 상태(드래프트·편집·간극) 일괄 정리 — 저장/이동/삭제/닫기 후 stale 부활 방지.
+  const clearDocState = (key: string) => {
+    setDrafts((d) => {
+      const next = { ...d };
+      delete next[key];
+      return next;
+    });
+    setEditing((prev) => {
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
+    setGaps((g) => {
+      const next = { ...g };
+      delete next[key];
+      return next;
+    });
+  };
   const discardAndClose = (tabId: string) => {
     const tab = openTabs.find((t) => t.id === tabId);
-    if (tab?.space && tab.file) {
-      const key = docKey(tab.space, tab.file);
-      setDrafts((d) => {
-        const next = { ...d };
-        delete next[key];
-        return next;
-      });
-      setEditing((prev) => {
-        const next = new Set(prev);
-        next.delete(key);
-        return next;
-      });
-    }
+    if (tab?.space && tab.file) clearDocState(docKey(tab.space, tab.file));
     closeTab(tabId);
   };
 
@@ -239,9 +245,16 @@ export default function PiecePoolApp() {
       return;
     }
     if (doc.space === toSpace) return;
+    // 편집 중(미저장 드래프트)인 노트는 이동 금지 — 디스크의 저장본만 이동되어 편집 내용이 유실된다.
+    const tabId = `archive:${doc.space}:${doc.file}`;
+    if (openTabs.find((t) => t.id === tabId)?.dirty) {
+      setNotice("편집 중인 노트예요 — 저장한 뒤 이동하세요");
+      return;
+    }
     try {
       const moved = await ipc.moveNote(doc.space, doc.file, toSpace);
-      closeTab(`archive:${doc.space}:${doc.file}`);
+      clearDocState(docKey(doc.space, doc.file));
+      closeTab(tabId);
       await Promise.all([refreshSpace(doc.space), refreshSpace(toSpace)]);
       setNotice(`"${moved.title}" → ${spaceNameOf(toSpace)} 이동됨`);
     } catch (e) {
@@ -325,6 +338,8 @@ export default function PiecePoolApp() {
   };
   const applyDelete = async (d: Extract<ShellDialog, { kind: "delete-note" | "delete-wiki" }>) => {
     try {
+      // 삭제 확인은 이미 받았으므로 문서 세션 상태도 함께 정리(경로 재사용 시 stale 부활 방지).
+      clearDocState(docKey(d.space, d.file));
       if (d.kind === "delete-wiki") {
         const pruned = await ipc.deleteWiki(d.space, d.file);
         closeTab(`wiki:${d.space}:${d.file}`);
@@ -381,22 +396,18 @@ export default function PiecePoolApp() {
     });
   };
   const setDraft = (key: string, md: string) => setDrafts((d) => ({ ...d, [key]: md }));
-  const endEdit = (key: string) =>
-    setEditing((prev) => {
-      const next = new Set(prev);
-      next.delete(key);
-      return next;
-    });
+  // 저장 후에는 드래프트를 비운다 — 남겨두면 다음 편집 진입 시 stale 드래프트가 부활해
+  // 그 사이 외부 갱신(AI 병합 등)된 내용을 덮어쓴다.
   const saveWikiDoc = async (space: string, page: WikiPageT, md: string) => {
     const saved = await ipc.saveWiki(space, { ...page, markdown: md });
     setWikiBySlug((m) => ({ ...m, [space]: (m[space] ?? []).map((x) => (x.path === page.path ? saved : x)) }));
-    endEdit(docKey(space, page.path));
+    clearDocState(docKey(space, page.path));
     setTabDirty(`wiki:${space}:${page.path}`, false);
   };
   const saveArchiveDoc = async (space: string, file: string, md: string) => {
     const saved = await ipc.saveNote(space, file, md);
     setNotesBySlug((m) => ({ ...m, [space]: (m[space] ?? []).map((x) => (x.path === file ? saved : x)) }));
-    endEdit(docKey(space, file));
+    clearDocState(docKey(space, file));
     setTabDirty(`archive:${space}:${file}`, false);
   };
 
@@ -459,12 +470,14 @@ export default function PiecePoolApp() {
       return next;
     });
   // 간극 점검 응답을 노트 하단에 사용자 소유 텍스트로 덧붙인다(archive 는 사용자 원문 — 사용자 액션만 허용).
+  // 편집 중이면 열린 드래프트를 기준으로 저장(미저장 편집 유실 방지).
   const appendGapAnswers = async (space: string, note: ArchiveNote, answers: { prompt: string; answer: string }[]) => {
     const filled = answers.filter((a) => a.answer.trim());
     if (filled.length === 0) return;
+    const key = docKey(space, note.path);
+    const base = drafts[key] ?? note.markdown;
     const block = "\n\n## 간극 점검 메모\n\n" + filled.map((a) => `- **Q:** ${a.prompt}\n  **A:** ${a.answer.trim()}`).join("\n");
-    await saveArchiveDoc(space, note.path, note.markdown + block);
-    clearGaps(docKey(space, note.path));
+    await saveArchiveDoc(space, note.path, base + block);
     setNotice("간극 점검 응답을 노트에 저장했어요");
   };
 
@@ -539,6 +552,8 @@ export default function PiecePoolApp() {
         bottomSlot={
           gaps[key] ? (
             <GapPanel
+              // 질문 목록이 바뀌면 리마운트 — 이전 선택이 새 질문에 매핑되는 것 방지
+              key={gaps[key].map((g) => g.prompt).join("|")}
               questions={gaps[key]}
               onClose={() => clearGaps(key)}
               onSubmit={(answers) => appendGapAnswers(space, note, answers)}
@@ -589,6 +604,7 @@ export default function PiecePoolApp() {
       case "graph":
         return (
           <GraphSection
+            key={activeTab.id}
             graph={graphBySlug[sp]}
             space={sp}
             spaceName={spName}
@@ -600,6 +616,7 @@ export default function PiecePoolApp() {
       case "inbox":
         return (
           <InboxSection
+            key={activeTab.id}
             space={sp}
             spaceId={spaces.find((s) => s.slug === sp)?.id ?? ""}
             spaceName={spName}

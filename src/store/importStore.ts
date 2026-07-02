@@ -64,7 +64,11 @@ function save(j: ImportJobView): ImportJobView {
 }
 function loadLast(): ImportJobView | null {
   try {
-    return JSON.parse(localStorage.getItem(KEY) || "null");
+    const j = JSON.parse(localStorage.getItem(KEY) || "null") as ImportJobView | null;
+    // 비종결 상태 복원 금지 — pending/gaps 는 메모리 전용이라 재시작 후 그 상태로는
+    // 진행도 취소도 불가능(Inbox 영구 잠금). 종결 상태(completed/failed)만 복원한다.
+    if (j && !["completed", "failed"].includes(j.status)) return null;
+    return j;
   } catch {
     return null;
   }
