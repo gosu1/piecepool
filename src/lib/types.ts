@@ -29,6 +29,9 @@ export interface GraphNode {
   kind: "core" | "result";
   subjectIds: string[];
   path: string;
+  /** 소속 KnowledgeSpace slug. 병합(전체 과목) 뷰에서 색·필터·문서 열기 정합성용.
+   * get_graph 응답엔 없고 프론트 병합 시 태깅한다(파일명 concept-slug.md 가 space 간 충돌하므로 필수). */
+  space?: string;
 }
 
 export interface GraphData {
