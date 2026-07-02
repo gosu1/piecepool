@@ -26,6 +26,7 @@
 
 ## 체크리스트
 
+- [ ] 큰 변화(기능·피벗·확정 결정)면 [`docs/00-overview/journey.md`](../docs/00-overview/journey.md) 타임라인에 한 줄 추가 (보고서·PPT 원재료 — 머지 전에!)
 - [ ] SSOT 원칙 준수: TS 타입/enum/JSON Schema가 `docs/10-contracts/` 외에 복붙되지 않음
 - [ ] 변경된 모든 라인이 본 PR 목표와 직접 연결됨 (무관한 리팩터링 없음)
 - [ ] 깨진 link 없음 (가능한 경우 markdown-link-check 실행)
