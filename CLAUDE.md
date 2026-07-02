@@ -168,6 +168,7 @@ OpenAI is the only LLM provider. Liner is an additional source-search API used b
 - If CI (`docs-check`) is red, **do not merge**.
 - Delete the feature branch after merge.
 - Do not copy-paste TS types or JSON Schema into backend source files — CI's `ssot-check` job will reject the PR.
+- **Journey log (여정 기록)**: before creating a PR that contains `feat` commits, add ONE row to the timeline table in `docs/00-overview/journey.md` — 사건 요약과 "의미"(PPT 슬라이드에 그대로 쓸 한 문장). This is the raw material for reports/business decks. A shared PreToolUse hook (`scripts/hooks/journey-guard.sh`) blocks `gh pr create` if a feat branch lacks the journey entry — add the row, commit, then retry. Trivial changes (docs/fix/chore/deps) are exempt.
 
 ---
 
