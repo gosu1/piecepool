@@ -5,7 +5,7 @@ import type { KnowledgeSpace, WikiPage as WikiPageT, ArchiveNote, GraphData, Wor
 import * as ipc from "../lib/ipc";
 import { runWikiGeneration } from "../llm/generate";
 import type { LlmWikiInput } from "../llm/provider";
-import { applyLlmResult, embedSourceFiles } from "../lib/llmApply";
+import { applyLlmResult, embedSourceFiles, isSynthesisPage, synthesisConceptId } from "../lib/llmApply";
 import { buildGaps } from "../llm/gaps";
 import type { GapReport } from "../llm/gaps";
 import { maybeFactCheck } from "../lib/factCheck";
@@ -14,7 +14,7 @@ import { chunkOpts, getLinerKey } from "../lib/settings";
 import { aggregateProvenance, tierFromSourceType, type SourceMeta } from "../llm/provenance";
 import { docKey } from "./types";
 import type { SearchItem } from "./types";
-import { DocView, AiBar, GapPanel } from "./panes/DocView";
+import { DocView, AiBar, GapPanel, ConvertPanel } from "./panes/DocView";
 import { GraphSection } from "./panes/GraphSection";
 import { InboxSection } from "./panes/InboxSection";
 import { StudyHome } from "./panes/StudyHome";
@@ -29,6 +29,7 @@ import { AccountFooter } from "./shell/AccountFooter";
 import { ContextMenu, ConfirmDialog, PromptDialog } from "./shell/Dialogs";
 import { useWorkspaceStore, SIDEBAR_DEFAULT } from "../store/workspaceStore";
 import type { TabKind } from "../store/workspaceStore";
+import { useConvertStore } from "../store/convertStore";
 
 const KIND_LABEL: Record<TabKind, string> = { wiki: "Wiki", archive: "Source", inbox: "Inbox", graph: "Graph", home: "Home" };
 
@@ -42,7 +43,8 @@ function parseDocId(id: string): { kind: string; space: string; file: string } |
 type ShellDialog =
   | { kind: "rename-note" | "rename-wiki"; space: string; file: string; title: string }
   | { kind: "delete-note" | "delete-wiki"; space: string; file: string; title: string }
-  | { kind: "close-dirty"; tabId: string };
+  | { kind: "close-dirty"; tabId: string }
+  | { kind: "overwrite-syn"; space: string; file: string; title: string };
 
 export default function PiecePoolApp() {
   const [spaces, setSpaces] = useState<KnowledgeSpace[]>([]);
@@ -86,6 +88,11 @@ export default function PiecePoolApp() {
   const setSidebarWidth = useWorkspaceStore((s) => s.setSidebarWidth);
   const collapsedTreeIds = useWorkspaceStore((s) => s.collapsedTreeIds);
   const toggleTreeNode = useWorkspaceStore((s) => s.toggleTreeNode);
+
+  // 정리 글 변환 job(convertStore) — 스트림은 스토어 소유라 탭 전환에도 계속된다 (ADR-0008)
+  const convertJob = useConvertStore((s) => s.job);
+  const cancelConvert = useConvertStore((s) => s.cancel);
+  const clearConvert = useConvertStore((s) => s.clear);
 
   // 부팅: 시드 → spaces → 각 공간 wiki/notes/graph → 복원된 탭이 없으면 Study Home
   useEffect(() => {
@@ -438,60 +445,115 @@ export default function PiecePoolApp() {
     setTabDirty(`archive:${space}:${file}`, false);
   };
 
-  // ── LLM: 위키 생성 / 간극 점검 (Source 의 원본 노트에서) ──
+  // ── LLM: 위키 생성 / 간극 점검 / 정리 글 변환 (Source 의 원본 노트에서) ──
+  // 추출 코어 — 상태줄만 반환. busy/리로드/탭 열기는 호출자 몫(genWiki 단독 · convertNote 병렬 공용).
+  const extractForNote = async (space: string, note: ArchiveNote): Promise<{ status: string; firstWikiPath?: string }> => {
+    const sp = spaces.find((s) => s.slug === space);
+    const input: LlmWikiInput = {
+      sourceTitle: note.title,
+      sourceText: note.markdown,
+      // 노트가 참조하는 원본 파일 — 없으면 sanitizeSourceRefs 가 모든 sourceRefs 를 제거한다.
+      sourceFiles: embedSourceFiles(note.sourceId, note.markdown),
+      subjects: note.subjectIds.map((id) => ({ id, name: id })),
+      // 정리 글(합성) 페이지는 개념이 아니다 — 중복 힌트에서 제외.
+      existingConcepts: (wikiBySlug[space] ?? [])
+        .filter((w) => !isSynthesisPage(w))
+        .map((w) => ({ id: w.conceptId, title: w.title, normalizedTitle: w.title.toLowerCase() })),
+    };
+    const apiKey = (typeof localStorage !== "undefined" && localStorage.getItem("openai-key")) || "";
+    const { result, engine, warning, promotion, nodeTypes } = await runWikiGeneration(input, apiKey, { chunk: chunkOpts() });
+    // feature 3: Liner fact-check — 관계 근거에 권위 출처 URL 누적(설정 게이트, advisory).
+    const fc = await maybeFactCheck(result);
+    const applied = await applyLlmResult(
+      space,
+      sp?.id ?? "",
+      note.subjectIds,
+      fc.result,
+      { sourceId: note.sourceId, archivePath: `archive/${note.path}` },
+      wikiBySlug[space] ?? [],
+    );
+    const mergedNote = applied.merged > 0 ? ` (기존 ${applied.merged}개 병합)` : "";
+    // [E] 연결성 게이트 advisory — 이번 추출에서 어디에도 안 붙은(고립) 개념 수 표시.
+    const isoNote = promotion && promotion.staging > 0 ? ` · 고립 ${promotion.staging}개` : "";
+    // [B] 청킹 켰을 때 조각 정보 유형 분포.
+    const TYPE_KO: Record<string, string> = { concept: "개념", fact: "사실", claim: "주장", example: "예시", method: "방법", question: "질문" };
+    const typeNote = nodeTypes ? ` · 유형 ${Object.entries(nodeTypes).map(([t, n]) => `${TYPE_KO[t] ?? t} ${n}`).join(", ")}` : "";
+    // [D] 출처 tier(Source.type→1차/2차) 레지스트리로 병합 개념의 신뢰도·교차검증 집계.
+    const srcTypes = await ipc.listSourceTypes(space);
+    const registry = new Map<string, SourceMeta>(srcTypes.map(([id, t]) => [id, { sourceId: id, tier: tierFromSourceType(t) }]));
+    const prov = aggregateProvenance(applied.pages.map((p) => p.sourceIds), registry);
+    const provNote =
+      prov.count > 0
+        ? ` · 출처신뢰 ${Math.round(prov.avgScore * 100)}%${prov.multiSource > 0 ? ` · 교차검증 ${prov.multiSource}개` : ""}`
+        : "";
+    const fcNote = fc.checked > 0 ? ` · 출처검증 ${fc.checked}건` : "";
+    return {
+      status: `${engine === "openai" ? "GPT" : "휴리스틱"}로 위키 ${applied.pages.length}개 · 관계 ${applied.relationCount}개${mergedNote}${isoNote}${typeNote}${provNote}${fcNote}${warning ? " · GPT 실패→휴리스틱" : ""}`,
+      firstWikiPath: applied.pages[0]?.path,
+    };
+  };
+
   const genWiki = async (space: string, note: ArchiveNote) => {
     const key = docKey(space, note.path);
     setAiBusy(key);
     try {
-      const sp = spaces.find((s) => s.slug === space);
-      const input: LlmWikiInput = {
-        sourceTitle: note.title,
-        sourceText: note.markdown,
-        // 노트가 참조하는 원본 파일 — 없으면 sanitizeSourceRefs 가 모든 sourceRefs 를 제거한다.
-        sourceFiles: embedSourceFiles(note.sourceId, note.markdown),
-        subjects: note.subjectIds.map((id) => ({ id, name: id })),
-        existingConcepts: (wikiBySlug[space] ?? []).map((w) => ({ id: w.conceptId, title: w.title, normalizedTitle: w.title.toLowerCase() })),
-      };
-      const apiKey = (typeof localStorage !== "undefined" && localStorage.getItem("openai-key")) || "";
-      const { result, engine, warning, promotion, nodeTypes } = await runWikiGeneration(input, apiKey, { chunk: chunkOpts() });
-      // feature 3: Liner fact-check — 관계 근거에 권위 출처 URL 누적(설정 게이트, advisory).
-      const fc = await maybeFactCheck(result);
-      const applied = await applyLlmResult(
-        space,
-        sp?.id ?? "",
-        note.subjectIds,
-        fc.result,
-        { sourceId: note.sourceId, archivePath: `archive/${note.path}` },
-        wikiBySlug[space] ?? [],
-      );
-      const [wikis, g] = await Promise.all([ipc.listWiki(space), ipc.getGraph(space)]);
-      setWikiBySlug((m) => ({ ...m, [space]: wikis }));
-      setGraphBySlug((m) => ({ ...m, [space]: g }));
-      const mergedNote = applied.merged > 0 ? ` (기존 ${applied.merged}개 병합)` : "";
-      // [E] 연결성 게이트 advisory — 이번 추출에서 어디에도 안 붙은(고립) 개념 수 표시.
-      const isoNote = promotion && promotion.staging > 0 ? ` · 고립 ${promotion.staging}개` : "";
-      // [B] 청킹 켰을 때 조각 정보 유형 분포.
-      const TYPE_KO: Record<string, string> = { concept: "개념", fact: "사실", claim: "주장", example: "예시", method: "방법", question: "질문" };
-      const typeNote = nodeTypes ? ` · 유형 ${Object.entries(nodeTypes).map(([t, n]) => `${TYPE_KO[t] ?? t} ${n}`).join(", ")}` : "";
-      // [D] 출처 tier(Source.type→1차/2차) 레지스트리로 병합 개념의 신뢰도·교차검증 집계.
-      const srcTypes = await ipc.listSourceTypes(space);
-      const registry = new Map<string, SourceMeta>(srcTypes.map(([id, t]) => [id, { sourceId: id, tier: tierFromSourceType(t) }]));
-      const prov = aggregateProvenance(applied.pages.map((p) => p.sourceIds), registry);
-      const provNote =
-        prov.count > 0
-          ? ` · 출처신뢰 ${Math.round(prov.avgScore * 100)}%${prov.multiSource > 0 ? ` · 교차검증 ${prov.multiSource}개` : ""}`
-          : "";
-      const fcNote = fc.checked > 0 ? ` · 출처검증 ${fc.checked}건` : "";
-      setAiStatus((s) => ({
-        ...s,
-        [key]: `${engine === "openai" ? "GPT" : "휴리스틱"}로 위키 ${applied.pages.length}개 · 관계 ${applied.relationCount}개${mergedNote}${isoNote}${typeNote}${provNote}${fcNote}${warning ? " · GPT 실패→휴리스틱" : ""}`,
-      }));
-      if (applied.pages[0]) openWiki(space, applied.pages[0].path);
+      const r = await extractForNote(space, note);
+      await refreshSpace(space);
+      setAiStatus((s) => ({ ...s, [key]: r.status }));
+      if (r.firstWikiPath) openWiki(space, r.firstWikiPath);
     } catch (e) {
       setAiStatus((s) => ({ ...s, [key]: `실패: ${String(e)}` }));
     } finally {
       setAiBusy("");
     }
+  };
+
+  // ── 정리 글 변환 (ADR-0008) — 합성 스트리밍 + 개념 추출 병렬 실행, 실패 격리 ──
+  const startConvert = async (space: string, note: ArchiveNote) => {
+    const key = docKey(space, note.path);
+    setAiBusy(key);
+    try {
+      const [, extract] = await Promise.allSettled([
+        useConvertStore.getState().runConvert({
+          space,
+          spaceId: spaces.find((s) => s.slug === space)?.id ?? "",
+          note,
+          existing: wikiBySlug[space] ?? [],
+        }),
+        extractForNote(space, note),
+      ]);
+      await refreshSpace(space);
+      // 합성 결과는 ConvertPanel(convertStore)이 표시 — 상태줄은 추출 몫만.
+      setAiStatus((s) => ({
+        ...s,
+        [key]: extract.status === "fulfilled" ? extract.value.status : `추출 실패: ${String(extract.reason)}`,
+      }));
+    } finally {
+      setAiBusy("");
+    }
+  };
+
+  const convertNote = (space: string, note: ArchiveNote) => {
+    const j = useConvertStore.getState().job;
+    if (j && (j.status === "streaming" || j.status === "saving")) {
+      setNotice("이미 변환 중이에요");
+      return;
+    }
+    if (openTabs.find((t) => t.id === `archive:${space}:${note.path}`)?.dirty) {
+      setNotice("미저장 편집이 있어요 — 저장 후 변환하세요");
+      return;
+    }
+    // embed 뿐인 노트 방지 — 합성할 텍스트가 있어야 한다.
+    if (note.markdown.replace(/!\[\[[^\]]+\]\]/g, "").trim().length < 20) {
+      setNotice("내용이 부족해요 — 파편을 먼저 적어주세요");
+      return;
+    }
+    // 기존 정리본 존재 → 변환(토큰 소비) 전에 덮어쓰기 확인.
+    if ((wikiBySlug[space] ?? []).some((w) => w.conceptId === synthesisConceptId(note.sourceId))) {
+      setDialog({ kind: "overwrite-syn", space, file: note.path, title: note.title });
+      return;
+    }
+    void startConvert(space, note);
   };
   // 간극 점검 — Liner(주) → OpenAI 소크라테스(보조) → 휴리스틱(오프라인) 3단 폴백.
   // 단일 진행(single-flight): 하나 도는 동안 다른 노트의 점검 시작 금지 + 소유자만 busy 해제.
@@ -581,6 +643,8 @@ export default function PiecePoolApp() {
   const sourceReader = (space: string, note: ArchiveNote) => {
     const key = docKey(space, note.path);
     const tabId = `archive:${space}:${note.path}`;
+    // 변환 미리보기는 job 의 노트 화면에서만 렌더 (탭 전환 후 복귀 시 재부착)
+    const convertHere = !!convertJob && convertJob.space === space && convertJob.notePath === note.path;
     return (
       <DocView
         docType="archive"
@@ -599,7 +663,30 @@ export default function PiecePoolApp() {
         linkExists={linkExistsIn(space)}
         embedSpace={space}
         topSlot={
-          <AiBar busy={aiBusy === key} gapBusy={gapBusy === key} status={aiStatus[key]} onGen={() => genWiki(space, note)} onGaps={() => checkGaps(space, note)} />
+          <AiBar
+            busy={aiBusy === key}
+            gapBusy={gapBusy === key}
+            status={aiStatus[key]}
+            onGen={() => genWiki(space, note)}
+            onGaps={() => checkGaps(space, note)}
+            convertBusy={!!convertJob && (convertJob.status === "streaming" || convertJob.status === "saving")}
+            convertStreaming={convertHere && convertJob?.status === "streaming"}
+            onConvert={() => convertNote(space, note)}
+            onCancelConvert={cancelConvert}
+          />
+        }
+        sideSlot={
+          convertHere && convertJob ? (
+            <ConvertPanel
+              job={convertJob}
+              onCancel={cancelConvert}
+              onClose={clearConvert}
+              onOpen={() => convertJob.wikiPath && openWiki(space, convertJob.wikiPath)}
+              onRetry={() => void startConvert(space, note)}
+              onLink={(t) => resolveLink(space, t)}
+              linkExists={linkExistsIn(space)}
+            />
+          ) : undefined
         }
         bottomSlot={
           gaps[key] ? (
@@ -789,6 +876,19 @@ export default function PiecePoolApp() {
           onConfirm={() => {
             discardAndClose(dialog.tabId);
             setDialog(null);
+          }}
+          onCancel={() => setDialog(null)}
+        />
+      )}
+      {dialog?.kind === "overwrite-syn" && (
+        <ConfirmDialog
+          title="기존 정리본을 덮어씁니다"
+          message="이 노트의 정리 글이 이미 있어요. 다시 변환하면 새 내용으로 교체됩니다 (직접 수정한 내용은 사라져요)."
+          confirmLabel="다시 변환"
+          onConfirm={() => {
+            const note = (notesBySlug[dialog.space] ?? []).find((n) => n.path === dialog.file);
+            setDialog(null);
+            if (note) void startConvert(dialog.space, note);
           }}
           onCancel={() => setDialog(null)}
         />
