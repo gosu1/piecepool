@@ -11,6 +11,7 @@ import { useTheme } from "../ds";
 // 이웃이 스프링처럼 유기적으로 재배치되고, 놓으면 다시 식어 멈춘다.
 interface SimNode extends SimulationNodeDatum {
   id: string;
+  space?: string; // 병합(전체) 뷰에서 space별 군집 배치용
 }
 interface SimLink {
   source: string;
@@ -22,7 +23,7 @@ interface SimLink {
 function buildSim(cy: Core): { sim: Simulation<SimNode, SimLink>; map: Map<string, SimNode> } {
   const w = cy.width() || 800;
   const h = cy.height() || 600;
-  const nodes: SimNode[] = cy.nodes().map((n) => ({ id: n.id() }));
+  const nodes: SimNode[] = cy.nodes().map((n) => ({ id: n.id(), space: n.data("space") as string | undefined }));
   const links: SimLink[] = cy.edges().map((e) => ({ source: e.source().id(), target: e.target().id() }));
   const map = new Map(nodes.map((n) => [n.id, n]));
 
@@ -37,10 +38,46 @@ function buildSim(cy: Core): { sim: Simulation<SimNode, SimLink>; map: Map<strin
 
   const sim = forceSimulation<SimNode, SimLink>(nodes)
     .force("link", forceLink<SimNode, SimLink>(links).id((d) => d.id).distance(70).strength(0.4))
-    .force("charge", forceManyBody<SimNode>().strength(-160).distanceMax(500))
-    .force("center", forceCenter(w / 2, h / 2))
-    .force("radial", forceRadial<SimNode>((d) => R * (1 - (deg.get(d.id) ?? 0) / maxDeg), w / 2, h / 2).strength(0.12))
     .force("collide", forceCollide<SimNode>(14));
+
+  // 전체(병합) 뷰: space 가 2개 이상이면 cross-space 엣지가 없어 섬들이 흩어진다.
+  // space별 그리드 앵커를 중심으로 한 radial 로 군집 + degree 배치(허브=앵커중심, 리프=바깥링)를
+  // 클러스터마다 재현한다. 단일 뷰의 "연결 적은 노드 바깥" 느낌을 각 공간에서 유지.
+  const spacesPresent = Array.from(new Set(nodes.map((n) => n.space).filter(Boolean))) as string[];
+  if (spacesPresent.length > 1) {
+    const cols = Math.ceil(Math.sqrt(spacesPresent.length));
+    const rows = Math.ceil(spacesPresent.length / cols);
+    const cellR = 0.4 * Math.min(w / cols, h / rows); // 클러스터 최외곽 반지름 (셀 안에 수렴)
+    const anchor = new Map<string, { x: number; y: number }>();
+    spacesPresent.forEach((s, i) => {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      anchor.set(s, { x: ((col + 0.5) / cols) * w, y: ((row + 0.5) / rows) * h });
+    });
+    // 커스텀 radial: 각 노드를 자기 space 앵커 중심으로, 차수 낮을수록 바깥으로 민다.
+    // (d3 forceRadial 은 중심이 단일 고정점이라 space별 중심을 못 써서 직접 구현)
+    const clusterRadial = (alpha: number) => {
+      for (const n of nodes) {
+        const a = n.space ? anchor.get(n.space) : undefined;
+        if (!a || n.x == null || n.y == null) continue;
+        const dx = n.x - a.x;
+        const dy = n.y - a.y;
+        const r = Math.sqrt(dx * dx + dy * dy) || 1e-6;
+        const target = cellR * (1 - (deg.get(n.id) ?? 0) / maxDeg);
+        const k = ((target - r) / r) * 0.18 * alpha;
+        n.vx = (n.vx ?? 0) + dx * k;
+        n.vy = (n.vy ?? 0) + dy * k;
+      }
+    };
+    sim
+      .force("charge", forceManyBody<SimNode>().strength(-120).distanceMax(220))
+      .force("cluster", clusterRadial);
+  } else {
+    sim
+      .force("charge", forceManyBody<SimNode>().strength(-160).distanceMax(500))
+      .force("center", forceCenter(w / 2, h / 2))
+      .force("radial", forceRadial<SimNode>((d) => R * (1 - (deg.get(d.id) ?? 0) / maxDeg), w / 2, h / 2).strength(0.12));
+  }
 
   sim.on("tick", () => {
     cy.batch(() => {
@@ -83,6 +120,8 @@ export interface CytoscapeGraphProps {
   selectedId?: string | null;
   /** 지정 시 해당 노드로 애니메이션 포커스. n(논스)으로 같은 노드 재검색도 다시 발화. */
   focus?: { id: string; n: number } | null;
+  /** 지정 시(전체 과목 뷰) 노드를 소속 space 색으로 칠한다. slug → 색. 미지정이면 kind 색(기본). */
+  spaceColors?: Record<string, string>;
   className?: string;
 }
 
@@ -99,7 +138,7 @@ function readTokens() {
   };
 }
 
-export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, typeFilter, selectedId, focus, className }: CytoscapeGraphProps) {
+export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, typeFilter, selectedId, focus, spaceColors, className }: CytoscapeGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<Core | null>(null);
   const simRef = useRef<Simulation<SimNode, SimLink> | null>(null);
@@ -150,6 +189,9 @@ export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, t
         label: n.title,
         kind: n.kind,
         size: 6 + Math.min(deg[n.id] ?? 0, 8) * 1.5,
+        space: n.space, // 병합 뷰 space별 군집(buildSim)용
+        // sbg 있으면 스타일이 space 색으로 덮어씀(전체 뷰). 없으면 kind 색 유지.
+        ...(spaceColors && n.space ? { sbg: spaceColors[n.space] ?? "#a39e98" } : {}),
       },
     }));
     const edgeEls: ElementDefinition[] = rels.map((r) => ({
@@ -163,7 +205,7 @@ export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, t
       },
     }));
     return [...nodeEls, ...edgeEls];
-  }, [data, subjectFilter, typeFilter]);
+  }, [data, subjectFilter, typeFilter, spaceColors]);
 
   // ── cy 생성(1회) + 이벤트 바인딩 ──
   useEffect(() => {
@@ -249,6 +291,8 @@ export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, t
         },
       },
       { selector: 'node[kind = "core"]', style: { "background-color": t.core } },
+      // 전체 과목 뷰: sbg(space 색)가 있으면 kind 색을 덮어쓴다.
+      { selector: "node[sbg]", style: { "background-color": "data(sbg)" } },
       {
         selector: "edge",
         style: {
