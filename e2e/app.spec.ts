@@ -15,12 +15,17 @@ test("부팅 → Study Home + 트리에서 위키 열기", async ({ page }) => {
   await expect(page.getByText("실행 중인 프로그램의 인스턴스").first()).toBeVisible();
 });
 
-test("섹션 네비게이션 — Graph 는 타입드 그래프 + 필터 칩 + 컨트롤", async ({ page }) => {
+test("섹션 네비게이션 — Graph 는 그룹 칩 + 계층 토글 + 읽는 법 + 컨트롤", async ({ page }) => {
   await page.getByRole("button", { name: "Graph" }).click();
   await expect(page.getByText("타입 있는 개념 그래프")).toBeVisible();
-  // RelationType 필터 칩 + 그래프 컨트롤(맞춤/재배치)
-  await expect(page.getByRole("button", { name: "part_of" })).toBeVisible();
+  // 관계 그룹 필터 칩(한국어) + 계층 토글 + 그래프 컨트롤(맞춤/재배치)
+  await expect(page.getByRole("button", { name: "구조·순서" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "계층 보기" })).toBeVisible();
   await expect(page.getByRole("button", { name: "화면 맞춤" })).toBeVisible();
+  // 첫 방문 → "그래프 읽는 법" 자동 펼침, 닫으면 ? 버튼으로
+  await expect(page.getByText("그래프 읽는 법")).toBeVisible();
+  await page.getByRole("button", { name: "도움말 닫기" }).click();
+  await expect(page.getByRole("button", { name: "그래프 읽는 법" })).toBeVisible();
 });
 
 test("⌘K 검색 — 본문 매치(임계 → 동기화)", async ({ page }) => {

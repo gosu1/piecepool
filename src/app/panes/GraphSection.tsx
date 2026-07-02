@@ -2,11 +2,24 @@ import { useEffect, useMemo, useState } from "react";
 import { Button, Card, cn } from "../../ds";
 import type { GraphData, WikiPage as WikiPageT, Subject, KnowledgeSpace } from "../../lib/types";
 import * as ipc from "../../lib/ipc";
-import { CytoscapeGraph, EDGE_COLOR } from "../../lib/CytoscapeGraph";
+import { CytoscapeGraph } from "../../lib/CytoscapeGraph";
+import {
+  HIER_TYPES,
+  RELATION_GROUPS,
+  RELATION_LABEL,
+  REVIEW_COLOR,
+  confidenceLabel,
+  relationSentence,
+  strengthLabel,
+  type RelationGroupId,
+} from "../../lib/relationMeta";
 import { Markdown } from "../../lib/markdown";
 
 // 전체 과목 뷰 space별 구분 색 (8색 순환)
 const SPACE_PALETTE = ["#0075de", "#dd5b00", "#2a9d99", "#7048e8", "#e64980", "#1aae39", "#f08c00", "#1c7ed6"];
+
+// "그래프 읽는 법" 오버레이 — 첫 방문 자동 펼침, 닫으면 기억
+const HELP_SEEN_KEY = "piecepool.graph-help-seen";
 
 // ══ Graph 섹션 (Cytoscape 인터랙티브) ══
 // 스코프 토글: 현재 과목(단일 space) ↔ 전체 과목(전 space 병합). 셸/사이드바 무관, 그래프 뷰 국소.
@@ -31,11 +44,27 @@ export function GraphSection({
   const [scope, setScope] = useState<"space" | "all">("space");
   const [selNode, setSelNode] = useState<string | null>(null);
   const [selEdge, setSelEdge] = useState<string | null>(null);
-  const [typeFilter, setTypeFilter] = useState<string[]>([]);
+  const [groupFilter, setGroupFilter] = useState<RelationGroupId[]>([]);
   const [subjectFilter, setSubjectFilter] = useState<string[]>([]);
+  const [layoutMode, setLayoutMode] = useState<"force" | "hier">("hier");
   const [query, setQuery] = useState("");
   const [focus, setFocus] = useState<{ id: string; n: number } | null>(null);
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [helpOpen, setHelpOpen] = useState(() => {
+    try {
+      return localStorage.getItem(HELP_SEEN_KEY) !== "1";
+    } catch {
+      return true;
+    }
+  });
+  const closeHelp = () => {
+    setHelpOpen(false);
+    try {
+      localStorage.setItem(HELP_SEEN_KEY, "1");
+    } catch {
+      /* ignore */
+    }
+  };
 
   useEffect(() => {
     ipc
@@ -83,7 +112,32 @@ export function GraphSection({
   const page = node ? (wikiBySlug[nodeSpace] ?? []).find((w) => w.path === node.path) : undefined;
   const edge = graph?.relations.find((r) => r.id === selEdge) ?? null;
   const edgeSpace = edge ? graph?.nodes.find((n) => n.id === edge.sourceNodeId)?.space ?? space : space;
-  const types = Array.from(new Set(graph?.relations.map((r) => r.relationType) ?? []));
+  // 그룹 칩(존재 타입만) + 유효 필터 전개(칩 = 필터 + 범례 겸용 — 스와치가 곧 그래프 인코딩).
+  // useMemo 로 identity 고정 필수 — 매 렌더 새 배열이면 CytoscapeGraph elements 가 무효화돼
+  // 클릭·타이핑마다 그래프 전체가 재배치된다. 유효 필터는 존재 그룹과 교집합 — 데이터 갱신으로
+  // 그룹이 사라져도 유령 필터가 전부를 숨기지 않게.
+  const { groupsPresent, typeFilter } = useMemo(() => {
+    const types = new Set(graph?.relations.map((r) => r.relationType) ?? []);
+    const present = RELATION_GROUPS.filter((g) => g.members.some((m) => types.has(m)));
+    const active = groupFilter.filter((id) => present.some((g) => g.id === id));
+    return { groupsPresent: present, typeFilter: active.flatMap((id) => RELATION_GROUPS.find((g) => g.id === id)?.members ?? []) };
+  }, [graph, groupFilter]);
+  // 계층 관계(part_of·prerequisite)가 "화면에" 있는지 → 토글 노출·폴백 (필터로 꺼지면 토글도 숨김)
+  const hasHier = useMemo(
+    () => (graph?.relations ?? []).some((r) => HIER_TYPES.has(r.relationType) && (typeFilter.length === 0 || typeFilter.includes(r.relationType))),
+    [graph, typeFilter],
+  );
+
+  // 필터로 선택 엣지가 화면에서 사라지면 상세 패널도 비운다 (노드 가드와 동일한 데스ync 방지)
+  useEffect(() => {
+    if (!selEdge) return;
+    const r = graph?.relations.find((x) => x.id === selEdge);
+    const nodeOk = (id: string) =>
+      graph?.nodes.some((n) => n.id === id && (subjectFilter.length === 0 || n.subjectIds.some((s) => subjectFilter.includes(s)))) ?? false;
+    const visible = !!r && (typeFilter.length === 0 || typeFilter.includes(r.relationType)) && nodeOk(r.sourceNodeId) && nodeOk(r.targetNodeId);
+    if (!visible) setSelEdge(null);
+  }, [typeFilter, subjectFilter, graph, selEdge]);
+
   const nodeTitle = (id: string) => graph?.nodes.find((n) => n.id === id)?.title ?? id;
 
   // 노드에 실제로 등장하는 subject 만 필터 후보로 (2개 이상일 때만 노출)
@@ -93,7 +147,7 @@ export function GraphSection({
   // 전체 뷰 범례용: 병합 그래프에 실제 등장하는 space 들
   const spacesPresent = scope === "all" ? (Array.from(new Set(merged.nodes.map((n) => n.space).filter(Boolean))) as string[]) : [];
 
-  const toggleType = (t: string) => setTypeFilter((f) => (f.includes(t) ? f.filter((x) => x !== t) : [...f, t]));
+  const toggleGroup = (id: RelationGroupId) => setGroupFilter((f) => (f.includes(id) ? f.filter((x) => x !== id) : [...f, id]));
   const toggleSubject = (id: string) => setSubjectFilter((f) => (f.includes(id) ? f.filter((x) => x !== id) : [...f, id]));
 
   // 스코프 전환 시 선택·필터 초기화 (다른 space 잔여 선택 방지)
@@ -103,7 +157,7 @@ export function GraphSection({
     setSelEdge(null);
     setFocus(null);
     setSubjectFilter([]);
-    setTypeFilter([]);
+    setGroupFilter([]);
   };
 
   const matches =
@@ -153,22 +207,44 @@ export function GraphSection({
           </div>
         </div>
 
-        {/* 스코프 토글: 현재 과목 ↔ 전체 과목 (공간 2개 이상일 때만) */}
-        {spaces.length > 1 && (
-          <div className="flex w-fit gap-0.5 rounded-lg border border-hairline p-0.5">
-            {(["space", "all"] as const).map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => pickScope(s)}
-                className={cn(
-                  "rounded-md px-2.5 py-1 text-[12px] transition-colors",
-                  scope === s ? "bg-surface-soft font-semibold text-ink shadow-soft" : "text-ink-2 hover:text-ink",
-                )}
-              >
-                {s === "space" ? spaceName || "현재 과목" : "전체 과목"}
-              </button>
-            ))}
+        {/* 스코프(현재↔전체)·레이아웃(계층↔자유) 토글 */}
+        {(spaces.length > 1 || (scope === "space" && hasHier)) && (
+          <div className="flex flex-wrap items-center gap-2">
+            {spaces.length > 1 && (
+              <div className="flex w-fit gap-0.5 rounded-lg border border-hairline p-0.5">
+                {(["space", "all"] as const).map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => pickScope(s)}
+                    className={cn(
+                      "rounded-md px-2.5 py-1 text-[12px] transition-colors",
+                      scope === s ? "bg-surface-soft font-semibold text-ink shadow-soft" : "text-ink-2 hover:text-ink",
+                    )}
+                  >
+                    {s === "space" ? spaceName || "현재 과목" : "전체 과목"}
+                  </button>
+                ))}
+              </div>
+            )}
+            {/* 계층 보기 ↔ 자유 배치 — 단일 뷰 + 계층 관계 있을 때만 (병합 뷰는 항상 자유 배치) */}
+            {scope === "space" && hasHier && (
+              <div className="flex w-fit gap-0.5 rounded-lg border border-hairline p-0.5">
+                {(["hier", "force"] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setLayoutMode(m)}
+                    className={cn(
+                      "rounded-md px-2.5 py-1 text-[12px] transition-colors",
+                      layoutMode === m ? "bg-surface-soft font-semibold text-ink shadow-soft" : "text-ink-2 hover:text-ink",
+                    )}
+                  >
+                    {m === "hier" ? "계층 보기" : "자유 배치"}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -184,21 +260,29 @@ export function GraphSection({
           </div>
         )}
 
-        {/* RelationType 필터 */}
-        {types.length > 0 && (
+        {/* 관계 그룹 필터 — 칩이 곧 범례: 스와치(실선/점선·복습색)가 그래프 인코딩 그대로 */}
+        {groupsPresent.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
-            {types.map((t) => (
+            {groupsPresent.map((g) => (
               <button
-                key={t}
+                key={g.id}
                 type="button"
-                onClick={() => toggleType(t)}
+                onClick={() => toggleGroup(g.id)}
                 className={cn(
                   "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] transition-colors",
-                  typeFilter.length === 0 || typeFilter.includes(t) ? "border-hairline text-ink-2" : "border-hairline text-ink-faint opacity-50",
+                  groupFilter.length === 0 || groupFilter.includes(g.id)
+                    ? "border-hairline text-ink-2"
+                    : "border-hairline text-ink-faint opacity-50",
                 )}
               >
-                <span className="h-2 w-2 rounded-full" style={{ background: EDGE_COLOR[t] ?? "#a39e98" }} />
-                {t}
+                <span
+                  className="inline-block w-4 border-t-2"
+                  style={{
+                    borderTopStyle: g.dash === "dashed" ? "dashed" : "solid",
+                    borderTopColor: g.id === "review" ? REVIEW_COLOR : "currentColor",
+                  }}
+                />
+                {g.name}
               </button>
             ))}
           </div>
@@ -225,29 +309,65 @@ export function GraphSection({
           </div>
         )}
 
-        <Card padding="none" className="min-h-0 flex-1 overflow-hidden">
+        <Card padding="none" className="relative min-h-0 flex-1 overflow-hidden">
           {graph && graph.nodes.length > 0 ? (
-            <CytoscapeGraph
-              data={graph}
-              typeFilter={typeFilter}
-              subjectFilter={subjectFilter}
-              spaceColors={scope === "all" ? spaceColors : undefined}
-              selectedId={selNode}
-              focus={focus}
-              onNode={(id) => {
-                setSelNode(id);
-                setSelEdge(null);
-              }}
-              onEdge={(id) => {
-                setSelEdge(id);
-                setSelNode(null);
-              }}
-              onClear={() => {
-                setSelNode(null);
-                setSelEdge(null);
-                setFocus(null);
-              }}
-            />
+            <>
+              <CytoscapeGraph
+                data={graph}
+                typeFilter={typeFilter}
+                subjectFilter={subjectFilter}
+                spaceColors={scope === "all" ? spaceColors : undefined}
+                selectedId={selNode}
+                focus={focus}
+                layout={scope === "all" || !hasHier ? "force" : layoutMode}
+                onNode={(id) => {
+                  setSelNode(id);
+                  setSelEdge(null);
+                }}
+                onEdge={(id) => {
+                  setSelEdge(id);
+                  setSelNode(null);
+                }}
+                onClear={() => {
+                  setSelNode(null);
+                  setSelEdge(null);
+                  setFocus(null);
+                }}
+              />
+              {/* 그래프 읽는 법 — 첫 방문 자동 펼침, 이후 ? 버튼으로 재호출 */}
+              <div className="absolute bottom-2 left-2 z-10">
+                {helpOpen ? (
+                  <div className="max-w-[300px] rounded-lg border border-hairline bg-surface p-3 shadow-elevated">
+                    <div className="mb-1.5 flex items-center justify-between gap-2">
+                      <p className="text-[12px] font-semibold text-ink">그래프 읽는 법</p>
+                      <button
+                        type="button"
+                        aria-label="도움말 닫기"
+                        onClick={closeHelp}
+                        className="text-[12px] text-ink-faint transition-colors hover:text-ink"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <ul className="space-y-1 text-[12px] leading-relaxed text-ink-2">
+                      <li>· 위에 있을수록 기초·전체 개념, 아래로 갈수록 세부예요</li>
+                      <li>· 실선은 뼈대(구조·인과), 점선은 느슨한 연결 — 빨간 선은 복습 표시</li>
+                      <li>· 확대하거나 점에 마우스를 올리면 관계 이름이 떠요 — 선을 클릭하면 문장으로 설명해 드려요</li>
+                    </ul>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    aria-label="그래프 읽는 법"
+                    title="그래프 읽는 법"
+                    onClick={() => setHelpOpen(true)}
+                    className="flex h-7 w-7 items-center justify-center rounded-md border border-hairline bg-surface text-[13px] text-ink-2 shadow-soft transition-colors hover:bg-surface-soft hover:text-ink"
+                  >
+                    ?
+                  </button>
+                )}
+              </div>
+            </>
           ) : (
             <p className="p-6 text-[15px] text-ink-muted">그래프 데이터가 없습니다. Inbox에서 노트를 저장하고 AI 정리를 실행해보세요.</p>
           )}
@@ -257,16 +377,20 @@ export function GraphSection({
       <div className="w-80 shrink-0">
         {edge ? (
           <Card padding="lg" className="flex h-full max-h-full flex-col gap-2 overflow-y-auto">
-            <span className="inline-flex w-fit items-center gap-1.5 rounded-full px-2 py-0.5 text-[12px] font-semibold text-on-primary" style={{ background: EDGE_COLOR[edge.relationType] ?? "#a39e98" }}>
-              {edge.relationType}
+            <span className="inline-flex w-fit items-baseline gap-1.5 rounded-full border border-hairline px-2.5 py-0.5 text-[12px] font-semibold text-ink">
+              {RELATION_LABEL[edge.relationType] ?? edge.relationType}
+              <span className="font-mono text-[10px] font-normal text-ink-faint">{edge.relationType}</span>
             </span>
-            <p className="text-[15px] font-semibold text-ink">
-              {nodeTitle(edge.sourceNodeId)} → {nodeTitle(edge.targetNodeId)}
+            {/* 방향을 문장에 녹여 화살표 오독 차단 — "A → B" 헤드라인 대체 */}
+            <p className="text-[15px] font-semibold leading-relaxed text-ink">
+              {relationSentence(edge.relationType, nodeTitle(edge.sourceNodeId), nodeTitle(edge.targetNodeId))}
             </p>
-            <div className="flex gap-4 text-[13px] text-ink-muted">
-              <span>강도 {edge.strength.toFixed(2)}</span>
-              <span>신뢰도 {edge.confidence.toFixed(2)}</span>
-            </div>
+            <p className="text-[13px] text-ink-muted">
+              {strengthLabel(edge.strength)} · {confidenceLabel(edge.confidence)}{" "}
+              <span className="text-[12px] text-ink-faint">
+                ({edge.strength.toFixed(2)} · {edge.confidence.toFixed(2)})
+              </span>
+            </p>
             <p className="text-[14px] leading-relaxed text-ink-2">{edge.explanation}</p>
             <div className="mt-1 space-y-2 border-t border-hairline pt-2">
               <p className="ds-eyebrow text-ink-faint">근거 ({edge.evidence.length})</p>
@@ -301,11 +425,11 @@ export function GraphSection({
         ) : (
           <Card padding="lg" className="flex h-full items-center justify-center text-center">
             <p className="text-[14px] text-ink-muted">
-              노드를 클릭 → 위키
+              점(개념)을 클릭 → 위키
               <br />
-              엣지를 클릭 → 관계·근거
+              선(관계)을 클릭 → 문장 설명·근거
               <br />
-              <span className="text-[12px] text-ink-faint">노드에 마우스를 올리면 이웃만 강조돼요</span>
+              <span className="text-[12px] text-ink-faint">점에 마우스를 올리면 이웃만 강조돼요</span>
             </p>
           </Card>
         )}
