@@ -14,6 +14,7 @@ export function StudyHome({
   onOpenArchive,
   onNewNote,
   onOpenGraph,
+  onSelectSpace,
 }: {
   spaces: KnowledgeSpace[];
   wikiBySlug: Record<string, WikiPageT[]>;
@@ -24,6 +25,7 @@ export function StudyHome({
   onOpenArchive: (space: string, file: string) => void;
   onNewNote: () => void;
   onOpenGraph: (space: string) => void;
+  onSelectSpace?: (slug: string) => void;
 }) {
   const nameOf = (slug: string) => spaces.find((s) => s.slug === slug)?.name ?? slug;
 
@@ -101,6 +103,28 @@ export function StudyHome({
           </span>
         </Card>
       </section>
+
+      {/* 지식 공간 — 공간별 원본/위키/관계 카운트 */}
+      {spaces.length > 0 && (
+        <section className="space-y-3">
+          <SectionTitle icon={<Icons.FolderIcon size={14} />} title="지식 공간" />
+          <div className="grid gap-2 sm:grid-cols-2">
+            {spaces.map((s) => {
+              const noteCount = (notesBySlug[s.slug] ?? []).length;
+              const wikiCount = (wikiBySlug[s.slug] ?? []).length;
+              const relCount = graphBySlug[s.slug]?.relations.length ?? 0;
+              return (
+                <Card key={s.slug} interactive padding="md" onClick={() => onSelectSpace?.(s.slug)}>
+                  <p className="truncate text-[14px] font-semibold text-ink">{s.name}</p>
+                  <p className="text-[12px] text-ink-muted">
+                    원본 {noteCount} · 위키 {wikiCount} · 관계 {relCount}
+                  </p>
+                </Card>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* 오늘 캡처 */}
       <section className="space-y-3">

@@ -12,7 +12,10 @@ pub mod frontmatter;
 pub type Result<T> = std::result::Result<T, AppError>;
 
 fn io_err(ctx: &str, e: impl std::fmt::Display) -> AppError {
-    AppError { kind: "io".into(), message: format!("{ctx}: {e}") }
+    AppError {
+        kind: "io".into(),
+        message: format!("{ctx}: {e}"),
+    }
 }
 
 // ── Workspace 루트 ───────────────────────────────────────────
@@ -38,7 +41,14 @@ pub fn space_subdir(slug: &str, sub: &str) -> PathBuf {
 /// Workspace + 지식 영역 표준 트리를 생성한다(이미 있으면 무시).
 pub fn ensure_space_tree(slug: &str) -> Result<()> {
     ensure_dir(&config_dir())?;
-    for sub in ["inbox", "archive", "wiki", "relations", "sources/original-files", "config"] {
+    for sub in [
+        "inbox",
+        "archive",
+        "wiki",
+        "relations",
+        "sources/original-files",
+        "config",
+    ] {
         ensure_dir(&space_dir(slug).join(sub))?;
     }
     Ok(())
@@ -68,10 +78,68 @@ pub fn to_base64(data: &[u8]) -> String {
         let n = ((b0 as u32) << 16) | ((b1 as u32) << 8) | (b2 as u32);
         out.push(T[((n >> 18) & 63) as usize] as char);
         out.push(T[((n >> 12) & 63) as usize] as char);
-        out.push(if chunk.len() > 1 { T[((n >> 6) & 63) as usize] as char } else { '=' });
-        out.push(if chunk.len() > 2 { T[(n & 63) as usize] as char } else { '=' });
+        out.push(if chunk.len() > 1 {
+            T[((n >> 6) & 63) as usize] as char
+        } else {
+            '='
+        });
+        out.push(if chunk.len() > 2 {
+            T[(n & 63) as usize] as char
+        } else {
+            '='
+        });
     }
     out
+}
+
+/// 표준 base64 디코딩 (to_base64 역함수). 잘못된 문자·길이·패딩은 schema 오류로 거부.
+pub fn from_base64(s: &str) -> Result<Vec<u8>> {
+    fn sextet(c: u8) -> Option<u32> {
+        match c {
+            b'A'..=b'Z' => Some((c - b'A') as u32),
+            b'a'..=b'z' => Some((c - b'a' + 26) as u32),
+            b'0'..=b'9' => Some((c - b'0' + 52) as u32),
+            b'+' => Some(62),
+            b'/' => Some(63),
+            _ => None,
+        }
+    }
+    let bad = |why: &str| AppError {
+        kind: "schema".into(),
+        message: format!("잘못된 base64: {why}"),
+    };
+    let b = s.as_bytes();
+    if !b.len().is_multiple_of(4) {
+        return Err(bad("길이가 4의 배수가 아님"));
+    }
+    let chunks = b.len() / 4;
+    let mut out = Vec::with_capacity(chunks * 3);
+    for (i, chunk) in b.chunks(4).enumerate() {
+        let pad = chunk.iter().rev().take_while(|&&c| c == b'=').count();
+        if pad > 2 || (pad > 0 && i + 1 != chunks) {
+            return Err(bad("잘못된 패딩"));
+        }
+        let mut n: u32 = 0;
+        for (j, &c) in chunk.iter().enumerate() {
+            let v = if c == b'=' {
+                if j < 4 - pad {
+                    return Err(bad("패딩 위치가 잘못됨"));
+                }
+                0
+            } else {
+                sextet(c).ok_or_else(|| bad("허용되지 않는 문자"))?
+            };
+            n = (n << 6) | v;
+        }
+        out.push((n >> 16) as u8);
+        if pad < 2 {
+            out.push((n >> 8) as u8);
+        }
+        if pad < 1 {
+            out.push(n as u8);
+        }
+    }
+    Ok(out)
 }
 
 /// atomic write: 임시 파일에 쓰고 rename. 디렉토리는 보장한다.
@@ -84,6 +152,21 @@ pub fn write_text(p: &Path, contents: &str) -> Result<()> {
     fs::rename(&tmp, p).map_err(|e| io_err(&format!("rename {}", p.display()), e))
 }
 
+/// atomic write (바이너리): 임시 파일에 쓰고 rename. 디렉토리는 보장한다.
+pub fn write_bytes(p: &Path, data: &[u8]) -> Result<()> {
+    if let Some(parent) = p.parent() {
+        ensure_dir(parent)?;
+    }
+    let tmp = p.with_extension("tmp");
+    fs::write(&tmp, data).map_err(|e| io_err(&format!("write {}", tmp.display()), e))?;
+    fs::rename(&tmp, p).map_err(|e| io_err(&format!("rename {}", p.display()), e))
+}
+
+/// 파일 삭제. 없는 파일은 io 오류로 반환한다.
+pub fn remove_file(p: &Path) -> Result<()> {
+    fs::remove_file(p).map_err(|e| io_err(&format!("remove {}", p.display()), e))
+}
+
 pub fn exists(p: &Path) -> bool {
     p.exists()
 }
@@ -92,32 +175,46 @@ pub fn exists(p: &Path) -> bool {
 /// null-byte / 절대경로 / `..`(ParentDir) 를 거부하고, 결과가 base 아래임을 보장한다.
 pub fn safe_join(base: &Path, rel: &str) -> Result<PathBuf> {
     if rel.contains('\0') {
-        return Err(AppError { kind: "path_invalid".into(), message: format!("잘못된 경로: {rel}") });
+        return Err(AppError {
+            kind: "path_invalid".into(),
+            message: format!("잘못된 경로: {rel}"),
+        });
     }
     let candidate = Path::new(rel);
     for comp in candidate.components() {
         match comp {
             Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
-                return Err(AppError { kind: "path_traversal".into(), message: format!("허용되지 않은 경로 접근: {rel}") });
+                return Err(AppError {
+                    kind: "path_traversal".into(),
+                    message: format!("허용되지 않은 경로 접근: {rel}"),
+                });
             }
             _ => {}
         }
     }
     let joined = base.join(candidate);
     if !joined.starts_with(base) {
-        return Err(AppError { kind: "path_traversal".into(), message: format!("허용되지 않은 경로 접근: {rel}") });
+        return Err(AppError {
+            kind: "path_traversal".into(),
+            message: format!("허용되지 않은 경로 접근: {rel}"),
+        });
     }
     Ok(joined)
 }
 
 pub fn read_json<T: serde::de::DeserializeOwned>(p: &Path) -> Result<T> {
     let s = read_text(p)?;
-    serde_json::from_str(&s).map_err(|e| AppError { kind: "schema".into(), message: format!("parse {}: {e}", p.display()) })
+    serde_json::from_str(&s).map_err(|e| AppError {
+        kind: "schema".into(),
+        message: format!("parse {}: {e}", p.display()),
+    })
 }
 
 pub fn write_json<T: serde::Serialize>(p: &Path, value: &T) -> Result<()> {
-    let s = serde_json::to_string_pretty(value)
-        .map_err(|e| AppError { kind: "schema".into(), message: format!("serialize: {e}") })?;
+    let s = serde_json::to_string_pretty(value).map_err(|e| AppError {
+        kind: "schema".into(),
+        message: format!("serialize: {e}"),
+    })?;
     write_text(p, &format!("{s}\n"))
 }
 
@@ -141,7 +238,10 @@ pub fn list_files(dir: &Path, ext: &str) -> Result<Vec<String>> {
 // ── 유틸: 시간 / slug ───────────────────────────────────────
 /// 현재 UTC 시각을 ISO 8601(`YYYY-MM-DDTHH:MM:SSZ`)로. 외부 crate 없이 계산.
 pub fn now_iso() -> String {
-    let secs = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+    let secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
     epoch_to_iso(secs as i64)
 }
 
@@ -186,11 +286,18 @@ pub fn slugify(input: &str) -> String {
         }
     }
     let s = out.trim_matches('-').to_string();
-    if s.is_empty() { "untitled".into() } else { s }
+    if s.is_empty() {
+        "untitled".into()
+    } else {
+        s
+    }
 }
 
 /// 간단한 안정 식별자(시간 기반). ULID 대체(contract 허용: "ULID 또는 안정 식별자").
 pub fn gen_id(prefix: &str) -> String {
-    let nanos = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
     format!("{prefix}-{nanos:x}")
 }

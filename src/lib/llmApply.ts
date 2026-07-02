@@ -1,5 +1,6 @@
-import type { LlmWikiResult, LlmConcept, LlmEvidence } from "../llm/provider";
-import type { WikiPage, Relation, Evidence } from "./types";
+import type { LlmWikiResult, LlmConcept, LlmEvidence, LlmWikiInput } from "../llm/provider";
+import type { WikiPage, Relation, Evidence, SourceRef } from "./types";
+import { parseWikilinks, parseEmbedTarget } from "./wikilink";
 import * as ipc from "./ipc";
 
 // LlmWikiResult → WikiPage[] + Relation[] 변환 후 백엔드에 저장.
@@ -38,6 +39,42 @@ function conceptMarkdown(c: LlmConcept): string {
   if (c.relatedQuestions && c.relatedQuestions.length)
     parts.push("", "## 관련 질문", ...c.relatedQuestions.map((q) => `- ${q}`));
   return parts.join("\n");
+}
+
+// 노트 본문의 첫 pdf/image embed → LlmWikiInput.sourceFiles.
+// 이걸 입력에 넣어야 sanitizeSourceRefs(validate.ts)가 LLM 의 sourceRefs 를 살려서 통과시킨다 —
+// 비우면 모든 ref 가 환각으로 간주되어 제거되고 sourceRefs 파이프라인 전체가 no-op 이 된다.
+// sanitize 가 sourceId→file 1:1 맵을 쓰므로 노트당 대표 파일 1개만 준다.
+const IMAGE_EXTS = new Set(["png", "jpg", "jpeg", "webp", "gif"]);
+
+export function embedSourceFiles(sourceId: string, markdown: string): NonNullable<LlmWikiInput["sourceFiles"]> {
+  for (const t of parseWikilinks(markdown)) {
+    if (t.kind !== "embed") continue;
+    const { file } = parseEmbedTarget(t.value);
+    const ext = file.split(".").pop()?.toLowerCase() ?? "";
+    if (ext === "pdf") return [{ id: sourceId, file, type: "pdf" }];
+    if (IMAGE_EXTS.has(ext)) return [{ id: sourceId, file, type: "image" }];
+  }
+  return [];
+}
+
+// LlmSourceRef → SourceRef (llm-output-schema 변환 파이프라인 · 수용기준 §2.2).
+// sourceId 는 LLM 입력으로 준 Source 만 허용(환각 거부) — save_wiki 의 frontmatter 검증을 통과 보장.
+// 병합 시 기존 refs 와 (sourceId,file,page,embed) 기준 dedup.
+export function toSourceRefs(c: LlmConcept, allowed: Set<string>, baseSlug: string, existing?: SourceRef[]): SourceRef[] {
+  const out: SourceRef[] = existing ? [...existing] : [];
+  const key = (r: { sourceId: string; file: string; page?: number; embed: boolean }) =>
+    `${r.sourceId}|${r.file}|${r.page ?? ""}|${r.embed}`;
+  const seen = new Set(out.map(key));
+  let i = out.length;
+  for (const r of c.sourceRefs ?? []) {
+    if (!allowed.has(r.sourceId) || !r.file) continue;
+    const k = key(r);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push({ id: `ref-${baseSlug}-${i++}`, sourceId: r.sourceId, file: r.file, page: r.page, embed: r.embed, label: r.label, reason: r.reason });
+  }
+  return out;
 }
 
 function toEvidence(e: LlmEvidence): Evidence {
@@ -80,6 +117,8 @@ export async function applyLlmResult(
     const ex = byNorm.get(norm); // 기존과 동일 개념이면 그 파일에 병합
     if (ex) merged++;
     const cid = ex ? ex.conceptId : `concept-${slugOrHash(c.title)}`;
+    // 허용 sourceId = 이번 입력 소스 ∪ 기존 페이지가 이미 참조하던 소스
+    const allowed = new Set([source.sourceId, ...(ex?.sourceIds ?? [])]);
     const page: WikiPage = {
       id: ex ? ex.id : `wiki-${slugOrHash(c.title)}`,
       spaceId,
@@ -88,7 +127,7 @@ export async function applyLlmResult(
       path: ex ? ex.path : `${slugOrHash(c.title)}.md`,
       subjectIds,
       sourceIds: ex ? Array.from(new Set([...ex.sourceIds, source.sourceId])) : [source.sourceId],
-      sourceRefs: ex ? ex.sourceRefs : [],
+      sourceRefs: toSourceRefs(c, allowed, slugOrHash(c.title), ex?.sourceRefs),
       markdown: conceptMarkdown(c),
       createdAt: ex ? ex.createdAt : now, // 병합 시 생성시각 보존
       updatedAt: now,

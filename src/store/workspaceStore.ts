@@ -1,87 +1,116 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 // 워크스페이스 UI/네비 상태 소유 = Study Vault shell(리디자인 P0~P3). 열린 탭 · 활성 탭 ·
-// 패널 접힘/서브탭 · 트리 확장만 담는다. ImportJob 상태는 절대 여기 두지 않음 — 그건
+// 사이드바 접기/폭 · 트리 접힘만 담는다. ImportJob 상태는 절대 여기 두지 않음 — 그건
 // useImportStore 단일 소유(두 스토어 드리프트 방지). 순수 뷰 상태라 백엔드/계약 무관.
+// localStorage persist — 재시작 시 열린 탭·활성 탭·사이드바 상태 복원(수용기준 §1).
 
-export type TabKind = "home" | "wiki" | "archive" | "source" | "inbox" | "graph";
+export type TabKind = "home" | "wiki" | "archive" | "inbox" | "graph";
 
 export interface WorkspaceTab {
-  id: string; // 안정 식별자. 예: "home" · "wiki/operating-systems/paging.md"
+  id: string; // 안정 식별자. 예: "home" · "wiki:operating-systems:paging.md"
   kind: TabKind;
   title: string;
   space?: string; // KnowledgeSpace slug (home/graph 는 선택)
-  file?: string; // wiki/archive/source 파일명
+  file?: string; // wiki/archive 파일명
   dirty?: boolean; // 미저장 표시(●)
 }
 
-export type LeftPaneTab = "files" | "search" | "starred";
-export type RightPaneTab = "outline" | "ai";
+export const SIDEBAR_MIN = 180;
+export const SIDEBAR_MAX = 480;
+export const SIDEBAR_DEFAULT = 240;
 
 interface WorkspaceState {
   openTabs: WorkspaceTab[];
   activeTabId: string | null;
-  leftPaneTab: LeftPaneTab;
-  rightPaneTab: RightPaneTab;
   leftCollapsed: boolean;
-  rightCollapsed: boolean;
-  expandedTreeIds: string[];
+  sidebarWidth: number;
+  collapsedTreeIds: string[]; // 기본 전체 펼침 — 사용자가 접은 폴더만 기억
 
   openTab: (tab: WorkspaceTab) => void;
   closeTab: (id: string) => void;
   setActiveTab: (id: string) => void;
   setTabDirty: (id: string, dirty: boolean) => void;
-  setLeftPaneTab: (t: LeftPaneTab) => void;
-  setRightPaneTab: (t: RightPaneTab) => void;
+  renameTab: (id: string, title: string) => void;
+  reorderTab: (dragId: string, targetId: string) => void;
   toggleLeftPane: () => void;
-  toggleRightPane: () => void;
+  setSidebarWidth: (w: number) => void;
   toggleTreeNode: (id: string) => void;
 }
 
-export const useWorkspaceStore = create<WorkspaceState>((set) => ({
-  openTabs: [],
-  activeTabId: null,
-  leftPaneTab: "files",
-  rightPaneTab: "ai",
-  leftCollapsed: false,
-  rightCollapsed: false,
-  expandedTreeIds: [],
+export const useWorkspaceStore = create<WorkspaceState>()(
+  persist(
+    (set) => ({
+      openTabs: [],
+      activeTabId: null,
+      leftCollapsed: false,
+      sidebarWidth: SIDEBAR_DEFAULT,
+      collapsedTreeIds: [],
 
-  // 이미 열린 탭이면 활성화만, 아니면 추가 후 활성화
-  openTab: (tab) =>
-    set((s) => ({
-      openTabs: s.openTabs.some((t) => t.id === tab.id) ? s.openTabs : [...s.openTabs, tab],
-      activeTabId: tab.id,
-    })),
+      // 이미 열린 탭이면 활성화만, 아니면 추가 후 활성화
+      openTab: (tab) =>
+        set((s) => ({
+          openTabs: s.openTabs.some((t) => t.id === tab.id) ? s.openTabs : [...s.openTabs, tab],
+          activeTabId: tab.id,
+        })),
 
-  // 닫은 탭이 활성이면 이웃 탭으로 활성 이동(오른쪽 우선, 없으면 왼쪽)
-  closeTab: (id) =>
-    set((s) => {
-      const idx = s.openTabs.findIndex((t) => t.id === id);
-      if (idx === -1) return s;
-      const openTabs = s.openTabs.filter((t) => t.id !== id);
-      let activeTabId = s.activeTabId;
-      if (s.activeTabId === id) {
-        const neighbor = openTabs[idx] ?? openTabs[idx - 1] ?? null;
-        activeTabId = neighbor ? neighbor.id : null;
-      }
-      return { openTabs, activeTabId };
+      // 닫은 탭이 활성이면 이웃 탭으로 활성 이동(오른쪽 우선, 없으면 왼쪽)
+      closeTab: (id) =>
+        set((s) => {
+          const idx = s.openTabs.findIndex((t) => t.id === id);
+          if (idx === -1) return s;
+          const openTabs = s.openTabs.filter((t) => t.id !== id);
+          let activeTabId = s.activeTabId;
+          if (s.activeTabId === id) {
+            const neighbor = openTabs[idx] ?? openTabs[idx - 1] ?? null;
+            activeTabId = neighbor ? neighbor.id : null;
+          }
+          return { openTabs, activeTabId };
+        }),
+
+      setActiveTab: (id) => set({ activeTabId: id }),
+
+      setTabDirty: (id, dirty) =>
+        set((s) => ({ openTabs: s.openTabs.map((t) => (t.id === id ? { ...t, dirty } : t)) })),
+
+      renameTab: (id, title) =>
+        set((s) => ({ openTabs: s.openTabs.map((t) => (t.id === id ? { ...t, title } : t)) })),
+
+      // 드래그 재정렬 — dragId 탭을 targetId 위치로 이동(target 앞에 삽입)
+      reorderTab: (dragId, targetId) =>
+        set((s) => {
+          const tabs = [...s.openTabs];
+          const from = tabs.findIndex((t) => t.id === dragId);
+          const to = tabs.findIndex((t) => t.id === targetId);
+          if (from === -1 || to === -1 || from === to) return s;
+          const [moved] = tabs.splice(from, 1);
+          tabs.splice(to, 0, moved);
+          return { openTabs: tabs };
+        }),
+
+      toggleLeftPane: () => set((s) => ({ leftCollapsed: !s.leftCollapsed })),
+
+      setSidebarWidth: (w) =>
+        set({ sidebarWidth: Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, Math.round(w))) }),
+
+      toggleTreeNode: (id) =>
+        set((s) => ({
+          collapsedTreeIds: s.collapsedTreeIds.includes(id)
+            ? s.collapsedTreeIds.filter((x) => x !== id)
+            : [...s.collapsedTreeIds, id],
+        })),
     }),
-
-  setActiveTab: (id) => set({ activeTabId: id }),
-
-  setTabDirty: (id, dirty) =>
-    set((s) => ({ openTabs: s.openTabs.map((t) => (t.id === id ? { ...t, dirty } : t)) })),
-
-  setLeftPaneTab: (t) => set({ leftPaneTab: t }),
-  setRightPaneTab: (t) => set({ rightPaneTab: t }),
-  toggleLeftPane: () => set((s) => ({ leftCollapsed: !s.leftCollapsed })),
-  toggleRightPane: () => set((s) => ({ rightCollapsed: !s.rightCollapsed })),
-
-  toggleTreeNode: (id) =>
-    set((s) => ({
-      expandedTreeIds: s.expandedTreeIds.includes(id)
-        ? s.expandedTreeIds.filter((x) => x !== id)
-        : [...s.expandedTreeIds, id],
-    })),
-}));
+    {
+      name: "pp-workspace",
+      // dirty 는 세션 상태(드래프트가 메모리에만 있음) — 복원 시 항상 false 로 되돌린다.
+      partialize: (s) => ({
+        openTabs: s.openTabs.map(({ dirty: _d, ...t }) => t),
+        activeTabId: s.activeTabId,
+        leftCollapsed: s.leftCollapsed,
+        sidebarWidth: s.sidebarWidth,
+        collapsedTreeIds: s.collapsedTreeIds,
+      }),
+    },
+  ),
+);

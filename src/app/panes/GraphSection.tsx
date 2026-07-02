@@ -1,18 +1,22 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button, Card, cn } from "../../ds";
-import type { GraphData, WikiPage as WikiPageT } from "../../lib/types";
+import type { GraphData, WikiPage as WikiPageT, Subject } from "../../lib/types";
+import * as ipc from "../../lib/ipc";
 import { CytoscapeGraph, EDGE_COLOR } from "../../lib/CytoscapeGraph";
 import { Markdown } from "../../lib/markdown";
 
-// ══ Graph 섹션 (Cytoscape 인터랙티브: 노드→위키 · 엣지→관계 상세 · 타입 필터) ══
+// ══ Graph 섹션 (Cytoscape 인터랙티브) ══
+// 노드→위키 · 엣지→관계 상세 · RelationType/Subject 필터 · 노드 검색(수용기준 §6).
 export function GraphSection({
   graph,
+  space,
   spaceName,
   wikiPages,
   onOpenWiki,
   onOpenArchive,
 }: {
   graph?: GraphData;
+  space: string;
   spaceName: string;
   wikiPages: WikiPageT[];
   onOpenWiki: (file: string) => void;
@@ -21,6 +25,24 @@ export function GraphSection({
   const [selNode, setSelNode] = useState<string | null>(null);
   const [selEdge, setSelEdge] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
+  const [subjectFilter, setSubjectFilter] = useState<string[]>([]);
+  const [query, setQuery] = useState("");
+  const [focus, setFocus] = useState<{ id: string; n: number } | null>(null);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+
+  useEffect(() => {
+    ipc
+      .listSubjects(space)
+      .then(setSubjects)
+      .catch(() => setSubjects([]));
+  }, [space]);
+
+  // subject 필터로 선택 노드가 화면에서 사라지면 상세 패널도 비운다(데스ync 방지).
+  useEffect(() => {
+    if (!selNode || subjectFilter.length === 0) return;
+    const visible = graph?.nodes.some((n) => n.id === selNode && n.subjectIds.some((s) => subjectFilter.includes(s)));
+    if (!visible) setSelNode(null);
+  }, [subjectFilter, graph, selNode]);
 
   const node = graph?.nodes.find((n) => n.id === selNode) ?? null;
   const page = node ? wikiPages.find((w) => w.path === node.path) : undefined;
@@ -28,15 +50,59 @@ export function GraphSection({
   const types = Array.from(new Set(graph?.relations.map((r) => r.relationType) ?? []));
   const nodeTitle = (id: string) => graph?.nodes.find((n) => n.id === id)?.title ?? id;
 
+  // 노드에 실제로 등장하는 subject 만 필터 후보로 (2개 이상일 때만 노출)
+  const subjectIds = Array.from(new Set(graph?.nodes.flatMap((n) => n.subjectIds) ?? []));
+  const subjectName = (id: string) => subjects.find((s) => s.id === id)?.name ?? id;
+
   const toggleType = (t: string) => setTypeFilter((f) => (f.includes(t) ? f.filter((x) => x !== t) : [...f, t]));
+  const toggleSubject = (id: string) => setSubjectFilter((f) => (f.includes(id) ? f.filter((x) => x !== id) : [...f, id]));
+
+  const matches =
+    query.trim().length > 0
+      ? (graph?.nodes ?? []).filter((n) => n.title.toLowerCase().includes(query.trim().toLowerCase())).slice(0, 5)
+      : [];
+  const pickMatch = (id: string) => {
+    setSelNode(id);
+    setSelEdge(null);
+    setFocus((f) => ({ id, n: (f?.n ?? 0) + 1 })); // 논스 — 같은 노드 재검색도 재포커스
+    setQuery("");
+  };
 
   return (
-    <div className="flex h-full min-h-[520px] gap-4">
+    <div className="flex h-full min-h-0 gap-4 p-6">
       <div className="flex min-w-0 flex-1 flex-col gap-2">
-        <div>
-          <h1 className="text-[18px] font-bold text-ink">Graph</h1>
-          <p className="text-[13px] text-ink-muted">{spaceName} · 타입 있는 개념 그래프 (노드=위키, 엣지=관계)</p>
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <h1 className="text-[18px] font-bold text-ink">Graph</h1>
+            <p className="text-[13px] text-ink-muted">{spaceName} · 타입 있는 개념 그래프 (노드=위키, 엣지=관계)</p>
+          </div>
+          {/* 노드 검색 */}
+          <div className="relative w-56 shrink-0">
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && matches[0] && pickMatch(matches[0].id)}
+              placeholder="개념 찾기…"
+              className="w-full rounded-md border border-hairline bg-surface px-3 py-1.5 text-[13px] text-ink outline-none placeholder:text-ink-faint focus-visible:shadow-soft"
+            />
+            {matches.length > 0 && (
+              <div className="absolute top-full z-10 mt-1 w-full rounded-md border border-hairline bg-surface p-1 shadow-elevated">
+                {matches.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => pickMatch(m.id)}
+                    className="block w-full truncate rounded px-2 py-1 text-left text-[13px] text-ink-2 transition-colors hover:bg-surface-soft hover:text-ink"
+                  >
+                    {m.title}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
+
+        {/* RelationType 필터 */}
         {types.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
             {types.map((t) => (
@@ -55,12 +121,36 @@ export function GraphSection({
             ))}
           </div>
         )}
+
+        {/* Subject 필터 (2개 이상일 때만) */}
+        {subjectIds.length > 1 && (
+          <div className="flex flex-wrap gap-1.5">
+            {subjectIds.map((id) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => toggleSubject(id)}
+                className={cn(
+                  "rounded-full border px-2.5 py-1 text-[12px] transition-colors",
+                  subjectFilter.length === 0 || subjectFilter.includes(id)
+                    ? "border-hairline text-ink-2"
+                    : "border-hairline text-ink-faint opacity-50",
+                )}
+              >
+                {subjectName(id)}
+              </button>
+            ))}
+          </div>
+        )}
+
         <Card padding="none" className="min-h-0 flex-1 overflow-hidden">
           {graph && graph.nodes.length > 0 ? (
             <CytoscapeGraph
               data={graph}
-              height={520}
               typeFilter={typeFilter}
+              subjectFilter={subjectFilter}
+              selectedId={selNode}
+              focus={focus}
               onNode={(id) => {
                 setSelNode(id);
                 setSelEdge(null);
@@ -69,9 +159,14 @@ export function GraphSection({
                 setSelEdge(id);
                 setSelNode(null);
               }}
+              onClear={() => {
+                setSelNode(null);
+                setSelEdge(null);
+                setFocus(null);
+              }}
             />
           ) : (
-            <p className="p-6 text-[15px] text-ink-muted">그래프 데이터가 없습니다.</p>
+            <p className="p-6 text-[15px] text-ink-muted">그래프 데이터가 없습니다. Inbox에서 노트를 저장하고 AI 정리를 실행해보세요.</p>
           )}
         </Card>
       </div>
@@ -126,6 +221,8 @@ export function GraphSection({
               노드를 클릭 → 위키
               <br />
               엣지를 클릭 → 관계·근거
+              <br />
+              <span className="text-[12px] text-ink-faint">노드에 마우스를 올리면 이웃만 강조돼요</span>
             </p>
           </Card>
         )}

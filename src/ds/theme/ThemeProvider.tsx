@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useLayoutEffect, useState } from "react";
 import type { ReactNode } from "react";
 
 // 라이트/다크 테마를 <html data-theme> 로 적용하고 localStorage 에 저장한다.
@@ -32,7 +32,9 @@ export interface ThemeProviderProps {
 export function ThemeProvider({ children, defaultTheme = "light" }: ThemeProviderProps) {
   const [theme, setThemeState] = useState<Theme>(() => readInitialTheme(defaultTheme));
 
-  useEffect(() => {
+  // layout effect: 자식들의 passive effect(예: CytoscapeGraph 의 getComputedStyle 토큰 읽기)보다
+  // 먼저 data-theme 이 DOM 에 반영되어야 테마 전환이 한 박자 늦지 않는다.
+  useLayoutEffect(() => {
     const root = document.documentElement;
     root.dataset.theme = theme;
     window.localStorage.setItem(STORAGE_KEY, theme);

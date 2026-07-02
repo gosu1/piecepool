@@ -14,7 +14,7 @@ const STATUS_LABEL: Record<string, string> = {
   failed: "실패",
 };
 
-export function StatusBar({ pathLabel }: { pathLabel?: string }) {
+export function StatusBar({ pathLabel, notice }: { pathLabel?: string; notice?: string }) {
   const job = useImportStore((s) => s.job);
   const dot =
     job?.status === "failed"
@@ -34,6 +34,7 @@ export function StatusBar({ pathLabel }: { pathLabel?: string }) {
           {job.status === "completed" && typeof job.wikiCount === "number" && ` · 위키 ${job.wikiCount} · 관계 ${job.relationCount}`}
         </span>
       )}
+      {notice && <span className="truncate text-ink-2">{notice}</span>}
       <span className="flex-1" />
       {pathLabel && <span className="truncate text-ink-faint">{pathLabel}</span>}
     </footer>
