@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import { Button, Card, WikiPage, Icons, cn } from "../../ds";
 import { Markdown } from "../../lib/markdown";
-import { MarkdownEditor } from "../../lib/MarkdownEditor";
+import { SlashBlockEditor } from "../../lib/SlashBlockEditor";
 import type { GapQuestion } from "../../llm/gaps";
 
 // ══ 문서 뷰 (위키/원본 공통) — 읽기 ↔ 편집 + 관련 개념 ══
@@ -53,7 +53,7 @@ export function DocView({
 
       {isEditing ? (
         <div className="grid gap-3 md:grid-cols-2">
-          <MarkdownEditor value={draft} onChange={onChangeDraft} />
+          <SlashBlockEditor value={draft} onChange={onChangeDraft} onSubmit={onSave} height="480px" placeholder="'/' 로 블록 · ⌘Enter 로 저장" />
           <Card padding="lg" className="max-h-[480px] overflow-y-auto">
             <p className="ds-eyebrow mb-2 text-ink-faint">미리보기</p>
             <Markdown source={draft} onLink={onLink} embedSpace={embedSpace} />

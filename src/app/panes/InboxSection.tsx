@@ -3,6 +3,7 @@ import { Button, Card, FileDropzone, cn } from "../../ds";
 import type { WikiPage as WikiPageT, ArchiveNote } from "../../lib/types";
 import { useImportStore } from "../../store/importStore";
 import { runImageOcr } from "../../llm/ocr";
+import { SlashBlockEditor } from "../../lib/SlashBlockEditor";
 
 // ══ Inbox 섹션 ══
 const IMPORT_STATUS_LABEL: Record<string, string> = {
@@ -117,12 +118,12 @@ export function InboxSection({
           className="w-full bg-transparent text-[18px] font-bold text-ink outline-none placeholder:text-ink-faint"
         />
         <FileDropzone onFiles={onFiles} className="!p-6" />
-        <textarea
+        <SlashBlockEditor
           value={body}
-          onChange={(e) => setBody(e.target.value)}
-          placeholder="마크다운으로 작성하세요…"
-          rows={8}
-          className="w-full rounded-md border border-hairline bg-surface p-3 text-[15px] leading-relaxed text-ink outline-none focus-visible:shadow-soft"
+          onChange={setBody}
+          onSubmit={run}
+          placeholder="'/' 로 블록 삽입 · 마크다운으로 작성 · ⌘Enter 로 저장"
+          height="240px"
         />
         <div className="flex items-center justify-between">
           <div className="flex flex-col gap-1.5">
