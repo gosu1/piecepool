@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AppShell, TopBar, Sidebar, Card, EmptyState, Icons } from "../ds";
 import type { TreeNode } from "../ds";
 import type { KnowledgeSpace, WikiPage as WikiPageT, ArchiveNote, GraphData, Workspace } from "../lib/types";
 import * as ipc from "../lib/ipc";
 import { runWikiGeneration } from "../llm/generate";
 import type { LlmWikiInput } from "../llm/provider";
-import { applyLlmResult } from "../lib/llmApply";
+import { applyLlmResult, embedSourceFiles } from "../lib/llmApply";
 import { buildGaps } from "../llm/gaps";
 import type { GapReport } from "../llm/gaps";
 import { maybeFactCheck } from "../lib/factCheck";
@@ -58,7 +58,7 @@ export default function PiecePoolApp() {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [aiBusy, setAiBusy] = useState<string>("");
   const [aiStatus, setAiStatus] = useState<Record<string, string>>({});
-  const [gaps, setGaps] = useState<Record<string, GapReport>>({});
+  const [gaps, setGaps] = useState<Record<string, GapReport & { v: number }>>({});
   const [gapBusy, setGapBusy] = useState<string>("");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -447,6 +447,8 @@ export default function PiecePoolApp() {
       const input: LlmWikiInput = {
         sourceTitle: note.title,
         sourceText: note.markdown,
+        // 노트가 참조하는 원본 파일 — 없으면 sanitizeSourceRefs 가 모든 sourceRefs 를 제거한다.
+        sourceFiles: embedSourceFiles(note.sourceId, note.markdown),
         subjects: note.subjectIds.map((id) => ({ id, name: id })),
         existingConcepts: (wikiBySlug[space] ?? []).map((w) => ({ id: w.conceptId, title: w.title, normalizedTitle: w.title.toLowerCase() })),
       };
@@ -492,15 +494,19 @@ export default function PiecePoolApp() {
     }
   };
   // 간극 점검 — Liner(주) → OpenAI 소크라테스(보조) → 휴리스틱(오프라인) 3단 폴백.
+  // 단일 진행(single-flight): 하나 도는 동안 다른 노트의 점검 시작 금지 + 소유자만 busy 해제.
+  const gapRunSeq = useRef(0);
   const checkGaps = async (space: string, note: ArchiveNote) => {
+    if (gapBusy) return;
     const key = docKey(space, note.path);
     setGapBusy(key);
     try {
       const openaiKey = (typeof localStorage !== "undefined" && localStorage.getItem("openai-key")) || "";
       const report = await buildGaps(note.title, note.markdown, { liner: getLinerKey(), openai: openaiKey });
-      setGaps((g) => ({ ...g, [key]: report }));
+      // v(논스) — 같은 질문 목록이라도 재점검 시 GapPanel 을 리마운트(Liner 선택지는 비결정적).
+      setGaps((g) => ({ ...g, [key]: { ...report, v: ++gapRunSeq.current } }));
     } finally {
-      setGapBusy("");
+      setGapBusy((cur) => (cur === key ? "" : cur));
     }
   };
   const clearGaps = (key: string) =>
@@ -598,8 +604,8 @@ export default function PiecePoolApp() {
         bottomSlot={
           gaps[key] ? (
             <GapPanel
-              // 질문 목록이 바뀌면 리마운트 — 이전 선택이 새 질문에 매핑되는 것 방지
-              key={gaps[key].questions.map((g) => g.prompt).join("|")}
+              // 재점검마다 리마운트(v 논스) — 이전 선택이 새 질문/선택지에 매핑되는 것 방지
+              key={gaps[key].v}
               questions={gaps[key].questions}
               engine={gaps[key].engine}
               onClose={() => clearGaps(key)}

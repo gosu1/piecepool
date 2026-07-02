@@ -38,16 +38,30 @@ describe("buildGaps 폴백 체인", () => {
     expect(r.engine).toBe("heuristic");
   });
 
-  it("Liner 실패 + OpenAI 성공 → engine=openai (소크라테스식)", async () => {
+  it("Liner 실패 + OpenAI 성공 → engine=openai (소크라테스식, raw Responses API 형태)", async () => {
     const client = liner(async () => {
       throw new Error("down");
     });
-    const openaiFetch: FetchFn = (async (url: string | URL | Request) => {
+    const openaiFetch: FetchFn = (async (url: string | URL | Request, init?: RequestInit) => {
       expect(String(url)).toContain("/responses");
+      // Responses API 규약: 구조화 출력은 text.format (response_format 은 400 거부됨)
+      const body = JSON.parse(String(init?.body ?? "{}"));
+      expect(body.text?.format?.type).toBe("json_schema");
+      expect(body.response_format).toBeUndefined();
+      // raw HTTP 응답에는 output_parsed 가 없다 — output[].content[].text 로 온다
       return jsonRes({
-        output_parsed: {
-          questions: [{ context: "페이징", prompt: "페이지 크기가 왜 고정일까요?", choices: ["단편화 관리", "속도"] }],
-        },
+        output: [
+          {
+            content: [
+              {
+                type: "output_text",
+                text: JSON.stringify({
+                  questions: [{ context: "페이징", prompt: "페이지 크기가 왜 고정일까요?", choices: ["단편화 관리", "속도"] }],
+                }),
+              },
+            ],
+          },
+        ],
       });
     }) as FetchFn;
     const r = await buildGaps("OS", NOTE, { liner: "k", openai: "sk-x" }, { linerClient: client, fetchFn: openaiFetch });

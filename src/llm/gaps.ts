@@ -1,4 +1,5 @@
 import { LinerClient, type LinerSource } from "./liner";
+import { extractStructured } from "./openai";
 
 // 정보 간극 메우기 (README §LLM ③, feature 3). 정답(label)과 사용자 필기 사이 간극을
 // 소크라테스/하브루타식으로 되묻는다 — 정답을 주입하지 않고 1~3개 선택지 + "기타"로 가이드.
@@ -130,12 +131,13 @@ async function openaiGaps(title: string, text: string, apiKey: string, deps?: Bu
         { role: "system", content: system },
         { role: "user", content: JSON.stringify({ title, note: text.slice(0, 6000) }) },
       ],
-      response_format: { type: "json_schema", json_schema: { name: "GapQuestions", strict: true, schema: GAP_SCHEMA } },
+      // Responses API 구조화 출력 — response_format 아님(openai.ts 와 동일 규약).
+      text: { format: { type: "json_schema", name: "GapQuestions", strict: true, schema: GAP_SCHEMA } },
     }),
   });
   if (!res.ok) throw new Error(`[provider=openai] gaps: HTTP ${res.status}`);
-  const raw = (await res.json()) as { output_parsed?: unknown; output_text?: string };
-  const parsed = (raw.output_parsed ?? JSON.parse(raw.output_text ?? "null")) as {
+  // raw HTTP 응답은 output[].content[] 에 텍스트가 실린다 — openai.ts extractStructured 재사용.
+  const parsed = extractStructured(await res.json()) as {
     questions?: Array<{ context?: string; prompt?: string; choices?: string[] }>;
   } | null;
   if (!parsed?.questions) throw new Error("[provider=openai] gaps: no structured output");

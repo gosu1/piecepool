@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normalizeTitle, slugOrHash, toSourceRefs } from "./llmApply";
+import { normalizeTitle, slugOrHash, toSourceRefs, embedSourceFiles } from "./llmApply";
 import type { LlmConcept } from "../llm/provider";
 import type { SourceRef } from "./types";
 
@@ -63,5 +63,18 @@ describe("toSourceRefs", () => {
     expect(toSourceRefs(concept([{ sourceId: "s1", file: "", embed: false }]), new Set(["s1"]), "t")).toEqual([]);
     const existing: SourceRef[] = [{ id: "r", sourceId: "s1", file: "a.pdf", embed: false }];
     expect(toSourceRefs(concept([]), new Set(["s1"]), "t", existing)).toEqual(existing);
+  });
+});
+
+// LlmWikiInput.sourceFiles 구성 — 이게 비면 sanitizeSourceRefs 가 모든 ref 를 버린다(파이프라인 no-op 방지)
+describe("embedSourceFiles", () => {
+  it("본문 첫 pdf embed → 대표 원본 파일 1개", () => {
+    expect(embedSourceFiles("s1", "노트 ![[lec.pdf#page=3]] 그리고 ![[b.pdf]]")).toEqual([{ id: "s1", file: "lec.pdf", type: "pdf" }]);
+  });
+  it("이미지 embed 도 인식", () => {
+    expect(embedSourceFiles("s1", "![[사진.png]]")).toEqual([{ id: "s1", file: "사진.png", type: "image" }]);
+  });
+  it("embed 없으면(순수 텍스트 노트) 빈 배열", () => {
+    expect(embedSourceFiles("s1", "# 그냥 텍스트\n[[위키링크]]는 embed 아님")).toEqual([]);
   });
 });
