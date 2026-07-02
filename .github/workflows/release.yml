@@ -1,0 +1,32 @@
+name: release
+
+# release-please가 만든 v* tag push에 반응해 macOS 번들을 빌드하고 Release에 첨부한다.
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - name: Tauri build (macOS .dmg/.app)
+        run: npm run tauri build
+      - name: Attach bundle to Release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            src-tauri/target/release/bundle/dmg/*.dmg

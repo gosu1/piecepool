@@ -26,7 +26,7 @@ src-tauri/src/
 ├── storage/         ← 파일 I/O 전담. 경로 해석 · atomic write · 외부 변경 감지.
 │   └── mod.rs
 │
-├── import/          ← ImportJob 상태머신 · 파이프라인 오케스트레이션.
+├── import/          ← ImportJob 각 단계 실행(파일 I/O) · 상태 기록. 시퀀싱 소유는 TS (ADR-0007).
 │   └── mod.rs
 │
 ├── pdf/             ← PDF → 텍스트 추출 · 페이지 인덱싱. 다른 기능 없음.
@@ -46,7 +46,7 @@ src-tauri/src/
 | `models/`   | 엔티티 struct/enum 선언 + ts-rs 연결           | 직접 DB/파일 접근 금지                                |
 | `commands/` | IPC 파라미터 수신 → 내부 모듈 위임 → 결과 반환 | 비즈니스 로직 · 파일 I/O 직접 작성 금지               |
 | `storage/`  | `tokio::fs` 비동기 파일 읽기/쓰기 · 경로 해석  | LLM 호출 · 상태 전이 금지                             |
-| `import/`   | `ImportJob` 상태 전이 · 파이프라인 단계 조율   | 직접 파일 쓰기(storage 위임) · LLM 호출(TS 위임) 금지 |
+| `import/`   | `ImportJob` 각 단계 실행 · 상태 기록 (시퀀싱은 TS 소유, ADR-0007) | 직접 파일 쓰기(storage 위임) · LLM 호출(TS 위임) · 시퀀싱 트리거 소유 금지 |
 | `pdf/`      | PDF 바이너리 → 텍스트/메타데이터 변환          | 결과 저장 금지 (storage에 위임)                       |
 | `seed/`     | 데모 데이터 fixture 정의 · storage 통해 기록   | 프로덕션 데이터 경로 변경 금지                        |
 
@@ -64,7 +64,7 @@ Frontend (React/TS)
       │
       ├──► storage/  ← 파일 읽기/쓰기
       │
-      ├──► import/   ← ImportJob 오케스트레이션
+      ├──► import/   ← ImportJob 단계 실행 (시퀀싱은 TS)
       │       │
       │       └──► storage/   (파일 영속화)
       │       └──► pdf/       (텍스트 추출 요청)
@@ -88,7 +88,7 @@ Frontend (React/TS)
 LLM 오케스트레이션(요약 · 개념 추출 · 관계 매핑)은 **Rust가 아닌 TypeScript `src/llm/`** 이 담당한다.  
 Rust `import/`는 파이프라인 상태(idle → parsing → archiving → llm_processing → writing → completed)를 추적하고
 TS 계층의 완료 신호를 받아 결과를 파일에 기록하는 역할만 수행한다.  
-이 결정의 근거는 [`ipc-api.md` §1 규약](./ipc-api.md)과 CLAUDE.md §LLM Provider Rules에 명시되어 있다.
+이 결정의 근거는 [`ipc-api.md` §1 규약](./ipc-api.md), CLAUDE.md §LLM Provider Rules, 그리고 [ADR-0007](../adr/0007-importjob-orchestration-ts.md)(상태머신 시퀀싱 = TS 주도)에 명시되어 있다.
 
 ---
 

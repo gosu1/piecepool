@@ -29,6 +29,7 @@
 | `sourceType` | `"text" \| "pdf" \| "summary_text" \| "image"` | ✅ | Source 타입 |
 | `title` | string | ✅ | 사용자 표시명 |
 | `subjectIds` | string[] | ✅ | Subject 식별자 목록 |
+| `tags` | string[] | ⛔ | project 경계와 무관한 자유 해시태그 (선택) |
 | `sourceId` | string | ✅ | 대응 Source.id |
 | `originalFilePath` | string | ⛔/✅ | `pdf`/`image` 타입일 때만 필수 |
 | `createdAt` | ISO 8601 | ✅ | 생성 시각 |
@@ -44,6 +45,8 @@ sourceType: pdf
 title: Transformer Week 3 Lecture
 subjectIds:
   - subject-ai
+tags:
+  - 딥러닝
 sourceId: source-transformer-week3
 originalFilePath: deeplearning/sources/original-files/transformer-week3.pdf
 createdAt: "2026-05-28T12:00:00+09:00"
@@ -69,6 +72,7 @@ createdAt: "2026-05-28T12:00:00+09:00"
 | `conceptId` | string | ✅ | 대응 Concept.id |
 | `title` | string | ✅ | 사용자 표시명 |
 | `subjectIds` | string[] | ✅ | Subject 식별자 목록 |
+| `tags` | string[] | ⛔ | project 경계와 무관한 자유 해시태그 (선택) |
 | `sourceIds` | string[] | ✅ | 근거 Source.id 목록 |
 | `sourceRefs` | [SourceRef](#sourceref-frontmatter)[] | ✅ | 본문 embed/link에 대응되는 구조화 참조 |
 | `createdAt` | ISO 8601 | ✅ | 생성 시각 |
@@ -96,6 +100,8 @@ conceptId: concept-self-attention
 title: Self-Attention
 subjectIds:
   - subject-ai
+tags:
+  - 딥러닝
 sourceIds:
   - source-transformer-week3
 sourceRefs:
@@ -153,3 +159,4 @@ Self-Attention은 sequence 안의 token들이 서로의 관계를 계산해 문�
 
 - 본 문서는 `docs/archive/PRD-v1.md` §11.2 (line 697-750)을 분리·정리한 SSOT다.
 - ArchiveNote frontmatter는 PRD에 부분 예시만 있었던 것을 본 리팩토링에서 표 형식으로 명세화했다.
+- 2026-06-25: ArchiveNote/WikiPage frontmatter에 `tags`(선택, string[]) 추가 — `entities.md`의 `Source.tags` 추가와 동일 발의. 추적 = [#64](https://github.com/gosu1/piecepool/issues/64). `contracts-change` → 4역할 review.

@@ -99,12 +99,12 @@ Guidelines and commands for PiecePool Backend (Tauri + Rust) development.
 
 ## 🤖 ImportJob State Machine
 
-The backend owns the `ImportJob` status transitions. Never skip or reorder states.
+The TS service layer (`useImportStore`) owns the `ImportJob` state-machine sequencing; the Rust `import/` module executes each step and records state, but does not own the sequencing trigger (ADR-0007). Never skip or reorder states.
 
 ```
 idle → parsing → archiving → llm_processing → writing → completed
                                     │
-                          (Premium only)
+                          (clarify enabled)
                                     ↓
                              clarify_pending  ← waiting for user response
                                     │
@@ -112,7 +112,6 @@ idle → parsing → archiving → llm_processing → writing → completed
                           user ignores ──► writing (save 1st-call result) → completed
 ```
 
-- `clarify_pending` **never occurs** for Free (local Ollama) users.
 - On any unrecoverable error, transition to `failed` and populate `errorMessage`.
 
 ---
@@ -132,8 +131,8 @@ src-tauri/src/
                   Every command returns Result<T, String> so the frontend can handle failures.
   storage/     ← All filesystem I/O (read/write workspace directories). No business logic.
                   Use tokio::fs for async ops; std::fs only in sync contexts.
-  import/      ← ImportJob state machine and the full import pipeline orchestration
-                  (parsing → archiving → llm_processing → writing → completed).
+  import/      ← Executes each import step (file I/O for parsing/archiving/writing) and records
+                  ImportJob state. State-machine sequencing is owned by the TS service layer (ADR-0007), not Rust.
   pdf/         ← PDF-to-text extraction only. Page indexing lives here.
   seed/        ← First-run demo data generation. Writes to archive/, wiki/, relations/.
                   Never hard-code demo content in the UI layer.
@@ -141,23 +140,23 @@ src-tauri/src/
 
 - **Never use `unwrap()` or `panic!()` in production code.** Always propagate errors via `AppError` with `?`.
 - `models/` structs use `#[serde(rename_all = "camelCase")]` — Rust identifiers stay `snake_case`, JSON output is `camelCase`.
-- `ImportJobStatus::ClarifyPending` is **not yet in the code** (only in `entities.md`). Add it before implementing the Premium clarify flow.
+- `ImportJobStatus::ClarifyPending` is **not yet in the code** (only in `entities.md`). Add it before implementing the clarify flow.
 - LLM orchestration is handled by the TypeScript layer (`src/llm/`), not Rust. The `import/` module coordinates with it but does not own LLM logic.
 
 ---
 
 ## 🌐 LLM Provider Rules
 
-Three providers are supported. The backend must route correctly based on user plan:
+OpenAI is the only LLM provider. Liner is an additional source-search API used by feature 3 (label ↔ user gap filling).
 
-| Plan           | Provider     | Env var                        |
-| -------------- | ------------ | ------------------------------ |
-| Free (default) | Local Ollama | `PIECEPOOL_LLM_PROVIDER=local` |
-| Premium        | OpenAI GPT   | `OPENAI_API_KEY`               |
-| Premium        | Gemini       | `GEMINI_API_KEY`               |
+| Provider   | Env var          | Role                                                 |
+| ---------- | ---------------- | ---------------------------------------------------- |
+| OpenAI GPT | `OPENAI_API_KEY` | Wiki 생성 · 타입 Graph · 일반 추론                   |
+| Liner      | `LINER_API_KEY`  | 정보 간극 메우기(label↔user) 출처 검색 · fact-check   |
 
-- All providers must produce output conforming to `LlmWikiResult` (see above).
-- Premium-only features (clarify / fact-check / web-search compare) must be gated — they must not execute on Free plan.
+- The OpenAI provider must produce output conforming to `LlmWikiResult` (see above).
+- 정보 간극 메우기(feature 3)의 주 해결책은 Liner API — 권위 있는 출처를 검색해 정답 기준(label)을 세우고 사용자 필기의 간극을 검증·보강한다. Liner 미가용 시 OpenAI가 보조로 소크라테스식 되묻기 질문을 생성한다.
+- Clarify (되묻기)는 OpenAI, fact-check · web-search compare(출처 provenance)는 Liner API를 TypeScript adapter (`src/llm/`)로 호출한다.
 
 ---
 

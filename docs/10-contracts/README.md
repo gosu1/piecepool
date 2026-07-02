@@ -11,7 +11,7 @@ PiecePool 공유 계약. 모든 역할이 참조한다. **수정 시 4개 역할
 | [`relation-types.md`](relation-types.md) | RelationType enum 12종 + 의미·사용 기준 + 노드 호환성 매트릭스 | ✅ |
 | [`markdown-frontmatter.md`](markdown-frontmatter.md) | archive/wiki Markdown frontmatter 스키마 | ✅ |
 | [`wikilink-embed.md`](wikilink-embed.md) | `[[...]]` / `![[...]]` 문법 규약, 충돌 처리 4종 | ✅ |
-| [`llm-output-schema.md`](llm-output-schema.md) | LlmWikiResult JSON Schema (3-provider 무관: Local/OpenAI/Gemini) | ✅ |
+| [`llm-output-schema.md`](llm-output-schema.md) | LlmWikiResult JSON Schema (provider 무관: OpenAI) | ✅ |
 
 ## 규약
 
@@ -36,4 +36,4 @@ Tech Lead (@gosu1). 변경은 4개 역할 합의 필요. CODEOWNERS:
 ## 작성 일정
 
 Phase 2 — ✅ 완료 (2026-05-28).
-3-provider 확장 — ✅ 완료 (`d265c3d`, 2026-05-28).
+LLM provider = OpenAI 단일 (feature 3 출처 검색 = Liner API) — ✅ 단일 tier, 2026-06-30.

@@ -72,13 +72,11 @@ PiecePool 용어 정의. **모든 역할 필독**. 협업 시 용어 표류 방�
 
 | 용어 | 정의 |
 |---|---|
-| **Provider** | LLM 호출 대상. 3종: `local` (Ollama), `openai` (GPT), `gemini` (Google) |
-| **Adapter** | provider별 raw 응답을 공통 `LlmWikiResult` schema로 변환하는 계층 |
+| **Provider** | LLM 호출 대상. `openai` (GPT) 단일 |
+| **Adapter** | provider raw 응답을 공통 `LlmWikiResult` schema로 변환하는 계층 |
 | **LlmWikiResult** | provider 무관 출력 JSON Schema ([llm-output-schema](../10-contracts/llm-output-schema.md)) |
-| **Free plan** | Local LLM 무제한 사용 |
-| **Premium plan** | GPT 또는 Gemini 사용 + 강화 기능 |
 
-### 6.1 Premium 전용 용어
+### 6.1 LLM 기능 용어
 
 | 용어 | 정의 |
 |---|---|
@@ -150,4 +148,4 @@ PiecePool 용어 정의. **모든 역할 필독**. 협업 시 용어 표류 방�
 ## 11. 변경 이력 노트
 
 - 본 문서는 PRD에 없던 신규 자산이다. 협업자 증가에 따른 용어 표류 방지가 목적이다.
-- §6.1 (Premium 전용 용어), §9 (협업 규약)는 본 리팩토링에서 추가된 용어 정의다.
+- §6.1 (LLM 기능 용어), §9 (협업 규약)는 본 리팩토링에서 추가된 용어 정의다.

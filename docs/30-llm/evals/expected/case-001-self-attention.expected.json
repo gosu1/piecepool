@@ -1,0 +1,20 @@
+{
+  "caseId": "case-001-self-attention",
+  "must": {
+    "conceptTitles": ["Self-Attention"],
+    "relationsAtLeast": 0,
+    "schemaValid": true
+  },
+  "should": {
+    "conceptTitlesAlsoAcceptable": ["Self-Attention Mechanism", "Self Attention", "셀프 어텐션"],
+    "relatedConceptTitles": ["Transformer", "Multi-Head Attention"],
+    "relationTypeHints": [
+      { "from": "Self-Attention", "to": "Transformer", "type": "part_of" },
+      { "from": "Self-Attention", "to": "Multi-Head Attention", "type": "part_of" }
+    ]
+  },
+  "must_not": {
+    "relationTypes": ["review_needed"],
+    "concepts": ["Backpropagation", "CNN", "RNN"]
+  }
+}

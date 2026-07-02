@@ -70,7 +70,7 @@ PiecePool은 대학생을 위한 **로컬 우선 AI 지식 Workspace**다.
 
 | 원칙 | 의미 |
 |---|---|
-| **로컬 우선** | 모든 데이터는 사용자 머신. 외부 의존은 LLM API 호출(Premium)만. Free는 완전 오프라인 가능 |
+| **로컬 우선** | 모든 데이터는 사용자 머신에 저장. 외부 의존은 LLM(OpenAI)·출처 검색(Liner) API 호출뿐 |
 | **원문 보존** | LLM 정리가 archive 노트를 덮어쓰지 않는다 |
 | **타입 있는 지식 그래프** | edge가 단순 선이 아니라 의미(`part_of`, `used_in` 등)를 갖는다 |
 | **Obsidian 호환** | `[[파일]]`, `![[파일]]` 문법 그대로. 추후 vault로 이식 가능 |
@@ -78,14 +78,9 @@ PiecePool은 대학생을 위한 **로컬 우선 AI 지식 Workspace**다.
 
 ---
 
-## 7. Free vs Premium
+## 7. LLM
 
-핵심 기능은 **두 플랜 모두 동일**. Premium은 LLM 품질과 검증을 강화한다.
-
-| 플랜 | LLM | 추가 |
-|---|---|---|
-| Free | Local Ollama 무제한 | — |
-| Premium | OpenAI GPT 또는 Gemini (사용자 선택) | 되묻기, fact-check, 웹 검색 비교, suggest |
+LLM 처리는 **OpenAI**(GPT)를 사용한다. fact-check·정보 간극 메우기(feature 3, label↔user)는 **Liner** 출처 검색을 주 해결책으로 쓴다. 되묻기, 웹 검색 비교, suggest로 Wiki 품질·검증을 강화한다.
 
 자세한 매트릭스: [`pricing-model.md`](pricing-model.md)
 
@@ -106,4 +101,4 @@ MVP 합격선: [`scope-mvp.md`](scope-mvp.md), [`../60-qa/acceptance-criteria.md
 
 - 본 문서는 `docs/archive/PRD-v1.md` §2 (line 11-17) + §3 (line 19-37)에서 분리·정렬한 결과다.
 - 제품 경험 원칙(§6) 5개 표는 본 리팩토링에서 신규 정리했다.
-- Free/Premium 절(§7)은 [pricing-model](pricing-model.md) 추가에 따른 cross-link.
+- LLM 절(§7)은 [pricing-model](pricing-model.md) 추가에 따른 cross-link.

@@ -2,31 +2,80 @@
   "name": "piecepool",
   "private": true,
   "version": "0.1.0",
+  "description": "Local-first AI knowledge workspace for university students — Tauri + Rust + React/TS",
+  "license": "UNLICENSED",
+  "author": "gosu1",
+  "homepage": "https://github.com/gosu1/piecepool#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gosu1/piecepool.git"
+  },
+  "bugs": {
+    "url": "https://github.com/gosu1/piecepool/issues"
+  },
+  "keywords": [
+    "knowledge-management",
+    "knowledge-graph",
+    "wiki",
+    "tauri",
+    "local-first",
+    "llm",
+    "openai",
+    "note-taking"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "check": "tsc --noEmit",
+    "test": "vitest run",
+    "e2e": "playwright test",
     "gen:types": "cargo test --manifest-path src-tauri/Cargo.toml export_bindings",
+    "gen:llm-schema": "node scripts/gen-llm-schema.mjs",
+    "eval": "tsx scripts/eval.ts",
+    "chunk": "tsx scripts/chunk-preview.ts",
+    "promote": "tsx scripts/promote-preview.ts",
+    "classify": "tsx scripts/classify-preview.ts",
+    "provenance": "tsx scripts/provenance-preview.ts",
     "tauri": "tauri"
   },
   "dependencies": {
+    "@codemirror/autocomplete": "^6.20.3",
+    "@codemirror/commands": "^6.10.4",
+    "@codemirror/lang-markdown": "^6.5.0",
+    "@codemirror/language": "^6.12.4",
+    "@codemirror/state": "^6.7.0",
+    "@codemirror/view": "^6.43.4",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-opener": "^2",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "react-router-dom": "^7.6.0",
+    "@uiw/react-codemirror": "^4.25.10",
+    "ajv": "^8.20.0",
+    "cytoscape": "^3.34.0",
+    "react": "^19.2.7",
+    "react-cytoscapejs": "^2.0.0",
+    "react-dom": "^19.2.7",
+    "react-markdown": "^10.1.0",
+    "react-pdf": "^10.4.1",
+    "react-router-dom": "^7.18.1",
+    "remark-gfm": "^4.0.1",
     "zustand": "^5.0.14"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.1.0",
+    "@playwright/test": "^1.61.1",
+    "@tailwindcss/vite": "^4.3.2",
     "@tauri-apps/cli": "^2",
-    "@types/react": "^19.1.8",
+    "@types/cytoscape": "^3.31.0",
+    "@types/react": "^19.2.17",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^4.6.0",
     "tailwindcss": "^4.1.0",
+    "tsx": "^4.19.0",
     "typescript": "~5.8.3",
-    "vite": "^7.0.4"
+    "vite": "^7.0.4",
+    "vitest": "^2.1.9"
   }
 }

@@ -68,7 +68,7 @@ Graph + Wiki 기반 일일 복습 행동 생성.
 
 ---
 
-## 5. Premium 강화
+## 5. 유료화 · BM (경진대회 이후)
 
 ### 5.1 Fact-check 정밀화
 - 멀티 소스 비교 (1개 검색 vs N개 검색 결과 종합)
@@ -82,7 +82,7 @@ Graph + Wiki 기반 일일 복습 행동 생성.
 - API 키 관리 UI (BYOK = Bring Your Own Key)
 - 사용량 트래킹
 
-### 5.3 추가 Premium 기능 후보
+### 5.3 추가 유료 기능 후보
 - 자동 요약 일정 (주간 / 월간 학습 요약)
 - 교수 스타일 모방 LLM (개별 강의 톤 학습)
 - 동료 공유 (선택 WikiPage만 제한 공유)
@@ -133,18 +133,13 @@ MVP는 같은 KnowledgeSpace 안의 `[[...]]` / `![[...]]`만 해석.
 
 ## 9. LLM 확장
 
-### 9.1 추가 로컬 backend
-- **MLX** (Apple Silicon 최적화) — 우선순위 후보
-- **llama.cpp** (포터빌리티)
-- 선택 우선순위: [open-questions §2](../00-overview/open-questions.md#2-llm--provider)
-
-### 9.2 추가 외부 provider
-- Anthropic Claude (Premium 옵션 추가)
+### 9.1 추가 provider
+- Anthropic Claude
 - Mistral
 - Cohere
 - 추가 시 [llm-output-schema](../10-contracts/llm-output-schema.md) §7에 명시 (Adapter 패턴)
 
-### 9.3 모델 라우팅
+### 9.2 모델 라우팅
 - 작은 input은 작은 모델, 큰 input은 큰 모델 자동 선택
 - 비용/품질 trade-off 사용자 설정
 
@@ -181,7 +176,7 @@ MVP는 같은 KnowledgeSpace 안의 `[[...]]` / `![[...]]`만 해석.
 | 단계 | 항목 |
 |---|---|
 | MVP+1 | OCR 정밀화, fact-check 정밀화, branch protection, 자동 릴리즈 |
-| MVP+2 | Today Task, Relation scoring, file watcher, MLX backend |
+| MVP+2 | Today Task, Relation scoring, file watcher |
 | MVP+3 | 결제 시스템, cross-space link, Project Flow |
 | MVP+4 | 모바일 viewer, Obsidian vault 호환, Anthropic Claude provider |
 | 신중 검토 | 협업, 텔레메트리 |
@@ -193,5 +188,5 @@ MVP는 같은 KnowledgeSpace 안의 `[[...]]` / `![[...]]`만 해석.
 ## 14. 변경 이력 노트
 
 - 본 문서는 `docs/archive/PRD-v1.md` §17에서 분리·정렬한 결과다.
-- §1.2 (새 RelationType 후보), §4 OCR 정밀화 (기본 흐름은 MVP 흡수), §5 Premium 강화 (3개 절), §9 LLM 확장, §11 인프라/운영, §13 우선순위는 본 리팩토링 신규 추가다.
+- §1.2 (새 RelationType 후보), §4 OCR 정밀화 (기본 흐름은 MVP 흡수), §5 유료화·BM (3개 절), §9 LLM 확장, §11 인프라/운영, §13 우선순위는 본 리팩토링 신규 추가다.
 - §7 Relation scoring 공식은 PRD-v1과 동일.

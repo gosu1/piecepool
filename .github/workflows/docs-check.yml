@@ -5,14 +5,12 @@ on:
     paths:
       - 'docs/**'
       - 'README.md'
-      - 'PRD_REFACTOR_PLAN.md'
       - '.github/workflows/docs-check.yml'
   push:
     branches: [main]
     paths:
       - 'docs/**'
       - 'README.md'
-      - 'PRD_REFACTOR_PLAN.md'
       - '.github/workflows/docs-check.yml'
 
 jobs:
@@ -20,7 +18,7 @@ jobs:
     name: Internal link check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Lychee (offline, internal links only)
         uses: lycheeverse/lychee-action@v2
@@ -30,14 +28,13 @@ jobs:
             --offline
             'docs/**/*.md'
             'README.md'
-            'PRD_REFACTOR_PLAN.md'
           fail: true
 
   ssot-check:
     name: SSOT guard (10-contracts is single source)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: No TypeScript type definitions outside 10-contracts
         run: |
@@ -90,16 +87,15 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Prettier --check (markdown)
         run: |
           npx --yes prettier@3 --check \
             'docs/**/*.md' \
             'README.md' \
-            'PRD_REFACTOR_PLAN.md' \
             || echo "::warning::Prettier formatting suggestions exist. 본 job는 advisory, blocking 아님"

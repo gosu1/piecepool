@@ -2,7 +2,7 @@
 
 MVP 합격선. **모든 항목이 통과해야 MVP 완료**다.
 
-> 본 문서는 [`docs/archive/PRD-v1.md`](../archive/PRD-v1.md) §16 (line 1014-1062)을 분리·확장하고, 서준의 신규 결정사항(OCR MVP 흡수, 3-provider, freemium, packaging)을 반영한 결과다.
+> 본 문서는 [`docs/archive/PRD-v1.md`](../archive/PRD-v1.md) §16 (line 1014-1062)을 분리·확장하고, 서준의 신규 결정사항(OCR MVP 흡수, packaging)을 반영한 결과다.
 
 ---
 
@@ -42,7 +42,7 @@ MVP 합격선. **모든 항목이 통과해야 MVP 완료**다.
 
 ---
 
-## 3. LLM 처리 (3-provider)
+## 3. LLM 처리 (OpenAI)
 
 ### 3.1 공통
 - [ ] 텍스트 source가 실제 LLM 호출을 발생시킨다
@@ -52,19 +52,13 @@ MVP 합격선. **모든 항목이 통과해야 MVP 완료**다.
 - [ ] Concept / WikiPage / Relation / Evidence / SourceRef가 LLM 출력에서 생성된다
 - [ ] LLM 생성 WikiPage가 사용자 친화 설명 + 구조화 메타데이터 동시 보유
 
-### 3.2 Free (Local Ollama)
-- [ ] `PIECEPOOL_LLM_PROVIDER=local`로 Ollama endpoint 호출
-- [ ] `OPENAI_API_KEY`, `GEMINI_API_KEY` 없이도 동작
-- [ ] 인터넷 미연결 환경에서 전체 Free 흐름 통과
-
-### 3.3 Premium (OpenAI 또는 Gemini)
-- [ ] `PIECEPOOL_LLM_PROVIDER=openai`로 OpenAI 호출 성공
-- [ ] `PIECEPOOL_LLM_PROVIDER=gemini`로 Gemini 호출 성공
-- [ ] 3-provider 모두 동일 `LlmWikiResult` schema 통과 ([evals](../30-llm/) 입증)
-- [ ] 되묻기 round-trip 작동 (`PIECEPOOL_PREMIUM_CLARIFY=true`)
+### 3.2 OpenAI
+- [ ] `OPENAI_API_KEY`로 OpenAI 호출 성공
+- [ ] LLM 출력이 `LlmWikiResult` schema 통과 ([evals](../30-llm/) 입증)
+- [ ] 되묻기 round-trip 작동 (`PIECEPOOL_CLARIFY=true`)
 - [ ] Fact-check 기본 흐름 작동 (웹 검색 → `evidence[].reason`에 URL 누적)
 
-### 3.4 검증 규칙
+### 3.3 검증 규칙
 - [ ] `related_to` 비율이 응답 전체 relation의 50% 초과 시 경고 로그
 - [ ] 노드 호환성 매트릭스 위반 시 reject
 - [ ] 부분 실패 시 유효 부분만 저장, 무효 부분은 ImportJob에 기록
@@ -113,7 +107,7 @@ MVP 합격선. **모든 항목이 통과해야 MVP 완료**다.
 - [ ] Markdown 편집기에서 archive/wiki 둘 다 편집 가능
 - [ ] Wiki View가 Concept 중심 탐색 지원
 - [ ] Graph View가 정적 이미지가 아닌 실제 클릭/필터/검색 작동
-- [ ] Premium 사용자에게 plan-toggle UI 노출 ([pricing-model](../00-overview/pricing-model.md))
+- [ ] 되묻기·fact-check 토글이 기본 on으로 동작 ([pricing-model](../00-overview/pricing-model.md))
 
 ---
 
@@ -148,4 +142,4 @@ MVP 합격선. **모든 항목이 통과해야 MVP 완료**다.
 ## 11. 변경 이력 노트
 
 - 본 문서는 `docs/archive/PRD-v1.md` §16에서 분리·정렬한 결과다.
-- §3 (3-provider), §5 (OCR MVP), §7 첫 진입=Inbox, §8 (packaging), §10 CI 항목은 본 리팩토링 신규 결정사항이다.
+- §3 (OpenAI), §5 (OCR MVP), §7 첫 진입=Inbox, §8 (packaging), §10 CI 항목은 본 리팩토링 신규 결정사항이다.

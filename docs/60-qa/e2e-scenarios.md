@@ -26,9 +26,9 @@ End-to-end 시나리오. 각 시나리오는 사용자 관점 1회 흐름이며,
 
 ---
 
-## 시나리오 2: 텍스트 입력 → archive → wiki → graph (Free)
+## 시나리오 2: 텍스트 입력 → archive → wiki → graph
 
-**전제**: `PIECEPOOL_LLM_PROVIDER=local`, Ollama 실행 중.
+**전제**: `OPENAI_API_KEY` 환경변수 설정.
 
 **흐름**:
 1. Inbox에서 Subject 선택 (AI)
@@ -44,7 +44,7 @@ End-to-end 시나리오. 각 시나리오는 사용자 관점 1회 흐름이며,
 - `<space>/relations/relations.json` 갱신
 - Graph에 새 node + edge 표시
 
-**acceptance**: §2 Markdown, §3.1+3.2 LLM Free, §6 Graph
+**acceptance**: §2 Markdown, §3.1+3.2 LLM, §6 Graph
 
 ---
 
@@ -140,28 +140,26 @@ End-to-end 시나리오. 각 시나리오는 사용자 관점 1회 흐름이며,
 
 ---
 
-## 시나리오 8: Free → Premium 전환 (provider 변경)
+## 시나리오 8: OpenAI 호출 경로
 
-**전제**: `OPENAI_API_KEY` 또는 `GEMINI_API_KEY` 환경변수 설정.
+**전제**: `OPENAI_API_KEY` 환경변수 설정.
 
 **흐름**:
-1. plan-toggle UI에서 Premium 선택
-2. Provider 선택 (OpenAI 또는 Gemini)
-3. 신규 텍스트 input 실행
-4. ImportJob이 선택된 외부 API 호출
+1. 신규 텍스트 input 실행
+2. ImportJob이 OpenAI API 호출
 
 **검증**:
-- 환경변수 `PIECEPOOL_LLM_PROVIDER`가 `openai` 또는 `gemini`로 전환
-- 호출 로그에 해당 provider endpoint 확인
-- 생성된 WikiPage 품질이 Free 대비 향상 (정성)
+- 호출 로그에 OpenAI endpoint 확인
+- `OPENAI_API_KEY` 미설정 시 명확한 오류 메시지
+- 생성된 WikiPage가 schema 통과
 
-**acceptance**: §3.3 Premium, §7 화면 (plan-toggle)
+**acceptance**: §3.3 LLM 호출, §7 화면
 
 ---
 
-## 시나리오 9: Premium 되묻기 round-trip
+## 시나리오 9: 되묻기 round-trip
 
-**전제**: Premium 활성. 의도적으로 불명확한 input (예: 단어 1개만).
+**전제**: 의도적으로 불명확한 input (예: 단어 1개만).
 
 **흐름**:
 1. Inbox에 짧고 모호한 텍스트 입력
@@ -171,17 +169,17 @@ End-to-end 시나리오. 각 시나리오는 사용자 관점 1회 흐름이며,
 5. LLM 2차 호출 → WikiPage 생성
 
 **검증**:
-- 되묻기 UI 트리거됨 (`PIECEPOOL_PREMIUM_CLARIFY=true`)
+- 되묻기 UI 트리거됨
 - 사용자 응답이 LLM 2차 호출 input에 반영
 - ImportJobStatus 전이에 round-trip 단계 기록
 
-**acceptance**: §3.3 Premium 되묻기, [pricing-model §3.3](../00-overview/pricing-model.md)
+**acceptance**: §3.3 되묻기, [pricing-model §3.3](../00-overview/pricing-model.md)
 
 ---
 
-## 시나리오 10: Premium fact-check suggest
+## 시나리오 10: fact-check suggest
 
-**전제**: Premium 활성, `PIECEPOOL_PREMIUM_FACT_CHECK=true`.
+**전제**: `PIECEPOOL_FACT_CHECK=true`.
 
 **흐름**:
 1. WikiPage 생성 직후 fact-check 자동 실행 (또는 수동 트리거)
@@ -196,7 +194,7 @@ End-to-end 시나리오. 각 시나리오는 사용자 관점 1회 흐름이며,
 - evidence에 fact-check 출처 URL 추가
 - 거부 시 변경 없음
 
-**acceptance**: §3.3 Premium fact-check, [pricing-model §3.4](../00-overview/pricing-model.md)
+**acceptance**: §3.3 fact-check, [pricing-model §3.4](../00-overview/pricing-model.md)
 
 ---
 
@@ -249,4 +247,4 @@ End-to-end 시나리오. 각 시나리오는 사용자 관점 1회 흐름이며,
 ## 변경 이력 노트
 
 - 본 문서는 신규 작성이다. PRD-v1에는 시나리오 분해가 없었다.
-- 시나리오 4 (OCR), 8~10 (Premium), 12 (cross-subject)는 본 리팩토링 결정사항 반영이다.
+- 시나리오 4 (OCR), 8 (OpenAI 호출), 9~10 (되묻기·fact-check), 12 (cross-subject)는 본 리팩토링 결정사항 반영이다.

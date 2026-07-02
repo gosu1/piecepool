@@ -17,3 +17,21 @@ export type { RelationType } from "./generated/RelationType";
 export type { Question } from "./generated/Question";
 export type { ImportJob } from "./generated/ImportJob";
 export type { ImportJobStatus } from "./generated/ImportJobStatus";
+export type { PdfExtractResult } from "./generated/PdfExtractResult";
+export type { PageText } from "./generated/PageText";
+
+// ── Command DTO (ts-rs 미생성, get_graph 응답) ──
+import type { Relation } from "./generated/Relation";
+
+export interface GraphNode {
+  id: string;
+  title: string;
+  kind: "core" | "result";
+  subjectIds: string[];
+  path: string;
+}
+
+export interface GraphData {
+  nodes: GraphNode[];
+  relations: Relation[];
+}

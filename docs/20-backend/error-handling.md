@@ -42,9 +42,11 @@ pub struct AppError {
 ```
 
 규칙:
-- 모든 내부 함수는 `Result<T, AppError>` 반환, `?`로 전파한다.
+- **fatal 오류만** `AppError`로 만들어 `?`로 전파한다(= 함수 즉시 중단). 분류는 §4.
+- **warn / partial은 오류가 아니다.** `AppError`로 만들지 않으며 `?`로 전파하지 않는다 — 성공 값에 **동봉**해 반환한다. `?`로 던지면 "계속 진행/저장 허용" 정책을 위반한다(예: `watcher` 실패로 앱이 멈춤, `embed_unresolved`로 저장 전체가 막힘).
+  - 운반 형태: `Outcome<T> { value: T, warnings: Vec<Warning> }` — warn·partial을 성공 결과에 실어 나른다.
 - `unwrap()` · `expect()` · `panic!()` 은 **프로덕션 코드 금지**. (CLAUDE.md §Backend Architecture Rules)
-- `commands/` 함수만 `Result<T, String>` 반환 — 그 외 계층은 끝까지 `AppError` 유지.
+- `commands/` 함수만 `Result<T, String>` 반환 — 그 외 계층은 끝까지 `AppError`(fatal) / `Outcome`(warn·partial) 유지.
 - `kind`는 §3 레지스트리에 **없는 값을 새로 만들지 않는다**. 새 분류가 필요하면 본 문서에 먼저 추가.
 
 ---
@@ -70,6 +72,7 @@ pub struct AppError {
 | kind | 의미 | 처리 |
 |---|---|---|
 | `pdf_extract` | PDF 파싱/텍스트 추출 불가 | 중단 — 사용자 알림 |
+| `pdf_encrypted` | 암호화/열람 제한으로 파싱 불가 | 중단 — 해제 후 재업로드 유도(§6) |
 | `pdf_page_range` | 요청 page가 총 page 초과 | **경고** — 첫 page 렌더 + 메시지(§5.3), crash 금지 |
 
 ### 3.3 검증 (`import/` · `storage/` 저장 직전)
@@ -78,6 +81,7 @@ pub struct AppError {
 |---|---|---|
 | `frontmatter_invalid` | frontmatter 검증 실패 (`markdown-frontmatter §4`) | 중단 — 저장 거부 |
 | `relation_invalid` | 노드 호환성 매트릭스 위반 (`relation-types §6`) | **부분** — 해당 relation만 drop(§5.4) |
+| `sourceref_invalid` | SourceRef의 page가 PDF 범위 밖 등 무효 (`output-validation §3.4`) | **부분** — 해당 SourceRef만 drop, Concept은 저장(§5.7) |
 | `embed_unresolved` | `![[...]]` 대상 파일 없음 | **경고** — 깨진 링크 표시, 저장 허용(§5.5) |
 
 ### 3.4 LLM (어댑터 origin — `output-validation §7` 흡수)
@@ -85,7 +89,7 @@ pub struct AppError {
 | kind | 의미 | 사용자 메시지 출처 |
 |---|---|---|
 | `auth` | 401 / 403 (API 키) | → `output-validation §7` |
-| `network` | timeout / DNS / Ollama 연결 실패 | → `output-validation §7` |
+| `network` | timeout / DNS / 연결 실패 | → `output-validation §7` |
 | `rate_limit` | 429 | → `output-validation §7` |
 | `schema` | JSON Schema 위반 (재시도 후) | → `output-validation §7` |
 | `empty` | 추출 concept 0개 | → `output-validation §7` |
@@ -108,11 +112,15 @@ pub struct AppError {
 
 | 분류 | 동작 | 해당 kind |
 |---|---|---|
-| **중단(fatal)** | 작업 실패, `ImportJob.status=failed` + `errorMessage` | `io_*`, `not_found`, `path_invalid`, `path_traversal`, `archive_conflict`, `pdf_extract`, `frontmatter_invalid`, `auth`, `network`, `rate_limit`, `schema`, `empty`, `internal` |
-| **부분(partial)** | 유효 부분만 저장, `status=completed` + 경고 배지 | `relation_invalid`, `partial` |
-| **경고(warn)** | 저장 허용, 사용자에게 표시만 | `pdf_page_range`, `embed_unresolved`, `watcher` |
+| **중단(fatal)** | 작업 실패, `ImportJob.status=failed` + `errorMessage`. **`?`로 전파** | `io_*`, `not_found`, `path_invalid`, `path_traversal`, `archive_conflict`, `pdf_extract`, `pdf_encrypted`, `frontmatter_invalid`, `auth`, `network`, `rate_limit`, `schema`, `empty`†, `internal` |
+| **부분(partial)** | 유효 부분만 저장, `status=completed` + 경고 배지. **`Outcome`에 동봉** | `relation_invalid`, `sourceref_invalid` |
+| **경고(warn)** | 저장 허용, 사용자에게 표시만. **`Outcome`에 동봉** | `pdf_page_range`, `embed_unresolved`, `watcher` |
 
 > **경고는 절대 자동 삭제·자동 수정하지 않는다.** 사용자에게 상태만 표시. (`wikilink-embed §충돌 처리`)
+>
+> † `empty` 종결 분류는 **미확정(B2)** — `output-validation §3.6`은 비실패 종료(`completed_empty`)로 보나 entities.md `ImportJobStatus` enum엔 해당 값이 없음. `contracts-change` 논의 후 확정 (이번 PR 범위 밖).
+>
+> 참고: 위 "해당 kind"에서 `partial`은 제외했다 — `partial`은 **등급(분류) 이름**이지 멤버 kind가 아니다(자기 분류 순환 방지). 부분 저장의 실제 원인 kind는 `relation_invalid`·`sourceref_invalid`다.
 
 ---
 
@@ -136,6 +144,9 @@ pub struct AppError {
 ### 5.6 파일 감시 초기화 실패
 `notify` watcher 초기화가 실패해도 **앱은 중단하지 않는다**. `watcher` 경고를 남기고 mtime 폴링으로 폴백한다. (`storage-io.md §3.2~3.3` @ChangSik88)
 
+### 5.7 SourceRef 무효 (부분)
+`SourceRef.page`가 PDF 총 page를 벗어나는 등 무효이면 **해당 SourceRef만 drop**하고 Concept은 정상 저장한다. drop 사실은 에러가 아니라 `Outcome.warnings`로 전달한다. (`output-validation §3.4`)
+
 ---
 
 ## 6. 사용자 메시지 규약
@@ -152,7 +163,9 @@ pub struct AppError {
 | `path_traversal` | "허용되지 않는 경로 접근이 차단되었습니다." |
 | `watcher` | "파일 변경 감지를 시작하지 못했습니다. 외부 편집이 자동 반영되지 않을 수 있습니다." |
 | `pdf_extract` | "PDF에서 텍스트를 추출하지 못했습니다. 파일을 확인하세요." |
+| `pdf_encrypted` | "암호화된 PDF입니다. 잠금을 해제한 뒤 다시 업로드해주세요." |
 | `pdf_page_range` | "요청한 page가 문서 범위를 벗어나 첫 page를 표시합니다." |
+| `sourceref_invalid` | "일부 근거 참조(page)가 유효 범위를 벗어나 제외됐습니다." |
 | `frontmatter_invalid` | "문서 메타데이터 형식이 올바르지 않아 저장하지 못했습니다." |
 | `embed_unresolved` | "연결된 원본 파일을 찾을 수 없습니다. (링크 깨짐)" |
 | `internal` | "알 수 없는 오류가 발생했습니다. 다시 시도하세요." |
@@ -177,3 +190,4 @@ inner_call().map_err(|e| e.to_string())?  // "[kind] message" 형식 (error.rs D
 - 신규 작성 (@O6west). `AppError` 골격 = `src-tauri/src/error.rs`, LLM 분류 = `output-validation §7` 흡수.
 - §3 레지스트리는 다른 백엔드 문서(`architecture.md §4` 등)의 kind 예시를 대체하는 SSOT다.
 - 향후 `AppError`를 enum으로 강타입화할지 여부는 `architecture.md` 리뷰와 함께 결정(현재 `kind: String`).
+- 후속 수정(@ChangSik88 리뷰 반영): warn·partial은 `?` 전파 대신 `Outcome<T>` 동봉으로 모델 정정(B1), §4 "해당 kind"에서 `partial` 이중사용 제거(보완2), `sourceref_invalid`(보완1)·`pdf_encrypted` 추가. `empty` 종결 분류(B2)는 `contracts-change` 논의 대기.
