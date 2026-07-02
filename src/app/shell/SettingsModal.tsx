@@ -1,23 +1,30 @@
 import { useEffect, useState } from "react";
 import { Button, useTheme, cn } from "../../ds";
-import { getChunkSettings, setChunkEnabled, setChunkPercentile } from "../../lib/settings";
+import { getChunkSettings, setChunkEnabled, setChunkPercentile, getInboxView, setInboxView, type InboxView } from "../../lib/settings";
 
 // ══ 설정 모달 (§I) ══
-export function SettingsModal({ onClose }: { onClose: () => void }) {
+export function SettingsModal({ onClose, workspacePath }: { onClose: () => void; workspacePath?: string }) {
   const { theme, toggle } = useTheme();
   const [key, setKey] = useState((typeof localStorage !== "undefined" && localStorage.getItem("openai-key")) || "");
   const [saved, setSaved] = useState(false);
   const hasKey = key.trim().length > 0;
   const [chunkOn, setChunkOn] = useState(getChunkSettings().enabled);
   const [pct, setPct] = useState(getChunkSettings().percentile);
+  const [inboxView, setInboxViewState] = useState<InboxView>(getInboxView());
+  const changeInboxView = (v: InboxView) => {
+    setInboxView(v);
+    setInboxViewState(v);
+  };
   const toggleChunk = () => {
     const next = !chunkOn;
     setChunkEnabled(next);
     setChunkOn(next);
   };
   const changePct = (v: number) => {
-    setChunkPercentile(v);
-    setPct(v);
+    // min/max 속성은 직접 타이핑에는 안 먹으므로 여기서 1~50 클램프.
+    const clamped = Math.min(50, Math.max(1, Math.round(v) || 10));
+    setChunkPercentile(clamped);
+    setPct(clamped);
   };
   const save = () => {
     localStorage.setItem("openai-key", key.trim());
@@ -89,6 +96,27 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
             )}
           </div>
           <div className="flex items-center justify-between rounded-md border border-hairline p-3">
+            <div>
+              <span className="text-[14px] text-ink-2">Inbox 화면 분할</span>
+              <p className="text-[12px] text-ink-muted">2분할: 노트 | 새 페이지 · 3분할: PDF | 새 페이지 | 위키</p>
+            </div>
+            <div className="flex items-center rounded-md border border-hairline p-0.5">
+              {(["2", "3"] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => changeInboxView(v)}
+                  className={cn(
+                    "rounded px-2.5 py-1 text-[12px] font-medium transition-colors",
+                    inboxView === v ? "bg-surface-soft text-ink" : "text-ink-muted hover:text-ink",
+                  )}
+                >
+                  {v === "2" ? "2분할" : "3분할"}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center justify-between rounded-md border border-hairline p-3">
             <span className="text-[14px] text-ink-2">테마</span>
             <Button variant="utility" size="sm" onClick={toggle}>
               {theme === "dark" ? "다크" : "라이트"}
@@ -96,7 +124,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           </div>
           <div className="flex items-center justify-between rounded-md border border-hairline p-3">
             <span className="text-[14px] text-ink-2">워크스페이스</span>
-            <span className="text-[13px] text-ink-muted">~/PiecePool</span>
+            <span className="text-[13px] text-ink-muted">{workspacePath || "~/PiecePool"}</span>
           </div>
         </div>
       </div>

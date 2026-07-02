@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { AppShell, TopBar, Sidebar, Card, EmptyState, Icons } from "../ds";
 import type { TreeNode } from "../ds";
-import type { KnowledgeSpace, WikiPage as WikiPageT, ArchiveNote, GraphData } from "../lib/types";
+import type { KnowledgeSpace, WikiPage as WikiPageT, ArchiveNote, GraphData, Workspace } from "../lib/types";
 import * as ipc from "../lib/ipc";
 import { runWikiGeneration } from "../llm/generate";
 import type { LlmWikiInput } from "../llm/provider";
@@ -24,13 +24,27 @@ import { TabStrip } from "./shell/TabStrip";
 import { SearchPalette } from "./shell/SearchPalette";
 import { SettingsModal } from "./shell/SettingsModal";
 import { AccountFooter } from "./shell/AccountFooter";
-import { useWorkspaceStore } from "../store/workspaceStore";
+import { ContextMenu, ConfirmDialog, PromptDialog } from "./shell/Dialogs";
+import { useWorkspaceStore, SIDEBAR_DEFAULT } from "../store/workspaceStore";
 import type { TabKind } from "../store/workspaceStore";
 
-const KIND_LABEL: Record<TabKind, string> = { wiki: "Wiki", archive: "Source", source: "Source", inbox: "Inbox", graph: "Graph", home: "Home" };
+const KIND_LABEL: Record<TabKind, string> = { wiki: "Wiki", archive: "Source", inbox: "Inbox", graph: "Graph", home: "Home" };
+
+// 트리 id 파서 — 파일명에 ":" 가 없다는 계약(kebab/slug)에 기대지 않고 앞 3개만 분해한다.
+function parseDocId(id: string): { kind: string; space: string; file: string } | null {
+  const parts = id.split(":");
+  if (parts[0] !== "doc" || parts.length < 4) return null;
+  return { kind: parts[1], space: parts[2], file: parts.slice(3).join(":") };
+}
+
+type ShellDialog =
+  | { kind: "rename-note" | "rename-wiki"; space: string; file: string; title: string }
+  | { kind: "delete-note" | "delete-wiki"; space: string; file: string; title: string }
+  | { kind: "close-dirty"; tabId: string };
 
 export default function PiecePoolApp() {
   const [spaces, setSpaces] = useState<KnowledgeSpace[]>([]);
+  const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [wikiBySlug, setWikiBySlug] = useState<Record<string, WikiPageT[]>>({});
   const [notesBySlug, setNotesBySlug] = useState<Record<string, ArchiveNote[]>>({});
   const [graphBySlug, setGraphBySlug] = useState<Record<string, GraphData>>({});
@@ -46,23 +60,35 @@ export default function PiecePoolApp() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
+  // 셸 오버레이 — 트리 컨텍스트 메뉴 · 확인/입력 다이얼로그 · 상태바 알림
+  const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
+  const [dialog, setDialog] = useState<ShellDialog | null>(null);
+  const [notice, setNotice] = useState("");
+
   const [error, setError] = useState("");
   const [booting, setBooting] = useState(true);
 
-  // 셸 상태(P0 workspaceStore) — 열린 탭 · 활성 탭 · 사이드바 접기
+  // 셸 상태(workspaceStore, localStorage persist) — 열린 탭 · 활성 탭 · 사이드바 접기/폭 · 트리 접힘
   const openTabs = useWorkspaceStore((s) => s.openTabs);
   const activeTabId = useWorkspaceStore((s) => s.activeTabId);
   const openTab = useWorkspaceStore((s) => s.openTab);
   const closeTab = useWorkspaceStore((s) => s.closeTab);
   const setActiveTab = useWorkspaceStore((s) => s.setActiveTab);
+  const setTabDirty = useWorkspaceStore((s) => s.setTabDirty);
+  const renameTab = useWorkspaceStore((s) => s.renameTab);
   const leftCollapsed = useWorkspaceStore((s) => s.leftCollapsed);
   const toggleLeftPane = useWorkspaceStore((s) => s.toggleLeftPane);
+  const sidebarWidth = useWorkspaceStore((s) => s.sidebarWidth);
+  const setSidebarWidth = useWorkspaceStore((s) => s.setSidebarWidth);
+  const collapsedTreeIds = useWorkspaceStore((s) => s.collapsedTreeIds);
+  const toggleTreeNode = useWorkspaceStore((s) => s.toggleTreeNode);
 
-  // 부팅: 시드 → spaces → 각 공간 wiki/notes/graph/sources → 첫 위키를 탭으로 연다
+  // 부팅: 시드 → spaces → 각 공간 wiki/notes/graph → 복원된 탭이 없으면 Study Home
   useEffect(() => {
     (async () => {
       try {
-        await ipc.getWorkspace();
+        const ws = await ipc.getWorkspace();
+        setWorkspace(ws);
         const sp = await ipc.listSpaces();
         setSpaces(sp);
         const w: Record<string, WikiPageT[]> = {};
@@ -80,8 +106,10 @@ export default function PiecePoolApp() {
         setNotesBySlug(n);
         setGraphBySlug(g);
         if (sp[0]) setCurrentSpaceSlug(sp[0].slug);
-        // 부팅 탭-0 = Study Home (닫기 가능)
-        openTab({ id: "home", kind: "home", title: "Study Home" });
+        // persist 복원 탭이 있으면 그대로, 없으면 부팅 탭-0 = Study Home
+        if (useWorkspaceStore.getState().openTabs.length === 0) {
+          openTab({ id: "home", kind: "home", title: "Study Home" });
+        }
       } catch (e) {
         setError(String(e));
       } finally {
@@ -103,10 +131,18 @@ export default function PiecePoolApp() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // 상태바 알림 — 4초 후 자동 사라짐
+  useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(() => setNotice(""), 4000);
+    return () => clearTimeout(t);
+  }, [notice]);
+
   // 활성 탭 → 현재 공간 컨텍스트(브레드크럼·트리·VaultSwitcher가 따라감)
   const activeTab = openTabs.find((t) => t.id === activeTabId) ?? null;
   const currentSpace = activeTab?.space || currentSpaceSlug || spaces[0]?.slug || "";
   const spaceName = spaces.find((s) => s.slug === currentSpace)?.name ?? "";
+  const spaceNameOf = (slug: string) => spaces.find((s) => s.slug === slug)?.name ?? slug;
 
   // ── 탭 열기(=네비게이션) ──
   const openWiki = (space: string, file: string) => {
@@ -126,11 +162,37 @@ export default function PiecePoolApp() {
     if (firstWiki) openWiki(slug, firstWiki.path);
   };
 
+  // 미저장 편집이 있는 탭은 확인 후 닫기
+  const requestCloseTab = (id: string) => {
+    const tab = openTabs.find((t) => t.id === id);
+    if (tab?.dirty) setDialog({ kind: "close-dirty", tabId: id });
+    else closeTab(id);
+  };
+  const discardAndClose = (tabId: string) => {
+    const tab = openTabs.find((t) => t.id === tabId);
+    if (tab?.space && tab.file) {
+      const key = docKey(tab.space, tab.file);
+      setDrafts((d) => {
+        const next = { ...d };
+        delete next[key];
+        return next;
+      });
+      setEditing((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+    }
+    closeTab(tabId);
+  };
+
   // ── 사이드바 vault 트리(전체 vault) ──
+  // source(archive) md 는 드래그 이동 가능, 공간 루트/ source 폴더가 드랍 대상.
   const tree: TreeNode[] = spaces.map((s) => ({
     id: `sp:${s.slug}`,
     label: s.name,
     type: "folder",
+    dropTarget: true,
     children: [
       {
         id: `wf:${s.slug}`,
@@ -142,20 +204,141 @@ export default function PiecePoolApp() {
         id: `af:${s.slug}`,
         label: "source",
         type: "folder",
-        children: (notesBySlug[s.slug] ?? []).map((nt) => ({ id: `doc:archive:${s.slug}:${nt.path}`, label: nt.title, type: "file" as const })),
+        dropTarget: true,
+        children: (notesBySlug[s.slug] ?? []).map((nt) => ({
+          id: `doc:archive:${s.slug}:${nt.path}`,
+          label: nt.title,
+          type: "file" as const,
+          draggable: true,
+        })),
       },
     ],
   }));
   const onTreeSelect = (id: string) => {
-    const [k, kind, slug, file] = id.split(":");
-    if (k !== "doc") return;
-    if (kind === "wiki") openWiki(slug, file);
-    else openArchive(slug, file);
+    const doc = parseDocId(id);
+    if (!doc) return;
+    if (doc.kind === "wiki") openWiki(doc.space, doc.file);
+    else openArchive(doc.space, doc.file);
   };
   const selectedTreeId =
     activeTab && (activeTab.kind === "wiki" || activeTab.kind === "archive")
       ? `doc:${activeTab.kind === "wiki" ? "wiki" : "archive"}:${activeTab.space}:${activeTab.file}`
       : "";
+
+  // ── 트리 DnD: source md 를 다른 공간으로 이동 ──
+  const slugOfFolder = (folderId: string) => {
+    const [kind, slug] = folderId.split(":");
+    return kind === "sp" || kind === "af" ? slug : "";
+  };
+  const handleMoveNode = async (dragId: string, dropFolderId: string) => {
+    const doc = parseDocId(dragId);
+    const toSpace = slugOfFolder(dropFolderId);
+    if (!doc || !toSpace) return;
+    if (doc.kind !== "archive") {
+      setNotice("위키는 공간 간 이동을 지원하지 않아요 (관계가 공간에 묶여 있어요)");
+      return;
+    }
+    if (doc.space === toSpace) return;
+    try {
+      const moved = await ipc.moveNote(doc.space, doc.file, toSpace);
+      closeTab(`archive:${doc.space}:${doc.file}`);
+      await Promise.all([refreshSpace(doc.space), refreshSpace(toSpace)]);
+      setNotice(`"${moved.title}" → ${spaceNameOf(toSpace)} 이동됨`);
+    } catch (e) {
+      setNotice(`이동 실패: ${String(e)}`);
+    }
+  };
+
+  // ── 트리 외부 파일 드랍: .md/.txt → 해당 공간 source 노트로 ──
+  const handleDropFiles = async (dropFolderId: string, files: FileList) => {
+    const toSpace = slugOfFolder(dropFolderId);
+    if (!toSpace) return;
+    let ok = 0;
+    let skipped = 0;
+    try {
+      for (const f of Array.from(files)) {
+        if (/\.(md|markdown|txt)$/i.test(f.name)) {
+          const text = await f.text();
+          await ipc.createNote(toSpace, f.name.replace(/\.[^.]+$/, ""), text, []);
+          ok++;
+        } else skipped++;
+      }
+      if (ok) await refreshSpace(toSpace);
+      setNotice(`${spaceNameOf(toSpace)}에 노트 ${ok}개 추가${skipped ? ` · ${skipped}개 건너뜀(md/txt만 지원)` : ""}`);
+    } catch (e) {
+      setNotice(`가져오기 실패: ${String(e)}`);
+    }
+  };
+
+  // ── 트리 컨텍스트 메뉴(이름 변경 · 삭제) ──
+  const menuDoc = menu ? parseDocId(menu.id) : null;
+  const menuItems = menuDoc
+    ? [
+        {
+          label: "열기",
+          onClick: () => (menuDoc.kind === "wiki" ? openWiki(menuDoc.space, menuDoc.file) : openArchive(menuDoc.space, menuDoc.file)),
+        },
+        {
+          label: "이름 변경…",
+          onClick: () => {
+            const list = menuDoc.kind === "wiki" ? wikiBySlug[menuDoc.space] : notesBySlug[menuDoc.space];
+            const cur = (list ?? []).find((x) => x.path === menuDoc.file);
+            setDialog({
+              kind: menuDoc.kind === "wiki" ? "rename-wiki" : "rename-note",
+              space: menuDoc.space,
+              file: menuDoc.file,
+              title: cur?.title ?? "",
+            });
+          },
+        },
+        {
+          label: "삭제…",
+          danger: true,
+          onClick: () => {
+            const list = menuDoc.kind === "wiki" ? wikiBySlug[menuDoc.space] : notesBySlug[menuDoc.space];
+            const cur = (list ?? []).find((x) => x.path === menuDoc.file);
+            setDialog({
+              kind: menuDoc.kind === "wiki" ? "delete-wiki" : "delete-note",
+              space: menuDoc.space,
+              file: menuDoc.file,
+              title: cur?.title ?? menuDoc.file,
+            });
+          },
+        },
+      ]
+    : [];
+
+  const applyRename = async (d: Extract<ShellDialog, { kind: "rename-note" | "rename-wiki" }>, newTitle: string) => {
+    try {
+      if (d.kind === "rename-wiki") {
+        await ipc.renameWiki(d.space, d.file, newTitle);
+        renameTab(`wiki:${d.space}:${d.file}`, newTitle);
+      } else {
+        await ipc.renameNote(d.space, d.file, newTitle);
+        renameTab(`archive:${d.space}:${d.file}`, newTitle);
+      }
+      await refreshSpace(d.space);
+      setNotice(`이름 변경됨: ${newTitle}`);
+    } catch (e) {
+      setNotice(`이름 변경 실패: ${String(e)}`);
+    }
+  };
+  const applyDelete = async (d: Extract<ShellDialog, { kind: "delete-note" | "delete-wiki" }>) => {
+    try {
+      if (d.kind === "delete-wiki") {
+        const pruned = await ipc.deleteWiki(d.space, d.file);
+        closeTab(`wiki:${d.space}:${d.file}`);
+        setNotice(`"${d.title}" 삭제됨${pruned > 0 ? ` · 관계 ${pruned}개 정리` : ""}`);
+      } else {
+        await ipc.deleteNote(d.space, d.file);
+        closeTab(`archive:${d.space}:${d.file}`);
+        setNotice(`"${d.title}" 삭제됨`);
+      }
+      await refreshSpace(d.space);
+    } catch (e) {
+      setNotice(`삭제 실패: ${String(e)}`);
+    }
+  };
 
   // 위키 페이지의 관련 개념(그래프 relation 이웃) — Karpathy식 "see also"
   const relatedConcepts = (space: string, conceptId: string): { title: string; path: string }[] => {
@@ -174,12 +357,16 @@ export default function PiecePoolApp() {
     return out;
   };
 
-  // [[대상]] → 같은 공간 위키 탭 열기
-  const resolveLink = (space: string, target: string) => {
+  // [[대상]] → 같은 공간 위키 탭 열기. linkExists 로 깨진 링크 표식(수용기준 §2.3).
+  const findWiki = (space: string, target: string) => {
     const pages = wikiBySlug[space] ?? [];
-    const hit = pages.find((p) => p.title === target) || pages.find((p) => p.title.toLowerCase() === target.toLowerCase());
+    return pages.find((p) => p.title === target) || pages.find((p) => p.title.toLowerCase() === target.toLowerCase());
+  };
+  const resolveLink = (space: string, target: string) => {
+    const hit = findWiki(space, target);
     if (hit) openWiki(space, hit.path);
   };
+  const linkExistsIn = (space: string) => (target: string) => !!findWiki(space, target);
 
   // ── 인라인 편집 ──
   const toggleEdit = (key: string, savedMd: string) => {
@@ -204,11 +391,13 @@ export default function PiecePoolApp() {
     const saved = await ipc.saveWiki(space, { ...page, markdown: md });
     setWikiBySlug((m) => ({ ...m, [space]: (m[space] ?? []).map((x) => (x.path === page.path ? saved : x)) }));
     endEdit(docKey(space, page.path));
+    setTabDirty(`wiki:${space}:${page.path}`, false);
   };
   const saveArchiveDoc = async (space: string, file: string, md: string) => {
     const saved = await ipc.saveNote(space, file, md);
     setNotesBySlug((m) => ({ ...m, [space]: (m[space] ?? []).map((x) => (x.path === file ? saved : x)) }));
     endEdit(docKey(space, file));
+    setTabDirty(`archive:${space}:${file}`, false);
   };
 
   // ── LLM: 위키 생성 / 간극 점검 (Source 의 원본 노트에서) ──
@@ -269,6 +458,15 @@ export default function PiecePoolApp() {
       delete next[key];
       return next;
     });
+  // 간극 점검 응답을 노트 하단에 사용자 소유 텍스트로 덧붙인다(archive 는 사용자 원문 — 사용자 액션만 허용).
+  const appendGapAnswers = async (space: string, note: ArchiveNote, answers: { prompt: string; answer: string }[]) => {
+    const filled = answers.filter((a) => a.answer.trim());
+    if (filled.length === 0) return;
+    const block = "\n\n## 간극 점검 메모\n\n" + filled.map((a) => `- **Q:** ${a.prompt}\n  **A:** ${a.answer.trim()}`).join("\n");
+    await saveArchiveDoc(space, note.path, note.markdown + block);
+    clearGaps(docKey(space, note.path));
+    setNotice("간극 점검 응답을 노트에 저장했어요");
+  };
 
   // Import 완료 후 해당 공간의 notes/wiki/graph 재로딩
   const refreshSpace = async (space: string) => {
@@ -294,6 +492,7 @@ export default function PiecePoolApp() {
   // 위키 리더(DocView)
   const wikiReader = (space: string, page: WikiPageT) => {
     const key = docKey(space, page.path);
+    const tabId = `wiki:${space}:${page.path}`;
     return (
       <DocView
         docType="wiki"
@@ -302,9 +501,13 @@ export default function PiecePoolApp() {
         isEditing={editing.has(key)}
         draft={drafts[key] ?? page.markdown}
         onToggleEdit={() => toggleEdit(key, page.markdown)}
-        onChangeDraft={(md) => setDraft(key, md)}
+        onChangeDraft={(md) => {
+          setDraft(key, md);
+          setTabDirty(tabId, md !== page.markdown);
+        }}
         onSave={() => saveWikiDoc(space, page, drafts[key] ?? page.markdown)}
         onLink={(t) => resolveLink(space, t)}
+        linkExists={linkExistsIn(space)}
         embedSpace={space}
         related={relatedConcepts(space, page.conceptId).map((r) => ({ title: r.title, onClick: () => openWiki(space, r.path) }))}
       />
@@ -314,6 +517,7 @@ export default function PiecePoolApp() {
   // 원본 리더(DocView + AI)
   const sourceReader = (space: string, note: ArchiveNote) => {
     const key = docKey(space, note.path);
+    const tabId = `archive:${space}:${note.path}`;
     return (
       <DocView
         docType="archive"
@@ -323,12 +527,24 @@ export default function PiecePoolApp() {
         isEditing={editing.has(key)}
         draft={drafts[key] ?? note.markdown}
         onToggleEdit={() => toggleEdit(key, note.markdown)}
-        onChangeDraft={(md) => setDraft(key, md)}
+        onChangeDraft={(md) => {
+          setDraft(key, md);
+          setTabDirty(tabId, md !== note.markdown);
+        }}
         onSave={() => saveArchiveDoc(space, note.path, drafts[key] ?? note.markdown)}
         onLink={(t) => resolveLink(space, t)}
+        linkExists={linkExistsIn(space)}
         embedSpace={space}
         topSlot={<AiBar busy={aiBusy === key} status={aiStatus[key]} onGen={() => genWiki(space, note)} onGaps={() => checkGaps(space, note)} />}
-        bottomSlot={gaps[key] ? <GapPanel questions={gaps[key]} onClose={() => clearGaps(key)} /> : undefined}
+        bottomSlot={
+          gaps[key] ? (
+            <GapPanel
+              questions={gaps[key]}
+              onClose={() => clearGaps(key)}
+              onSubmit={(answers) => appendGapAnswers(space, note, answers)}
+            />
+          ) : undefined
+        }
       />
     );
   };
@@ -374,6 +590,7 @@ export default function PiecePoolApp() {
         return (
           <GraphSection
             graph={graphBySlug[sp]}
+            space={sp}
             spaceName={spName}
             wikiPages={wikiBySlug[sp] ?? []}
             onOpenWiki={(file) => openWiki(sp, file)}
@@ -390,6 +607,7 @@ export default function PiecePoolApp() {
             existing={wikiBySlug[sp] ?? []}
             notes={notesBySlug[sp] ?? []}
             onOpenNote={(n) => openArchive(sp, n.path)}
+            onOpenWiki={(file) => openWiki(sp, file)}
             onRefresh={() => refreshSpace(sp)}
           />
         );
@@ -397,6 +615,9 @@ export default function PiecePoolApp() {
         return null;
     }
   };
+
+  // Inbox/Graph 는 분할 레이아웃이라 풀-블리드(스크롤은 각 패널이 소유)
+  const fullBleed = !!activeTab && (activeTab.kind === "inbox" || activeTab.kind === "graph");
 
   // 상태바 경로 라벨
   const pathLabel = !activeTab
@@ -451,17 +672,23 @@ export default function PiecePoolApp() {
         sidebar={
           leftCollapsed ? undefined : (
             <Sidebar
-              key={`sb-${spaces.length}`}
               nodes={tree}
               selectedId={selectedTreeId}
-              defaultExpandedIds={spaces.flatMap((s) => [`sp:${s.slug}`, `wf:${s.slug}`, `af:${s.slug}`])}
+              collapsedIds={collapsedTreeIds}
+              onToggle={toggleTreeNode}
               onSelect={onTreeSelect}
+              onMoveNode={handleMoveNode}
+              onDropFiles={handleDropFiles}
+              onContextMenu={(id, x, y) => setMenu({ id, x, y })}
               onAddFile={() => openInbox(currentSpace)}
+              width={sidebarWidth}
+              onResize={setSidebarWidth}
+              onResizeReset={() => setSidebarWidth(SIDEBAR_DEFAULT)}
               footer={<AccountFooter onSettings={openSettings} />}
             />
           )
         }
-        statusBar={<StatusBar pathLabel={pathLabel} />}
+        statusBar={<StatusBar pathLabel={pathLabel} notice={notice} />}
         contentClassName="!p-0 !overflow-hidden flex min-h-0 flex-col"
       >
         {error && (
@@ -470,15 +697,56 @@ export default function PiecePoolApp() {
           </Card>
         )}
 
-        <TabStrip tabs={openTabs} activeId={activeTabId} onSelect={setActiveTab} onClose={closeTab} />
+        <TabStrip tabs={openTabs} activeId={activeTabId} onSelect={setActiveTab} onClose={requestCloseTab} />
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-6">
-          {booting ? <p className="text-[15px] text-ink-muted">불러오는 중…</p> : renderActiveTab()}
+        <div className={fullBleed ? "min-h-0 flex-1 overflow-hidden" : "min-h-0 flex-1 overflow-y-auto p-6"}>
+          {booting ? <p className="p-6 text-[15px] text-ink-muted">불러오는 중…</p> : renderActiveTab()}
         </div>
       </AppShell>
 
       {paletteOpen && <SearchPalette items={allFiles} onPick={pickSearch} onClose={() => setPaletteOpen(false)} />}
-      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
+      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} workspacePath={workspace?.rootPath} />}
+
+      {menu && menuItems.length > 0 && <ContextMenu x={menu.x} y={menu.y} items={menuItems} onClose={() => setMenu(null)} />}
+
+      {dialog?.kind === "close-dirty" && (
+        <ConfirmDialog
+          title="저장하지 않은 변경이 있어요"
+          message="탭을 닫으면 편집 중인 내용이 사라집니다."
+          confirmLabel="닫기"
+          danger
+          onConfirm={() => {
+            discardAndClose(dialog.tabId);
+            setDialog(null);
+          }}
+          onCancel={() => setDialog(null)}
+        />
+      )}
+      {(dialog?.kind === "rename-note" || dialog?.kind === "rename-wiki") && (
+        <PromptDialog
+          title="이름 변경"
+          initial={dialog.title}
+          placeholder="새 제목"
+          onSubmit={(v) => {
+            applyRename(dialog, v);
+            setDialog(null);
+          }}
+          onCancel={() => setDialog(null)}
+        />
+      )}
+      {(dialog?.kind === "delete-note" || dialog?.kind === "delete-wiki") && (
+        <ConfirmDialog
+          title={`"${dialog.title}" 삭제`}
+          message={dialog.kind === "delete-wiki" ? "위키 파일과 이 개념에 연결된 관계가 함께 삭제됩니다. 되돌릴 수 없어요." : "원본 노트 파일이 삭제됩니다. 되돌릴 수 없어요."}
+          confirmLabel="삭제"
+          danger
+          onConfirm={() => {
+            applyDelete(dialog);
+            setDialog(null);
+          }}
+          onCancel={() => setDialog(null)}
+        />
+      )}
     </div>
   );
 }

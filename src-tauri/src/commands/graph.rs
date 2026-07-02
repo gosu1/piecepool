@@ -29,7 +29,9 @@ fn compat(s: NodeKind, t: NodeKind, rt: RelationType) -> bool {
     match rt {
         ExtractedFrom => matches!(s, Concept | WikiPage) && t == Source,
         ExplainedBy => s == Concept && t == WikiPage,
-        Prerequisite | PartOf | UsedIn | Causes | Solves | Contrasts | ConfusedWith => s == Concept && t == Concept,
+        Prerequisite | PartOf | UsedIn | Causes | Solves | Contrasts | ConfusedWith => {
+            s == Concept && t == Concept
+        }
         RelatedTo => matches!(s, Concept | WikiPage),
         TestedIn => s == Concept && matches!(t, Source | Concept),
         ReviewNeeded => s == Concept && t == Concept, // 자동 경로에서는 별도로 거부됨
@@ -40,11 +42,11 @@ fn compat(s: NodeKind, t: NodeKind, rt: RelationType) -> bool {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GraphNode {
-    pub id: String,        // concept id (= relation 의 node id)
+    pub id: String, // concept id (= relation 의 node id)
     pub title: String,
-    pub kind: String,      // "core" | "result"
+    pub kind: String, // "core" | "result"
     pub subject_ids: Vec<String>,
-    pub path: String,      // wiki 파일명 (node 클릭 → 문서 열기)
+    pub path: String, // wiki 파일명 (node 클릭 → 문서 열기)
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -54,7 +56,7 @@ pub struct GraphData {
     pub relations: Vec<Relation>,
 }
 
-fn read_relations(space: &str) -> Result<Vec<Relation>, String> {
+pub(crate) fn read_relations(space: &str) -> Result<Vec<Relation>, String> {
     let path = storage::space_subdir(space, "relations").join("relations.json");
     if !storage::exists(&path) {
         return Ok(vec![]);
@@ -90,7 +92,11 @@ pub fn get_graph(space: String) -> Result<GraphData, String> {
         let id = page.concept_id.clone();
         let out = *outdeg.get(&id).unwrap_or(&0);
         let inn = *indeg.get(&id).unwrap_or(&0);
-        let kind = if out == 0 && inn > 0 { "result" } else { "core" };
+        let kind = if out == 0 && inn > 0 {
+            "result"
+        } else {
+            "core"
+        };
         nodes.push(GraphNode {
             id,
             title: page.title,
@@ -111,33 +117,62 @@ pub fn append_relations(space: String, relations: Vec<Relation>) -> Result<usize
     let mut existing = read_relations(&space)?;
     let mut seen: HashSet<(String, String, RelationType)> = existing
         .iter()
-        .map(|r| (r.source_node_id.clone(), r.target_node_id.clone(), r.relation_type))
+        .map(|r| {
+            (
+                r.source_node_id.clone(),
+                r.target_node_id.clone(),
+                r.relation_type,
+            )
+        })
         .collect();
 
     for r in relations {
         let edge = format!("{}→{}", r.source_node_id, r.target_node_id);
         if !(0.0..=1.0).contains(&r.strength) || !(0.0..=1.0).contains(&r.confidence) {
-            return Err(format!("[relation_invalid] strength/confidence 는 0~1 이어야 함: {edge}"));
+            return Err(format!(
+                "[relation_invalid] strength/confidence 는 0~1 이어야 함: {edge}"
+            ));
         }
         if r.relation_type == RelationType::ReviewNeeded {
-            return Err("[relation_invalid] review_needed 는 사용자만 지정 가능(자동 부여 금지)".into());
+            return Err(
+                "[relation_invalid] review_needed 는 사용자만 지정 가능(자동 부여 금지)".into(),
+            );
         }
-        if !compat(node_kind(&r.source_node_id), node_kind(&r.target_node_id), r.relation_type) {
-            return Err(format!("[relation_invalid] 노드 호환성 위반: {:?} {edge}", r.relation_type));
+        if !compat(
+            node_kind(&r.source_node_id),
+            node_kind(&r.target_node_id),
+            r.relation_type,
+        ) {
+            return Err(format!(
+                "[relation_invalid] 노드 호환성 위반: {:?} {edge}",
+                r.relation_type
+            ));
         }
         if r.evidence.is_empty() {
-            return Err(format!("[relation_invalid] 모든 관계는 evidence ≥ 1: {edge}"));
+            return Err(format!(
+                "[relation_invalid] 모든 관계는 evidence ≥ 1: {edge}"
+            ));
         }
-        let key = (r.source_node_id.clone(), r.target_node_id.clone(), r.relation_type);
+        let key = (
+            r.source_node_id.clone(),
+            r.target_node_id.clone(),
+            r.relation_type,
+        );
         if seen.insert(key) {
             existing.push(r); // 동일 엣지는 중복 저장 안 함
         }
     }
 
     let total = existing.len();
-    let related = existing.iter().filter(|r| r.relation_type == RelationType::RelatedTo).count();
+    let related = existing
+        .iter()
+        .filter(|r| r.relation_type == RelationType::RelatedTo)
+        .count();
     if total > 0 && related * 100 / total > 30 {
-        eprintln!("[review] related_to 비율 {}% (>30%) — 저장됨, 관계 타입 재검토 권장", related * 100 / total);
+        eprintln!(
+            "[review] related_to 비율 {}% (>30%) — 저장됨, 관계 타입 재검토 권장",
+            related * 100 / total
+        );
     }
 
     let path = storage::space_subdir(&space, "relations").join("relations.json");

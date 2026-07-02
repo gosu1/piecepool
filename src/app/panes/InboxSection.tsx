@@ -1,11 +1,17 @@
-import { useState } from "react";
-import { Button, Card, FileDropzone, cn } from "../../ds";
+import { useCallback, useEffect, useState } from "react";
+import { Button, FileDropzone, cn } from "../../ds";
 import type { WikiPage as WikiPageT, ArchiveNote } from "../../lib/types";
+import * as ipc from "../../lib/ipc";
 import { useImportStore } from "../../store/importStore";
 import { runImageOcr } from "../../llm/ocr";
 import { SlashBlockEditor } from "../../lib/SlashBlockEditor";
+import { Markdown } from "../../lib/markdown";
+import { FilePreview } from "../../lib/FilePreview";
+import { getInboxView, setInboxView, type InboxView } from "../../lib/settings";
 
-// ══ Inbox 섹션 ══
+// ══ Inbox 섹션 — 분할 캡처 뷰 ══
+// 2-split: NOTE(기존 원본 열람) | 새 페이지(작성)
+// 3-split: PDF(원본 자료) | 새 페이지(source 작성) | Wiki(생성된 위키 참조)
 const IMPORT_STATUS_LABEL: Record<string, string> = {
   idle: "대기",
   parsing: "파싱",
@@ -17,6 +23,15 @@ const IMPORT_STATUS_LABEL: Record<string, string> = {
   failed: "실패",
 };
 
+function fileToBase64(f: File): Promise<string> {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(String(r.result ?? "").split(",")[1] ?? "");
+    r.onerror = () => rej(r.error);
+    r.readAsDataURL(f);
+  });
+}
+
 export function InboxSection({
   space,
   spaceId,
@@ -25,6 +40,7 @@ export function InboxSection({
   existing,
   notes,
   onOpenNote,
+  onOpenWiki,
   onRefresh,
 }: {
   space: string;
@@ -34,8 +50,16 @@ export function InboxSection({
   existing: WikiPageT[];
   notes: ArchiveNote[];
   onOpenNote: (n: ArchiveNote) => void;
+  onOpenWiki: (file: string) => void;
   onRefresh: () => Promise<void> | void;
 }) {
+  const [view, setView] = useState<InboxView>(getInboxView());
+  const changeView = (v: InboxView) => {
+    setInboxView(v);
+    setView(v);
+  };
+
+  // ── 작성(새 페이지) 상태 ──
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [withLlm, setWithLlm] = useState(true);
@@ -44,10 +68,56 @@ export function InboxSection({
   const { job, gaps, runImport, respondClarify } = useImportStore();
   const busy = !!job && !["completed", "failed"].includes(job.status);
 
+  // ── 참조 패널 상태 ──
+  const [refNotePath, setRefNotePath] = useState<string>("");
+  const [refWikiPath, setRefWikiPath] = useState<string>("");
+  const [sources, setSources] = useState<string[]>([]);
+  const [refSource, setRefSource] = useState<string>("");
+  const [pdfBusy, setPdfBusy] = useState(false);
+
+  const refNote = notes.find((n) => n.path === refNotePath) ?? notes[0];
+  const refWiki = existing.find((w) => w.path === refWikiPath) ?? existing[0];
+
+  const loadSources = useCallback(async () => {
+    try {
+      const list = await ipc.listSources(space);
+      setSources(list);
+      setRefSource((cur) => (cur && list.includes(cur) ? cur : (list[0] ?? "")));
+    } catch {
+      setSources([]);
+    }
+  }, [space]);
+
+  useEffect(() => {
+    if (view === "3") void loadSources();
+  }, [view, loadSources]);
+
+  // PDF → sources/original-files 저장 + 텍스트 추출 → 에디터에 삽입 (Inbox PDF 임포트 경로)
+  const importPdf = async (f: File) => {
+    setPdfBusy(true);
+    try {
+      const stored = await ipc.saveSourceFile(space, f.name, await fileToBase64(f));
+      await loadSources();
+      setRefSource(stored);
+      if (!title) setTitle(f.name.replace(/\.[^.]+$/, ""));
+      try {
+        const ext = await ipc.extractPdfText(space, stored);
+        const text = ext.pages.map((p) => p.text).join("\n\n").trim();
+        setBody((b) => (b ? b + "\n\n" : "") + `![[${stored}]]\n\n${text}`);
+      } catch {
+        setBody((b) => (b ? b + "\n\n" : "") + `![[${stored}]]\n\n> PDF 텍스트 추출 실패 — 스캔본이면 이미지로 올려 OCR 하세요.`);
+      }
+    } catch (e) {
+      setBody((b) => b + `\n\n> ${f.name} 저장 실패: ${String(e)}`);
+    } finally {
+      setPdfBusy(false);
+    }
+  };
+
   const onFiles = (files: FileList) => {
     const f = files[0];
     if (!f) return;
-    if (f.type.startsWith("text") || f.name.endsWith(".md") || f.name.endsWith(".txt")) {
+    if (f.type.startsWith("text") || /\.(md|markdown|txt)$/i.test(f.name)) {
       const reader = new FileReader();
       reader.onload = () => {
         setBody(String(reader.result ?? ""));
@@ -69,9 +139,10 @@ export function InboxSection({
         }
       };
       reader.readAsDataURL(f);
+    } else if (/\.pdf$/i.test(f.name) || f.type === "application/pdf") {
+      void importPdf(f);
     } else {
-      setBody((b) => b + `\n\n> ${f.name} 첨부됨 (PDF 추출은 Source에서)`);
-      if (!title) setTitle(f.name.replace(/\.[^.]+$/, ""));
+      setBody((b) => b + `\n\n> ${f.name} — 지원하지 않는 형식이에요 (md/txt/pdf/이미지).`);
     }
   };
 
@@ -103,29 +174,26 @@ export function InboxSection({
     : ["archiving", "writing", "completed"];
   const curIdx = job ? steps.indexOf(job.status) : -1;
 
-  return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <div>
-        <h1 className="ds-h3 text-ink">Inbox</h1>
-        <p className="text-[14px] text-ink-muted">{spaceName} · 자료 → 원본(archive) 저장 → (선택) AI 위키·관계 생성.</p>
-      </div>
-
-      <Card padding="lg" className="space-y-3">
+  // ── 작성 패널 (공통) ──
+  const composePane = (
+    <section className="flex min-w-0 flex-1 flex-col overflow-y-auto">
+      <PaneHeader label="새 페이지" hint="자료 → 원본(archive) 저장 → (선택) AI 위키·관계 생성" />
+      <div className="space-y-3 p-4">
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="제목"
           className="w-full bg-transparent text-[18px] font-bold text-ink outline-none placeholder:text-ink-faint"
         />
-        <FileDropzone onFiles={onFiles} className="!p-6" />
+        <FileDropzone onFiles={onFiles} accept=".md,.markdown,.txt,.pdf,image/*,application/pdf" className="!p-4" description="md · txt · pdf · 이미지를 드래그하거나 클릭" />
         <SlashBlockEditor
           value={body}
           onChange={setBody}
           onSubmit={run}
           placeholder="'/' 로 블록 삽입 · 마크다운으로 작성 · ⌘Enter 로 저장"
-          height="240px"
+          height="260px"
         />
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <div className="flex flex-col gap-1.5">
             <label className="flex items-center gap-2 text-[14px] text-ink-2">
               <input type="checkbox" checked={withLlm} onChange={(e) => setWithLlm(e.target.checked)} className="accent-primary" />
@@ -219,23 +287,227 @@ export function InboxSection({
             )}
           </div>
         )}
-      </Card>
+      </div>
+    </section>
+  );
 
-      <div className="space-y-2">
-        <p className="ds-eyebrow text-ink-faint">저장된 원본 ({notes.length})</p>
-        {notes.length === 0 ? (
-          <p className="text-[14px] text-ink-muted">아직 원본이 없습니다.</p>
+  // ── NOTE 패널 (2-split 좌측) — 저장된 원본 열람 ──
+  const notePane = (
+    <section className="flex min-w-0 w-[46%] shrink-0 flex-col border-r border-hairline">
+      <PaneHeader
+        label="NOTE"
+        hint={`저장된 원본 ${notes.length}개`}
+        right={
+          notes.length > 0 ? (
+            <div className="flex items-center gap-1.5">
+              <PaneSelect
+                value={refNote?.path ?? ""}
+                onChange={setRefNotePath}
+                options={notes.map((n) => ({ value: n.path, label: n.title }))}
+              />
+              {refNote && (
+                <Button size="sm" variant="utility" onClick={() => onOpenNote(refNote)}>
+                  탭으로 열기
+                </Button>
+              )}
+            </div>
+          ) : undefined
+        }
+      />
+      <div className="min-h-0 flex-1 overflow-y-auto p-4">
+        {refNote ? (
+          <>
+            <h2 className="mb-1 text-[17px] font-bold text-ink">{refNote.title}</h2>
+            <p className="mb-3 text-[12px] text-ink-faint">
+              {refNote.createdAt.slice(0, 10)} · {refNote.path}
+            </p>
+            <Markdown source={refNote.markdown} embedSpace={space} />
+          </>
         ) : (
-          notes.map((n) => (
-            <Card key={n.id} interactive padding="md" onClick={() => onOpenNote(n)}>
-              <p className="text-[15px] font-semibold text-ink">{n.title}</p>
-              <p className="text-[12px] text-ink-faint">
-                {n.createdAt.slice(0, 10)} · {n.path}
-              </p>
-            </Card>
-          ))
+          <p className="pt-8 text-center text-[14px] text-ink-muted">
+            아직 원본이 없어요.
+            <br />
+            오른쪽 새 페이지에서 첫 노트를 저장해보세요.
+          </p>
+        )}
+      </div>
+    </section>
+  );
+
+  // ── PDF 패널 (3-split 좌측) — 원본 자료 열람 + 추출 ──
+  const pdfPane = (
+    <section className="flex min-w-0 w-1/3 shrink-0 flex-col border-r border-hairline">
+      <PaneHeader
+        label="PDF"
+        hint={sources.length > 0 ? `원본 파일 ${sources.length}개` : "원본 파일 없음"}
+        right={
+          <div className="flex items-center gap-1.5">
+            {sources.length > 0 && (
+              <PaneSelect value={refSource} onChange={setRefSource} options={sources.map((s) => ({ value: s, label: s }))} />
+            )}
+            <label className="cursor-pointer rounded-md border border-hairline px-2 py-1 text-[12px] text-ink-2 transition-colors hover:bg-surface-soft">
+              업로드
+              <input
+                type="file"
+                accept=".pdf,application/pdf"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = "";
+                  if (f) void importPdf(f);
+                }}
+              />
+            </label>
+          </div>
+        }
+      />
+      <div className="min-h-0 flex-1 overflow-y-auto p-4">
+        {pdfBusy && <p className="mb-2 text-[13px] text-ink-muted">PDF 처리 중…</p>}
+        {refSource ? (
+          <FilePreview space={space} target={refSource} />
+        ) : (
+          <p className="pt-8 text-center text-[14px] text-ink-muted">
+            PDF를 업로드하면 여기서 보면서
+            <br />
+            가운데에 필기할 수 있어요.
+          </p>
+        )}
+      </div>
+      {refSource && /\.pdf$/i.test(refSource) && (
+        <div className="border-t border-hairline p-2">
+          <Button
+            size="sm"
+            variant="utility"
+            className="w-full"
+            disabled={pdfBusy}
+            onClick={async () => {
+              setPdfBusy(true);
+              try {
+                const ext = await ipc.extractPdfText(space, refSource);
+                const text = ext.pages.map((p) => p.text).join("\n\n").trim();
+                setBody((b) => (b ? b + "\n\n" : "") + `![[${refSource}]]\n\n${text}`);
+              } catch {
+                setBody((b) => b + `\n\n> ${refSource} 텍스트 추출 실패`);
+              } finally {
+                setPdfBusy(false);
+              }
+            }}
+          >
+            텍스트 추출 → 에디터
+          </Button>
+        </div>
+      )}
+    </section>
+  );
+
+  // ── Wiki 패널 (3-split 우측) — 생성된 위키 참조 ──
+  const wikiPane = (
+    <section className="flex min-w-0 w-[28%] shrink-0 flex-col border-l border-hairline">
+      <PaneHeader
+        label="WIKI"
+        hint={existing.length > 0 ? `위키 ${existing.length}개` : "위키 없음"}
+        right={
+          existing.length > 0 ? (
+            <div className="flex items-center gap-1.5">
+              <PaneSelect
+                value={refWiki?.path ?? ""}
+                onChange={setRefWikiPath}
+                options={existing.map((w) => ({ value: w.path, label: w.title }))}
+              />
+              {refWiki && (
+                <Button size="sm" variant="utility" onClick={() => onOpenWiki(refWiki.path)}>
+                  열기
+                </Button>
+              )}
+            </div>
+          ) : undefined
+        }
+      />
+      <div className="min-h-0 flex-1 overflow-y-auto p-4">
+        {refWiki ? (
+          <>
+            <h2 className="mb-3 text-[17px] font-bold text-ink">{refWiki.title}</h2>
+            <Markdown source={refWiki.markdown} embedSpace={space} />
+          </>
+        ) : (
+          <p className="pt-8 text-center text-[14px] text-ink-muted">
+            AI 정리를 실행하면
+            <br />
+            생성된 위키가 여기 나타나요.
+          </p>
+        )}
+      </div>
+    </section>
+  );
+
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      {/* 헤더 — 뷰 전환 */}
+      <header className="flex shrink-0 items-center justify-between gap-3 border-b border-hairline px-4 py-2">
+        <p className="min-w-0 truncate text-[14px]">
+          <span className="font-bold text-ink">Inbox</span>
+          <span className="text-ink-muted"> · {spaceName} · 자료 → 원본(archive) 저장 → (선택) AI 위키·관계 생성</span>
+        </p>
+        <div className="flex shrink-0 items-center rounded-md border border-hairline p-0.5">
+          {(["2", "3"] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => changeView(v)}
+              className={cn(
+                "rounded px-2.5 py-1 text-[12px] font-medium transition-colors",
+                view === v ? "bg-surface-soft text-ink" : "text-ink-muted hover:text-ink",
+              )}
+            >
+              {v === "2" ? "2분할" : "3분할"}
+            </button>
+          ))}
+        </div>
+      </header>
+
+      {/* 분할 본문 */}
+      <div className="flex min-h-0 flex-1">
+        {view === "2" ? (
+          <>
+            {notePane}
+            {composePane}
+          </>
+        ) : (
+          <>
+            {pdfPane}
+            {composePane}
+            {wikiPane}
+          </>
         )}
       </div>
     </div>
+  );
+}
+
+function PaneHeader({ label, hint, right }: { label: string; hint?: string; right?: React.ReactNode }) {
+  return (
+    <div className="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-hairline px-3">
+      <p className="min-w-0 truncate">
+        <span className="ds-eyebrow text-ink-faint">{label}</span>
+        {hint && <span className="ml-2 text-[12px] text-ink-muted">{hint}</span>}
+      </p>
+      {right}
+    </div>
+  );
+}
+
+function PaneSelect({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="max-w-[180px] truncate rounded-md border border-hairline bg-surface px-2 py-1 text-[12px] text-ink outline-none"
+    >
+      {options.map((o) => (
+        <option key={o.value} value={o.value}>
+          {o.label}
+        </option>
+      ))}
+    </select>
   );
 }

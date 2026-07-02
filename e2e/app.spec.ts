@@ -1,24 +1,26 @@
 import { test, expect } from "@playwright/test";
 
 // GOAL §J e2e — 브라우저 mock 대상 핵심 UI 플로우. 백엔드는 cargo integration 이 커버.
+// 부팅 탭-0 = Study Home. 문서는 좌측 파일 트리에서 연다.
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
-  // 부팅(seed) 완료 대기
-  await expect(page.getByRole("button", { name: "Wiki" })).toBeVisible();
+  // 부팅(seed) 완료 대기 — 트리에 시드 위키가 뜬다
+  await expect(page.getByRole("button", { name: "프로세스" })).toBeVisible();
 });
 
-test("부팅 + 시드 위키가 보인다", async ({ page }) => {
-  // 위키 리스트에 프로세스가 있다 (마스터-디테일)
-  await expect(page.getByText("LLM 개념 위키")).toBeVisible();
+test("부팅 → Study Home + 트리에서 위키 열기", async ({ page }) => {
+  await expect(page.getByText("Study Home").first()).toBeVisible();
+  await page.getByRole("button", { name: "프로세스" }).click();
   await expect(page.getByText("실행 중인 프로그램의 인스턴스").first()).toBeVisible();
 });
 
-test("섹션 네비게이션 — Graph 는 타입드 그래프 + 필터 칩", async ({ page }) => {
+test("섹션 네비게이션 — Graph 는 타입드 그래프 + 필터 칩 + 컨트롤", async ({ page }) => {
   await page.getByRole("button", { name: "Graph" }).click();
   await expect(page.getByText("타입 있는 개념 그래프")).toBeVisible();
-  // RelationType 필터 칩
+  // RelationType 필터 칩 + 그래프 컨트롤(맞춤/재배치)
   await expect(page.getByRole("button", { name: "part_of" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "화면 맞춤" })).toBeVisible();
 });
 
 test("⌘K 검색 — 본문 매치(임계 → 동기화)", async ({ page }) => {
@@ -31,22 +33,59 @@ test("⌘K 검색 — 본문 매치(임계 → 동기화)", async ({ page }) => 
 });
 
 test("위키링크 클릭 → 다른 위키로 이동", async ({ page }) => {
+  await page.getByRole("button", { name: "프로세스" }).click();
   // 프로세스 본문의 [[스레드]] 위키링크(본문 전용 클래스) 클릭 → 스레드 위키로 이동
   await page.locator("button.underline-offset-2", { hasText: "스레드" }).first().click();
   await expect(page.getByText(/코드·데이터·힙을 공유/)).toBeVisible();
 });
 
 test("Import 머신 — Inbox 저장 후 완료 파이프라인", async ({ page }) => {
-  await page.getByRole("button", { name: "Inbox" }).click();
+  await page.getByRole("button", { name: "새 노트 (Inbox)" }).click();
   await page.getByPlaceholder("제목").fill("e2e 노트");
-  await page.getByPlaceholder(/마크다운/).fill("# e2e\n\n간단한 본문. 시간 복잡도는 O(n).");
+  await page.locator(".cm-content").click();
+  await page.keyboard.type("# e2e — 간단한 본문. 시간 복잡도는 O(n).");
   await page.getByRole("button", { name: /AI 정리/ }).click();
   // 상태머신이 완료까지 진행
   await expect(page.getByText("완료", { exact: false }).first()).toBeVisible();
 });
 
-test("설정 모달 — API 키 필드", async ({ page }) => {
+test("Inbox 분할 전환 — 2분할(NOTE) ↔ 3분할(PDF·WIKI)", async ({ page }) => {
+  await page.getByRole("button", { name: "새 노트 (Inbox)" }).click();
+  // 기본 2분할: NOTE 패널
+  await expect(page.getByText("NOTE", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "3분할" }).click();
+  await expect(page.getByText("PDF", { exact: true })).toBeVisible();
+  await expect(page.getByText("WIKI", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "2분할" }).click();
+  await expect(page.getByText("NOTE", { exact: true })).toBeVisible();
+});
+
+test("사이드바 리사이즈 — 핸들 드래그로 폭 변경", async ({ page }) => {
+  const aside = page.locator("aside");
+  const before = (await aside.boundingBox())!.width;
+  const handle = page.getByRole("separator", { name: "사이드바 폭 조절" });
+  const hb = (await handle.boundingBox())!;
+  await page.mouse.move(hb.x + hb.width / 2, hb.y + 200);
+  await page.mouse.down();
+  await page.mouse.move(hb.x + hb.width / 2 + 100, hb.y + 200);
+  await page.mouse.up();
+  const after = (await aside.boundingBox())!.width;
+  expect(after).toBeGreaterThan(before + 60);
+});
+
+test("트리 컨텍스트 메뉴 — 원본 이름 변경", async ({ page }) => {
+  const note = page.getByRole("button", { name: "운영체제 개요 강의 노트" });
+  await note.click({ button: "right" });
+  await page.getByRole("button", { name: "이름 변경…" }).click();
+  await page.getByPlaceholder("새 제목").fill("OS 개요 노트 (수정)");
+  await page.getByRole("button", { name: "저장" }).click();
+  await expect(page.getByRole("button", { name: "OS 개요 노트 (수정)" })).toBeVisible();
+});
+
+test("설정 모달 — API 키 + Inbox 분할 설정", async ({ page }) => {
   await page.getByRole("button", { name: /Admin/ }).click();
-  await page.getByRole("button", { name: "설정", exact: true }).click();
+  // 리본의 설정 아이콘과 구분 — 계정 팝오버(사이드바) 내부의 설정 항목
+  await page.getByRole("complementary").getByRole("button", { name: "설정", exact: true }).click();
   await expect(page.getByText("OpenAI API Key")).toBeVisible();
+  await expect(page.getByText("Inbox 화면 분할")).toBeVisible();
 });

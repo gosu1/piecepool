@@ -29,3 +29,16 @@ export function chunkOpts(): { enabled: boolean; percentile: number } | undefine
   const s = getChunkSettings();
   return s.enabled ? { enabled: true, percentile: s.percentile } : undefined;
 }
+
+// ── Inbox 분할 뷰 ──
+// "2" = NOTE | 새 페이지, "3" = PDF | 새 페이지(source) | Wiki. 설정 모달·Inbox 헤더에서 전환.
+export type InboxView = "2" | "3";
+const INBOX_VIEW_KEY = "inbox-view";
+
+export function getInboxView(): InboxView {
+  return ls()?.getItem(INBOX_VIEW_KEY) === "3" ? "3" : "2";
+}
+
+export function setInboxView(v: InboxView): void {
+  ls()?.setItem(INBOX_VIEW_KEY, v);
+}

@@ -153,6 +153,27 @@ export const mock = {
     n.markdown = markdown;
     return delay(n);
   },
+  moveNote: (space: string, file: string, toSpace: string) => {
+    const n = (memNotes[space] ?? []).find((x) => x.path === file);
+    if (!n || space === toSpace) return Promise.reject(new Error("이동할 수 없습니다"));
+    memNotes[space] = (memNotes[space] ?? []).filter((x) => x.path !== file);
+    const targetSpaceId = SPACES.find((s) => s.slug === toSpace)?.id ?? n.spaceId;
+    // 과목은 공간별 — 대상 공간에 없는 subject 는 떨군다(백엔드와 동일 규칙).
+    const known = new Set((SUBJECTS[toSpace] ?? []).map((s) => s.id));
+    const moved: ArchiveNote = { ...n, spaceId: targetSpaceId, subjectIds: n.subjectIds.filter((id) => known.has(id)), updatedAt: NOW };
+    memNotes[toSpace] = [moved, ...(memNotes[toSpace] ?? [])];
+    return delay(moved);
+  },
+  deleteNote: (space: string, file: string) => {
+    memNotes[space] = (memNotes[space] ?? []).filter((x) => x.path !== file);
+    return delay(undefined as void);
+  },
+  renameNote: (space: string, file: string, newTitle: string) => {
+    const n = (memNotes[space] ?? []).find((x) => x.path === file)!;
+    n.title = newTitle;
+    n.updatedAt = NOW;
+    return delay(n);
+  },
   listWiki: (space: string) => delay(WIKI[space] ?? []),
   readWiki: (space: string, file: string) => delay((WIKI[space] ?? []).find((w) => w.path === file)!),
   saveWiki: (space: string, page: WikiPage) => {
@@ -162,6 +183,24 @@ export const mock = {
     else arr.push(page);
     return delay(page);
   },
+  deleteWiki: (space: string, file: string) => {
+    const page = (WIKI[space] ?? []).find((w) => w.path === file);
+    WIKI[space] = (WIKI[space] ?? []).filter((w) => w.path !== file);
+    const before = (RELATIONS[space] ?? []).length;
+    if (page) {
+      RELATIONS[space] = (RELATIONS[space] ?? []).filter(
+        (r) => r.sourceNodeId !== page.conceptId && r.targetNodeId !== page.conceptId,
+      );
+    }
+    return delay(before - (RELATIONS[space] ?? []).length);
+  },
+  renameWiki: (space: string, file: string, newTitle: string) => {
+    const w = (WIKI[space] ?? []).find((x) => x.path === file)!;
+    w.title = newTitle;
+    w.updatedAt = NOW;
+    return delay(w);
+  },
+  saveSourceFile: (_space: string, name: string, _dataBase64: string) => delay(name),
   getGraph: (space: string) => delay(graphOf(space)),
   appendRelations: (space: string, relations: Relation[]) => {
     RELATIONS[space] = [...(RELATIONS[space] ?? []), ...relations];

@@ -17,6 +17,7 @@ export function DocView({
   onChangeDraft,
   onSave,
   onLink,
+  linkExists,
   related,
   topSlot,
   bottomSlot,
@@ -32,6 +33,7 @@ export function DocView({
   onChangeDraft: (md: string) => void;
   onSave: () => void | Promise<void>;
   onLink: (target: string) => void;
+  linkExists?: (target: string) => boolean;
   related?: { title: string; onClick: () => void }[];
   topSlot?: ReactNode;
   bottomSlot?: ReactNode;
@@ -56,12 +58,12 @@ export function DocView({
           <SlashBlockEditor value={draft} onChange={onChangeDraft} onSubmit={onSave} height="480px" placeholder="'/' 로 블록 · ⌘Enter 로 저장" />
           <Card padding="lg" className="max-h-[480px] overflow-y-auto">
             <p className="ds-eyebrow mb-2 text-ink-faint">미리보기</p>
-            <Markdown source={draft} onLink={onLink} embedSpace={embedSpace} />
+            <Markdown source={draft} onLink={onLink} linkExists={linkExists} embedSpace={embedSpace} />
           </Card>
         </div>
       ) : docType === "wiki" ? (
         <WikiPage title={title}>
-          <Markdown source={savedMd} onLink={onLink} embedSpace={embedSpace} />
+          <Markdown source={savedMd} onLink={onLink} linkExists={linkExists} embedSpace={embedSpace} />
         </WikiPage>
       ) : (
         <>
@@ -70,7 +72,7 @@ export function DocView({
             {meta && <p className="text-[12px] text-ink-faint">{meta}</p>}
           </div>
           <Card padding="lg">
-            <Markdown source={savedMd} onLink={onLink} embedSpace={embedSpace} />
+            <Markdown source={savedMd} onLink={onLink} linkExists={linkExists} embedSpace={embedSpace} />
           </Card>
         </>
       )}
@@ -116,7 +118,17 @@ export function AiBar({ busy, status, onGen, onGaps }: { busy: boolean; status?:
   );
 }
 
-export function GapPanel({ questions, onClose }: { questions: GapQuestion[]; onClose: () => void }) {
+export function GapPanel({
+  questions,
+  onClose,
+  onSubmit,
+}: {
+  questions: GapQuestion[];
+  onClose: () => void;
+  onSubmit?: (answers: { prompt: string; answer: string }[]) => void | Promise<void>;
+}) {
+  const [answers, setAnswers] = useState<string[]>(() => questions.map(() => ""));
+  const answered = answers.some((a) => a.trim());
   return (
     <Card padding="lg" className="space-y-4">
       <div className="flex items-center justify-between">
@@ -126,13 +138,25 @@ export function GapPanel({ questions, onClose }: { questions: GapQuestion[]; onC
         </button>
       </div>
       {questions.map((q, i) => (
-        <GapItem key={i} q={q} />
+        <GapItem key={i} q={q} onAnswer={(a) => setAnswers((prev) => prev.map((x, j) => (j === i ? a : x)))} />
       ))}
+      {onSubmit && (
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            variant="solid"
+            disabled={!answered}
+            onClick={() => onSubmit(questions.map((q, i) => ({ prompt: q.prompt, answer: answers[i] ?? "" })))}
+          >
+            답변을 노트에 저장
+          </Button>
+        </div>
+      )}
     </Card>
   );
 }
 
-function GapItem({ q }: { q: GapQuestion }) {
+function GapItem({ q, onAnswer }: { q: GapQuestion; onAnswer: (a: string) => void }) {
   const [picked, setPicked] = useState<number | null>(null);
   const [other, setOther] = useState("");
   const [otherMode, setOtherMode] = useState(false);
@@ -147,6 +171,7 @@ function GapItem({ q }: { q: GapQuestion }) {
             onClick={() => {
               setPicked(i);
               setOtherMode(false);
+              onAnswer(c);
             }}
             className={cn(
               "rounded-md border px-3 py-2 text-left text-[14px] transition-colors",
@@ -161,7 +186,10 @@ function GapItem({ q }: { q: GapQuestion }) {
             <input
               autoFocus
               value={other}
-              onChange={(e) => setOther(e.target.value)}
+              onChange={(e) => {
+                setOther(e.target.value);
+                onAnswer(e.target.value);
+              }}
               placeholder="직접 설명해 보세요…"
               className="rounded-md border border-primary bg-surface px-3 py-2 text-[14px] text-ink outline-none"
             />
