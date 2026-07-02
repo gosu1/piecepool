@@ -5,6 +5,7 @@ import { cn, Icons } from "../../ds";
 // Wiki/Source 는 파일 트리로 접근(리본에서 제거). 활성 표시는 현재 탭 kind 기준.
 export function Ribbon({
   activeKind,
+  onHome,
   onGraph,
   onCapture,
   onSearch,
@@ -13,6 +14,7 @@ export function Ribbon({
   onSettings,
 }: {
   activeKind?: string;
+  onHome: () => void;
   onGraph: () => void;
   onCapture: () => void;
   onSearch: () => void;
@@ -22,6 +24,11 @@ export function Ribbon({
 }) {
   return (
     <nav className="flex w-11 shrink-0 flex-col items-center gap-0.5 border-r border-hairline bg-surface py-2">
+      {/* Study Home */}
+      <RibbonButton label="Study Home" active={activeKind === "home"} onClick={onHome}>
+        <Icons.BarChartIcon size={18} />
+      </RibbonButton>
+
       {/* 상단: 트리 토글 · 검색 */}
       <RibbonButton label="파일 트리" active={filesOpen} onClick={onToggleFiles}>
         <Icons.PanelLeftIcon size={18} />

@@ -15,6 +15,7 @@ import type { SearchItem } from "./types";
 import { DocView, AiBar, GapPanel } from "./panes/DocView";
 import { GraphSection } from "./panes/GraphSection";
 import { InboxSection } from "./panes/InboxSection";
+import { StudyHome } from "./panes/StudyHome";
 import { Ribbon } from "./shell/Ribbon";
 import { VaultSwitcher } from "./shell/VaultSwitcher";
 import { Breadcrumb } from "./shell/Breadcrumb";
@@ -78,13 +79,9 @@ export default function PiecePoolApp() {
         setWikiBySlug(w);
         setNotesBySlug(n);
         setGraphBySlug(g);
-        if (sp[0]) {
-          setCurrentSpaceSlug(sp[0].slug);
-          const firstWiki = w[sp[0].slug]?.[0];
-          if (firstWiki) {
-            openTab({ id: `wiki:${sp[0].slug}:${firstWiki.path}`, kind: "wiki", title: firstWiki.title, space: sp[0].slug, file: firstWiki.path });
-          }
-        }
+        if (sp[0]) setCurrentSpaceSlug(sp[0].slug);
+        // 부팅 탭-0 = Study Home (닫기 가능)
+        openTab({ id: "home", kind: "home", title: "Study Home" });
       } catch (e) {
         setError(String(e));
       } finally {
@@ -122,6 +119,7 @@ export default function PiecePoolApp() {
   };
   const openInbox = (space: string) => openTab({ id: `inbox:${space}`, kind: "inbox", title: "Inbox", space });
   const openGraph = (space: string) => openTab({ id: `graph:${space}`, kind: "graph", title: "Graph", space });
+  const openHome = () => openTab({ id: "home", kind: "home", title: "Study Home" });
   const selectSpace = (slug: string) => {
     setCurrentSpaceSlug(slug);
     const firstWiki = wikiBySlug[slug]?.[0];
@@ -346,6 +344,21 @@ export default function PiecePoolApp() {
         />
       );
     }
+    if (activeTab.kind === "home") {
+      return (
+        <StudyHome
+          spaces={spaces}
+          wikiBySlug={wikiBySlug}
+          notesBySlug={notesBySlug}
+          graphBySlug={graphBySlug}
+          currentSpace={currentSpace}
+          onOpenWiki={openWiki}
+          onOpenArchive={openArchive}
+          onNewNote={() => openInbox(currentSpace)}
+          onOpenGraph={openGraph}
+        />
+      );
+    }
     const sp = activeTab.space ?? currentSpace;
     const spName = spaces.find((s) => s.slug === sp)?.name ?? "";
     switch (activeTab.kind) {
@@ -386,19 +399,26 @@ export default function PiecePoolApp() {
   };
 
   // 상태바 경로 라벨
-  const pathLabel = activeTab
-    ? activeTab.kind === "wiki"
-      ? `${activeTab.space} / wiki / ${activeTab.file}`
-      : activeTab.kind === "archive"
-        ? `${activeTab.space} / archive / ${activeTab.file}`
-        : `${activeTab.space ?? currentSpace} / ${activeTab.kind}`
-    : currentSpace || "";
+  const pathLabel = !activeTab
+    ? currentSpace || ""
+    : activeTab.kind === "home"
+      ? "Study Home"
+      : activeTab.kind === "wiki"
+        ? `${activeTab.space} / wiki / ${activeTab.file}`
+        : activeTab.kind === "archive"
+          ? `${activeTab.space} / archive / ${activeTab.file}`
+          : `${activeTab.space ?? currentSpace} / ${activeTab.kind}`;
 
   // TopBar breadcrumb
-  const crumbs = ["PiecePool", spaceName || currentSpace];
-  if (activeTab) {
+  const crumbs = ["PiecePool"];
+  if (activeTab?.kind === "home") {
+    crumbs.push("Study Home");
+  } else if (activeTab) {
+    if (spaceName || currentSpace) crumbs.push(spaceName || currentSpace);
     crumbs.push(KIND_LABEL[activeTab.kind]);
     if (activeTab.kind === "wiki" || activeTab.kind === "archive") crumbs.push(activeTab.title);
+  } else if (spaceName || currentSpace) {
+    crumbs.push(spaceName || currentSpace);
   }
   const cleanCrumbs = crumbs.filter(Boolean) as string[];
 
@@ -419,6 +439,7 @@ export default function PiecePoolApp() {
         leftRibbon={
           <Ribbon
             activeKind={activeTab?.kind}
+            onHome={openHome}
             onGraph={() => openGraph(currentSpace)}
             onCapture={() => openInbox(currentSpace)}
             onSearch={() => setPaletteOpen(true)}
