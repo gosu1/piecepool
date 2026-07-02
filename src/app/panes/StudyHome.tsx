@@ -2,7 +2,7 @@ import { Button, Card, EmptyState, Icons } from "../../ds";
 import type { KnowledgeSpace, WikiPage as WikiPageT, ArchiveNote, GraphData } from "../../lib/types";
 
 // ══ Study Home (부팅 탭-0) — 유니브-AI식 warm 대시보드 ══
-// 전체 vault 집계: 오늘 캡처 · 최근 위키 · 정리 추천(candidates only, 자동 변경 없음).
+// 전체 vault 집계: 지식 공간 · 최근 위키 · 정리 추천(candidates only, 자동 변경 없음).
 export function StudyHome({
   spaces,
   wikiBySlug,
@@ -26,12 +26,11 @@ export function StudyHome({
 }) {
   const nameOf = (slug: string) => spaces.find((s) => s.slug === slug)?.name ?? slug;
 
-  const allNotes = spaces.flatMap((s) => (notesBySlug[s.slug] ?? []).map((note) => ({ note, space: s.slug })));
   const allWiki = spaces.flatMap((s) => (wikiBySlug[s.slug] ?? []).map((wiki) => ({ wiki, space: s.slug })));
 
   const recentWiki = [...allWiki].sort((a, b) => (b.wiki.updatedAt || "").localeCompare(a.wiki.updatedAt || "")).slice(0, 6);
 
-  const totalNotes = allNotes.length;
+  const totalNotes = spaces.reduce((n, s) => n + (notesBySlug[s.slug] ?? []).length, 0);
   const totalWiki = allWiki.length;
   const totalConcepts = spaces.reduce((a, s) => a + (graphBySlug[s.slug]?.nodes.length ?? 0), 0);
 

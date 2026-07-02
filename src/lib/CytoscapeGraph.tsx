@@ -435,14 +435,15 @@ export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, t
   );
 }
 
-function GraphCtl({ label, onClick, children }: { label: string; onClick: () => void; children: React.ReactNode }) {
+// 그래프 위 떠 있는 소형 컨트롤 버튼 — MiniGraph 확대·GraphSection 도움말도 공유
+export function GraphCtl({ label, onClick, className, children }: { label: string; onClick: () => void; className?: string; children: React.ReactNode }) {
   return (
     <button
       type="button"
       aria-label={label}
       title={label}
       onClick={onClick}
-      className="flex h-7 w-7 items-center justify-center rounded-md border border-hairline bg-surface text-[13px] text-ink-2 shadow-soft transition-colors hover:bg-surface-soft hover:text-ink"
+      className={`flex h-7 w-7 items-center justify-center rounded-md border border-hairline bg-surface text-[13px] text-ink-2 shadow-soft transition-colors hover:bg-surface-soft hover:text-ink ${className ?? ""}`}
     >
       {children}
     </button>

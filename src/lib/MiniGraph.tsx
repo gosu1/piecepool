@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import cytoscape from "cytoscape";
 import type { ElementDefinition } from "cytoscape";
+import { GraphCtl } from "./CytoscapeGraph";
 import { groupOf, REVIEW_COLOR, RELATION_LABEL } from "./relationMeta";
 import type { RelationType } from "./generated/RelationType";
 import { useTheme, Icons } from "../ds";
@@ -10,7 +11,7 @@ import { useTheme, Icons } from "../ds";
 // 앱 글꼴 사용, 중심 노드 헤일로, 간선 위 한국어 관계 라벨, 호버 확대 효과.
 // 작은 뷰는 정적 위젯 + ⤢ 버튼으로 큰 오버레이(줌/팬 가능).
 // 시각 언어는 relationMeta 공유 — 모노크롬 엣지(복습만 빨강), 의미는 실선/점선·화살표·라벨이 나른다.
-interface MiniGroup {
+export interface MiniGroup {
   type: string;
   items: { label: string; dir: "out" | "in"; onClick: () => void }[];
 }
@@ -59,7 +60,7 @@ function GraphCanvas({
             source,
             target,
             color,
-            type: label,
+            label,
             dashed: grp.dash === "dashed" ? 1 : 0,
             arrow: grp.arrow ? 1 : 0,
           },
@@ -143,7 +144,7 @@ function GraphCanvas({
             width: 1.8,
             "curve-style": "bezier",
             opacity: 0.55,
-            label: "data(type)",
+            label: "data(label)",
             "font-family": fontFam,
             "font-size": 9,
             "font-weight": 600,
@@ -222,15 +223,9 @@ export function MiniRelationGraph({
     <>
       <div className={`relative ${className ?? ""}`}>
         <GraphCanvas centerTitle={centerTitle} groups={groups} maxZoom={1} interactive={false} className="h-full w-full" />
-        <button
-          type="button"
-          aria-label="크게 보기"
-          title="크게 보기"
-          onClick={() => setExpanded(true)}
-          className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-md border border-hairline bg-surface text-[13px] text-ink-2 shadow-soft transition-colors hover:bg-surface-soft hover:text-ink"
-        >
+        <GraphCtl label="크게 보기" className="absolute right-2 top-2" onClick={() => setExpanded(true)}>
           ⤢
-        </button>
+        </GraphCtl>
       </div>
 
       {expanded && (

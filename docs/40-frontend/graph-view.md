@@ -2,7 +2,7 @@
 
 > 그래프 뷰가 12개 RelationType 을 어떤 논리적 근거로 분류·시각화하는지의 설계 문서.
 > 관계 타입 자체의 정의(SSOT)는 [../10-contracts/relation-types.md](../10-contracts/relation-types.md) — 본 문서는 **표시 계층만** 다루며 계약을 변경하지 않는다.
-> 구현: `src/lib/relationMeta.ts`(분류·라벨·문장·계층 깊이) · `src/lib/CytoscapeGraph.tsx`(렌더링) · `src/app/panes/GraphSection.tsx`(칩·토글·패널).
+> 구현: `src/lib/relationMeta.ts`(분류·라벨·문장·계층 깊이) · `src/lib/CytoscapeGraph.tsx`(렌더링) · `src/lib/MiniGraph.tsx`(위키 문서 미니 로컬 그래프) · `src/app/panes/GraphSection.tsx`(칩·토글·패널).
 
 ## 1. 논리 분류 — 12타입 → 5그룹
 

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Button, Card, cn } from "../../ds";
 import type { GraphData, WikiPage as WikiPageT, Subject, KnowledgeSpace } from "../../lib/types";
 import * as ipc from "../../lib/ipc";
-import { CytoscapeGraph } from "../../lib/CytoscapeGraph";
+import { CytoscapeGraph, GraphCtl } from "../../lib/CytoscapeGraph";
 import {
   HIER_TYPES,
   RELATION_GROUPS,
@@ -356,15 +356,9 @@ export function GraphSection({
                     </ul>
                   </div>
                 ) : (
-                  <button
-                    type="button"
-                    aria-label="그래프 읽는 법"
-                    title="그래프 읽는 법"
-                    onClick={() => setHelpOpen(true)}
-                    className="flex h-7 w-7 items-center justify-center rounded-md border border-hairline bg-surface text-[13px] text-ink-2 shadow-soft transition-colors hover:bg-surface-soft hover:text-ink"
-                  >
+                  <GraphCtl label="그래프 읽는 법" onClick={() => setHelpOpen(true)}>
                     ?
-                  </button>
+                  </GraphCtl>
                 )}
               </div>
             </>
