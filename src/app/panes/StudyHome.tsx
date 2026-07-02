@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { Button, Card, EmptyState, Icons } from "../../ds";
 import type { KnowledgeSpace, WikiPage as WikiPageT, ArchiveNote, GraphData } from "../../lib/types";
 
@@ -11,7 +10,6 @@ export function StudyHome({
   graphBySlug,
   currentSpace,
   onOpenWiki,
-  onOpenArchive,
   onNewNote,
   onOpenGraph,
   onSelectSpace,
@@ -22,7 +20,6 @@ export function StudyHome({
   graphBySlug: Record<string, GraphData>;
   currentSpace: string;
   onOpenWiki: (space: string, file: string) => void;
-  onOpenArchive: (space: string, file: string) => void;
   onNewNote: () => void;
   onOpenGraph: (space: string) => void;
   onSelectSpace?: (slug: string) => void;
@@ -32,8 +29,6 @@ export function StudyHome({
   const allNotes = spaces.flatMap((s) => (notesBySlug[s.slug] ?? []).map((note) => ({ note, space: s.slug })));
   const allWiki = spaces.flatMap((s) => (wikiBySlug[s.slug] ?? []).map((wiki) => ({ wiki, space: s.slug })));
 
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const todayCaptures = allNotes.filter((x) => x.note.createdAt.slice(0, 10) === todayStr);
   const recentWiki = [...allWiki].sort((a, b) => (b.wiki.updatedAt || "").localeCompare(a.wiki.updatedAt || "")).slice(0, 6);
 
   const totalNotes = allNotes.length;
@@ -74,49 +69,66 @@ export function StudyHome({
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-8">
-      <header className="space-y-1">
+    <div className="mx-auto max-w-4xl space-y-12">
+      <header className="space-y-2">
         <h1 className="ds-h2 text-ink">안녕하세요 👋</h1>
-        <p className="text-[15px] text-ink-muted">
-          오늘도 배운 걸 정리해볼까요? · 노트 {totalNotes} · 위키 {totalWiki} · 개념 {totalConcepts}
+        <p className="text-[16px] text-ink-muted">오늘도 배운 걸 정리해볼까요?</p>
+        <p className="text-[14px] text-ink-faint">
+          노트 {totalNotes} · 위키 {totalWiki} · 개념 {totalConcepts}
         </p>
       </header>
 
-      {/* 빠른 시작 */}
-      <section className="grid gap-3 sm:grid-cols-2">
-        <Card interactive featured padding="lg" onClick={onNewNote} className="flex items-center gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-on-primary">
-            <Icons.PlusIcon size={20} />
+      {/* 빠른 시작 — 히어로 카드 한 쌍: 다크 아일랜드(새 노트) ↔ 밝은 카드(그래프) */}
+      <section className="grid gap-5 sm:grid-cols-2">
+        <button
+          type="button"
+          onClick={onNewNote}
+          className="group relative flex cursor-pointer flex-col items-start gap-8 rounded-xl bg-fill p-6 text-left text-on-fill shadow-soft transition-all duration-150 hover:-translate-y-0.5 hover:shadow-elevated"
+        >
+          <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary text-on-primary">
+            <Icons.PlusIcon size={24} />
           </span>
           <span className="min-w-0">
-            <span className="block text-[15px] font-semibold text-ink">새 노트 작성</span>
-            <span className="block text-[13px] text-ink-muted">오늘 배운 걸 캡처하고 AI로 정리</span>
+            <span className="block text-[18px] font-semibold">새 노트 작성</span>
+            <span className="mt-1 block text-[14px] text-on-fill/60">오늘 배운 걸 캡처하고 AI로 정리</span>
           </span>
-        </Card>
-        <Card interactive padding="lg" onClick={() => onOpenGraph(currentSpace)} className="flex items-center gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-surface-soft text-ink">
-            <Icons.GraphIcon size={20} />
+          <Icons.ArrowRightIcon
+            size={18}
+            className="absolute right-5 top-5 text-on-fill/40 opacity-0 transition-opacity group-hover:opacity-100"
+          />
+        </button>
+        <button
+          type="button"
+          onClick={() => onOpenGraph(currentSpace)}
+          className="group relative flex cursor-pointer flex-col items-start gap-8 rounded-xl border border-hairline bg-surface p-6 text-left shadow-soft transition-all duration-150 hover:-translate-y-0.5 hover:shadow-elevated"
+        >
+          <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-fill text-on-fill">
+            <Icons.GraphIcon size={24} />
           </span>
           <span className="min-w-0">
-            <span className="block text-[15px] font-semibold text-ink">지식 그래프</span>
-            <span className="block text-[13px] text-ink-muted">개념들이 어떻게 연결됐는지 보기</span>
+            <span className="block text-[18px] font-semibold text-ink">지식 그래프</span>
+            <span className="mt-1 block text-[14px] text-ink-muted">개념들이 어떻게 연결됐는지 보기</span>
           </span>
-        </Card>
+          <Icons.ArrowRightIcon
+            size={18}
+            className="absolute right-5 top-5 text-ink-faint opacity-0 transition-opacity group-hover:opacity-100"
+          />
+        </button>
       </section>
 
       {/* 지식 공간 — 공간별 원본/위키/관계 카운트 */}
       {spaces.length > 0 && (
-        <section className="space-y-3">
-          <SectionTitle icon={<Icons.FolderIcon size={14} />} title="지식 공간" />
-          <div className="grid gap-2 sm:grid-cols-2">
+        <section className="space-y-4">
+          <SectionTitle title="지식 공간" />
+          <div className="grid gap-3 sm:grid-cols-2">
             {spaces.map((s) => {
               const noteCount = (notesBySlug[s.slug] ?? []).length;
               const wikiCount = (wikiBySlug[s.slug] ?? []).length;
               const relCount = graphBySlug[s.slug]?.relations.length ?? 0;
               return (
-                <Card key={s.slug} interactive padding="md" onClick={() => onSelectSpace?.(s.slug)}>
-                  <p className="truncate text-[14px] font-semibold text-ink">{s.name}</p>
-                  <p className="text-[12px] text-ink-muted">
+                <Card key={s.slug} interactive padding="lg" onClick={() => onSelectSpace?.(s.slug)}>
+                  <p className="truncate text-[16px] font-semibold text-ink">{s.name}</p>
+                  <p className="text-[14px] text-ink-muted">
                     원본 {noteCount} · 위키 {wikiCount} · 관계 {relCount}
                   </p>
                 </Card>
@@ -126,32 +138,15 @@ export function StudyHome({
         </section>
       )}
 
-      {/* 오늘 캡처 */}
-      <section className="space-y-3">
-        <SectionTitle icon={<Icons.FileUpIcon size={14} />} title={`오늘 캡처 (${todayCaptures.length})`} />
-        {todayCaptures.length === 0 ? (
-          <p className="text-[14px] text-ink-muted">오늘은 아직 캡처가 없어요. 강의 끝나고 한 줄이라도 남겨볼까요?</p>
-        ) : (
-          <div className="grid gap-2 sm:grid-cols-2">
-            {todayCaptures.map((x) => (
-              <Card key={`${x.space}:${x.note.path}`} interactive padding="md" onClick={() => onOpenArchive(x.space, x.note.path)}>
-                <p className="truncate text-[14px] font-medium text-ink">{x.note.title}</p>
-                <p className="truncate text-[12px] text-ink-faint">{nameOf(x.space)}</p>
-              </Card>
-            ))}
-          </div>
-        )}
-      </section>
-
       {/* 최근 위키 */}
       {recentWiki.length > 0 && (
-        <section className="space-y-3">
-          <SectionTitle icon={<Icons.FileIcon size={14} />} title="최근 위키" />
-          <div className="grid gap-2 sm:grid-cols-3">
+        <section className="space-y-4">
+          <SectionTitle title="최근 위키" />
+          <div className="grid gap-3 sm:grid-cols-3">
             {recentWiki.map((x) => (
-              <Card key={`${x.space}:${x.wiki.path}`} interactive padding="md" onClick={() => onOpenWiki(x.space, x.wiki.path)}>
-                <p className="truncate text-[14px] font-medium text-ink">{x.wiki.title}</p>
-                <p className="truncate text-[12px] text-ink-faint">{nameOf(x.space)}</p>
+              <Card key={`${x.space}:${x.wiki.path}`} interactive padding="lg" onClick={() => onOpenWiki(x.space, x.wiki.path)}>
+                <p className="truncate text-[16px] font-medium text-ink">{x.wiki.title}</p>
+                <p className="truncate text-[14px] text-ink-faint">{nameOf(x.space)}</p>
               </Card>
             ))}
           </div>
@@ -160,28 +155,23 @@ export function StudyHome({
 
       {/* 정리 추천 (candidates only) */}
       {nudges.length > 0 && (
-        <section className="space-y-3">
-          <SectionTitle icon={<Icons.SparkleIcon size={14} />} title="정리 추천" />
-          <div className="space-y-1.5">
+        <section className="space-y-4">
+          <SectionTitle title="정리 추천" />
+          <div className="space-y-2">
             {nudges.slice(0, 5).map((t, i) => (
-              <div key={i} className="flex items-start gap-2 rounded-md border border-hairline bg-surface-soft px-3 py-2 text-[13px] text-ink-2">
-                <Icons.ArrowRightIcon size={14} className="mt-0.5 shrink-0 text-ink-faint" />
+              <div key={i} className="flex items-start gap-2.5 rounded-md bg-surface-soft px-4 py-3 text-[15px] text-ink-2">
+                <Icons.ArrowRightIcon size={16} className="mt-0.5 shrink-0 text-ink-faint" />
                 <span>{t}</span>
               </div>
             ))}
           </div>
-          <p className="text-[12px] text-ink-faint">※ 추천일 뿐이에요 — 아무것도 자동으로 바꾸지 않아요.</p>
+          <p className="text-[14px] text-ink-faint">※ 추천일 뿐이에요 — 아무것도 자동으로 바꾸지 않아요.</p>
         </section>
       )}
     </div>
   );
 }
 
-function SectionTitle({ icon, title }: { icon: ReactNode; title: string }) {
-  return (
-    <div className="flex items-center gap-2">
-      <span className="text-ink-faint">{icon}</span>
-      <h2 className="text-[15px] font-semibold text-ink">{title}</h2>
-    </div>
-  );
+function SectionTitle({ title }: { title: string }) {
+  return <h2 className="text-[14px] font-semibold text-ink-muted">{title}</h2>;
 }

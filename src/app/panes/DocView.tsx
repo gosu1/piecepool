@@ -4,6 +4,7 @@ import { Button, Card, WikiPage, Icons, cn } from "../../ds";
 import { Markdown } from "../../lib/markdown";
 import { SlashBlockEditor } from "../../lib/SlashBlockEditor";
 import { EDGE_COLOR } from "../../lib/CytoscapeGraph";
+import { MiniRelationGraph } from "../../lib/MiniGraph";
 import type { RefConflict } from "../../lib/sourceRefConflicts";
 import type { GapQuestion, GapEngine } from "../../llm/gaps";
 
@@ -132,6 +133,12 @@ export function DocView({
           {relationGroups && relationGroups.length > 0 && (
             <section className="space-y-2">
               <p className="ds-eyebrow text-ink-faint">관계</p>
+              {/* 미니 로컬 그래프 — 현재 개념 중심 이웃 한눈에 (이웃 클릭 → 이동) */}
+              <MiniRelationGraph
+                centerTitle={title}
+                groups={relationGroups}
+                className="ds-dotgrid h-72 w-full rounded-lg border border-hairline bg-surface"
+              />
               <div className="space-y-1.5">
                 {relationGroups.map((g) => (
                   <div key={g.type} className="flex flex-wrap items-center gap-2">

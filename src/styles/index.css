@@ -192,4 +192,10 @@
   .ds-button { font-size: 16px; font-weight: 500; line-height: 1.5; }
   .ds-caption { font-size: 14px; font-weight: 400; line-height: 1.43; }
   .ds-eyebrow { font-size: 12px; font-weight: 600; line-height: 1.33; letter-spacing: 0.125px; }
+
+  /* 그래프 캔버스용 도트 그리드 배경 (미니 그래프 등) — hairline 토큰이라 다크모드 자동 대응 */
+  .ds-dotgrid {
+    background-image: radial-gradient(var(--ds-hairline) 1px, transparent 1px);
+    background-size: 16px 16px;
+  }
 }

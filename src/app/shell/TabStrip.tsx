@@ -70,7 +70,7 @@ export function TabStrip({
                 : undefined
             }
             className={cn(
-              "group flex shrink-0 cursor-pointer items-center gap-1.5 border-b-2 px-3 py-2 text-[13px] transition-colors",
+              "group flex shrink-0 cursor-pointer items-center gap-1.5 border-b-2 px-3 py-2 text-[14px] transition-colors",
               active ? "border-primary text-ink" : "border-transparent text-ink-muted hover:text-ink",
             )}
           >
