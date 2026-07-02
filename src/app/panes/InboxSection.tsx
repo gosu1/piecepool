@@ -4,6 +4,7 @@ import type { WikiPage as WikiPageT, ArchiveNote } from "../../lib/types";
 import * as ipc from "../../lib/ipc";
 import { useImportStore } from "../../store/importStore";
 import { runImageOcr } from "../../llm/ocr";
+import { runPdfDigest } from "../../llm/pdfdigest";
 import { SlashBlockEditor } from "../../lib/SlashBlockEditor";
 import { Markdown } from "../../lib/markdown";
 import { FilePreview } from "../../lib/FilePreview";
@@ -73,7 +74,17 @@ export function InboxSection({
   const [refWikiPath, setRefWikiPath] = useState<string>("");
   const [sources, setSources] = useState<string[]>([]);
   const [refSource, setRefSource] = useState<string>("");
-  const [pdfBusy, setPdfBusy] = useState(false);
+  // 동시 임포트(다중 drop) 대응 — 불리언이면 먼저 끝난 건이 busy 를 풀어버린다.
+  const [pdfJobs, setPdfJobs] = useState(0);
+  const pdfBusy = pdfJobs > 0;
+  const [uploadOpen, setUploadOpen] = useState(false);
+
+  useEffect(() => {
+    if (!uploadOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setUploadOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [uploadOpen]);
 
   const refNote = notes.find((n) => n.path === refNotePath) ?? notes[0];
   const refWiki = existing.find((w) => w.path === refWikiPath) ?? existing[0];
@@ -92,9 +103,10 @@ export function InboxSection({
     if (view === "3") void loadSources();
   }, [view, loadSources]);
 
-  // PDF → sources/original-files 저장 + 텍스트 추출 → 에디터에 삽입 (Inbox PDF 임포트 경로)
+  // PDF → sources/original-files 저장 + 텍스트 추출 → (키 있으면) AI 요약·정리 → 에디터에 삽입.
+  // 요약 실패/키 없음이면 추출 원문 그대로 — 원문은 "텍스트 추출 → 에디터" 버튼으로 언제든 다시 가져온다.
   const importPdf = async (f: File) => {
-    setPdfBusy(true);
+    setPdfJobs((n) => n + 1);
     try {
       const stored = await ipc.saveSourceFile(space, f.name, await fileToBase64(f));
       await loadSources();
@@ -103,14 +115,28 @@ export function InboxSection({
       try {
         const ext = await ipc.extractPdfText(space, stored);
         const text = ext.pages.map((p) => p.text).join("\n\n").trim();
-        setBody((b) => (b ? b + "\n\n" : "") + `![[${stored}]]\n\n${text}`);
+        let content = text;
+        if (!text) {
+          // 스캔본(전 페이지 빈 텍스트)은 추출이 성공으로 떨어진다 — 안내 필요
+          content = "> PDF에서 텍스트를 찾지 못했어요 — 스캔본이면 이미지로 올려 OCR 하세요.";
+        } else {
+          const apiKey = (typeof localStorage !== "undefined" && localStorage.getItem("openai-key")) || "";
+          try {
+            const digest = await runPdfDigest(text, apiKey);
+            content = digest.markdown;
+            if (digest.truncated) content += "\n\n> ⚠️ 원문이 길어 앞 48,000자만 요약됐어요 — 전체 텍스트는 '텍스트 추출 → 에디터' 버튼으로 가져올 수 있어요.";
+          } catch {
+            // 요약 실패(네트워크 등) → 추출 원문 폴백
+          }
+        }
+        setBody((b) => (b ? b + "\n\n" : "") + `![[${stored}]]\n\n${content}`);
       } catch {
         setBody((b) => (b ? b + "\n\n" : "") + `![[${stored}]]\n\n> PDF 텍스트 추출 실패 — 스캔본이면 이미지로 올려 OCR 하세요.`);
       }
     } catch (e) {
       setBody((b) => b + `\n\n> ${f.name} 저장 실패: ${String(e)}`);
     } finally {
-      setPdfBusy(false);
+      setPdfJobs((n) => n - 1);
     }
   };
 
@@ -158,7 +184,9 @@ export function InboxSection({
   const onFiles = (files: FileList) => Array.from(files).forEach(addFile);
 
   const run = async () => {
-    if (!title.trim() || busy) return;
+    // pdfBusy 게이트: digest 완료 전 저장하면 아카이브에 PDF 내용이 빠진 채 저장되고
+    // 뒤늦은 digest 가 비워진 에디터에 고아로 삽입된다.
+    if (!title.trim() || busy || pdfBusy) return;
     setAnswers([]);
     const res = await runImport({ space, spaceId, title: title.trim(), markdown: body, subjectIds: subjectIdsDefault, withLlm, clarify, existing });
     if (res.status === "completed") {
@@ -187,23 +215,25 @@ export function InboxSection({
 
   // ── 작성 패널 (공통) ──
   const composePane = (
-    <section className="flex min-w-0 flex-1 flex-col overflow-y-auto">
+    <section className="flex min-w-0 flex-1 flex-col">
       <PaneHeader label="새 페이지" hint="자료 → 원본(archive) 저장 → (선택) AI 위키·관계 생성" />
-      <div className="space-y-3 p-4">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="제목"
-          className="w-full bg-transparent text-[18px] font-bold text-ink outline-none placeholder:text-ink-faint"
+          className="w-full shrink-0 bg-transparent text-[18px] font-bold text-ink outline-none placeholder:text-ink-faint"
         />
-        <FileDropzone onFiles={onFiles} accept=".md,.markdown,.txt,.pdf,image/*,application/pdf" className="!p-4" description="md · txt · pdf · 이미지를 드래그하거나 클릭" />
-        <SlashBlockEditor
-          value={body}
-          onChange={setBody}
-          onSubmit={run}
-          placeholder="'/' 로 블록 삽입 · 마크다운으로 작성 · ⌘Enter 로 저장"
-          height="260px"
-        />
+        <div className="min-h-[160px] flex-1">
+          <SlashBlockEditor
+            value={body}
+            onChange={setBody}
+            onSubmit={run}
+            placeholder="'/' 로 블록 삽입 · 마크다운으로 작성 · ⌘Enter 로 저장"
+            height="100%"
+            className="h-full"
+          />
+        </div>
         <div className="flex items-center justify-between gap-2">
           <div className="flex flex-col gap-1.5">
             <label className="flex items-center gap-2 text-[14px] text-ink-2">
@@ -215,8 +245,8 @@ export function InboxSection({
               되묻기(clarify) — 저장 전 이해 확인
             </label>
           </div>
-          <Button variant="solid" onClick={run} disabled={busy || !title.trim()}>
-            {busy ? `${IMPORT_STATUS_LABEL[job!.status]}…` : withLlm ? "저장 + AI 정리" : "원본으로 저장"}
+          <Button variant="solid" onClick={run} disabled={busy || pdfBusy || !title.trim()}>
+            {busy ? `${IMPORT_STATUS_LABEL[job!.status]}…` : pdfBusy ? "PDF 처리 중…" : withLlm ? "저장 + AI 정리" : "원본으로 저장"}
           </Button>
         </div>
 
@@ -357,19 +387,9 @@ export function InboxSection({
             {sources.length > 0 && (
               <PaneSelect value={refSource} onChange={setRefSource} options={sources.map((s) => ({ value: s, label: s }))} />
             )}
-            <label className="cursor-pointer rounded-md border border-hairline px-2 py-1 text-[12px] text-ink-2 transition-colors hover:bg-surface-soft">
+            <Button size="sm" variant="utility" onClick={() => setUploadOpen(true)}>
               업로드
-              <input
-                type="file"
-                accept=".pdf,application/pdf"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  e.target.value = "";
-                  if (f) void importPdf(f);
-                }}
-              />
-            </label>
+            </Button>
           </div>
         }
       />
@@ -393,7 +413,7 @@ export function InboxSection({
             className="w-full"
             disabled={pdfBusy}
             onClick={async () => {
-              setPdfBusy(true);
+              setPdfJobs((n) => n + 1);
               try {
                 const ext = await ipc.extractPdfText(space, refSource);
                 const text = ext.pages.map((p) => p.text).join("\n\n").trim();
@@ -401,7 +421,7 @@ export function InboxSection({
               } catch {
                 setBody((b) => b + `\n\n> ${refSource} 텍스트 추출 실패`);
               } finally {
-                setPdfBusy(false);
+                setPdfJobs((n) => n - 1);
               }
             }}
           >
@@ -492,6 +512,22 @@ export function InboxSection({
           </>
         )}
       </div>
+
+      {/* 업로드 팝업 — PDF 패널 헤더 버튼으로 열림 */}
+      {uploadOpen && (
+        <div className="fixed inset-0 z-40 flex items-start justify-center bg-black/30 pt-[12vh]" onClick={() => setUploadOpen(false)}>
+          <div className="w-full max-w-md rounded-xl border border-hairline bg-surface p-4 shadow-elevated" onClick={(e) => e.stopPropagation()}>
+            <FileDropzone
+              onFiles={(files) => {
+                onFiles(files);
+                setUploadOpen(false);
+              }}
+              accept=".md,.markdown,.txt,.pdf,image/*,application/pdf"
+              description="md · txt · pdf · 이미지를 드래그하거나 클릭"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

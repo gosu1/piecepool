@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import cytoscape from "cytoscape";
 import type { ElementDefinition } from "cytoscape";
-import { EDGE_COLOR } from "./CytoscapeGraph";
+import { groupOf, REVIEW_COLOR, RELATION_LABEL } from "./relationMeta";
+import type { RelationType } from "./generated/RelationType";
 import { useTheme, Icons } from "../ds";
 
 // ── 미니 로컬 그래프 (위키 관계 섹션) — 현재 개념을 중심에 두고 이웃 관계만 한눈에 ──
 // 컨테이너 크기를 재서 타원으로 꽉 채우는 프리셋 배치(공백 최소화·간선 길게).
-// 앱 글꼴 사용, 중심 노드 헤일로, 이웃 노드는 관계 색 링, 간선 위 타입 라벨, 호버 확대 효과.
-// 작은 뷰는 정적 위젯 + ⤢ 버튼으로 큰 오버레이(줌/팬 가능). 색 규약은 EDGE_COLOR 공유.
+// 앱 글꼴 사용, 중심 노드 헤일로, 간선 위 한국어 관계 라벨, 호버 확대 효과.
+// 작은 뷰는 정적 위젯 + ⤢ 버튼으로 큰 오버레이(줌/팬 가능).
+// 시각 언어는 relationMeta 공유 — 모노크롬 엣지(복습만 빨강), 의미는 실선/점선·화살표·라벨이 나른다.
 interface MiniGroup {
   type: string;
   items: { label: string; dir: "out" | "in"; onClick: () => void }[];
@@ -41,16 +43,26 @@ function GraphCanvas({
     const fontFam = getComputedStyle(document.body).fontFamily || "sans-serif";
 
     // 같은 개념이 여러 타입에 등장할 수 있으므로 노드는 중복 제거, 간선은 타입별로 전부 그린다.
-    // 이웃 노드 링 색 = 첫 관계 타입 색.
+    // 이웃 노드 링 색 = 첫 관계의 엣지 색(모노크롬 · review 만 빨강).
     const neighbors = new Map<string, { onClick: () => void; ring: string }>();
     const edges: ElementDefinition[] = [];
     for (const g of groups) {
-      const color = EDGE_COLOR[g.type] ?? "#a39e98";
+      const grp = groupOf(g.type as RelationType);
+      const color = grp.id === "review" ? REVIEW_COLOR : v("--ds-ink-faint", "#b8b5ad");
+      const label = RELATION_LABEL[g.type as RelationType] ?? g.type;
       for (const it of g.items) {
         if (!neighbors.has(it.label)) neighbors.set(it.label, { onClick: it.onClick, ring: color });
         const [source, target] = it.dir === "out" ? ["__center__", it.label] : [it.label, "__center__"];
         edges.push({
-          data: { id: `${g.type}:${it.dir}:${it.label}`, source, target, color, type: g.type },
+          data: {
+            id: `${g.type}:${it.dir}:${it.label}`,
+            source,
+            target,
+            color,
+            type: label,
+            dashed: grp.dash === "dashed" ? 1 : 0,
+            arrow: grp.arrow ? 1 : 0,
+          },
         });
       }
     }
@@ -144,6 +156,9 @@ function GraphCanvas({
             "transition-duration": 120,
           },
         },
+        // relationMeta 시각 언어 — 느슨한 연결(assoc·prov·review)은 점선, 대칭·상태 관계는 화살표 제거
+        { selector: "edge[dashed = 1]", style: { "line-style": "dashed" } },
+        { selector: "edge[arrow = 0]", style: { "target-arrow-shape": "none" } },
         { selector: "edge.hov", style: { opacity: 1, width: 2.5 } },
       ] as never,
     });

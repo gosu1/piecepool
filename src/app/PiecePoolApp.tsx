@@ -658,12 +658,13 @@ export default function PiecePoolApp() {
         return (
           <GraphSection
             key={activeTab.id}
-            graph={graphBySlug[sp]}
+            spaces={spaces}
+            graphBySlug={graphBySlug}
+            wikiBySlug={wikiBySlug}
             space={sp}
             spaceName={spName}
-            wikiPages={wikiBySlug[sp] ?? []}
-            onOpenWiki={(file) => openWiki(sp, file)}
-            onOpenArchive={(file) => openArchive(sp, file)}
+            onOpenWiki={openWiki}
+            onOpenArchive={openArchive}
           />
         );
       case "inbox":

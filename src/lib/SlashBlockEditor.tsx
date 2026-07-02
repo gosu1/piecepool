@@ -4,6 +4,7 @@ import { markdown, insertNewlineContinueMarkup, deleteMarkupBackward } from "@co
 import { EditorView, keymap, placeholder as cmPlaceholder } from "@codemirror/view";
 import { Prec } from "@codemirror/state";
 import { autocompletion, startCompletion, type Completion, type CompletionContext } from "@codemirror/autocomplete";
+import { cn } from "../ds";
 
 // Notion식 CM6 캡처 에디터: "/" 슬래시 메뉴 + 마크다운 리스트 자동 이어짐 + ⌘Enter 제출.
 // 테마는 DS 토큰 참조(라이트/다크 자동). 한글-first라 슬래시는 ASCII "/"에서만 트리거(IME 안전).
@@ -84,12 +85,14 @@ export function SlashBlockEditor({
   onSubmit,
   placeholder,
   height = "320px",
+  className,
 }: {
   value: string;
   onChange: (v: string) => void;
   onSubmit?: () => void;
   placeholder?: string;
   height?: string;
+  className?: string;
 }) {
   const submitRef = useRef(onSubmit);
   submitRef.current = onSubmit;
@@ -118,11 +121,12 @@ export function SlashBlockEditor({
   return (
     <CodeMirror
       value={value}
+      theme="none"
       height={height}
       extensions={extensions}
       onChange={onChange}
       basicSetup={BASIC_SETUP}
-      className="overflow-hidden rounded-md border border-hairline"
+      className={cn("overflow-hidden rounded-md border border-hairline", className)}
     />
   );
 }
