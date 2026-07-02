@@ -3,8 +3,8 @@ import type { ReactNode } from "react";
 import { AIWritingBanner, Button, Card, SkeletonText, WikiPage, Icons, cn } from "../../ds";
 import { Markdown } from "../../lib/markdown";
 import { SlashBlockEditor } from "../../lib/SlashBlockEditor";
-import { MiniRelationGraph } from "../../lib/MiniGraph";
-import { RELATION_LABEL } from "../../lib/relationMeta";
+import { MiniRelationGraph, type MiniGroup } from "../../lib/MiniGraph";
+import { RELATION_LABEL, groupOf } from "../../lib/relationMeta";
 import type { RelationType } from "../../lib/generated/RelationType";
 import type { RefConflict } from "../../lib/sourceRefConflicts";
 import type { GapQuestion, GapEngine } from "../../llm/gaps";
@@ -14,11 +14,6 @@ import type { ConvertJob } from "../../store/convertStore";
 export interface DocLinkItem {
   label: string;
   onClick?: () => void;
-}
-
-export interface RelationGroup {
-  type: string;
-  items: { label: string; dir: "out" | "in"; onClick: () => void }[];
 }
 
 export function DocView({
@@ -56,7 +51,7 @@ export function DocView({
   /** 위키 개념 섹션 — 관련 소스(원본 노트/파일) */
   sources?: DocLinkItem[];
   /** 위키 개념 섹션 — 타입별 관계 그룹 */
-  relationGroups?: RelationGroup[];
+  relationGroups?: MiniGroup[];
   /** 위키 개념 섹션 — confused_with 이웃 */
   confused?: { title: string; onClick: () => void }[];
   /** sourceRefs ↔ 본문 embed 충돌 (감지만, 자동 수정 금지 — 수용기준 §2.3) */
@@ -159,25 +154,29 @@ export function DocView({
                 className="ds-dotgrid h-72 w-full rounded-lg border border-hairline bg-surface"
               />
               <div className="space-y-1.5">
-                {relationGroups.map((g) => (
-                  <div key={g.type} className="flex flex-wrap items-center gap-2">
-                    <span className="flex items-center gap-1.5 rounded-full border border-hairline px-2.5 py-0.5 text-[12px] font-medium text-ink-2">
-                      {RELATION_LABEL[g.type as RelationType] ?? g.type}
-                    </span>
-                    {g.items.map((it, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={it.onClick}
-                        className="rounded-full border border-hairline px-3 py-1 text-[13px] text-primary transition-colors hover:bg-surface-soft"
-                        title={it.dir === "out" ? "이 개념 → 대상" : "대상 → 이 개념"}
-                      >
-                        {it.dir === "out" ? "→ " : "← "}
-                        {it.label}
-                      </button>
-                    ))}
-                  </div>
-                ))}
+                {relationGroups.map((g) => {
+                  // 대칭 관계(연관·복습)엔 방향 표기가 거짓 정보 — 그래프의 화살표 규약과 동일 (graph-view.md §1)
+                  const directed = groupOf(g.type as RelationType).arrow;
+                  return (
+                    <div key={g.type} className="flex flex-wrap items-center gap-2">
+                      <span className="flex items-center gap-1.5 rounded-full border border-hairline px-2.5 py-0.5 text-[12px] font-medium text-ink-2">
+                        {RELATION_LABEL[g.type as RelationType] ?? g.type}
+                      </span>
+                      {g.items.map((it, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={it.onClick}
+                          className="rounded-full border border-hairline px-3 py-1 text-[13px] text-primary transition-colors hover:bg-surface-soft"
+                          title={directed ? (it.dir === "out" ? "이 개념 → 대상" : "대상 → 이 개념") : undefined}
+                        >
+                          {directed && (it.dir === "out" ? "→ " : "← ")}
+                          {it.label}
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })}
               </div>
             </section>
           )}

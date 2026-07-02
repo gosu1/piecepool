@@ -2,7 +2,7 @@ import type { RelationType } from "./generated/RelationType";
 
 // 관계 표시 논리의 SSOT — 12 RelationType 을 논리적 성질(이행성·대칭성)로 5그룹 분류하고,
 // 한국어 라벨·문장 템플릿·계층 깊이 유도를 한곳에서 제공한다. 소비처: CytoscapeGraph(모양·라벨·레이아웃),
-// GraphSection(그룹 칩·엣지 패널), DocView(관계 칩). 타입 자체의 정의는 docs/10-contracts/relation-types.md 불변.
+// MiniGraph(미니 로컬 그래프), GraphSection(그룹 칩·엣지 패널), DocView(관계 칩). 타입 자체의 정의는 docs/10-contracts/relation-types.md 불변.
 // 시각 언어 설계 근거: docs/40-frontend/graph-view.md.
 
 export type RelationGroupId = "hier" | "flow" | "assoc" | "prov" | "review";
