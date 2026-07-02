@@ -29,6 +29,13 @@
   /* strong neutral fill — 다크 아일랜드 / solid 버튼(위키 헤더, AI 배너, 파일 선택) */
   --color-fill: var(--ds-fill);
   --color-on-fill: var(--ds-on-fill);
+  /* 반투명 subtle fill — 원형 아이콘 버튼 배경 등 미묘한 채움 */
+  --color-fill-subtle: var(--ds-fill-subtle);
+
+  /* status — validation · import 진행 점 · 경고/성공 칩 (구조/CTA 아님) */
+  --color-danger: var(--ds-danger);
+  --color-warning: var(--ds-warning);
+  --color-success: var(--ds-success);
 
   /* deep indigo — 단 하나의 dark "night" 모먼트 */
   --color-secondary: var(--ds-secondary);
@@ -88,6 +95,11 @@
 
   --ds-fill: #1f1e1c;
   --ds-on-fill: #ffffff;
+  --ds-fill-subtle: rgba(0, 0, 0, 0.05);
+
+  --ds-danger: #d64541;
+  --ds-warning: #c67612;
+  --ds-success: #1a9e42;
 
   --ds-secondary: #213183;
   --ds-on-secondary: #ffffff;
@@ -119,6 +131,11 @@
   /* 다크 아일랜드(위키 헤더·AI 배너·solid 버튼)는 다크에서도 어둡게 유지(캔버스보다 더 검게) */
   --ds-fill: #0e0e0c;
   --ds-on-fill: #ece9e3;
+  --ds-fill-subtle: rgba(255, 255, 255, 0.1);
+
+  --ds-danger: #f0736f;
+  --ds-warning: #e0a44e;
+  --ds-success: #4fb96e;
 
   --ds-secondary: #2c3aa0;
   --ds-on-secondary: #ffffff;
