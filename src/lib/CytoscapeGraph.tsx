@@ -288,11 +288,15 @@ export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, t
           height: "data(size)",
           "transition-property": "opacity",
           "transition-duration": 120,
+          // 노드 드래그 시 뜨는 오버레이를 사각형 대신 원으로.
+          "overlay-shape": "ellipse",
         },
       },
       { selector: 'node[kind = "core"]', style: { "background-color": t.core } },
       // 전체 과목 뷰: sbg(space 색)가 있으면 kind 색을 덮어쓴다.
       { selector: "node[sbg]", style: { "background-color": "data(sbg)" } },
+      // 배경 잡고 팬할 때 뜨는 회색 원(core active-bg) 제거.
+      { selector: "core", style: { "active-bg-opacity": 0 } },
       {
         selector: "edge",
         style: {
