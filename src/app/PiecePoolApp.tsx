@@ -763,8 +763,6 @@ export default function PiecePoolApp() {
             spaceName={spName}
             subjectIdsDefault={wikiBySlug[sp]?.[0]?.subjectIds ?? []}
             existing={wikiBySlug[sp] ?? []}
-            notes={notesBySlug[sp] ?? []}
-            onOpenNote={(n) => openArchive(sp, n.path)}
             onOpenWiki={(file) => openWiki(sp, file)}
             onRefresh={() => refreshSpace(sp)}
           />

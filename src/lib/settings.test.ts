@@ -4,8 +4,8 @@ import {
   setChunkEnabled,
   setChunkPercentile,
   chunkOpts,
-  getInboxView,
-  setInboxView,
+  getInboxPanels,
+  setInboxPanel,
   getInboxPaneWidths,
   setInboxPaneWidth,
   clampPanePct,
@@ -63,26 +63,25 @@ describe("chunk settings", () => {
     expect(getChunkSettings().percentile).toBe(10);
   });
 
-  it("inbox 분할 뷰 — 기본 2, 3으로 전환·복원, 무효 값은 2로 폴백", () => {
-    expect(getInboxView()).toBe("2");
-    setInboxView("3");
-    expect(getInboxView()).toBe("3");
-    setInboxView("2");
-    expect(getInboxView()).toBe("2");
-    localStorage.setItem("inbox-view", "junk");
-    expect(getInboxView()).toBe("2");
+  it("inbox 패널 열림 — 기본 모두 닫힘, 저장·복원", () => {
+    expect(getInboxPanels()).toEqual({ pdf: false, wiki: false });
+    setInboxPanel("pdf", true);
+    expect(getInboxPanels()).toEqual({ pdf: true, wiki: false });
+    setInboxPanel("wiki", true);
+    setInboxPanel("pdf", false);
+    expect(getInboxPanels()).toEqual({ pdf: false, wiki: true });
   });
 
   it("inbox 패널 폭 — 기본값, 저장·클램프(15~70), 무효 값 폴백", () => {
     expect(getInboxPaneWidths()).toEqual(INBOX_PANE_DEFAULTS);
-    setInboxPaneWidth("note", 55.25);
-    expect(getInboxPaneWidths().note).toBeCloseTo(55.3);
+    setInboxPaneWidth("pdf", 55.25);
+    expect(getInboxPaneWidths().pdf).toBeCloseTo(55.3);
     setInboxPaneWidth("pdf", 5); // 하한 클램프
     expect(getInboxPaneWidths().pdf).toBe(15);
     setInboxPaneWidth("wiki", 99); // 상한 클램프
     expect(getInboxPaneWidths().wiki).toBe(70);
-    localStorage.setItem("inbox-pane-note", "junk");
-    expect(getInboxPaneWidths().note).toBe(INBOX_PANE_DEFAULTS.note);
+    localStorage.setItem("inbox-pane-pdf", "junk");
+    expect(getInboxPaneWidths().pdf).toBe(INBOX_PANE_DEFAULTS.pdf);
     expect(clampPanePct(200)).toBe(70);
     expect(clampPanePct(-3)).toBe(15);
   });

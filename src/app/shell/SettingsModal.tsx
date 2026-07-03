@@ -4,13 +4,10 @@ import {
   getChunkSettings,
   setChunkEnabled,
   setChunkPercentile,
-  getInboxView,
-  setInboxView,
   getLinerKey,
   setLinerKey,
   getFactCheck,
   setFactCheck,
-  type InboxView,
 } from "../../lib/settings";
 
 // ══ 설정 모달 (§I) ══
@@ -21,11 +18,6 @@ export function SettingsModal({ onClose, workspacePath }: { onClose: () => void;
   const hasKey = key.trim().length > 0;
   const [chunkOn, setChunkOn] = useState(getChunkSettings().enabled);
   const [pct, setPct] = useState(getChunkSettings().percentile);
-  const [inboxView, setInboxViewState] = useState<InboxView>(getInboxView());
-  const changeInboxView = (v: InboxView) => {
-    setInboxView(v);
-    setInboxViewState(v);
-  };
   const [liner, setLiner] = useState(getLinerKey());
   const [linerSaved, setLinerSaved] = useState(false);
   const [factOn, setFactOn] = useState(getFactCheck());
@@ -143,27 +135,6 @@ export function SettingsModal({ onClose, workspacePath }: { onClose: () => void;
                 />
               </div>
             )}
-          </div>
-          <div className="flex items-center justify-between rounded-md border border-hairline p-3">
-            <div>
-              <span className="text-[14px] text-ink-2">Inbox 화면 분할</span>
-              <p className="text-[12px] text-ink-muted">2분할: 노트 | 새 페이지 · 3분할: PDF | 새 페이지 | 위키</p>
-            </div>
-            <div className="flex items-center rounded-md border border-hairline p-0.5">
-              {(["2", "3"] as const).map((v) => (
-                <button
-                  key={v}
-                  type="button"
-                  onClick={() => changeInboxView(v)}
-                  className={cn(
-                    "rounded px-2.5 py-1 text-[12px] font-medium transition-colors",
-                    inboxView === v ? "bg-surface-soft text-ink" : "text-ink-muted hover:text-ink",
-                  )}
-                >
-                  {v === "2" ? "2분할" : "3분할"}
-                </button>
-              ))}
-            </div>
           </div>
           <div className="flex items-center justify-between rounded-md border border-hairline p-3">
             <span className="text-[14px] text-ink-2">테마</span>

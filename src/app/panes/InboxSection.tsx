@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, FileDropzone, cn } from "../../ds";
-import type { WikiPage as WikiPageT, ArchiveNote } from "../../lib/types";
+import type { WikiPage as WikiPageT } from "../../lib/types";
 import * as ipc from "../../lib/ipc";
 import { useImportStore } from "../../store/importStore";
 import { runImageOcr } from "../../llm/ocr";
@@ -10,19 +10,19 @@ import { Markdown } from "../../lib/markdown";
 import { FilePreview } from "../../lib/FilePreview";
 import { PdfViewer } from "../../lib/PdfViewer";
 import {
-  getInboxView,
-  setInboxView,
+  getInboxPanels,
+  setInboxPanel,
   getInboxPaneWidths,
   setInboxPaneWidth,
   clampPanePct,
   INBOX_PANE_DEFAULTS,
-  type InboxView,
+  type InboxPanelKey,
   type InboxPaneKey,
 } from "../../lib/settings";
 
-// ══ Inbox 섹션 — 분할 캡처 뷰 ══
-// 2-split: NOTE(기존 원본 열람) | 새 페이지(작성)
-// 3-split: PDF(원본 자료) | 새 페이지(source 작성) | Wiki(생성된 위키 참조)
+// ══ Inbox 섹션 — 작성 중심 워크스페이스 ══
+// 중앙 새 노트 에디터 고정 + 좌(PDF 원본)·우(Wiki 참조) 패널을 각각 토글.
+// PDF 업로드 → PDF 패널 자동 열림, AI 정리 완료 → Wiki 패널 자동 열림.
 const IMPORT_STATUS_LABEL: Record<string, string> = {
   idle: "대기",
   parsing: "파싱",
@@ -49,8 +49,6 @@ export function InboxSection({
   spaceName,
   subjectIdsDefault,
   existing,
-  notes,
-  onOpenNote,
   onOpenWiki,
   onRefresh,
 }: {
@@ -59,15 +57,14 @@ export function InboxSection({
   spaceName: string;
   subjectIdsDefault: string[];
   existing: WikiPageT[];
-  notes: ArchiveNote[];
-  onOpenNote: (n: ArchiveNote) => void;
   onOpenWiki: (file: string) => void;
   onRefresh: () => Promise<void> | void;
 }) {
-  const [view, setView] = useState<InboxView>(getInboxView());
-  const changeView = (v: InboxView) => {
-    setInboxView(v);
-    setView(v);
+  const [panels, setPanels] = useState(getInboxPanels());
+  const togglePanel = (key: InboxPanelKey, open?: boolean) => {
+    const next = open ?? !panels[key];
+    setInboxPanel(key, next);
+    setPanels((p) => ({ ...p, [key]: next }));
   };
 
   // ── 작성(새 페이지) 상태 ──
@@ -80,7 +77,6 @@ export function InboxSection({
   const busy = !!job && !["completed", "failed"].includes(job.status);
 
   // ── 참조 패널 상태 ──
-  const [refNotePath, setRefNotePath] = useState<string>("");
   const [refWikiPath, setRefWikiPath] = useState<string>("");
   const [sources, setSources] = useState<string[]>([]);
   const [refSource, setRefSource] = useState<string>("");
@@ -127,7 +123,6 @@ export function InboxSection({
     return () => window.removeEventListener("keydown", onKey);
   }, [uploadOpen]);
 
-  const refNote = notes.find((n) => n.path === refNotePath) ?? notes[0];
   const refWiki = existing.find((w) => w.path === refWikiPath) ?? existing[0];
 
   const loadSources = useCallback(async () => {
@@ -141,8 +136,8 @@ export function InboxSection({
   }, [space]);
 
   useEffect(() => {
-    if (view === "3") void loadSources();
-  }, [view, loadSources]);
+    if (panels.pdf) void loadSources();
+  }, [panels.pdf, loadSources]);
 
   // PDF → sources/original-files 저장 + 텍스트 추출 → (키 있으면) AI 요약·정리 → 에디터에 삽입.
   // 요약 실패/키 없음이면 추출 원문 그대로 — 원문은 "텍스트 추출 → 에디터" 버튼으로 언제든 다시 가져온다.
@@ -152,8 +147,8 @@ export function InboxSection({
       const stored = await ipc.saveSourceFile(space, f.name, await fileToBase64(f));
       await loadSources();
       setRefSource(stored);
-      // 2분할에서 올려도 PDF 를 볼 공간이 생기게 3분할로 전환
-      if (view !== "3") changeView("3");
+      // 올린 PDF 를 바로 볼 수 있게 PDF 패널 자동 열림
+      togglePanel("pdf", true);
       setTitle((t) => t || f.name.replace(/\.[^.]+$/, ""));
       try {
         const ext = await ipc.extractPdfText(space, stored);
@@ -236,6 +231,8 @@ export function InboxSection({
       setTitle("");
       setBody("");
       await onRefresh();
+      // 생성된 위키를 바로 확인할 수 있게 Wiki 패널 자동 열림
+      if (withLlm) togglePanel("wiki", true);
     }
   };
 
@@ -246,6 +243,7 @@ export function InboxSection({
       setBody("");
       setAnswers([]);
       await onRefresh();
+      togglePanel("wiki", true);
     }
   };
 
@@ -384,49 +382,6 @@ export function InboxSection({
     </section>
   );
 
-  // ── NOTE 패널 (2-split 좌측) — 저장된 원본 열람 ──
-  const notePane = (
-    <section style={{ width: `${paneW.note}%` }} className="flex min-w-0 shrink-0 flex-col border-r border-hairline">
-      <PaneHeader
-        label="NOTE"
-        hint={`저장된 원본 ${notes.length}개`}
-        right={
-          notes.length > 0 ? (
-            <div className="flex items-center gap-1.5">
-              <PaneSelect
-                value={refNote?.path ?? ""}
-                onChange={setRefNotePath}
-                options={notes.map((n) => ({ value: n.path, label: n.title }))}
-              />
-              {refNote && (
-                <Button size="sm" variant="utility" onClick={() => onOpenNote(refNote)}>
-                  탭으로 열기
-                </Button>
-              )}
-            </div>
-          ) : undefined
-        }
-      />
-      <div className="min-h-0 flex-1 overflow-y-auto p-4">
-        {refNote ? (
-          <>
-            <h2 className="mb-1 text-[17px] font-bold text-ink">{refNote.title}</h2>
-            <p className="mb-3 text-[12px] text-ink-faint">
-              {refNote.createdAt.slice(0, 10)} · {refNote.path}
-            </p>
-            <Markdown source={refNote.markdown} embedSpace={space} />
-          </>
-        ) : (
-          <p className="pt-8 text-center text-[14px] text-ink-muted">
-            아직 원본이 없어요.
-            <br />
-            오른쪽 새 페이지에서 첫 노트를 저장해보세요.
-          </p>
-        )}
-      </div>
-    </section>
-  );
-
   // PDF 원문 텍스트를 에디터로 가져오기 — PdfViewer 툴바 버튼에서 호출
   const extractToEditor = async () => {
     setPdfJobs((n) => n + 1);
@@ -523,42 +478,41 @@ export function InboxSection({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* 헤더 — 뷰 전환 */}
+      {/* 헤더 — 좌(PDF)·우(Wiki) 패널 토글 */}
       <header className="flex shrink-0 items-center justify-between gap-3 border-b border-hairline px-4 py-2">
         <p className="min-w-0 truncate text-[14px]">
           <span className="font-bold text-ink">Inbox</span>
           <span className="text-ink-muted"> · {spaceName} · 자료 → 원본(archive) 저장 → (선택) AI 위키·관계 생성</span>
         </p>
-        <div className="flex shrink-0 items-center rounded-md border border-hairline p-0.5">
-          {(["2", "3"] as const).map((v) => (
+        <div className="flex shrink-0 items-center gap-0.5 rounded-md border border-hairline p-0.5">
+          {(["pdf", "wiki"] as const).map((k) => (
             <button
-              key={v}
+              key={k}
               type="button"
-              onClick={() => changeView(v)}
+              aria-pressed={panels[k]}
+              onClick={() => togglePanel(k)}
               className={cn(
                 "rounded px-2.5 py-1 text-[12px] font-medium transition-colors",
-                view === v ? "bg-surface-soft text-ink" : "text-ink-muted hover:text-ink",
+                panels[k] ? "bg-surface-soft text-ink" : "text-ink-muted hover:text-ink",
               )}
             >
-              {v === "2" ? "2분할" : "3분할"}
+              {k === "pdf" ? "PDF 패널" : "Wiki 패널"}
             </button>
           ))}
         </div>
       </header>
 
-      {/* 분할 본문 — 패널 사이 디바이더로 폭 조절(더블클릭 = 초기화) */}
+      {/* 본문 — 중앙 새 노트 고정, 열린 패널만 표시. 디바이더로 폭 조절(더블클릭 = 초기화) */}
       <div ref={splitRef} className="flex min-h-0 flex-1">
-        {view === "2" ? (
-          <>
-            {notePane}
-            <PaneDivider onPointerDown={startPaneDrag("note", 1)} onDoubleClick={() => resetPane("note")} />
-            {composePane}
-          </>
-        ) : (
+        {panels.pdf && (
           <>
             {pdfPane}
             <PaneDivider onPointerDown={startPaneDrag("pdf", 1)} onDoubleClick={() => resetPane("pdf")} />
-            {composePane}
+          </>
+        )}
+        {composePane}
+        {panels.wiki && (
+          <>
             <PaneDivider onPointerDown={startPaneDrag("wiki", -1)} onDoubleClick={() => resetPane("wiki")} />
             {wikiPane}
           </>

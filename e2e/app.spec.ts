@@ -54,15 +54,17 @@ test("Import 머신 — Inbox 저장 후 완료 파이프라인", async ({ page 
   await expect(page.getByText("완료", { exact: false }).first()).toBeVisible();
 });
 
-test("Inbox 분할 전환 — 2분할(NOTE) ↔ 3분할(PDF·WIKI)", async ({ page }) => {
+test("Inbox 패널 토글 — 기본 에디터 단독, PDF·Wiki 패널 여닫기", async ({ page }) => {
   await page.getByRole("button", { name: "새 노트 (Inbox)" }).click();
-  // 기본 2분할: NOTE 패널
-  await expect(page.getByText("NOTE", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "3분할" }).click();
+  // 기본: 중앙 새 노트 에디터만, 좌우 패널 닫힘
+  await expect(page.getByText("새 노트", { exact: true })).toBeVisible();
+  await expect(page.getByText("PDF", { exact: true })).not.toBeVisible();
+  await page.getByRole("button", { name: "PDF 패널" }).click();
   await expect(page.getByText("PDF", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Wiki 패널" }).click();
   await expect(page.getByText("WIKI", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "2분할" }).click();
-  await expect(page.getByText("NOTE", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "PDF 패널" }).click();
+  await expect(page.getByText("PDF", { exact: true })).not.toBeVisible();
 });
 
 test("사이드바 리사이즈 — 핸들 드래그로 폭 변경", async ({ page }) => {
@@ -87,10 +89,10 @@ test("트리 컨텍스트 메뉴 — 원본 이름 변경", async ({ page }) => 
   await expect(page.getByRole("button", { name: "OS 개요 노트 (수정)" })).toBeVisible();
 });
 
-test("설정 모달 — API 키 + Inbox 분할 설정", async ({ page }) => {
+test("설정 모달 — API 키 + 테마 설정", async ({ page }) => {
   await page.getByRole("button", { name: /Admin/ }).click();
   // 리본의 설정 아이콘과 구분 — 계정 팝오버(사이드바) 내부의 설정 항목
   await page.getByRole("complementary").getByRole("button", { name: "설정", exact: true }).click();
   await expect(page.getByText("OpenAI API Key")).toBeVisible();
-  await expect(page.getByText("Inbox 화면 분할")).toBeVisible();
+  await expect(page.getByText("테마")).toBeVisible();
 });

@@ -57,23 +57,24 @@ export function setFactCheck(v: boolean): void {
   ls()?.setItem(FACT_CHECK_KEY, v ? "1" : "0");
 }
 
-// ── Inbox 분할 뷰 ──
-// "2" = NOTE | 새 페이지, "3" = PDF | 새 페이지(source) | Wiki. 설정 모달·Inbox 헤더에서 전환.
-export type InboxView = "2" | "3";
-const INBOX_VIEW_KEY = "inbox-view";
+// ── Inbox 패널 열림 상태 ──
+// 중앙 새 노트 에디터는 고정, 좌(PDF)·우(Wiki) 패널을 각각 여닫는다.
+// 기본 닫힘 — PDF 업로드 시 PDF 패널, AI 정리 완료 시 Wiki 패널이 자동으로 열린다.
+export type InboxPanelKey = "pdf" | "wiki";
 
-export function getInboxView(): InboxView {
-  return ls()?.getItem(INBOX_VIEW_KEY) === "3" ? "3" : "2";
+export function getInboxPanels(): Record<InboxPanelKey, boolean> {
+  const store = ls();
+  return { pdf: store?.getItem("inbox-panel-pdf") === "1", wiki: store?.getItem("inbox-panel-wiki") === "1" };
 }
 
-export function setInboxView(v: InboxView): void {
-  ls()?.setItem(INBOX_VIEW_KEY, v);
+export function setInboxPanel(key: InboxPanelKey, open: boolean): void {
+  ls()?.setItem(`inbox-panel-${key}`, open ? "1" : "0");
 }
 
 // ── Inbox 패널 폭 (드래그 리사이즈, % 단위) ──
-// note = 2분할 좌측(NOTE), pdf = 3분할 좌측(PDF), wiki = 3분할 우측(Wiki). 가운데 작성 패널이 나머지를 채운다.
-export type InboxPaneKey = "note" | "pdf" | "wiki";
-export const INBOX_PANE_DEFAULTS: Record<InboxPaneKey, number> = { note: 46, pdf: 33, wiki: 28 };
+// pdf = 좌측(PDF), wiki = 우측(Wiki). 가운데 새 노트 패널이 나머지를 채운다.
+export type InboxPaneKey = "pdf" | "wiki";
+export const INBOX_PANE_DEFAULTS: Record<InboxPaneKey, number> = { pdf: 33, wiki: 28 };
 
 export function clampPanePct(pct: number): number {
   return Math.min(70, Math.max(15, pct));
