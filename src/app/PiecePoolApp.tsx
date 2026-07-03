@@ -197,8 +197,17 @@ export default function PiecePoolApp() {
   const openInbox = (space: string) => openTab({ id: `inbox:${space}`, kind: "inbox", title: "Inbox", space });
   const openGraph = (space: string) => openTab({ id: `graph:${space}`, kind: "graph", title: "Graph", space });
   const openHome = () => openTab({ id: "home", kind: "home", title: "Study Home" });
-  // Obsidian식 새 탭 — 빈 페인(NewTabPane). id 는 매번 새로(여러 개 허용).
-  const openEmptyTab = () => openTab({ id: `empty:${Date.now().toString(36)}`, kind: "empty", title: "새 탭" });
+  // "+" 새 탭 — 현재 공간에 빈 노트를 만들고 편집 탭으로 연다.
+  const handleNewNote = async () => {
+    if (!currentSpace) return;
+    try {
+      const note = await ipc.createNote(currentSpace, "제목 없음", "", []);
+      await refreshSpace(currentSpace);
+      openTab({ id: `archive:${currentSpace}:${note.path}`, kind: "archive", title: note.title, space: currentSpace, file: note.path });
+    } catch (e) {
+      setNotice(`새 노트 생성 실패: ${String(e)}`);
+    }
+  };
   const selectSpace = (slug: string) => {
     setCurrentSpaceSlug(slug);
     const firstWiki = wikiBySlug[slug]?.[0];
@@ -907,7 +916,7 @@ export default function PiecePoolApp() {
             onSelect={setActiveTab}
             onClose={requestCloseTab}
             onReorder={reorderTab}
-            onNewTab={openEmptyTab}
+            onNewTab={handleNewNote}
             onToggleFiles={toggleLeftPane}
             filesOpen={!leftCollapsed}
             onSearch={() => setPaletteOpen(true)}
