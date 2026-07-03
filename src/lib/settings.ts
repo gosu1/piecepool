@@ -57,45 +57,39 @@ export function setFactCheck(v: boolean): void {
   ls()?.setItem(FACT_CHECK_KEY, v ? "1" : "0");
 }
 
-// ── Inbox 좌측 PDF 패널 열림 상태 ──
-// 기본 닫힘 — PDF 업로드 시 자동으로 열린다.
-export function getInboxPdfOpen(): boolean {
-  return ls()?.getItem("inbox-panel-pdf") === "1";
+// ── Inbox 레이아웃 ──
+// "2" = 노트 | 위키, "3" = PDF | 노트 | 위키. PDF 업로드 시 자동 "3".
+export type InboxView = "2" | "3";
+const INBOX_VIEW_KEY = "inbox-view";
+
+export function getInboxView(): InboxView {
+  return ls()?.getItem(INBOX_VIEW_KEY) === "3" ? "3" : "2";
 }
 
-export function setInboxPdfOpen(open: boolean): void {
-  ls()?.setItem("inbox-panel-pdf", open ? "1" : "0");
+export function setInboxView(v: InboxView): void {
+  ls()?.setItem(INBOX_VIEW_KEY, v);
 }
 
-// ── Inbox 우측 탭 그룹 (a = 주 그룹, b = 분할 그룹) ──
-// 컴포넌트(노트·Wiki)를 탭으로 추가/제거하고 그룹 간 이동(분할)할 수 있다.
-// 둘 다 비면 피커 표시, b 가 비면 분할이 접힌다.
+// ── Inbox 콘텐츠 패널이 표시할 내용 (p1 = 가운데, p2 = 우측) ──
+// 각 패널 상단의 [노트|위키] 탭으로 전환한다.
 export type InboxTabKey = "note" | "wiki";
-export type InboxTabGroups = { a: InboxTabKey[]; b: InboxTabKey[] };
-const INBOX_TABS_KEY = "inbox-tabs";
-const isTabKey = (v: unknown): v is InboxTabKey => v === "note" || v === "wiki";
+export type InboxPanelId = "p1" | "p2";
 
-export function getInboxTabGroups(): InboxTabGroups {
-  const raw = ls()?.getItem(INBOX_TABS_KEY);
-  if (raw == null) return { a: ["note"], b: [] };
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    // 구버전(단일 배열)은 주 그룹으로 읽는다
-    const src: { a?: unknown; b?: unknown } = Array.isArray(parsed) ? { a: parsed } : ((parsed ?? {}) as object);
-    const a = [...new Set(Array.isArray(src.a) ? src.a.filter(isTabKey) : [])];
-    const b = [...new Set(Array.isArray(src.b) ? src.b.filter(isTabKey) : [])].filter((k) => !a.includes(k));
-    return { a, b };
-  } catch {
-    return { a: ["note"], b: [] };
-  }
+export function getInboxPanelTabs(): Record<InboxPanelId, InboxTabKey> {
+  const store = ls();
+  const read = (key: string, def: InboxTabKey): InboxTabKey => {
+    const v = store?.getItem(key);
+    return v === "note" || v === "wiki" ? v : def;
+  };
+  return { p1: read("inbox-p1", "note"), p2: read("inbox-p2", "wiki") };
 }
 
-export function setInboxTabGroups(groups: InboxTabGroups): void {
-  ls()?.setItem(INBOX_TABS_KEY, JSON.stringify(groups));
+export function setInboxPanelTab(panel: InboxPanelId, tab: InboxTabKey): void {
+  ls()?.setItem(`inbox-${panel}`, tab);
 }
 
 // ── Inbox 패널 폭 (드래그 리사이즈, % 단위) ──
-// pdf = 좌측(PDF), right = 분할 탭 그룹(b). 주 탭 그룹(a)이 나머지를 채운다.
+// pdf = 좌측(PDF), right = 우측 콘텐츠 패널(p2). 가운데(p1)가 나머지를 채운다.
 export type InboxPaneKey = "pdf" | "right";
 export const INBOX_PANE_DEFAULTS: Record<InboxPaneKey, number> = { pdf: 33, right: 28 };
 

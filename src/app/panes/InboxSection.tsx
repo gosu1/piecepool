@@ -10,27 +10,27 @@ import { Markdown } from "../../lib/markdown";
 import { FilePreview } from "../../lib/FilePreview";
 import { PdfViewer } from "../../lib/PdfViewer";
 import {
-  getInboxPdfOpen,
-  setInboxPdfOpen,
-  getInboxTabGroups,
-  setInboxTabGroups,
+  getInboxView,
+  setInboxView,
+  getInboxPanelTabs,
+  setInboxPanelTab,
   getInboxPaneWidths,
   setInboxPaneWidth,
   clampPanePct,
   INBOX_PANE_DEFAULTS,
+  type InboxView,
   type InboxTabKey,
+  type InboxPanelId,
   type InboxPaneKey,
 } from "../../lib/settings";
 
-// ══ Inbox 섹션 — 자료 + 탭 워크스페이스 ══
-// 좌 = PDF 원본 패널(토글, 업로드 시 자동 열림), 우 = 탭 그룹 a/b(노트·Wiki를 탭으로 추가하고
-// ⇄ 로 그룹 간 이동 — 분할해 위키를 별도 패널로 뺄 수 있다. b 가 비면 분할이 접힌다).
-// PDF 업로드로 시작하면(작성 전) 우측은 빈 패널 + 컴포넌트 피커 — 유저가 골라서 시작한다.
+// ══ Inbox 섹션 — 자료 + 콘텐츠 패널 워크스페이스 ══
+// 레이아웃은 2패널(노트|위키) ↔ 3패널(PDF|노트|위키) 선택. PDF 업로드 시 자동 3패널.
+// 콘텐츠 패널(p1·p2)은 상단 [노트|위키] 탭으로 표시 내용을 전환한다.
 const INBOX_TAB_DEFS: { key: InboxTabKey; label: string }[] = [
   { key: "note", label: "노트" },
-  { key: "wiki", label: "Wiki" },
+  { key: "wiki", label: "위키" },
 ];
-type TabGroupId = "a" | "b";
 const IMPORT_STATUS_LABEL: Record<string, string> = {
   idle: "대기",
   parsing: "파싱",
@@ -68,50 +68,16 @@ export function InboxSection({
   onOpenWiki: (file: string) => void;
   onRefresh: () => Promise<void> | void;
 }) {
-  // ── 좌측 PDF 패널 열림 + 우측 탭 패널 ──
-  const [pdfOpen, setPdfOpen] = useState(getInboxPdfOpen());
-  const togglePdf = (open?: boolean) => {
-    const next = open ?? !pdfOpen;
-    setInboxPdfOpen(next);
-    setPdfOpen(next);
+  // ── 레이아웃(2·3패널) + 콘텐츠 패널 표시 내용 ──
+  const [view, setView] = useState<InboxView>(getInboxView());
+  const changeView = (v: InboxView) => {
+    setInboxView(v);
+    setView(v);
   };
-  const [groups, setGroups] = useState(getInboxTabGroups());
-  const [active, setActive] = useState<Record<TabGroupId, InboxTabKey | null>>({
-    a: getInboxTabGroups().a[0] ?? null,
-    b: getInboxTabGroups().b[0] ?? null,
-  });
-  const [tabMenu, setTabMenu] = useState<TabGroupId | null>(null);
-  const openTabs = [...groups.a, ...groups.b];
-  const persistGroups = (g: typeof groups) => {
-    setInboxTabGroups(g);
-    setGroups(g);
-  };
-  // 이미 열려 있으면 그 그룹에서 활성화, 없으면 prefer 그룹에 추가 (b 지정 = 분할로 열기)
-  const openTab = (key: InboxTabKey, prefer: TabGroupId = "a") => {
-    setTabMenu(null);
-    const at: TabGroupId | null = groups.a.includes(key) ? "a" : groups.b.includes(key) ? "b" : null;
-    if (at) {
-      setActive((s) => ({ ...s, [at]: key }));
-      return;
-    }
-    persistGroups({ ...groups, [prefer]: [...groups[prefer], key] });
-    setActive((s) => ({ ...s, [prefer]: key }));
-  };
-  const closeTab = (gid: TabGroupId, key: InboxTabKey) => {
-    const rest = groups[gid].filter((t) => t !== key);
-    persistGroups({ ...groups, [gid]: rest });
-    setActive((s) => (s[gid] === key ? { ...s, [gid]: rest[rest.length - 1] ?? null } : s));
-  };
-  // ⇄ — 반대쪽 그룹으로 이동. b 로 가면 분할 패널이 생기고, 비면 접힌다.
-  const moveTab = (from: TabGroupId, key: InboxTabKey) => {
-    const to: TabGroupId = from === "a" ? "b" : "a";
-    const fromRest = groups[from].filter((t) => t !== key);
-    persistGroups({ ...groups, [from]: fromRest, [to]: [...groups[to], key] });
-    setActive((s) => ({
-      ...s,
-      [from]: s[from] === key ? (fromRest[fromRest.length - 1] ?? null) : s[from],
-      [to]: key,
-    }));
+  const [panelTabs, setPanelTabs] = useState(getInboxPanelTabs());
+  const switchPanel = (pid: InboxPanelId, tab: InboxTabKey) => {
+    setInboxPanelTab(pid, tab);
+    setPanelTabs((s) => ({ ...s, [pid]: tab }));
   };
 
   // ── 작성(새 페이지) 상태 ──
@@ -183,24 +149,19 @@ export function InboxSection({
   }, [space]);
 
   useEffect(() => {
-    if (pdfOpen) void loadSources();
-  }, [pdfOpen, loadSources]);
+    if (view === "3") void loadSources();
+  }, [view, loadSources]);
 
   // PDF → sources/original-files 저장 + 텍스트 추출 → (키 있으면) AI 요약·정리 → 에디터에 삽입.
   // 요약 실패/키 없음이면 추출 원문 그대로 — 원문은 "텍스트 추출 → 에디터" 버튼으로 언제든 다시 가져온다.
   const importPdf = async (f: File) => {
-    // PDF 업로드로 시작한 세션(작성 전)이면 우측을 피커로 — 유저가 컴포넌트를 골라서 시작 (레퍼런스 UX)
-    if (!title.trim() && !body.trim() && pdfJobs === 0) {
-      persistGroups({ a: [], b: [] });
-      setActive({ a: null, b: null });
-    }
     setPdfJobs((n) => n + 1);
     try {
       const stored = await ipc.saveSourceFile(space, f.name, await fileToBase64(f));
       await loadSources();
       setRefSource(stored);
-      // 올린 PDF 를 바로 볼 수 있게 PDF 패널 자동 열림
-      togglePdf(true);
+      // 올린 PDF 를 바로 볼 수 있게 3패널로 전환
+      changeView("3");
       setTitle((t) => t || f.name.replace(/\.[^.]+$/, ""));
       try {
         const ext = await ipc.extractPdfText(space, stored);
@@ -283,8 +244,8 @@ export function InboxSection({
       setTitle("");
       setBody("");
       await onRefresh();
-      // 생성된 위키를 바로 확인할 수 있게 Wiki 탭 자동 열림 — 분할 그룹으로 (노트 | 위키 3패널)
-      if (withLlm) openTab("wiki", "b");
+      // 생성된 위키를 바로 확인할 수 있게 우측 패널을 위키로 전환
+      if (withLlm) switchPanel("p2", "wiki");
     }
   };
 
@@ -295,7 +256,7 @@ export function InboxSection({
       setBody("");
       setAnswers([]);
       await onRefresh();
-      openTab("wiki", "b");
+      switchPanel("p2", "wiki");
     }
   };
 
@@ -514,144 +475,79 @@ export function InboxSection({
     </div>
   );
 
-  // ── 탭 그룹 렌더 — a: 주 그룹(나머지 폭·업로드 버튼), b: 분할 그룹(폭 조절, 비면 접힘) ──
+  // ── 콘텐츠 패널 렌더 — 상단 [노트|위키] 탭으로 표시 내용 전환. p1 = 가운데(나머지 폭·업로드), p2 = 우측(폭 조절) ──
   const tabContent: Record<InboxTabKey, React.ReactNode> = { note: noteTab, wiki: wikiTab };
-  const renderTabGroup = (gid: TabGroupId) => {
-    const unopened = INBOX_TAB_DEFS.filter((d) => !openTabs.includes(d.key));
-    const cur = active[gid] ?? groups[gid][0] ?? null;
+  const renderContentPanel = (pid: InboxPanelId) => {
+    const cur = panelTabs[pid];
     return (
       <section
-        style={gid === "b" ? { width: `${paneW.right}%` } : undefined}
-        className={cn("flex min-w-0 flex-col", gid === "a" ? "flex-1" : "shrink-0 border-l border-hairline")}
+        style={pid === "p2" ? { width: `${paneW.right}%` } : undefined}
+        className={cn("flex min-w-0 flex-col", pid === "p1" ? "flex-1" : "shrink-0 border-l border-hairline")}
       >
-        <div className="relative flex h-10 shrink-0 items-center gap-1 border-b border-hairline px-2">
-          {groups[gid].map((k) => {
-            const def = INBOX_TAB_DEFS.find((d) => d.key === k)!;
-            return (
-              <span
-                key={k}
-                className={cn(
-                  "group flex items-center gap-0.5 rounded px-1 py-1 text-[12px] font-medium transition-colors",
-                  cur === k ? "bg-surface-soft text-ink" : "text-ink-muted hover:text-ink",
-                )}
-              >
-                <button type="button" onClick={() => setActive((s) => ({ ...s, [gid]: k }))} className="px-1">
-                  {def.label}
-                </button>
-                <button
-                  type="button"
-                  title={gid === "a" ? "분할 패널로 이동" : "주 패널로 이동"}
-                  aria-label={`${def.label} 탭 ${gid === "a" ? "분할 패널로 이동" : "주 패널로 이동"}`}
-                  onClick={() => moveTab(gid, k)}
-                  className="rounded px-0.5 text-ink-faint hover:text-ink"
-                >
-                  ⇄
-                </button>
-                <button
-                  type="button"
-                  aria-label={`${def.label} 탭 닫기`}
-                  onClick={() => closeTab(gid, k)}
-                  className="rounded px-0.5 text-ink-faint hover:text-ink"
-                >
-                  ×
-                </button>
-              </span>
-            );
-          })}
-          {unopened.length > 0 && (
+        <div className="flex h-10 shrink-0 items-center gap-1 border-b border-hairline px-2">
+          {INBOX_TAB_DEFS.map((d) => (
             <button
+              key={d.key}
               type="button"
-              aria-label={gid === "a" ? "탭 추가" : "분할 패널 탭 추가"}
-              onClick={() => setTabMenu((v) => (v === gid ? null : gid))}
-              className="rounded px-2 py-1 text-[14px] leading-none text-ink-muted transition-colors hover:bg-surface-soft hover:text-ink"
+              aria-pressed={cur === d.key}
+              onClick={() => switchPanel(pid, d.key)}
+              className={cn(
+                "rounded px-2.5 py-1 text-[12px] font-medium transition-colors",
+                cur === d.key ? "bg-surface-soft text-ink" : "text-ink-muted hover:text-ink",
+              )}
             >
-              +
+              {d.label}
             </button>
-          )}
-          {tabMenu === gid && (
-            <>
-              {/* 바깥 클릭 닫기용 투명 레이어 */}
-              <div className="fixed inset-0 z-20" onClick={() => setTabMenu(null)} />
-              <div className="absolute left-2 top-10 z-30 min-w-[140px] rounded-md border border-hairline bg-surface py-1 shadow-elevated">
-                {unopened.map((d) => (
-                  <button
-                    key={d.key}
-                    type="button"
-                    onClick={() => openTab(d.key, gid)}
-                    className="block w-full px-3 py-1.5 text-left text-[13px] text-ink-2 transition-colors hover:bg-surface-soft"
-                  >
-                    {d.label}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
+          ))}
           <span className="flex-1" />
-          {gid === "a" && (
+          {pid === "p1" && (
             <Button size="sm" variant="utility" onClick={() => setUploadOpen(true)}>
               업로드
             </Button>
           )}
         </div>
-
-        {cur ? (
-          tabContent[cur]
-        ) : (
-          <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4">
-            <p className="text-[14px] text-ink-muted">탭을 추가해 이 패널에 컴포넌트를 표시하세요</p>
-            <div className="flex flex-col gap-2">
-              {unopened.map((d) => (
-                <Button key={d.key} variant="utility" size="sm" onClick={() => openTab(d.key, gid)}>
-                  + {d.label}
-                </Button>
-              ))}
-            </div>
-          </div>
-        )}
+        {tabContent[cur]}
       </section>
     );
   };
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* 헤더 — 좌측 PDF 패널 토글 */}
+      {/* 헤더 — 2패널(노트|위키) ↔ 3패널(PDF|노트|위키) 선택 */}
       <header className="flex shrink-0 items-center justify-between gap-3 border-b border-hairline px-4 py-2">
         <p className="min-w-0 truncate text-[14px]">
           <span className="font-bold text-ink">Inbox</span>
           <span className="text-ink-muted"> · {spaceName} · 자료 → 원본(archive) 저장 → (선택) AI 위키·관계 생성</span>
         </p>
-        <button
-          type="button"
-          aria-pressed={pdfOpen}
-          onClick={() => togglePdf()}
-          className={cn(
-            "shrink-0 rounded-md border border-hairline px-2.5 py-1 text-[12px] font-medium transition-colors",
-            pdfOpen ? "bg-surface-soft text-ink" : "text-ink-muted hover:text-ink",
-          )}
-        >
-          PDF 패널
-        </button>
+        <div className="flex shrink-0 items-center rounded-md border border-hairline p-0.5">
+          {(["2", "3"] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              aria-pressed={view === v}
+              onClick={() => changeView(v)}
+              className={cn(
+                "rounded px-2.5 py-1 text-[12px] font-medium transition-colors",
+                view === v ? "bg-surface-soft text-ink" : "text-ink-muted hover:text-ink",
+              )}
+            >
+              {v === "2" ? "2패널" : "3패널"}
+            </button>
+          ))}
+        </div>
       </header>
 
-      {/* 본문 — 좌 PDF(토글) + 우 탭 패널. 디바이더로 폭 조절(더블클릭 = 초기화) */}
+      {/* 본문 — [PDF](3패널일 때) | 콘텐츠 p1 | 콘텐츠 p2. 디바이더로 폭 조절(더블클릭 = 초기화) */}
       <div ref={splitRef} className="flex min-h-0 flex-1">
-        {pdfOpen && (
+        {view === "3" && (
           <>
             {pdfPane}
             <PaneDivider onPointerDown={startPaneDrag("pdf", 1)} onDoubleClick={() => resetPane("pdf")} />
           </>
         )}
-
-        {/* 주 탭 그룹(a) — 나머지 폭. 탭 없으면 컴포넌트 피커 */}
-        {renderTabGroup("a")}
-
-        {/* 분할 탭 그룹(b) — 탭이 있을 때만 나타나는 세 번째 패널 */}
-        {groups.b.length > 0 && (
-          <>
-            <PaneDivider onPointerDown={startPaneDrag("right", -1)} onDoubleClick={() => resetPane("right")} />
-            {renderTabGroup("b")}
-          </>
-        )}
+        {renderContentPanel("p1")}
+        <PaneDivider onPointerDown={startPaneDrag("right", -1)} onDoubleClick={() => resetPane("right")} />
+        {renderContentPanel("p2")}
       </div>
 
       {/* 업로드 팝업 — 새 노트/PDF 패널 헤더 버튼으로 열림 */}

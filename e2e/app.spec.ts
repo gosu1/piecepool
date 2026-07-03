@@ -54,26 +54,21 @@ test("Import 머신 — Inbox 저장 후 완료 파이프라인", async ({ page 
   await expect(page.getByText("완료", { exact: false }).first()).toBeVisible();
 });
 
-test("Inbox 탭 패널 — 기본 노트 탭, PDF 패널 토글, 탭 추가/닫기", async ({ page }) => {
+test("Inbox 패널 — 기본 2패널(노트|위키), 3패널로 PDF, 패널 내 콘텐츠 전환", async ({ page }) => {
   await page.getByRole("button", { name: "새 노트 (Inbox)" }).click();
-  // 기본: 노트 탭 하나 (제목 입력 보임), PDF 패널 닫힘
+  // 기본 2패널: 노트(제목 입력) + 위키, PDF 없음
   await expect(page.getByPlaceholder("제목")).toBeVisible();
   await expect(page.getByText("PDF", { exact: true })).not.toBeVisible();
-  // PDF 패널 토글
-  await page.getByRole("button", { name: "PDF 패널" }).click();
+  // 3패널 → PDF 패널 등장, 2패널로 복귀
+  await page.getByRole("button", { name: "3패널" }).click();
   await expect(page.getByText("PDF", { exact: true })).toBeVisible();
-  // + 로 Wiki 탭 추가 → 탭 스트립에 이어짐
-  await page.getByRole("button", { name: "탭 추가" }).click();
-  await page.getByRole("button", { name: "Wiki", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Wiki 탭 닫기" })).toBeVisible();
-  // ⇄ 로 Wiki 를 분할 패널(3패널)로 이동, 다시 주 패널로 복귀
-  await page.getByRole("button", { name: "Wiki 탭 분할 패널로 이동" }).click();
-  await expect(page.getByRole("button", { name: "Wiki 탭 주 패널로 이동" })).toBeVisible();
-  await page.getByRole("button", { name: "Wiki 탭 주 패널로 이동" }).click();
-  await expect(page.getByRole("button", { name: "Wiki 탭 분할 패널로 이동" })).toBeVisible();
-  // 노트 탭 닫기 → 에디터 사라지고 노트 탭만 제거됨
-  await page.getByRole("button", { name: "노트 탭 닫기" }).click();
+  await page.getByRole("button", { name: "2패널" }).click();
+  await expect(page.getByText("PDF", { exact: true })).not.toBeVisible();
+  // p1 을 위키로 전환하면 에디터가 사라지고, 노트로 되돌리면 복귀
+  await page.getByRole("button", { name: "위키", exact: true }).first().click();
   await expect(page.getByPlaceholder("제목")).not.toBeVisible();
+  await page.getByRole("button", { name: "노트", exact: true }).first().click();
+  await expect(page.getByPlaceholder("제목")).toBeVisible();
 });
 
 test("사이드바 리사이즈 — 핸들 드래그로 폭 변경", async ({ page }) => {

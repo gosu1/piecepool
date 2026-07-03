@@ -4,10 +4,10 @@ import {
   setChunkEnabled,
   setChunkPercentile,
   chunkOpts,
-  getInboxPdfOpen,
-  setInboxPdfOpen,
-  getInboxTabGroups,
-  setInboxTabGroups,
+  getInboxView,
+  setInboxView,
+  getInboxPanelTabs,
+  setInboxPanelTab,
   getInboxPaneWidths,
   setInboxPaneWidth,
   clampPanePct,
@@ -65,29 +65,23 @@ describe("chunk settings", () => {
     expect(getChunkSettings().percentile).toBe(10);
   });
 
-  it("inbox PDF 패널 열림 — 기본 닫힘, 저장·복원", () => {
-    expect(getInboxPdfOpen()).toBe(false);
-    setInboxPdfOpen(true);
-    expect(getInboxPdfOpen()).toBe(true);
-    setInboxPdfOpen(false);
-    expect(getInboxPdfOpen()).toBe(false);
+  it("inbox 레이아웃 — 기본 2패널, 3패널 전환·복원, 무효 값은 2로 폴백", () => {
+    expect(getInboxView()).toBe("2");
+    setInboxView("3");
+    expect(getInboxView()).toBe("3");
+    setInboxView("2");
+    expect(getInboxView()).toBe("2");
+    localStorage.setItem("inbox-view", "junk");
+    expect(getInboxView()).toBe("2");
   });
 
-  it("inbox 탭 그룹 — 기본 {a:[note],b:[]}, 저장·복원, 빈 상태 유지(피커)", () => {
-    expect(getInboxTabGroups()).toEqual({ a: ["note"], b: [] });
-    setInboxTabGroups({ a: ["note"], b: ["wiki"] });
-    expect(getInboxTabGroups()).toEqual({ a: ["note"], b: ["wiki"] });
-    setInboxTabGroups({ a: [], b: [] });
-    expect(getInboxTabGroups()).toEqual({ a: [], b: [] }); // 저장된 빈 상태 = 피커 — 기본값으로 되돌리지 않음
-  });
-
-  it("inbox 탭 그룹 — 무효 값 필터, 그룹 간 중복은 a 우선, 구버전 배열 호환", () => {
-    localStorage.setItem("inbox-tabs", JSON.stringify({ a: ["note", "junk", "note"], b: ["note", "wiki"] }));
-    expect(getInboxTabGroups()).toEqual({ a: ["note"], b: ["wiki"] });
-    localStorage.setItem("inbox-tabs", JSON.stringify(["wiki", "junk"])); // 구버전 단일 배열
-    expect(getInboxTabGroups()).toEqual({ a: ["wiki"], b: [] });
-    localStorage.setItem("inbox-tabs", "not-json");
-    expect(getInboxTabGroups()).toEqual({ a: ["note"], b: [] });
+  it("inbox 패널 콘텐츠 — 기본 p1=노트/p2=위키, 저장·복원, 무효 값 폴백", () => {
+    expect(getInboxPanelTabs()).toEqual({ p1: "note", p2: "wiki" });
+    setInboxPanelTab("p1", "wiki");
+    setInboxPanelTab("p2", "note");
+    expect(getInboxPanelTabs()).toEqual({ p1: "wiki", p2: "note" });
+    localStorage.setItem("inbox-p1", "junk");
+    expect(getInboxPanelTabs().p1).toBe("note");
   });
 
   it("inbox 패널 폭 — 기본값, 저장·클램프(15~70), 무효 값 폴백", () => {
