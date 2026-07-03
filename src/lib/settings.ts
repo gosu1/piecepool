@@ -67,31 +67,37 @@ export function setInboxPdfOpen(open: boolean): void {
   ls()?.setItem("inbox-panel-pdf", open ? "1" : "0");
 }
 
-// ── Inbox 우측 탭 패널 ──
-// 유저가 컴포넌트(노트·Wiki)를 탭으로 추가/제거한다. 빈 배열 = 피커 표시 상태.
+// ── Inbox 우측 탭 그룹 (a = 주 그룹, b = 분할 그룹) ──
+// 컴포넌트(노트·Wiki)를 탭으로 추가/제거하고 그룹 간 이동(분할)할 수 있다.
+// 둘 다 비면 피커 표시, b 가 비면 분할이 접힌다.
 export type InboxTabKey = "note" | "wiki";
+export type InboxTabGroups = { a: InboxTabKey[]; b: InboxTabKey[] };
 const INBOX_TABS_KEY = "inbox-tabs";
+const isTabKey = (v: unknown): v is InboxTabKey => v === "note" || v === "wiki";
 
-export function getInboxTabs(): InboxTabKey[] {
+export function getInboxTabGroups(): InboxTabGroups {
   const raw = ls()?.getItem(INBOX_TABS_KEY);
-  if (raw == null) return ["note"];
+  if (raw == null) return { a: ["note"], b: [] };
   try {
-    const arr: unknown = JSON.parse(raw);
-    if (!Array.isArray(arr)) return ["note"];
-    return [...new Set(arr.filter((v): v is InboxTabKey => v === "note" || v === "wiki"))];
+    const parsed: unknown = JSON.parse(raw);
+    // 구버전(단일 배열)은 주 그룹으로 읽는다
+    const src: { a?: unknown; b?: unknown } = Array.isArray(parsed) ? { a: parsed } : ((parsed ?? {}) as object);
+    const a = [...new Set(Array.isArray(src.a) ? src.a.filter(isTabKey) : [])];
+    const b = [...new Set(Array.isArray(src.b) ? src.b.filter(isTabKey) : [])].filter((k) => !a.includes(k));
+    return { a, b };
   } catch {
-    return ["note"];
+    return { a: ["note"], b: [] };
   }
 }
 
-export function setInboxTabs(tabs: InboxTabKey[]): void {
-  ls()?.setItem(INBOX_TABS_KEY, JSON.stringify(tabs));
+export function setInboxTabGroups(groups: InboxTabGroups): void {
+  ls()?.setItem(INBOX_TABS_KEY, JSON.stringify(groups));
 }
 
 // ── Inbox 패널 폭 (드래그 리사이즈, % 단위) ──
-// pdf = 좌측(PDF). 우측 탭 패널이 나머지를 채운다.
-export type InboxPaneKey = "pdf";
-export const INBOX_PANE_DEFAULTS: Record<InboxPaneKey, number> = { pdf: 33 };
+// pdf = 좌측(PDF), right = 분할 탭 그룹(b). 주 탭 그룹(a)이 나머지를 채운다.
+export type InboxPaneKey = "pdf" | "right";
+export const INBOX_PANE_DEFAULTS: Record<InboxPaneKey, number> = { pdf: 33, right: 28 };
 
 export function clampPanePct(pct: number): number {
   return Math.min(70, Math.max(15, pct));

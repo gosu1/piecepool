@@ -66,6 +66,11 @@ test("Inbox 탭 패널 — 기본 노트 탭, PDF 패널 토글, 탭 추가/닫�
   await page.getByRole("button", { name: "탭 추가" }).click();
   await page.getByRole("button", { name: "Wiki", exact: true }).click();
   await expect(page.getByRole("button", { name: "Wiki 탭 닫기" })).toBeVisible();
+  // ⇄ 로 Wiki 를 분할 패널(3패널)로 이동, 다시 주 패널로 복귀
+  await page.getByRole("button", { name: "Wiki 탭 분할 패널로 이동" }).click();
+  await expect(page.getByRole("button", { name: "Wiki 탭 주 패널로 이동" })).toBeVisible();
+  await page.getByRole("button", { name: "Wiki 탭 주 패널로 이동" }).click();
+  await expect(page.getByRole("button", { name: "Wiki 탭 분할 패널로 이동" })).toBeVisible();
   // 노트 탭 닫기 → 에디터 사라지고 노트 탭만 제거됨
   await page.getByRole("button", { name: "노트 탭 닫기" }).click();
   await expect(page.getByPlaceholder("제목")).not.toBeVisible();

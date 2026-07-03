@@ -6,8 +6,8 @@ import {
   chunkOpts,
   getInboxPdfOpen,
   setInboxPdfOpen,
-  getInboxTabs,
-  setInboxTabs,
+  getInboxTabGroups,
+  setInboxTabGroups,
   getInboxPaneWidths,
   setInboxPaneWidth,
   clampPanePct,
@@ -73,16 +73,21 @@ describe("chunk settings", () => {
     expect(getInboxPdfOpen()).toBe(false);
   });
 
-  it("inbox 탭 — 기본 [note], 빈 배열 유지(피커 상태), 무효 값 필터·중복 제거", () => {
-    expect(getInboxTabs()).toEqual(["note"]);
-    setInboxTabs(["note", "wiki"]);
-    expect(getInboxTabs()).toEqual(["note", "wiki"]);
-    setInboxTabs([]);
-    expect(getInboxTabs()).toEqual([]); // 저장된 빈 배열은 피커 상태 — 기본값으로 되돌리지 않음
-    localStorage.setItem("inbox-tabs", JSON.stringify(["wiki", "junk", "wiki"]));
-    expect(getInboxTabs()).toEqual(["wiki"]);
+  it("inbox 탭 그룹 — 기본 {a:[note],b:[]}, 저장·복원, 빈 상태 유지(피커)", () => {
+    expect(getInboxTabGroups()).toEqual({ a: ["note"], b: [] });
+    setInboxTabGroups({ a: ["note"], b: ["wiki"] });
+    expect(getInboxTabGroups()).toEqual({ a: ["note"], b: ["wiki"] });
+    setInboxTabGroups({ a: [], b: [] });
+    expect(getInboxTabGroups()).toEqual({ a: [], b: [] }); // 저장된 빈 상태 = 피커 — 기본값으로 되돌리지 않음
+  });
+
+  it("inbox 탭 그룹 — 무효 값 필터, 그룹 간 중복은 a 우선, 구버전 배열 호환", () => {
+    localStorage.setItem("inbox-tabs", JSON.stringify({ a: ["note", "junk", "note"], b: ["note", "wiki"] }));
+    expect(getInboxTabGroups()).toEqual({ a: ["note"], b: ["wiki"] });
+    localStorage.setItem("inbox-tabs", JSON.stringify(["wiki", "junk"])); // 구버전 단일 배열
+    expect(getInboxTabGroups()).toEqual({ a: ["wiki"], b: [] });
     localStorage.setItem("inbox-tabs", "not-json");
-    expect(getInboxTabs()).toEqual(["note"]);
+    expect(getInboxTabGroups()).toEqual({ a: ["note"], b: [] });
   });
 
   it("inbox 패널 폭 — 기본값, 저장·클램프(15~70), 무효 값 폴백", () => {
@@ -91,8 +96,8 @@ describe("chunk settings", () => {
     expect(getInboxPaneWidths().pdf).toBeCloseTo(55.3);
     setInboxPaneWidth("pdf", 5); // 하한 클램프
     expect(getInboxPaneWidths().pdf).toBe(15);
-    setInboxPaneWidth("pdf", 99); // 상한 클램프
-    expect(getInboxPaneWidths().pdf).toBe(70);
+    setInboxPaneWidth("right", 99); // 상한 클램프
+    expect(getInboxPaneWidths().right).toBe(70);
     localStorage.setItem("inbox-pane-pdf", "junk");
     expect(getInboxPaneWidths().pdf).toBe(INBOX_PANE_DEFAULTS.pdf);
     expect(clampPanePct(200)).toBe(70);
