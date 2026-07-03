@@ -54,21 +54,22 @@ test("Import 머신 — Inbox 저장 후 완료 파이프라인", async ({ page 
   await expect(page.getByText("완료", { exact: false }).first()).toBeVisible();
 });
 
-test("Inbox 패널 — 기본 2패널(노트|위키), 3패널로 PDF, 패널 내 콘텐츠 전환", async ({ page }) => {
+test("Inbox 패널 — 노트 고정, PDF·위키 보조 패널 여닫기", async ({ page }) => {
   await page.getByRole("button", { name: "새 노트 (Inbox)" }).click();
-  // 기본 2패널: 노트(제목 입력) + 위키, PDF 없음
+  // 기본: 노트 에디터만 (보조 패널 닫힘)
   await expect(page.getByPlaceholder("제목")).toBeVisible();
   await expect(page.getByText("PDF", { exact: true })).not.toBeVisible();
-  // 3패널 → PDF 패널 등장, 2패널로 복귀
-  await page.getByRole("button", { name: "3패널" }).click();
+  // PDF 패널 열고 닫기
+  await page.getByRole("button", { name: "PDF 패널" }).click();
   await expect(page.getByText("PDF", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "2패널" }).click();
+  await page.getByRole("button", { name: "PDF 패널" }).click();
   await expect(page.getByText("PDF", { exact: true })).not.toBeVisible();
-  // p1 을 위키로 전환하면 에디터가 사라지고, 노트로 되돌리면 복귀
-  await page.getByRole("button", { name: "위키", exact: true }).first().click();
-  await expect(page.getByPlaceholder("제목")).not.toBeVisible();
-  await page.getByRole("button", { name: "노트", exact: true }).first().click();
+  // 위키 패널 열고 닫기 — 노트 에디터는 그대로
+  await page.getByRole("button", { name: "위키 패널" }).click();
+  await expect(page.getByText("위키", { exact: true })).toBeVisible();
   await expect(page.getByPlaceholder("제목")).toBeVisible();
+  await page.getByRole("button", { name: "위키 패널" }).click();
+  await expect(page.getByText("위키", { exact: true })).not.toBeVisible();
 });
 
 test("사이드바 리사이즈 — 핸들 드래그로 폭 변경", async ({ page }) => {
