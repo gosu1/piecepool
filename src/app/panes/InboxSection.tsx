@@ -272,15 +272,7 @@ export function InboxSection({
   // ── 노트 패널 (중심 고정) — 새 원본(archive) 작성 ──
   const notePane = (
     <section className="flex min-w-0 flex-1 flex-col">
-      <PaneHeader
-        label="노트"
-        hint="자료 → 원본(archive) 저장 → (선택) AI 위키·관계 생성"
-        right={
-          <Button size="sm" variant="utility" onClick={() => setUploadOpen(true)}>
-            업로드
-          </Button>
-        }
-      />
+      <PaneHeader label="노트" hint="자료 → 원본(archive) 저장 → (선택) AI 위키·관계 생성" />
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
         <input
           value={title}
