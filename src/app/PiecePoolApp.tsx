@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AppShell, TopBar, Sidebar, Card, EmptyState, Icons } from "../ds";
+import { AppShell, Sidebar, Card, EmptyState, Icons } from "../ds";
 import type { TreeNode } from "../ds";
 import type { KnowledgeSpace, WikiPage as WikiPageT, ArchiveNote, GraphData, Workspace } from "../lib/types";
 import * as ipc from "../lib/ipc";
@@ -19,19 +19,19 @@ import { GraphSection } from "./panes/GraphSection";
 import { InboxSection } from "./panes/InboxSection";
 import { StudyHome } from "./panes/StudyHome";
 import { Ribbon } from "./shell/Ribbon";
-import { VaultSwitcher } from "./shell/VaultSwitcher";
-import { Breadcrumb } from "./shell/Breadcrumb";
+import { PaneHeader } from "./shell/PaneHeader";
+import { NewTabPane } from "./shell/NewTabPane";
 import { StatusBar } from "./shell/StatusBar";
-import { TabStrip } from "./shell/TabStrip";
+import { TitlebarRow } from "./shell/TitlebarRow";
+import { SidebarHeader, SidebarShortcuts, SidebarFooter } from "./shell/SidebarChrome";
 import { SearchPalette } from "./shell/SearchPalette";
 import { SettingsModal } from "./shell/SettingsModal";
-import { AccountFooter } from "./shell/AccountFooter";
 import { ContextMenu, ConfirmDialog, PromptDialog } from "./shell/Dialogs";
 import { useWorkspaceStore, SIDEBAR_DEFAULT } from "../store/workspaceStore";
 import type { TabKind } from "../store/workspaceStore";
 import { useConvertStore } from "../store/convertStore";
 
-const KIND_LABEL: Record<TabKind, string> = { wiki: "Wiki", archive: "Source", inbox: "Inbox", graph: "Graph", home: "Home" };
+const KIND_LABEL: Record<TabKind, string> = { wiki: "Wiki", archive: "Source", inbox: "Inbox", graph: "Graph", home: "Home", empty: "새 탭" };
 
 // 트리 id 파서 — 파일명에 ":" 가 없다는 계약(kebab/slug)에 기대지 않고 앞 3개만 분해한다.
 function parseDocId(id: string): { kind: string; space: string; file: string } | null {
@@ -65,8 +65,9 @@ export default function PiecePoolApp() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  // 셸 오버레이 — 트리 컨텍스트 메뉴 · 확인/입력 다이얼로그 · 상태바 알림
+  // 셸 오버레이 — 트리 컨텍스트 메뉴 · 페인 "…" 메뉴 · 확인/입력 다이얼로그 · 상태바 알림
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
+  const [paneMenu, setPaneMenu] = useState<{ x: number; y: number } | null>(null);
   const [dialog, setDialog] = useState<ShellDialog | null>(null);
   const [notice, setNotice] = useState("");
 
@@ -82,6 +83,10 @@ export default function PiecePoolApp() {
   const setTabDirty = useWorkspaceStore((s) => s.setTabDirty);
   const renameTab = useWorkspaceStore((s) => s.renameTab);
   const reorderTab = useWorkspaceStore((s) => s.reorderTab);
+  const navBack = useWorkspaceStore((s) => s.navBack);
+  const navForward = useWorkspaceStore((s) => s.navForward);
+  const goBack = useWorkspaceStore((s) => s.goBack);
+  const goForward = useWorkspaceStore((s) => s.goForward);
   const leftCollapsed = useWorkspaceStore((s) => s.leftCollapsed);
   const toggleLeftPane = useWorkspaceStore((s) => s.toggleLeftPane);
   const sidebarWidth = useWorkspaceStore((s) => s.sidebarWidth);
@@ -130,12 +135,21 @@ export default function PiecePoolApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ⌘K → 검색 팔레트
+  // 활성 탭 → 현재 공간(아래에서 계산)을 keydown 핸들러([] deps)에서 참조하기 위한 ref
+  const currentSpaceRef = useRef("");
+
+  // ⌘K/⌘O → 검색 팔레트 · ⌘N → 새 노트
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      const k = e.key.toLowerCase();
+      if (k === "k" || k === "o") {
         e.preventDefault();
         setPaletteOpen((o) => !o);
+      } else if (k === "n") {
+        e.preventDefault();
+        const sp = currentSpaceRef.current;
+        if (sp) useWorkspaceStore.getState().openTab({ id: `inbox:${sp}`, kind: "inbox", title: "Inbox", space: sp });
       }
     };
     window.addEventListener("keydown", onKey);
@@ -152,6 +166,9 @@ export default function PiecePoolApp() {
   // 활성 탭 → 현재 공간 컨텍스트(브레드크럼·트리·VaultSwitcher가 따라감)
   const activeTab = openTabs.find((t) => t.id === activeTabId) ?? null;
   const currentSpace = activeTab?.space || currentSpaceSlug || spaces[0]?.slug || "";
+  useEffect(() => {
+    currentSpaceRef.current = currentSpace;
+  }, [currentSpace]);
   const spaceName = spaces.find((s) => s.slug === currentSpace)?.name ?? "";
   const spaceNameOf = (slug: string) => spaces.find((s) => s.slug === slug)?.name ?? slug;
 
@@ -167,6 +184,8 @@ export default function PiecePoolApp() {
   const openInbox = (space: string) => openTab({ id: `inbox:${space}`, kind: "inbox", title: "Inbox", space });
   const openGraph = (space: string) => openTab({ id: `graph:${space}`, kind: "graph", title: "Graph", space });
   const openHome = () => openTab({ id: "home", kind: "home", title: "Study Home" });
+  // Obsidian식 새 탭 — 빈 페인(NewTabPane). id 는 매번 새로(여러 개 허용).
+  const openEmptyTab = () => openTab({ id: `empty:${Date.now().toString(36)}`, kind: "empty", title: "새 탭" });
   const selectSpace = (slug: string) => {
     setCurrentSpaceSlug(slug);
     const firstWiki = wikiBySlug[slug]?.[0];
@@ -707,11 +726,18 @@ export default function PiecePoolApp() {
   // 활성 탭 본문 렌더 (Obsidian pane)
   const renderActiveTab = () => {
     if (!activeTab) {
+      return <NewTabPane onCreate={() => openInbox(currentSpace)} onSwitch={() => setPaletteOpen(true)} />;
+    }
+    if (activeTab.kind === "empty") {
+      const id = activeTab.id;
       return (
-        <EmptyState
-          icon={<Icons.FileIcon size={28} />}
-          title="열린 노트가 없어요"
-          description="왼쪽 파일 트리에서 노트를 열거나, 리본의 '새 노트'로 시작하세요."
+        <NewTabPane
+          onCreate={() => {
+            closeTab(id);
+            openInbox(currentSpace);
+          }}
+          onSwitch={() => setPaletteOpen(true)}
+          onClose={() => closeTab(id)}
         />
       );
     }
@@ -780,16 +806,20 @@ export default function PiecePoolApp() {
     ? currentSpace || ""
     : activeTab.kind === "home"
       ? "Study Home"
-      : activeTab.kind === "wiki"
-        ? `${activeTab.space} / wiki / ${activeTab.file}`
-        : activeTab.kind === "archive"
-          ? `${activeTab.space} / archive / ${activeTab.file}`
-          : `${activeTab.space ?? currentSpace} / ${activeTab.kind}`;
+      : activeTab.kind === "empty"
+        ? "새 탭"
+        : activeTab.kind === "wiki"
+          ? `${activeTab.space} / wiki / ${activeTab.file}`
+          : activeTab.kind === "archive"
+            ? `${activeTab.space} / archive / ${activeTab.file}`
+            : `${activeTab.space ?? currentSpace} / ${activeTab.kind}`;
 
-  // TopBar breadcrumb
+  // 페인 헤더 breadcrumb
   const crumbs = ["PiecePool"];
   if (activeTab?.kind === "home") {
     crumbs.push("Study Home");
+  } else if (activeTab?.kind === "empty") {
+    crumbs.push("새 탭");
   } else if (activeTab) {
     if (spaceName || currentSpace) crumbs.push(spaceName || currentSpace);
     crumbs.push(KIND_LABEL[activeTab.kind]);
@@ -799,18 +829,56 @@ export default function PiecePoolApp() {
   }
   const cleanCrumbs = crumbs.filter(Boolean) as string[];
 
+  // 뒤로/앞으로 활성 여부 — 스택에 "지금 열려 있는" 다른 탭이 남아 있을 때만
+  const canBack = navBack.some((id) => id !== activeTabId && openTabs.some((t) => t.id === id));
+  const canForward = navForward.some((id) => id !== activeTabId && openTabs.some((t) => t.id === id));
+
+  // 페인 "…" 메뉴 — 활성 탭 기준(닫기 + wiki/archive 는 파일 액션)
+  const paneMenuItems = activeTab
+    ? [
+        { label: "탭 닫기", onClick: () => requestCloseTab(activeTab.id) },
+        ...(activeTab.kind === "wiki" || activeTab.kind === "archive"
+          ? [
+              {
+                label: "이름 변경…",
+                onClick: () =>
+                  setDialog({
+                    kind: activeTab.kind === "wiki" ? ("rename-wiki" as const) : ("rename-note" as const),
+                    space: activeTab.space ?? "",
+                    file: activeTab.file ?? "",
+                    title: activeTab.title,
+                  }),
+              },
+              {
+                label: "삭제…",
+                danger: true,
+                onClick: () =>
+                  setDialog({
+                    kind: activeTab.kind === "wiki" ? ("delete-wiki" as const) : ("delete-note" as const),
+                    space: activeTab.space ?? "",
+                    file: activeTab.file ?? "",
+                    title: activeTab.title,
+                  }),
+              },
+            ]
+          : []),
+      ]
+    : [];
+
   return (
     <div className="h-screen">
       <AppShell
         topBar={
-          <TopBar
-            showActions={false}
-            searchSlot={
-              <div className="flex min-w-0 items-center gap-3">
-                <VaultSwitcher spaces={spaces} currentSpace={currentSpace} onSpace={selectSpace} />
-                <Breadcrumb crumbs={cleanCrumbs} />
-              </div>
-            }
+          <TitlebarRow
+            tabs={openTabs}
+            activeId={activeTabId}
+            onSelect={setActiveTab}
+            onClose={requestCloseTab}
+            onReorder={reorderTab}
+            onNewTab={openEmptyTab}
+            onToggleFiles={toggleLeftPane}
+            filesOpen={!leftCollapsed}
+            onSearch={() => setPaletteOpen(true)}
           />
         }
         leftRibbon={
@@ -836,11 +904,12 @@ export default function PiecePoolApp() {
               onMoveNode={handleMoveNode}
               onDropFiles={handleDropFiles}
               onContextMenu={(id, x, y) => setMenu({ id, x, y })}
-              onAddFile={() => openInbox(currentSpace)}
               width={sidebarWidth}
               onResize={setSidebarWidth}
               onResizeReset={() => setSidebarWidth(SIDEBAR_DEFAULT)}
-              footer={<AccountFooter onSettings={openSettings} />}
+              headerSlot={<SidebarHeader title={workspace?.name ?? "PiecePool"} onSearch={() => setPaletteOpen(true)} onNewNote={() => openInbox(currentSpace)} />}
+              shortcutsSlot={<SidebarShortcuts onHome={openHome} onNew={() => openInbox(currentSpace)} />}
+              footer={<SidebarFooter spaces={spaces} currentSpace={currentSpace} onSpace={selectSpace} onSettings={openSettings} />}
             />
           )
         }
@@ -853,7 +922,15 @@ export default function PiecePoolApp() {
           </Card>
         )}
 
-        <TabStrip tabs={openTabs} activeId={activeTabId} onSelect={setActiveTab} onClose={requestCloseTab} onReorder={reorderTab} />
+        {/* 페인 헤더 — 뒤로/앞으로 · 위치 경로 · "…" 메뉴 */}
+        <PaneHeader
+          crumbs={cleanCrumbs}
+          canBack={canBack}
+          canForward={canForward}
+          onBack={goBack}
+          onForward={goForward}
+          onMenu={activeTab ? (x, y) => setPaneMenu({ x, y }) : undefined}
+        />
 
         <div className={fullBleed ? "min-h-0 flex-1 overflow-hidden" : "min-h-0 flex-1 overflow-y-auto p-6"}>
           {booting ? <p className="p-6 text-[15px] text-ink-muted">불러오는 중…</p> : renderActiveTab()}
@@ -864,6 +941,7 @@ export default function PiecePoolApp() {
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} workspacePath={workspace?.rootPath} />}
 
       {menu && menuItems.length > 0 && <ContextMenu x={menu.x} y={menu.y} items={menuItems} onClose={() => setMenu(null)} />}
+      {paneMenu && paneMenuItems.length > 0 && <ContextMenu x={paneMenu.x} y={paneMenu.y} items={paneMenuItems} onClose={() => setPaneMenu(null)} />}
 
       {dialog?.kind === "close-dirty" && (
         <ConfirmDialog

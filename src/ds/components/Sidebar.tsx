@@ -6,7 +6,8 @@ import { FileUpIcon, LogoutIcon } from "../icons";
 import { TreeNav } from "./TreeNav";
 import type { TreeNavProps, TreeNode } from "./TreeNav";
 
-// 좌측 사이드바: 로고 + 새 노트 + 파일 트리 + 푸터. onResize 지정 시 우측 엣지 드래그로 폭 조절.
+// 좌측 사이드바: 헤더 + 파일 트리 + 푸터. onResize 지정 시 우측 엣지 드래그로 폭 조절.
+// headerSlot/shortcutsSlot 미지정 시 기존 로고+새 노트 헤더(데모 화면 호환).
 export interface SidebarProps
   extends Pick<
     TreeNavProps,
@@ -16,6 +17,10 @@ export interface SidebarProps
   onAddFile?: () => void;
   onLogout?: () => void;
   footer?: ReactNode;
+  /** 상단 헤더 대체 슬롯(Obsidian식 타이틀+액션). 미지정 시 로고+새 노트. */
+  headerSlot?: ReactNode;
+  /** 헤더 아래 숏컷 행(홈·새 노트 등). */
+  shortcutsSlot?: ReactNode;
   /** px 단위 폭. 미지정 시 240px 고정. */
   width?: number;
   onResize?: (w: number) => void;
@@ -37,6 +42,8 @@ export function Sidebar({
   onAddFile,
   onLogout,
   footer,
+  headerSlot,
+  shortcutsSlot,
   width,
   onResize,
   onResizeReset,
@@ -66,17 +73,20 @@ export function Sidebar({
   return (
     <aside
       style={width !== undefined ? { width } : undefined}
-      className={cn("relative flex h-full shrink-0 flex-col border-r border-hairline bg-canvas", width === undefined && "w-60", className)}
+      className={cn("relative flex h-full shrink-0 flex-col border-r border-hairline bg-chrome", width === undefined && "w-60", className)}
     >
-      {/* 로고 + 새 노트 */}
-      <div className="flex items-center justify-between px-3 pt-3 pb-2">
-        <Logo markOnly className="px-1" size={18} />
-        {onAddFile && (
-          <IconButton size="sm" aria-label="새 노트" onClick={onAddFile}>
-            <FileUpIcon size={16} />
-          </IconButton>
-        )}
-      </div>
+      {/* 헤더 — 슬롯 미지정 시 기존 로고 + 새 노트 */}
+      {headerSlot ?? (
+        <div className="flex items-center justify-between px-3 pt-3 pb-2">
+          <Logo markOnly className="px-1" size={18} />
+          {onAddFile && (
+            <IconButton size="sm" aria-label="새 노트" onClick={onAddFile}>
+              <FileUpIcon size={16} />
+            </IconButton>
+          )}
+        </div>
+      )}
+      {shortcutsSlot}
 
       {/* 파일 트리 */}
       <nav className="flex-1 overflow-y-auto px-2 py-1">

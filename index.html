@@ -5,6 +5,21 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PiecePool</title>
+    <script>
+      // FOUC 가드: React 마운트 전에 data-theme 를 확정해 첫 페인트 번쩍임 방지.
+      // ThemeProvider(readInitialTheme)와 동일 규칙 — explicit 플래그가 있을 때만 저장값 존중.
+      (function () {
+        var t = "dark";
+        try {
+          if (localStorage.getItem("piecepool-theme-explicit") === "1") {
+            var s = localStorage.getItem("piecepool-theme");
+            if (s === "light" || s === "dark") t = s;
+          }
+        } catch (e) {}
+        document.documentElement.dataset.theme = t;
+        document.documentElement.style.backgroundColor = t === "dark" ? "#1e1e1e" : "#f6f5f4";
+      })();
+    </script>
   </head>
 
   <body>

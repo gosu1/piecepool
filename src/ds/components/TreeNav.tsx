@@ -84,6 +84,9 @@ export function TreeNav({
     const isExpanded = isExpandedOf(node.id);
     const isSelected = node.id === selectedId;
     const isDropTarget = isFolder && !!node.dropTarget && (!!onMoveNode || !!onDropFiles);
+    // md 외 확장자는 Obsidian 처럼 대문자 배지로 분리 표기 (현재 트리 라벨은 제목이라 대부분 무확장).
+    const extMatch = !isFolder ? node.label.match(/\.(\w+)$/) : null;
+    const ext = extMatch && extMatch[1].toLowerCase() !== "md" ? extMatch[1] : null;
 
     return (
       <div key={node.id}>
@@ -129,36 +132,39 @@ export function TreeNav({
                 }
               : undefined
           }
-          style={{ paddingLeft: depth * 14 + 8 }}
+          style={{ paddingLeft: depth * 12 + 6 }}
           className={cn(
-            "h-8 w-full rounded-sm flex items-center gap-1.5 text-[15px] pr-2 transition-colors",
+            "h-[26px] w-full rounded-[4px] flex items-center gap-1.5 text-[13px] pr-1.5 transition-colors",
             isSelected
-              ? "bg-surface-soft text-ink font-medium"
-              : "text-ink-muted hover:bg-surface-soft hover:text-ink",
+              ? "bg-surface-soft text-ink"
+              : "text-ink-muted hover:bg-surface-soft/70 hover:text-ink",
             dragOverId === node.id && "bg-primary/10 outline outline-1 outline-primary/50",
           )}
         >
           {isFolder ? (
             <>
               {isExpanded ? (
-                <ChevronDownIcon size={14} className="shrink-0 text-ink-faint" />
+                <ChevronDownIcon size={12} className="shrink-0 text-ink-faint" />
               ) : (
-                <ChevronRightIcon size={14} className="shrink-0 text-ink-faint" />
+                <ChevronRightIcon size={12} className="shrink-0 text-ink-faint" />
               )}
               {isExpanded ? (
-                <FolderOpenIcon size={15} className="shrink-0" />
+                <FolderOpenIcon size={14} className="shrink-0" />
               ) : (
-                <FolderIcon size={15} className="shrink-0" />
+                <FolderIcon size={14} className="shrink-0" />
               )}
             </>
           ) : (
             <>
               {/* chevron 자리 맞춤용 spacer */}
-              <span className="w-3.5 shrink-0" />
-              <FileIcon size={15} className="shrink-0" />
+              <span className="w-3 shrink-0" />
+              <FileIcon size={14} className="shrink-0" />
             </>
           )}
-          <span className="min-w-0 truncate">{node.label}</span>
+          <span className="min-w-0 truncate">{ext ? node.label.slice(0, -(ext.length + 1)) : node.label}</span>
+          {ext && (
+            <span className="ml-auto shrink-0 rounded-sm bg-fill-subtle px-1 text-[9px] font-semibold uppercase text-ink-faint">{ext}</span>
+          )}
         </button>
         {isFolder && isExpanded && node.children
           ? node.children.map((child) => renderNode(child, depth + 1))

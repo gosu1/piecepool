@@ -11,10 +11,10 @@ import type {
   SourceType,
 } from "./types";
 import { mock } from "./mockIpc";
+import { inTauri } from "./platform";
 
 // Tauri command 타입 래퍼. 백엔드 src-tauri/src/commands/* 와 1:1.
 // Tauri 안이면 실제 invoke, 브라우저(vite preview)면 mock 데이터로 폴백(UI 확인용).
-const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 const real = {
   getWorkspace: () => invoke<Workspace>("get_workspace"),

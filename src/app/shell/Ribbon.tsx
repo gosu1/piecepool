@@ -23,35 +23,35 @@ export function Ribbon({
   onSettings: () => void;
 }) {
   return (
-    <nav className="flex w-[52px] shrink-0 flex-col items-center gap-1 border-r border-hairline bg-surface py-3">
+    <nav className="flex w-[52px] shrink-0 flex-col items-center gap-1 border-r border-hairline bg-chrome py-3">
       {/* Study Home */}
       <RibbonButton label="Study Home" active={activeKind === "home"} onClick={onHome}>
-        <Icons.BarChartIcon size={20} />
+        <Icons.BarChartIcon size={18} />
       </RibbonButton>
 
       {/* 상단: 트리 토글 · 검색 */}
       <RibbonButton label="파일 트리" active={filesOpen} onClick={onToggleFiles}>
-        <Icons.PanelLeftIcon size={20} />
+        <Icons.PanelLeftIcon size={18} />
       </RibbonButton>
       <RibbonButton label="검색 (⌘K)" onClick={onSearch}>
-        <Icons.SearchIcon size={20} />
+        <Icons.SearchIcon size={18} />
       </RibbonButton>
 
       <Divider />
 
       {/* 액션: 새 노트 · 그래프 */}
       <RibbonButton label="새 노트 (Inbox)" active={activeKind === "inbox"} onClick={onCapture}>
-        <Icons.PlusIcon size={20} />
+        <Icons.PlusIcon size={18} />
       </RibbonButton>
       <RibbonButton label="Graph" active={activeKind === "graph"} onClick={onGraph}>
-        <Icons.GraphIcon size={20} />
+        <Icons.GraphIcon size={18} />
       </RibbonButton>
 
       <div className="flex-1" />
 
       {/* 하단: 설정 */}
       <RibbonButton label="설정" onClick={onSettings}>
-        <Icons.GearIcon size={20} />
+        <Icons.GearIcon size={18} />
       </RibbonButton>
     </nav>
   );
@@ -69,12 +69,11 @@ function RibbonButton({ label, active, onClick, children }: { label: string; act
       title={label}
       onClick={onClick}
       className={cn(
-        "relative flex h-10 w-10 items-center justify-center rounded-md transition-colors",
-        active ? "bg-surface-soft text-primary" : "text-ink-muted hover:bg-surface-soft hover:text-ink",
+        "relative flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
+        // Obsidian quiet chrome — 활성도 모노크롬(액센트 없음)
+        active ? "bg-fill-subtle text-ink" : "text-ink-muted hover:bg-fill-subtle hover:text-ink",
       )}
     >
-      {/* Obsidian식 왼쪽 accent 바 */}
-      {active && <span className="absolute -left-1 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-primary" />}
       {children}
     </button>
   );
