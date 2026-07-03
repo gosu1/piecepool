@@ -8,6 +8,7 @@ import { runPdfDigest } from "../../llm/pdfdigest";
 import { SlashBlockEditor } from "../../lib/SlashBlockEditor";
 import { Markdown } from "../../lib/markdown";
 import { FilePreview } from "../../lib/FilePreview";
+import { PdfViewer } from "../../lib/PdfViewer";
 import { getInboxView, setInboxView, type InboxView } from "../../lib/settings";
 
 // ══ Inbox 섹션 — 분할 캡처 뷰 ══
@@ -376,7 +377,22 @@ export function InboxSection({
     </section>
   );
 
+  // PDF 원문 텍스트를 에디터로 가져오기 — PdfViewer 툴바 버튼에서 호출
+  const extractToEditor = async () => {
+    setPdfJobs((n) => n + 1);
+    try {
+      const ext = await ipc.extractPdfText(space, refSource);
+      const text = ext.pages.map((p) => p.text).join("\n\n").trim();
+      setBody((b) => (b ? b + "\n\n" : "") + `![[${refSource}]]\n\n${text}`);
+    } catch {
+      setBody((b) => b + `\n\n> ${refSource} 텍스트 추출 실패`);
+    } finally {
+      setPdfJobs((n) => n - 1);
+    }
+  };
+
   // ── PDF 패널 (3-split 좌측) — 원본 자료 열람 + 추출 ──
+  const refSourceIsPdf = /\.pdf$/i.test(refSource);
   const pdfPane = (
     <section className="flex min-w-0 w-1/3 shrink-0 flex-col border-r border-hairline">
       <PaneHeader
@@ -393,40 +409,23 @@ export function InboxSection({
           </div>
         }
       />
-      <div className="min-h-0 flex-1 overflow-y-auto p-4">
-        {pdfBusy && <p className="mb-2 text-[13px] text-ink-muted">PDF 처리 중…</p>}
-        {refSource ? (
-          <FilePreview space={space} target={refSource} />
-        ) : (
-          <p className="pt-8 text-center text-[14px] text-ink-muted">
-            PDF를 업로드하면 여기서 보면서
-            <br />
-            가운데에 필기할 수 있어요.
-          </p>
-        )}
-      </div>
-      {refSource && /\.pdf$/i.test(refSource) && (
-        <div className="border-t border-hairline p-2">
-          <Button
-            size="sm"
-            variant="utility"
-            className="w-full"
-            disabled={pdfBusy}
-            onClick={async () => {
-              setPdfJobs((n) => n + 1);
-              try {
-                const ext = await ipc.extractPdfText(space, refSource);
-                const text = ext.pages.map((p) => p.text).join("\n\n").trim();
-                setBody((b) => (b ? b + "\n\n" : "") + `![[${refSource}]]\n\n${text}`);
-              } catch {
-                setBody((b) => b + `\n\n> ${refSource} 텍스트 추출 실패`);
-              } finally {
-                setPdfJobs((n) => n - 1);
-              }
-            }}
-          >
-            텍스트 추출 → 에디터
-          </Button>
+      {refSource && refSourceIsPdf ? (
+        <div className="flex min-h-0 flex-1 flex-col">
+          {pdfBusy && <p className="shrink-0 border-b border-hairline px-4 py-1.5 text-[13px] text-ink-muted">PDF 처리 중…</p>}
+          <PdfViewer space={space} file={refSource} onExtractText={extractToEditor} extractBusy={pdfBusy} />
+        </div>
+      ) : (
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          {pdfBusy && <p className="mb-2 text-[13px] text-ink-muted">PDF 처리 중…</p>}
+          {refSource ? (
+            <FilePreview space={space} target={refSource} />
+          ) : (
+            <p className="pt-8 text-center text-[14px] text-ink-muted">
+              PDF를 업로드하면 여기서 보면서
+              <br />
+              가운데에 필기할 수 있어요.
+            </p>
+          )}
         </div>
       )}
     </section>
@@ -515,7 +514,7 @@ export function InboxSection({
 
       {/* 업로드 팝업 — PDF 패널 헤더 버튼으로 열림 */}
       {uploadOpen && (
-        <div className="fixed inset-0 z-40 flex items-start justify-center bg-black/30 pt-[12vh]" onClick={() => setUploadOpen(false)}>
+        <div className="fixed inset-0 z-40 flex items-start justify-center bg-surface/60 backdrop-blur-md pt-[12vh]" onClick={() => setUploadOpen(false)}>
           <div className="w-full max-w-md rounded-xl border border-hairline bg-surface p-4 shadow-elevated" onClick={(e) => e.stopPropagation()}>
             <FileDropzone
               onFiles={(files) => {
