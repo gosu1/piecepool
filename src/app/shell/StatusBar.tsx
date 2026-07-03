@@ -44,7 +44,7 @@ export function StatusBar({ pathLabel, notice }: { pathLabel?: string; notice?: 
           : "bg-ink-faint";
 
   return (
-    <footer className="flex h-6 items-center gap-2 border-t border-hairline bg-surface px-3 text-[12px] text-ink-muted tabular-nums">
+    <footer className="flex h-6 items-center gap-2 border-t border-hairline bg-chrome px-3 text-[11px] text-ink-muted tabular-nums">
       {job && job.status !== "idle" && (
         <span className="flex items-center gap-1.5">
           <span className={cn("h-1.5 w-1.5 rounded-full", dot)} />
