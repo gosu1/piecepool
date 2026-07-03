@@ -59,6 +59,18 @@ pub fn read_file_bytes(space: String, file: String) -> Result<String, String> {
     Ok(storage::to_base64(&bytes))
 }
 
+/// 원본 파일 삭제 (sources/original-files/<file>). 없는 파일은 오류.
+/// 노트/위키 본문의 ![[임베드]] 는 건드리지 않는다 — 깨진 링크 처리는 뷰어 몫(자동 재작성 금지 계약).
+#[tauri::command]
+pub fn delete_source(space: String, file: String) -> Result<(), String> {
+    let path = storage::safe_join(
+        &storage::space_subdir(&space, "sources/original-files"),
+        &file,
+    )
+    .map_err(|e| e.to_string())?;
+    storage::remove_file(&path).map_err(|e| e.to_string())
+}
+
 /// base64 원본 파일을 <space>/sources/original-files/ 에 저장하고 최종 파일명을 반환.
 /// 파일명 정리: stem·확장자 모두 slugify(소문자 영숫자). 충돌 시 base-2.ext … 접미사.
 #[tauri::command]

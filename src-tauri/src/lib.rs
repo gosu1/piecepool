@@ -374,6 +374,22 @@ mod tests {
             "확장자 없는 파일명 거부"
         );
 
+        // 17) delete_source: 파일 제거 후 목록에서 사라짐, 없는 파일·경로 탈출 거부
+        commands::workspace::delete_source("operating-systems".into(), saved2.clone())
+            .expect("delete source");
+        let sources =
+            commands::workspace::list_sources("operating-systems".into()).expect("list sources");
+        assert!(!sources.contains(&saved2), "삭제된 원본은 목록에 없음");
+        assert!(
+            commands::workspace::delete_source("operating-systems".into(), saved2).is_err(),
+            "없는 파일 삭제는 오류"
+        );
+        assert!(
+            commands::workspace::delete_source("operating-systems".into(), "../evil.pdf".into())
+                .is_err(),
+            "경로 탈출 거부"
+        );
+
         let _ = std::fs::remove_dir_all(storage::workspace_root());
     }
 
@@ -525,6 +541,7 @@ pub fn run() {
             commands::workspace::extract_pdf_text,
             commands::workspace::read_file_bytes,
             commands::workspace::save_source_file,
+            commands::workspace::delete_source,
             commands::notes::list_notes,
             commands::notes::list_source_types,
             commands::notes::read_note,

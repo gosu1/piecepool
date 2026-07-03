@@ -6,6 +6,7 @@ import { useImportStore } from "../../store/importStore";
 import { runImageOcr } from "../../llm/ocr";
 import { runPdfDigest } from "../../llm/pdfdigest";
 import { SlashBlockEditor } from "../../lib/SlashBlockEditor";
+import { ConfirmDialog } from "../shell/Dialogs";
 import { Markdown } from "../../lib/markdown";
 import { FilePreview } from "../../lib/FilePreview";
 import { PdfViewer } from "../../lib/PdfViewer";
@@ -97,6 +98,18 @@ export function InboxSection({
   const [pdfJobs, setPdfJobs] = useState(0);
   const pdfBusy = pdfJobs > 0;
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [confirmDelSrc, setConfirmDelSrc] = useState(false);
+  const [srcErr, setSrcErr] = useState<string | null>(null);
+  const deleteSource = async () => {
+    setConfirmDelSrc(false);
+    setSrcErr(null);
+    try {
+      await ipc.deleteSource(space, refSource);
+      await loadSources(); // refSource 는 loadSources 가 목록 기준으로 재보정
+    } catch (e) {
+      setSrcErr(String(e));
+    }
+  };
 
   // ── 패널 폭 드래그 리사이즈 (Sidebar 패턴, % 기반) ──
   const splitRef = useRef<HTMLDivElement>(null);
@@ -410,12 +423,18 @@ export function InboxSection({
             {sources.length > 0 && (
               <PaneSelect value={refSource} onChange={setRefSource} options={sources.map((s) => ({ value: s, label: s }))} />
             )}
+            {refSource && (
+              <Button size="sm" variant="utility" onClick={() => setConfirmDelSrc(true)}>
+                삭제
+              </Button>
+            )}
             <Button size="sm" variant="utility" onClick={() => setUploadOpen(true)}>
               업로드
             </Button>
           </div>
         }
       />
+      {srcErr && <p className="shrink-0 border-b border-hairline px-4 py-1.5 text-[13px] text-danger">원본 삭제 실패: {srcErr}</p>}
       {refSource && refSourceIsPdf ? (
         <div className="flex min-h-0 flex-1 flex-col">
           {pdfBusy && <p className="shrink-0 border-b border-hairline px-4 py-1.5 text-[13px] text-ink-muted">PDF 처리 중…</p>}
@@ -549,6 +568,18 @@ export function InboxSection({
         <PaneDivider onPointerDown={startPaneDrag("right", -1)} onDoubleClick={() => resetPane("right")} />
         {renderContentPanel("p2")}
       </div>
+
+      {/* 원본 파일 삭제 확인 */}
+      {confirmDelSrc && (
+        <ConfirmDialog
+          title={`"${refSource}" 삭제`}
+          message="원본 파일이 삭제됩니다. 노트에 남은 ![[임베드]]는 깨진 링크로 표시돼요. 되돌릴 수 없어요."
+          confirmLabel="삭제"
+          danger
+          onConfirm={deleteSource}
+          onCancel={() => setConfirmDelSrc(false)}
+        />
+      )}
 
       {/* 업로드 팝업 — 새 노트/PDF 패널 헤더 버튼으로 열림 */}
       {uploadOpen && (
