@@ -6,7 +6,7 @@ import { persist } from "zustand/middleware";
 // useImportStore 단일 소유(두 스토어 드리프트 방지). 순수 뷰 상태라 백엔드/계약 무관.
 // localStorage persist — 재시작 시 열린 탭·활성 탭·사이드바 상태 복원(수용기준 §1).
 
-export type TabKind = "home" | "wiki" | "archive" | "inbox" | "graph";
+export type TabKind = "home" | "wiki" | "archive" | "inbox" | "graph" | "empty";
 
 export interface WorkspaceTab {
   id: string; // 안정 식별자. 예: "home" · "wiki:operating-systems:paging.md"
@@ -27,6 +27,9 @@ interface WorkspaceState {
   leftCollapsed: boolean;
   sidebarWidth: number;
   collapsedTreeIds: string[]; // 기본 전체 펼침 — 사용자가 접은 폴더만 기억
+  // 탭 활성화 히스토리(세션 전용, persist 제외) — 뒤로/앞으로. 닫힌 탭 id 는 pop 시 건너뛴다.
+  navBack: string[];
+  navForward: string[];
 
   openTab: (tab: WorkspaceTab) => void;
   closeTab: (id: string) => void;
@@ -34,10 +37,15 @@ interface WorkspaceState {
   setTabDirty: (id: string, dirty: boolean) => void;
   renameTab: (id: string, title: string) => void;
   reorderTab: (dragId: string, targetId: string) => void;
+  goBack: () => void;
+  goForward: () => void;
   toggleLeftPane: () => void;
   setSidebarWidth: (w: number) => void;
   toggleTreeNode: (id: string) => void;
 }
+
+const NAV_CAP = 50;
+const pushNav = (stack: string[], id: string) => [...stack, id].slice(-NAV_CAP);
 
 export const useWorkspaceStore = create<WorkspaceState>()(
   persist(
@@ -47,13 +55,20 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       leftCollapsed: false,
       sidebarWidth: SIDEBAR_DEFAULT,
       collapsedTreeIds: [],
+      navBack: [],
+      navForward: [],
 
-      // 이미 열린 탭이면 활성화만, 아니면 추가 후 활성화
+      // 이미 열린 탭이면 활성화만, 아니면 추가 후 활성화. 활성 탭이 바뀌면 히스토리 기록.
       openTab: (tab) =>
-        set((s) => ({
-          openTabs: s.openTabs.some((t) => t.id === tab.id) ? s.openTabs : [...s.openTabs, tab],
-          activeTabId: tab.id,
-        })),
+        set((s) => {
+          const changed = s.activeTabId !== null && s.activeTabId !== tab.id;
+          return {
+            openTabs: s.openTabs.some((t) => t.id === tab.id) ? s.openTabs : [...s.openTabs, tab],
+            activeTabId: tab.id,
+            navBack: changed ? pushNav(s.navBack, s.activeTabId!) : s.navBack,
+            navForward: changed ? [] : s.navForward,
+          };
+        }),
 
       // 닫은 탭이 활성이면 이웃 탭으로 활성 이동(오른쪽 우선, 없으면 왼쪽)
       closeTab: (id) =>
@@ -69,13 +84,60 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           return { openTabs, activeTabId };
         }),
 
-      setActiveTab: (id) => set({ activeTabId: id }),
+      setActiveTab: (id) =>
+        set((s) => {
+          if (s.activeTabId === id) return s;
+          return {
+            activeTabId: id,
+            navBack: s.activeTabId ? pushNav(s.navBack, s.activeTabId) : s.navBack,
+            navForward: [],
+          };
+        }),
 
       setTabDirty: (id, dirty) =>
         set((s) => ({ openTabs: s.openTabs.map((t) => (t.id === id ? { ...t, dirty } : t)) })),
 
       renameTab: (id, title) =>
         set((s) => ({ openTabs: s.openTabs.map((t) => (t.id === id ? { ...t, title } : t)) })),
+
+      // 뒤로/앞으로 — 열려 있지 않은(닫힌) id 는 건너뛰며 pop. 이동 자체는 히스토리에 기록하지 않는다.
+      goBack: () =>
+        set((s) => {
+          const back = [...s.navBack];
+          let target: string | null = null;
+          while (back.length) {
+            const id = back.pop()!;
+            if (id !== s.activeTabId && s.openTabs.some((t) => t.id === id)) {
+              target = id;
+              break;
+            }
+          }
+          if (!target) return { navBack: back };
+          return {
+            navBack: back,
+            navForward: s.activeTabId ? pushNav(s.navForward, s.activeTabId) : s.navForward,
+            activeTabId: target,
+          };
+        }),
+
+      goForward: () =>
+        set((s) => {
+          const fwd = [...s.navForward];
+          let target: string | null = null;
+          while (fwd.length) {
+            const id = fwd.pop()!;
+            if (id !== s.activeTabId && s.openTabs.some((t) => t.id === id)) {
+              target = id;
+              break;
+            }
+          }
+          if (!target) return { navForward: fwd };
+          return {
+            navForward: fwd,
+            navBack: s.activeTabId ? pushNav(s.navBack, s.activeTabId) : s.navBack,
+            activeTabId: target,
+          };
+        }),
 
       // 드래그 재정렬 — dragId 탭을 targetId 위치로 이동(target 앞에 삽입)
       reorderTab: (dragId, targetId) =>
@@ -104,6 +166,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     {
       name: "pp-workspace",
       // dirty 는 세션 상태(드래프트가 메모리에만 있음) — 복원 시 항상 false 로 되돌린다.
+      // navBack/navForward 도 세션 전용(미포함) — 재시작 후 stale 탭 id 문제를 원천 차단.
       partialize: (s) => ({
         openTabs: s.openTabs.map(({ dirty: _d, ...t }) => t),
         activeTabId: s.activeTabId,
