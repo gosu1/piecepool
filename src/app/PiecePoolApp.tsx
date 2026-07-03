@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AppShell, TopBar, Sidebar, Card, EmptyState, Icons } from "../ds";
+import { AppShell, Sidebar, Card, EmptyState, Icons } from "../ds";
 import type { TreeNode } from "../ds";
 import type { KnowledgeSpace, WikiPage as WikiPageT, ArchiveNote, GraphData, Workspace } from "../lib/types";
 import * as ipc from "../lib/ipc";
@@ -19,13 +19,12 @@ import { GraphSection } from "./panes/GraphSection";
 import { InboxSection } from "./panes/InboxSection";
 import { StudyHome } from "./panes/StudyHome";
 import { Ribbon } from "./shell/Ribbon";
-import { VaultSwitcher } from "./shell/VaultSwitcher";
 import { Breadcrumb } from "./shell/Breadcrumb";
 import { StatusBar } from "./shell/StatusBar";
-import { TabStrip } from "./shell/TabStrip";
+import { TitlebarRow } from "./shell/TitlebarRow";
+import { SidebarHeader, SidebarShortcuts, SidebarFooter } from "./shell/SidebarChrome";
 import { SearchPalette } from "./shell/SearchPalette";
 import { SettingsModal } from "./shell/SettingsModal";
-import { AccountFooter } from "./shell/AccountFooter";
 import { ContextMenu, ConfirmDialog, PromptDialog } from "./shell/Dialogs";
 import { useWorkspaceStore, SIDEBAR_DEFAULT } from "../store/workspaceStore";
 import type { TabKind } from "../store/workspaceStore";
@@ -786,7 +785,7 @@ export default function PiecePoolApp() {
           ? `${activeTab.space} / archive / ${activeTab.file}`
           : `${activeTab.space ?? currentSpace} / ${activeTab.kind}`;
 
-  // TopBar breadcrumb
+  // 페인 헤더 breadcrumb
   const crumbs = ["PiecePool"];
   if (activeTab?.kind === "home") {
     crumbs.push("Study Home");
@@ -803,14 +802,16 @@ export default function PiecePoolApp() {
     <div className="h-screen">
       <AppShell
         topBar={
-          <TopBar
-            showActions={false}
-            searchSlot={
-              <div className="flex min-w-0 items-center gap-3">
-                <VaultSwitcher spaces={spaces} currentSpace={currentSpace} onSpace={selectSpace} />
-                <Breadcrumb crumbs={cleanCrumbs} />
-              </div>
-            }
+          <TitlebarRow
+            tabs={openTabs}
+            activeId={activeTabId}
+            onSelect={setActiveTab}
+            onClose={requestCloseTab}
+            onReorder={reorderTab}
+            onNewTab={() => openInbox(currentSpace)}
+            onToggleFiles={toggleLeftPane}
+            filesOpen={!leftCollapsed}
+            onSearch={() => setPaletteOpen(true)}
           />
         }
         leftRibbon={
@@ -836,11 +837,12 @@ export default function PiecePoolApp() {
               onMoveNode={handleMoveNode}
               onDropFiles={handleDropFiles}
               onContextMenu={(id, x, y) => setMenu({ id, x, y })}
-              onAddFile={() => openInbox(currentSpace)}
               width={sidebarWidth}
               onResize={setSidebarWidth}
               onResizeReset={() => setSidebarWidth(SIDEBAR_DEFAULT)}
-              footer={<AccountFooter onSettings={openSettings} />}
+              headerSlot={<SidebarHeader title={workspace?.name ?? "PiecePool"} onSearch={() => setPaletteOpen(true)} onNewNote={() => openInbox(currentSpace)} />}
+              shortcutsSlot={<SidebarShortcuts onHome={openHome} onNew={() => openInbox(currentSpace)} />}
+              footer={<SidebarFooter spaces={spaces} currentSpace={currentSpace} onSpace={selectSpace} onSettings={openSettings} />}
             />
           )
         }
@@ -853,7 +855,10 @@ export default function PiecePoolApp() {
           </Card>
         )}
 
-        <TabStrip tabs={openTabs} activeId={activeTabId} onSelect={setActiveTab} onClose={requestCloseTab} onReorder={reorderTab} />
+        {/* 페인 헤더 — 위치 경로 (C6에서 뒤로/앞으로·… 메뉴로 확장) */}
+        <div className="flex h-9 shrink-0 items-center justify-center border-b border-hairline px-3">
+          <Breadcrumb crumbs={cleanCrumbs} />
+        </div>
 
         <div className={fullBleed ? "min-h-0 flex-1 overflow-hidden" : "min-h-0 flex-1 overflow-y-auto p-6"}>
           {booting ? <p className="p-6 text-[15px] text-ink-muted">불러오는 중…</p> : renderActiveTab()}
