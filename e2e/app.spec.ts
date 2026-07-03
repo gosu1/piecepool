@@ -95,9 +95,20 @@ test("트리 컨텍스트 메뉴 — 원본 이름 변경", async ({ page }) => 
 });
 
 test("설정 모달 — API 키 + 테마 설정", async ({ page }) => {
-  await page.getByRole("button", { name: /Admin/ }).click();
-  // 리본의 설정 아이콘과 구분 — 계정 팝오버(사이드바) 내부의 설정 항목
+  // 리본의 설정 아이콘과 구분 — 사이드바 하단 볼트바의 설정 기어
   await page.getByRole("complementary").getByRole("button", { name: "설정", exact: true }).click();
   await expect(page.getByText("OpenAI API Key")).toBeVisible();
   await expect(page.getByText("테마")).toBeVisible();
+});
+
+test("새 탭(+) → Obsidian식 빈 탭 — 파일로 이동/닫기", async ({ page }) => {
+  await page.getByRole("button", { name: "새 탭" }).click();
+  await expect(page.getByRole("button", { name: "새 파일 생성하기 (⌘N)" })).toBeVisible();
+  // 파일로 이동 → 검색 팔레트
+  await page.getByRole("button", { name: "파일로 이동하기 (⌘O)" }).click();
+  await expect(page.getByPlaceholder(/검색/)).toBeVisible();
+  await page.keyboard.press("Escape");
+  // 닫기 → 빈 탭이 닫히고 이전 탭으로 복귀
+  await page.getByRole("button", { name: "닫기", exact: true }).click();
+  await expect(page.getByRole("button", { name: "새 파일 생성하기 (⌘N)" })).not.toBeVisible();
 });

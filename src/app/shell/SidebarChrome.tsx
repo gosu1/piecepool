@@ -28,7 +28,8 @@ export function SidebarShortcuts({ onHome, onNew }: { onHome: () => void; onNew:
       <IconButton size="sm" aria-label="Study Home" onClick={onHome}>
         <Icons.HomeIcon size={15} />
       </IconButton>
-      <IconButton size="sm" aria-label="새 노트 (Inbox)" onClick={onNew}>
+      {/* 리본의 "새 노트 (Inbox)" 와 라벨 중복 금지 — e2e strict mode */}
+      <IconButton size="sm" aria-label="새 노트 추가" onClick={onNew}>
         <Icons.PlusIcon size={15} />
       </IconButton>
     </div>
