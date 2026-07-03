@@ -13,21 +13,20 @@ import { PdfViewer } from "../../lib/PdfViewer";
 import {
   getInboxView,
   setInboxView,
-  getInboxPanelTabs,
-  setInboxPanelTab,
   getInboxPaneWidths,
   setInboxPaneWidth,
   clampPanePct,
   INBOX_PANE_DEFAULTS,
   type InboxView,
-  type InboxTabKey,
-  type InboxPanelId,
   type InboxPaneKey,
 } from "../../lib/settings";
 
 // ══ Inbox 섹션 — 자료 + 콘텐츠 패널 워크스페이스 ══
 // 레이아웃은 2패널(노트|위키) ↔ 3패널(PDF|노트|위키) 선택. PDF 업로드 시 자동 3패널.
 // 콘텐츠 패널(p1·p2)은 상단 [노트|위키] 탭으로 표시 내용을 전환한다.
+// 전환은 세션 한정 — 저장하지 않는다. Inbox 를 열면 항상 노트|위키 기본으로 시작(새 노트가 바로 보이게).
+type InboxTabKey = "note" | "wiki";
+type InboxPanelId = "p1" | "p2";
 const INBOX_TAB_DEFS: { key: InboxTabKey; label: string }[] = [
   { key: "note", label: "노트" },
   { key: "wiki", label: "위키" },
@@ -75,9 +74,8 @@ export function InboxSection({
     setInboxView(v);
     setView(v);
   };
-  const [panelTabs, setPanelTabs] = useState(getInboxPanelTabs());
+  const [panelTabs, setPanelTabs] = useState<Record<InboxPanelId, InboxTabKey>>({ p1: "note", p2: "wiki" });
   const switchPanel = (pid: InboxPanelId, tab: InboxTabKey) => {
-    setInboxPanelTab(pid, tab);
     setPanelTabs((s) => ({ ...s, [pid]: tab }));
   };
 

@@ -6,8 +6,6 @@ import {
   chunkOpts,
   getInboxView,
   setInboxView,
-  getInboxPanelTabs,
-  setInboxPanelTab,
   getInboxPaneWidths,
   setInboxPaneWidth,
   clampPanePct,
@@ -73,15 +71,6 @@ describe("chunk settings", () => {
     expect(getInboxView()).toBe("2");
     localStorage.setItem("inbox-view", "junk");
     expect(getInboxView()).toBe("2");
-  });
-
-  it("inbox 패널 콘텐츠 — 기본 p1=노트/p2=위키, 저장·복원, 무효 값 폴백", () => {
-    expect(getInboxPanelTabs()).toEqual({ p1: "note", p2: "wiki" });
-    setInboxPanelTab("p1", "wiki");
-    setInboxPanelTab("p2", "note");
-    expect(getInboxPanelTabs()).toEqual({ p1: "wiki", p2: "note" });
-    localStorage.setItem("inbox-p1", "junk");
-    expect(getInboxPanelTabs().p1).toBe("note");
   });
 
   it("inbox 패널 폭 — 기본값, 저장·클램프(15~70), 무효 값 폴백", () => {

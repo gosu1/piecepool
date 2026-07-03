@@ -70,24 +70,6 @@ export function setInboxView(v: InboxView): void {
   ls()?.setItem(INBOX_VIEW_KEY, v);
 }
 
-// ── Inbox 콘텐츠 패널이 표시할 내용 (p1 = 가운데, p2 = 우측) ──
-// 각 패널 상단의 [노트|위키] 탭으로 전환한다.
-export type InboxTabKey = "note" | "wiki";
-export type InboxPanelId = "p1" | "p2";
-
-export function getInboxPanelTabs(): Record<InboxPanelId, InboxTabKey> {
-  const store = ls();
-  const read = (key: string, def: InboxTabKey): InboxTabKey => {
-    const v = store?.getItem(key);
-    return v === "note" || v === "wiki" ? v : def;
-  };
-  return { p1: read("inbox-p1", "note"), p2: read("inbox-p2", "wiki") };
-}
-
-export function setInboxPanelTab(panel: InboxPanelId, tab: InboxTabKey): void {
-  ls()?.setItem(`inbox-${panel}`, tab);
-}
-
 // ── Inbox 패널 폭 (드래그 리사이즈, % 단위) ──
 // pdf = 좌측(PDF), right = 우측 콘텐츠 패널(p2). 가운데(p1)가 나머지를 채운다.
 export type InboxPaneKey = "pdf" | "right";
