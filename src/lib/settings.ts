@@ -69,3 +69,26 @@ export function getInboxView(): InboxView {
 export function setInboxView(v: InboxView): void {
   ls()?.setItem(INBOX_VIEW_KEY, v);
 }
+
+// ── Inbox 패널 폭 (드래그 리사이즈, % 단위) ──
+// note = 2분할 좌측(NOTE), pdf = 3분할 좌측(PDF), wiki = 3분할 우측(Wiki). 가운데 작성 패널이 나머지를 채운다.
+export type InboxPaneKey = "note" | "pdf" | "wiki";
+export const INBOX_PANE_DEFAULTS: Record<InboxPaneKey, number> = { note: 46, pdf: 33, wiki: 28 };
+
+export function clampPanePct(pct: number): number {
+  return Math.min(70, Math.max(15, pct));
+}
+
+export function getInboxPaneWidths(): Record<InboxPaneKey, number> {
+  const store = ls();
+  const out = { ...INBOX_PANE_DEFAULTS };
+  (Object.keys(out) as InboxPaneKey[]).forEach((k) => {
+    const v = Number(store?.getItem(`inbox-pane-${k}`));
+    if (Number.isFinite(v) && v > 0) out[k] = clampPanePct(v);
+  });
+  return out;
+}
+
+export function setInboxPaneWidth(key: InboxPaneKey, pct: number): void {
+  ls()?.setItem(`inbox-pane-${key}`, String(Math.round(clampPanePct(pct) * 10) / 10));
+}

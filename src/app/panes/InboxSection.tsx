@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, FileDropzone, cn } from "../../ds";
 import type { WikiPage as WikiPageT, ArchiveNote } from "../../lib/types";
 import * as ipc from "../../lib/ipc";
@@ -9,7 +9,16 @@ import { SlashBlockEditor } from "../../lib/SlashBlockEditor";
 import { Markdown } from "../../lib/markdown";
 import { FilePreview } from "../../lib/FilePreview";
 import { PdfViewer } from "../../lib/PdfViewer";
-import { getInboxView, setInboxView, type InboxView } from "../../lib/settings";
+import {
+  getInboxView,
+  setInboxView,
+  getInboxPaneWidths,
+  setInboxPaneWidth,
+  clampPanePct,
+  INBOX_PANE_DEFAULTS,
+  type InboxView,
+  type InboxPaneKey,
+} from "../../lib/settings";
 
 // ══ Inbox 섹션 — 분할 캡처 뷰 ══
 // 2-split: NOTE(기존 원본 열람) | 새 페이지(작성)
@@ -80,6 +89,37 @@ export function InboxSection({
   const pdfBusy = pdfJobs > 0;
   const [uploadOpen, setUploadOpen] = useState(false);
 
+  // ── 패널 폭 드래그 리사이즈 (Sidebar 패턴, % 기반) ──
+  const splitRef = useRef<HTMLDivElement>(null);
+  const [paneW, setPaneW] = useState(getInboxPaneWidths());
+  // dir: 1 = 좌측 패널(오른쪽 드래그 → 커짐), -1 = 우측 패널(왼쪽 드래그 → 커짐)
+  const startPaneDrag = (key: InboxPaneKey, dir: 1 | -1) => (e: React.PointerEvent) => {
+    const total = splitRef.current?.clientWidth;
+    if (!total) return;
+    e.preventDefault();
+    const startX = e.clientX;
+    const startPct = paneW[key];
+    const prevSelect = document.body.style.userSelect;
+    const prevCursor = document.body.style.cursor;
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "col-resize";
+    const pctAt = (clientX: number) => clampPanePct(startPct + ((clientX - startX) / total) * 100 * dir);
+    const onMove = (ev: PointerEvent) => setPaneW((w) => ({ ...w, [key]: pctAt(ev.clientX) }));
+    const onUp = (ev: PointerEvent) => {
+      setInboxPaneWidth(key, pctAt(ev.clientX));
+      document.body.style.userSelect = prevSelect;
+      document.body.style.cursor = prevCursor;
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
+  const resetPane = (key: InboxPaneKey) => {
+    setPaneW((w) => ({ ...w, [key]: INBOX_PANE_DEFAULTS[key] }));
+    setInboxPaneWidth(key, INBOX_PANE_DEFAULTS[key]);
+  };
+
   useEffect(() => {
     if (!uploadOpen) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setUploadOpen(false);
@@ -112,6 +152,8 @@ export function InboxSection({
       const stored = await ipc.saveSourceFile(space, f.name, await fileToBase64(f));
       await loadSources();
       setRefSource(stored);
+      // 2분할에서 올려도 PDF 를 볼 공간이 생기게 3분할로 전환
+      if (view !== "3") changeView("3");
       setTitle((t) => t || f.name.replace(/\.[^.]+$/, ""));
       try {
         const ext = await ipc.extractPdfText(space, stored);
@@ -217,7 +259,15 @@ export function InboxSection({
   // ── 작성 패널 (공통) ──
   const composePane = (
     <section className="flex min-w-0 flex-1 flex-col">
-      <PaneHeader label="새 페이지" hint="자료 → 원본(archive) 저장 → (선택) AI 위키·관계 생성" />
+      <PaneHeader
+        label="새 노트"
+        hint="자료 → 원본(archive) 저장 → (선택) AI 위키·관계 생성"
+        right={
+          <Button size="sm" variant="utility" onClick={() => setUploadOpen(true)}>
+            업로드
+          </Button>
+        }
+      />
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
         <input
           value={title}
@@ -336,7 +386,7 @@ export function InboxSection({
 
   // ── NOTE 패널 (2-split 좌측) — 저장된 원본 열람 ──
   const notePane = (
-    <section className="flex min-w-0 w-[46%] shrink-0 flex-col border-r border-hairline">
+    <section style={{ width: `${paneW.note}%` }} className="flex min-w-0 shrink-0 flex-col border-r border-hairline">
       <PaneHeader
         label="NOTE"
         hint={`저장된 원본 ${notes.length}개`}
@@ -394,7 +444,7 @@ export function InboxSection({
   // ── PDF 패널 (3-split 좌측) — 원본 자료 열람 + 추출 ──
   const refSourceIsPdf = /\.pdf$/i.test(refSource);
   const pdfPane = (
-    <section className="flex min-w-0 w-1/3 shrink-0 flex-col border-r border-hairline">
+    <section style={{ width: `${paneW.pdf}%` }} className="flex min-w-0 shrink-0 flex-col border-r border-hairline">
       <PaneHeader
         label="PDF"
         hint={sources.length > 0 ? `원본 파일 ${sources.length}개` : "원본 파일 없음"}
@@ -433,7 +483,7 @@ export function InboxSection({
 
   // ── Wiki 패널 (3-split 우측) — 생성된 위키 참조 ──
   const wikiPane = (
-    <section className="flex min-w-0 w-[28%] shrink-0 flex-col border-l border-hairline">
+    <section style={{ width: `${paneW.wiki}%` }} className="flex min-w-0 shrink-0 flex-col border-l border-hairline">
       <PaneHeader
         label="WIKI"
         hint={existing.length > 0 ? `위키 ${existing.length}개` : "위키 없음"}
@@ -496,23 +546,26 @@ export function InboxSection({
         </div>
       </header>
 
-      {/* 분할 본문 */}
-      <div className="flex min-h-0 flex-1">
+      {/* 분할 본문 — 패널 사이 디바이더로 폭 조절(더블클릭 = 초기화) */}
+      <div ref={splitRef} className="flex min-h-0 flex-1">
         {view === "2" ? (
           <>
             {notePane}
+            <PaneDivider onPointerDown={startPaneDrag("note", 1)} onDoubleClick={() => resetPane("note")} />
             {composePane}
           </>
         ) : (
           <>
             {pdfPane}
+            <PaneDivider onPointerDown={startPaneDrag("pdf", 1)} onDoubleClick={() => resetPane("pdf")} />
             {composePane}
+            <PaneDivider onPointerDown={startPaneDrag("wiki", -1)} onDoubleClick={() => resetPane("wiki")} />
             {wikiPane}
           </>
         )}
       </div>
 
-      {/* 업로드 팝업 — PDF 패널 헤더 버튼으로 열림 */}
+      {/* 업로드 팝업 — 새 노트/PDF 패널 헤더 버튼으로 열림 */}
       {uploadOpen && (
         <div className="fixed inset-0 z-40 flex items-start justify-center bg-surface/60 backdrop-blur-md pt-[12vh]" onClick={() => setUploadOpen(false)}>
           <div className="w-full max-w-md rounded-xl border border-hairline bg-surface p-4 shadow-elevated" onClick={(e) => e.stopPropagation()}>
@@ -540,6 +593,20 @@ function PaneHeader({ label, hint, right }: { label: string; hint?: string; righ
       </p>
       {right}
     </div>
+  );
+}
+
+// 패널 사이 세로 디바이더 — 이웃 패널의 border 위에 겹쳐(-mx) 드래그 히트 영역만 넓힌다.
+function PaneDivider({ onPointerDown, onDoubleClick }: { onPointerDown: (e: React.PointerEvent) => void; onDoubleClick: () => void }) {
+  return (
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="패널 폭 조절"
+      onPointerDown={onPointerDown}
+      onDoubleClick={onDoubleClick}
+      className="z-10 -mx-[3px] w-[6px] shrink-0 cursor-col-resize transition-colors hover:bg-primary/30 active:bg-primary/40"
+    />
   );
 }
 
