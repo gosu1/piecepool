@@ -101,14 +101,9 @@ test("설정 모달 — API 키 + 테마 설정", async ({ page }) => {
   await expect(page.getByText("테마")).toBeVisible();
 });
 
-test("새 탭(+) → Obsidian식 빈 탭 — 파일로 이동/닫기", async ({ page }) => {
+test("새 탭(+) → '제목 없음' 노트 생성 후 편집 탭으로 열림", async ({ page }) => {
   await page.getByRole("button", { name: "새 탭" }).click();
-  await expect(page.getByRole("button", { name: "새 파일 생성하기 (⌘N)" })).toBeVisible();
-  // 파일로 이동 → 검색 팔레트
-  await page.getByRole("button", { name: "파일로 이동하기 (⌘O)" }).click();
-  await expect(page.getByPlaceholder(/검색/)).toBeVisible();
-  await page.keyboard.press("Escape");
-  // 닫기 → 빈 탭이 닫히고 이전 탭으로 복귀
-  await page.getByRole("button", { name: "닫기", exact: true }).click();
-  await expect(page.getByRole("button", { name: "새 파일 생성하기 (⌘N)" })).not.toBeVisible();
+  // 새 노트가 만들어지고 편집 탭 활성 + 트리에도 등장
+  await expect(page.getByRole("tab", { name: /제목 없음/ })).toBeVisible();
+  await expect(page.getByRole("complementary").getByRole("button", { name: "제목 없음" })).toBeVisible();
 });
