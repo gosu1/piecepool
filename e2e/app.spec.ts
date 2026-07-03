@@ -54,17 +54,21 @@ test("Import 머신 — Inbox 저장 후 완료 파이프라인", async ({ page 
   await expect(page.getByText("완료", { exact: false }).first()).toBeVisible();
 });
 
-test("Inbox 패널 토글 — 기본 에디터 단독, PDF·Wiki 패널 여닫기", async ({ page }) => {
+test("Inbox 탭 패널 — 기본 노트 탭, PDF 패널 토글, 탭 추가/닫기", async ({ page }) => {
   await page.getByRole("button", { name: "새 노트 (Inbox)" }).click();
-  // 기본: 중앙 새 노트 에디터만, 좌우 패널 닫힘
-  await expect(page.getByText("새 노트", { exact: true })).toBeVisible();
+  // 기본: 노트 탭 하나 (제목 입력 보임), PDF 패널 닫힘
+  await expect(page.getByPlaceholder("제목")).toBeVisible();
   await expect(page.getByText("PDF", { exact: true })).not.toBeVisible();
+  // PDF 패널 토글
   await page.getByRole("button", { name: "PDF 패널" }).click();
   await expect(page.getByText("PDF", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Wiki 패널" }).click();
-  await expect(page.getByText("WIKI", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "PDF 패널" }).click();
-  await expect(page.getByText("PDF", { exact: true })).not.toBeVisible();
+  // + 로 Wiki 탭 추가 → 탭 스트립에 이어짐
+  await page.getByRole("button", { name: "탭 추가" }).click();
+  await page.getByRole("button", { name: "Wiki", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Wiki 탭 닫기" })).toBeVisible();
+  // 노트 탭 닫기 → 에디터 사라지고 노트 탭만 제거됨
+  await page.getByRole("button", { name: "노트 탭 닫기" }).click();
+  await expect(page.getByPlaceholder("제목")).not.toBeVisible();
 });
 
 test("사이드바 리사이즈 — 핸들 드래그로 폭 변경", async ({ page }) => {

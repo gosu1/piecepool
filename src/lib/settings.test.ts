@@ -4,8 +4,10 @@ import {
   setChunkEnabled,
   setChunkPercentile,
   chunkOpts,
-  getInboxPanels,
-  setInboxPanel,
+  getInboxPdfOpen,
+  setInboxPdfOpen,
+  getInboxTabs,
+  setInboxTabs,
   getInboxPaneWidths,
   setInboxPaneWidth,
   clampPanePct,
@@ -63,13 +65,24 @@ describe("chunk settings", () => {
     expect(getChunkSettings().percentile).toBe(10);
   });
 
-  it("inbox 패널 열림 — 기본 모두 닫힘, 저장·복원", () => {
-    expect(getInboxPanels()).toEqual({ pdf: false, wiki: false });
-    setInboxPanel("pdf", true);
-    expect(getInboxPanels()).toEqual({ pdf: true, wiki: false });
-    setInboxPanel("wiki", true);
-    setInboxPanel("pdf", false);
-    expect(getInboxPanels()).toEqual({ pdf: false, wiki: true });
+  it("inbox PDF 패널 열림 — 기본 닫힘, 저장·복원", () => {
+    expect(getInboxPdfOpen()).toBe(false);
+    setInboxPdfOpen(true);
+    expect(getInboxPdfOpen()).toBe(true);
+    setInboxPdfOpen(false);
+    expect(getInboxPdfOpen()).toBe(false);
+  });
+
+  it("inbox 탭 — 기본 [note], 빈 배열 유지(피커 상태), 무효 값 필터·중복 제거", () => {
+    expect(getInboxTabs()).toEqual(["note"]);
+    setInboxTabs(["note", "wiki"]);
+    expect(getInboxTabs()).toEqual(["note", "wiki"]);
+    setInboxTabs([]);
+    expect(getInboxTabs()).toEqual([]); // 저장된 빈 배열은 피커 상태 — 기본값으로 되돌리지 않음
+    localStorage.setItem("inbox-tabs", JSON.stringify(["wiki", "junk", "wiki"]));
+    expect(getInboxTabs()).toEqual(["wiki"]);
+    localStorage.setItem("inbox-tabs", "not-json");
+    expect(getInboxTabs()).toEqual(["note"]);
   });
 
   it("inbox 패널 폭 — 기본값, 저장·클램프(15~70), 무효 값 폴백", () => {
@@ -78,8 +91,8 @@ describe("chunk settings", () => {
     expect(getInboxPaneWidths().pdf).toBeCloseTo(55.3);
     setInboxPaneWidth("pdf", 5); // 하한 클램프
     expect(getInboxPaneWidths().pdf).toBe(15);
-    setInboxPaneWidth("wiki", 99); // 상한 클램프
-    expect(getInboxPaneWidths().wiki).toBe(70);
+    setInboxPaneWidth("pdf", 99); // 상한 클램프
+    expect(getInboxPaneWidths().pdf).toBe(70);
     localStorage.setItem("inbox-pane-pdf", "junk");
     expect(getInboxPaneWidths().pdf).toBe(INBOX_PANE_DEFAULTS.pdf);
     expect(clampPanePct(200)).toBe(70);

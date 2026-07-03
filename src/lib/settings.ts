@@ -57,24 +57,41 @@ export function setFactCheck(v: boolean): void {
   ls()?.setItem(FACT_CHECK_KEY, v ? "1" : "0");
 }
 
-// ── Inbox 패널 열림 상태 ──
-// 중앙 새 노트 에디터는 고정, 좌(PDF)·우(Wiki) 패널을 각각 여닫는다.
-// 기본 닫힘 — PDF 업로드 시 PDF 패널, AI 정리 완료 시 Wiki 패널이 자동으로 열린다.
-export type InboxPanelKey = "pdf" | "wiki";
-
-export function getInboxPanels(): Record<InboxPanelKey, boolean> {
-  const store = ls();
-  return { pdf: store?.getItem("inbox-panel-pdf") === "1", wiki: store?.getItem("inbox-panel-wiki") === "1" };
+// ── Inbox 좌측 PDF 패널 열림 상태 ──
+// 기본 닫힘 — PDF 업로드 시 자동으로 열린다.
+export function getInboxPdfOpen(): boolean {
+  return ls()?.getItem("inbox-panel-pdf") === "1";
 }
 
-export function setInboxPanel(key: InboxPanelKey, open: boolean): void {
-  ls()?.setItem(`inbox-panel-${key}`, open ? "1" : "0");
+export function setInboxPdfOpen(open: boolean): void {
+  ls()?.setItem("inbox-panel-pdf", open ? "1" : "0");
+}
+
+// ── Inbox 우측 탭 패널 ──
+// 유저가 컴포넌트(노트·Wiki)를 탭으로 추가/제거한다. 빈 배열 = 피커 표시 상태.
+export type InboxTabKey = "note" | "wiki";
+const INBOX_TABS_KEY = "inbox-tabs";
+
+export function getInboxTabs(): InboxTabKey[] {
+  const raw = ls()?.getItem(INBOX_TABS_KEY);
+  if (raw == null) return ["note"];
+  try {
+    const arr: unknown = JSON.parse(raw);
+    if (!Array.isArray(arr)) return ["note"];
+    return [...new Set(arr.filter((v): v is InboxTabKey => v === "note" || v === "wiki"))];
+  } catch {
+    return ["note"];
+  }
+}
+
+export function setInboxTabs(tabs: InboxTabKey[]): void {
+  ls()?.setItem(INBOX_TABS_KEY, JSON.stringify(tabs));
 }
 
 // ── Inbox 패널 폭 (드래그 리사이즈, % 단위) ──
-// pdf = 좌측(PDF), wiki = 우측(Wiki). 가운데 새 노트 패널이 나머지를 채운다.
-export type InboxPaneKey = "pdf" | "wiki";
-export const INBOX_PANE_DEFAULTS: Record<InboxPaneKey, number> = { pdf: 33, wiki: 28 };
+// pdf = 좌측(PDF). 우측 탭 패널이 나머지를 채운다.
+export type InboxPaneKey = "pdf";
+export const INBOX_PANE_DEFAULTS: Record<InboxPaneKey, number> = { pdf: 33 };
 
 export function clampPanePct(pct: number): number {
   return Math.min(70, Math.max(15, pct));
