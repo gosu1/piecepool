@@ -3,6 +3,7 @@ import { AppShell, Sidebar, Card, EmptyState, Icons } from "../ds";
 import type { TreeNode } from "../ds";
 import type { KnowledgeSpace, WikiPage as WikiPageT, ArchiveNote, GraphData, Workspace } from "../lib/types";
 import * as ipc from "../lib/ipc";
+import { startFileDragOut } from "../lib/dragOut";
 import { runWikiGeneration } from "../llm/generate";
 import type { LlmWikiInput } from "../llm/provider";
 import { applyLlmResult, embedSourceFiles, isSynthesisPage, synthesisConceptId } from "../lib/llmApply";
@@ -163,6 +164,18 @@ export default function PiecePoolApp() {
     return () => clearTimeout(t);
   }, [notice]);
 
+  // 드래그-아웃 중 파일을 창 위에서 놓으면 webview 가 그 파일 URL 로 navigate 하는 기본동작을 막는다.
+  // (폴더 행의 onDrop 은 target 에서 먼저 처리되므로 외부 파일 import 는 영향 없음.)
+  useEffect(() => {
+    const prevent = (e: DragEvent) => e.preventDefault();
+    window.addEventListener("dragover", prevent);
+    window.addEventListener("drop", prevent);
+    return () => {
+      window.removeEventListener("dragover", prevent);
+      window.removeEventListener("drop", prevent);
+    };
+  }, []);
+
   // 활성 탭 → 현재 공간 컨텍스트(브레드크럼·트리·VaultSwitcher가 따라감)
   const activeTab = openTabs.find((t) => t.id === activeTabId) ?? null;
   const currentSpace = activeTab?.space || currentSpaceSlug || spaces[0]?.slug || "";
@@ -292,6 +305,16 @@ export default function PiecePoolApp() {
     }
   };
 
+  // ── 트리 노드 드래그-아웃: 디스크의 실제 .md 를 앱 밖(다른 앱/LLM 프롬프트)으로 내보내기 ──
+  const handleDragOutFile = (id: string) => {
+    const doc = parseDocId(id);
+    if (!doc) return;
+    const space = spaces.find((s) => s.slug === doc.space);
+    if (!space) return;
+    const subdir = doc.kind === "wiki" ? "wiki" : "archive";
+    startFileDragOut(`${space.rootPath}/${subdir}/${doc.file}`);
+  };
+
   // ── 트리 외부 파일 드랍: .md/.txt → 해당 공간 source 노트로 ──
   const handleDropFiles = async (dropFolderId: string, files: FileList) => {
     const toSpace = slugOfFolder(dropFolderId);
@@ -321,6 +344,15 @@ export default function PiecePoolApp() {
           label: "열기",
           onClick: () => (menuDoc.kind === "wiki" ? openWiki(menuDoc.space, menuDoc.file) : openArchive(menuDoc.space, menuDoc.file)),
         },
+        // 공간 이동 — archive 노트만(위키는 공간 이동 불가). 드래그가 드래그-아웃에 쓰이므로 이동은 메뉴로.
+        ...(menuDoc.kind === "archive"
+          ? spaces
+              .filter((s) => s.slug !== menuDoc.space)
+              .map((s) => ({
+                label: `${s.name}(으)로 이동`,
+                onClick: () => handleMoveNode(`doc:${menuDoc.kind}:${menuDoc.space}:${menuDoc.file}`, `af:${s.slug}`),
+              }))
+          : []),
         {
           label: "이름 변경…",
           onClick: () => {
@@ -902,6 +934,7 @@ export default function PiecePoolApp() {
               onToggle={toggleTreeNode}
               onSelect={onTreeSelect}
               onMoveNode={handleMoveNode}
+              onDragOutFile={handleDragOutFile}
               onDropFiles={handleDropFiles}
               onContextMenu={(id, x, y) => setMenu({ id, x, y })}
               width={sidebarWidth}

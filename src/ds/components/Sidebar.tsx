@@ -11,7 +11,15 @@ import type { TreeNavProps, TreeNode } from "./TreeNav";
 export interface SidebarProps
   extends Pick<
     TreeNavProps,
-    "selectedId" | "onSelect" | "defaultExpandedIds" | "collapsedIds" | "onToggle" | "onMoveNode" | "onDropFiles" | "onContextMenu"
+    | "selectedId"
+    | "onSelect"
+    | "defaultExpandedIds"
+    | "collapsedIds"
+    | "onToggle"
+    | "onMoveNode"
+    | "onDragOutFile"
+    | "onDropFiles"
+    | "onContextMenu"
   > {
   nodes: TreeNode[];
   onAddFile?: () => void;
@@ -37,6 +45,7 @@ export function Sidebar({
   collapsedIds,
   onToggle,
   onMoveNode,
+  onDragOutFile,
   onDropFiles,
   onContextMenu,
   onAddFile,
@@ -98,6 +107,7 @@ export function Sidebar({
           collapsedIds={collapsedIds}
           onToggle={onToggle}
           onMoveNode={onMoveNode}
+          onDragOutFile={onDragOutFile}
           onDropFiles={onDropFiles}
           onContextMenu={onContextMenu}
         />

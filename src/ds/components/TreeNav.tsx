@@ -34,6 +34,8 @@ export interface TreeNavProps {
   onToggle?: (id: string) => void;
   /** 파일 노드를 dropTarget 폴더에 드랍했을 때. */
   onMoveNode?: (dragId: string, dropFolderId: string) => void;
+  /** 파일 노드를 앱 밖(다른 앱)으로 드래그. 지정 시 모든 파일 leaf 가 네이티브 드래그-아웃 대상. */
+  onDragOutFile?: (id: string) => void;
   /** OS 파일을 dropTarget 폴더에 드랍했을 때. */
   onDropFiles?: (dropFolderId: string, files: FileList) => void;
   /** 파일 노드 우클릭(컨텍스트 메뉴). 화면 좌표 전달. */
@@ -50,6 +52,7 @@ export function TreeNav({
   collapsedIds,
   onToggle,
   onMoveNode,
+  onDragOutFile,
   onDropFiles,
   onContextMenu,
   className,
@@ -101,14 +104,22 @@ export function TreeNav({
                 }
               : undefined
           }
-          draggable={!isFolder && !!node.draggable}
+          draggable={!isFolder && (!!node.draggable || !!onDragOutFile)}
           onDragStart={
-            !isFolder && node.draggable
-              ? (e) => {
-                  e.dataTransfer.setData(NODE_MIME, node.id);
-                  e.dataTransfer.effectAllowed = "move";
-                }
-              : undefined
+            isFolder
+              ? undefined
+              : onDragOutFile
+                ? (e) => {
+                    // 네이티브 드래그-아웃 — HTML5 드래그를 막고 OS 드래그 세션 시작.
+                    e.preventDefault();
+                    onDragOutFile(node.id);
+                  }
+                : node.draggable
+                  ? (e) => {
+                      e.dataTransfer.setData(NODE_MIME, node.id);
+                      e.dataTransfer.effectAllowed = "move";
+                    }
+                  : undefined
           }
           onDragOver={
             isDropTarget
