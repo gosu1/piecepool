@@ -199,3 +199,59 @@ export const PanelLeftIcon = (p: IconProps) => (
     <path d="M9 4v16" />
   </Svg>
 );
+
+export const PanelRightIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <path d="M15 4v16" />
+  </Svg>
+);
+
+export const EditIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6" />
+    <path d="M18.4 3.6a2 2 0 0 1 2.8 2.8L13 14.6l-3.8.8.8-3.8Z" />
+  </Svg>
+);
+
+export const HelpCircleIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M9.2 9a3 3 0 0 1 5.8 1c0 2-3 2.4-3 4" />
+    <path d="M12 17.5h.01" />
+  </Svg>
+);
+
+export const MoreHorizontalIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="5" cy="12" r="1" />
+    <circle cx="12" cy="12" r="1" />
+    <circle cx="19" cy="12" r="1" />
+  </Svg>
+);
+
+export const ArrowLeftIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M19 12H5m0 0 6-6m-6 6 6 6" />
+  </Svg>
+);
+
+export const ChevronLeftIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="m15 18-6-6 6-6" />
+  </Svg>
+);
+
+export const HomeIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="m3 10.5 9-7.5 9 7.5" />
+    <path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5" />
+  </Svg>
+);
+
+export const ChevronsUpDownIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="m7 9 5-5 5 5" />
+    <path d="m7 15 5 5 5-5" />
+  </Svg>
+);
