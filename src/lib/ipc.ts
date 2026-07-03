@@ -38,6 +38,7 @@ const real = {
   deleteWiki: (space: string, file: string) => invoke<number>("delete_wiki", { space, file }),
   renameWiki: (space: string, file: string, newTitle: string) => invoke<WikiPage>("rename_wiki", { space, file, newTitle }),
   saveSourceFile: (space: string, name: string, dataBase64: string) => invoke<string>("save_source_file", { space, name, dataBase64 }),
+  deleteSource: (space: string, file: string) => invoke<void>("delete_source", { space, file }),
   getGraph: (space: string) => invoke<GraphData>("get_graph", { space }),
   appendRelations: (space: string, relations: Relation[]) => invoke<number>("append_relations", { space, relations }),
 };
@@ -64,5 +65,6 @@ export const saveWiki = api.saveWiki;
 export const deleteWiki = api.deleteWiki;
 export const renameWiki = api.renameWiki;
 export const saveSourceFile = api.saveSourceFile;
+export const deleteSource = api.deleteSource;
 export const getGraph = api.getGraph;
 export const appendRelations = api.appendRelations;

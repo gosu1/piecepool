@@ -1,18 +1,30 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, FileDropzone, cn } from "../../ds";
-import type { WikiPage as WikiPageT, ArchiveNote } from "../../lib/types";
+import type { WikiPage as WikiPageT } from "../../lib/types";
 import * as ipc from "../../lib/ipc";
 import { useImportStore } from "../../store/importStore";
 import { runImageOcr } from "../../llm/ocr";
 import { runPdfDigest } from "../../llm/pdfdigest";
 import { SlashBlockEditor } from "../../lib/SlashBlockEditor";
+import { ConfirmDialog } from "../shell/Dialogs";
 import { Markdown } from "../../lib/markdown";
 import { FilePreview } from "../../lib/FilePreview";
-import { getInboxView, setInboxView, type InboxView } from "../../lib/settings";
+import { PdfViewer } from "../../lib/PdfViewer";
+import {
+  getInboxPanels,
+  setInboxPanel,
+  getInboxPaneWidths,
+  setInboxPaneWidth,
+  clampPanePct,
+  INBOX_PANE_DEFAULTS,
+  type InboxPanelKey,
+  type InboxPaneKey,
+} from "../../lib/settings";
 
-// ══ Inbox 섹션 — 분할 캡처 뷰 ══
-// 2-split: NOTE(기존 원본 열람) | 새 페이지(작성)
-// 3-split: PDF(원본 자료) | 새 페이지(source 작성) | Wiki(생성된 위키 참조)
+// ══ Inbox 섹션 — 캡처 워크스페이스 ══
+// Inbox 의 목적 = 수집: 자료를 옆에 두고 필기를 만들어 원본(archive)으로 저장.
+// 노트 에디터가 중심(항상 고정), 좌(PDF 자료)·우(위키 참조)는 보조 패널로 여닫는다.
+// PDF 업로드 → PDF 패널 자동 열림, AI 정리 완료 → 위키 패널 자동 열림.
 const IMPORT_STATUS_LABEL: Record<string, string> = {
   idle: "대기",
   parsing: "파싱",
@@ -39,8 +51,6 @@ export function InboxSection({
   spaceName,
   subjectIdsDefault,
   existing,
-  notes,
-  onOpenNote,
   onOpenWiki,
   onRefresh,
 }: {
@@ -49,15 +59,15 @@ export function InboxSection({
   spaceName: string;
   subjectIdsDefault: string[];
   existing: WikiPageT[];
-  notes: ArchiveNote[];
-  onOpenNote: (n: ArchiveNote) => void;
   onOpenWiki: (file: string) => void;
   onRefresh: () => Promise<void> | void;
 }) {
-  const [view, setView] = useState<InboxView>(getInboxView());
-  const changeView = (v: InboxView) => {
-    setInboxView(v);
-    setView(v);
+  // ── 보조 패널(PDF·위키) 열림 상태 ──
+  const [panels, setPanels] = useState(getInboxPanels());
+  const togglePanel = (key: InboxPanelKey, open?: boolean) => {
+    const next = open ?? !panels[key];
+    setInboxPanel(key, next);
+    setPanels((p) => ({ ...p, [key]: next }));
   };
 
   // ── 작성(새 페이지) 상태 ──
@@ -70,7 +80,6 @@ export function InboxSection({
   const busy = !!job && !["completed", "failed"].includes(job.status);
 
   // ── 참조 패널 상태 ──
-  const [refNotePath, setRefNotePath] = useState<string>("");
   const [refWikiPath, setRefWikiPath] = useState<string>("");
   const [sources, setSources] = useState<string[]>([]);
   const [refSource, setRefSource] = useState<string>("");
@@ -78,6 +87,49 @@ export function InboxSection({
   const [pdfJobs, setPdfJobs] = useState(0);
   const pdfBusy = pdfJobs > 0;
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [confirmDelSrc, setConfirmDelSrc] = useState(false);
+  const [srcErr, setSrcErr] = useState<string | null>(null);
+  const deleteSource = async () => {
+    setConfirmDelSrc(false);
+    setSrcErr(null);
+    try {
+      await ipc.deleteSource(space, refSource);
+      await loadSources(); // refSource 는 loadSources 가 목록 기준으로 재보정
+    } catch (e) {
+      setSrcErr(String(e));
+    }
+  };
+
+  // ── 패널 폭 드래그 리사이즈 (Sidebar 패턴, % 기반) ──
+  const splitRef = useRef<HTMLDivElement>(null);
+  const [paneW, setPaneW] = useState(getInboxPaneWidths());
+  // dir: 1 = 좌측 패널(오른쪽 드래그 → 커짐), -1 = 우측 패널(왼쪽 드래그 → 커짐)
+  const startPaneDrag = (key: InboxPaneKey, dir: 1 | -1) => (e: React.PointerEvent) => {
+    const total = splitRef.current?.clientWidth;
+    if (!total) return;
+    e.preventDefault();
+    const startX = e.clientX;
+    const startPct = paneW[key];
+    const prevSelect = document.body.style.userSelect;
+    const prevCursor = document.body.style.cursor;
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "col-resize";
+    const pctAt = (clientX: number) => clampPanePct(startPct + ((clientX - startX) / total) * 100 * dir);
+    const onMove = (ev: PointerEvent) => setPaneW((w) => ({ ...w, [key]: pctAt(ev.clientX) }));
+    const onUp = (ev: PointerEvent) => {
+      setInboxPaneWidth(key, pctAt(ev.clientX));
+      document.body.style.userSelect = prevSelect;
+      document.body.style.cursor = prevCursor;
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
+  const resetPane = (key: InboxPaneKey) => {
+    setPaneW((w) => ({ ...w, [key]: INBOX_PANE_DEFAULTS[key] }));
+    setInboxPaneWidth(key, INBOX_PANE_DEFAULTS[key]);
+  };
 
   useEffect(() => {
     if (!uploadOpen) return;
@@ -86,7 +138,6 @@ export function InboxSection({
     return () => window.removeEventListener("keydown", onKey);
   }, [uploadOpen]);
 
-  const refNote = notes.find((n) => n.path === refNotePath) ?? notes[0];
   const refWiki = existing.find((w) => w.path === refWikiPath) ?? existing[0];
 
   const loadSources = useCallback(async () => {
@@ -100,8 +151,8 @@ export function InboxSection({
   }, [space]);
 
   useEffect(() => {
-    if (view === "3") void loadSources();
-  }, [view, loadSources]);
+    if (panels.pdf) void loadSources();
+  }, [panels.pdf, loadSources]);
 
   // PDF → sources/original-files 저장 + 텍스트 추출 → (키 있으면) AI 요약·정리 → 에디터에 삽입.
   // 요약 실패/키 없음이면 추출 원문 그대로 — 원문은 "텍스트 추출 → 에디터" 버튼으로 언제든 다시 가져온다.
@@ -111,6 +162,8 @@ export function InboxSection({
       const stored = await ipc.saveSourceFile(space, f.name, await fileToBase64(f));
       await loadSources();
       setRefSource(stored);
+      // 올린 PDF 를 바로 볼 수 있게 PDF 패널 자동 열림
+      togglePanel("pdf", true);
       setTitle((t) => t || f.name.replace(/\.[^.]+$/, ""));
       try {
         const ext = await ipc.extractPdfText(space, stored);
@@ -193,6 +246,8 @@ export function InboxSection({
       setTitle("");
       setBody("");
       await onRefresh();
+      // 생성된 위키를 바로 확인할 수 있게 위키 패널 자동 열림
+      if (withLlm) togglePanel("wiki", true);
     }
   };
 
@@ -203,6 +258,7 @@ export function InboxSection({
       setBody("");
       setAnswers([]);
       await onRefresh();
+      togglePanel("wiki", true);
     }
   };
 
@@ -213,10 +269,10 @@ export function InboxSection({
     : ["archiving", "writing", "completed"];
   const curIdx = job ? steps.indexOf(job.status) : -1;
 
-  // ── 작성 패널 (공통) ──
-  const composePane = (
+  // ── 노트 패널 (중심 고정) — 새 원본(archive) 작성 ──
+  const notePane = (
     <section className="flex min-w-0 flex-1 flex-col">
-      <PaneHeader label="새 페이지" hint="자료 → 원본(archive) 저장 → (선택) AI 위키·관계 생성" />
+      <PaneHeader label="노트" hint="자료 → 원본(archive) 저장 → (선택) AI 위키·관계 생성" />
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
         <input
           value={title}
@@ -333,52 +389,24 @@ export function InboxSection({
     </section>
   );
 
-  // ── NOTE 패널 (2-split 좌측) — 저장된 원본 열람 ──
-  const notePane = (
-    <section className="flex min-w-0 w-[46%] shrink-0 flex-col border-r border-hairline">
-      <PaneHeader
-        label="NOTE"
-        hint={`저장된 원본 ${notes.length}개`}
-        right={
-          notes.length > 0 ? (
-            <div className="flex items-center gap-1.5">
-              <PaneSelect
-                value={refNote?.path ?? ""}
-                onChange={setRefNotePath}
-                options={notes.map((n) => ({ value: n.path, label: n.title }))}
-              />
-              {refNote && (
-                <Button size="sm" variant="utility" onClick={() => onOpenNote(refNote)}>
-                  탭으로 열기
-                </Button>
-              )}
-            </div>
-          ) : undefined
-        }
-      />
-      <div className="min-h-0 flex-1 overflow-y-auto p-4">
-        {refNote ? (
-          <>
-            <h2 className="mb-1 text-[17px] font-bold text-ink">{refNote.title}</h2>
-            <p className="mb-3 text-[12px] text-ink-faint">
-              {refNote.createdAt.slice(0, 10)} · {refNote.path}
-            </p>
-            <Markdown source={refNote.markdown} embedSpace={space} />
-          </>
-        ) : (
-          <p className="pt-8 text-center text-[14px] text-ink-muted">
-            아직 원본이 없어요.
-            <br />
-            오른쪽 새 페이지에서 첫 노트를 저장해보세요.
-          </p>
-        )}
-      </div>
-    </section>
-  );
+  // PDF 원문 텍스트를 에디터로 가져오기 — PdfViewer 툴바 버튼에서 호출
+  const extractToEditor = async () => {
+    setPdfJobs((n) => n + 1);
+    try {
+      const ext = await ipc.extractPdfText(space, refSource);
+      const text = ext.pages.map((p) => p.text).join("\n\n").trim();
+      setBody((b) => (b ? b + "\n\n" : "") + `![[${refSource}]]\n\n${text}`);
+    } catch {
+      setBody((b) => b + `\n\n> ${refSource} 텍스트 추출 실패`);
+    } finally {
+      setPdfJobs((n) => n - 1);
+    }
+  };
 
   // ── PDF 패널 (3-split 좌측) — 원본 자료 열람 + 추출 ──
+  const refSourceIsPdf = /\.pdf$/i.test(refSource);
   const pdfPane = (
-    <section className="flex min-w-0 w-1/3 shrink-0 flex-col border-r border-hairline">
+    <section style={{ width: `${paneW.pdf}%` }} className="flex min-w-0 shrink-0 flex-col border-r border-hairline">
       <PaneHeader
         label="PDF"
         hint={sources.length > 0 ? `원본 파일 ${sources.length}개` : "원본 파일 없음"}
@@ -387,56 +415,45 @@ export function InboxSection({
             {sources.length > 0 && (
               <PaneSelect value={refSource} onChange={setRefSource} options={sources.map((s) => ({ value: s, label: s }))} />
             )}
+            {refSource && (
+              <Button size="sm" variant="utility" onClick={() => setConfirmDelSrc(true)}>
+                삭제
+              </Button>
+            )}
             <Button size="sm" variant="utility" onClick={() => setUploadOpen(true)}>
               업로드
             </Button>
           </div>
         }
       />
-      <div className="min-h-0 flex-1 overflow-y-auto p-4">
-        {pdfBusy && <p className="mb-2 text-[13px] text-ink-muted">PDF 처리 중…</p>}
-        {refSource ? (
-          <FilePreview space={space} target={refSource} />
-        ) : (
-          <p className="pt-8 text-center text-[14px] text-ink-muted">
-            PDF를 업로드하면 여기서 보면서
-            <br />
-            가운데에 필기할 수 있어요.
-          </p>
-        )}
-      </div>
-      {refSource && /\.pdf$/i.test(refSource) && (
-        <div className="border-t border-hairline p-2">
-          <Button
-            size="sm"
-            variant="utility"
-            className="w-full"
-            disabled={pdfBusy}
-            onClick={async () => {
-              setPdfJobs((n) => n + 1);
-              try {
-                const ext = await ipc.extractPdfText(space, refSource);
-                const text = ext.pages.map((p) => p.text).join("\n\n").trim();
-                setBody((b) => (b ? b + "\n\n" : "") + `![[${refSource}]]\n\n${text}`);
-              } catch {
-                setBody((b) => b + `\n\n> ${refSource} 텍스트 추출 실패`);
-              } finally {
-                setPdfJobs((n) => n - 1);
-              }
-            }}
-          >
-            텍스트 추출 → 에디터
-          </Button>
+      {srcErr && <p className="shrink-0 border-b border-hairline px-4 py-1.5 text-[13px] text-danger">원본 삭제 실패: {srcErr}</p>}
+      {refSource && refSourceIsPdf ? (
+        <div className="flex min-h-0 flex-1 flex-col">
+          {pdfBusy && <p className="shrink-0 border-b border-hairline px-4 py-1.5 text-[13px] text-ink-muted">PDF 처리 중…</p>}
+          <PdfViewer space={space} file={refSource} onExtractText={extractToEditor} extractBusy={pdfBusy} />
+        </div>
+      ) : (
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          {pdfBusy && <p className="mb-2 text-[13px] text-ink-muted">PDF 처리 중…</p>}
+          {refSource ? (
+            <FilePreview space={space} target={refSource} />
+          ) : (
+            <p className="pt-8 text-center text-[14px] text-ink-muted">
+              PDF를 업로드하면 여기서 보면서
+              <br />
+              가운데에 필기할 수 있어요.
+            </p>
+          )}
         </div>
       )}
     </section>
   );
 
-  // ── Wiki 패널 (3-split 우측) — 생성된 위키 참조 ──
+  // ── 위키 패널 (우측 보조) — 생성된 위키 참조 ──
   const wikiPane = (
-    <section className="flex min-w-0 w-[28%] shrink-0 flex-col border-l border-hairline">
+    <section style={{ width: `${paneW.wiki}%` }} className="flex min-w-0 shrink-0 flex-col border-l border-hairline">
       <PaneHeader
-        label="WIKI"
+        label="위키"
         hint={existing.length > 0 ? `위키 ${existing.length}개` : "위키 없음"}
         right={
           existing.length > 0 ? (
@@ -474,48 +491,62 @@ export function InboxSection({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* 헤더 — 뷰 전환 */}
+      {/* 헤더 — 보조 패널(PDF·위키) 토글. 노트는 항상 중심 고정 */}
       <header className="flex shrink-0 items-center justify-between gap-3 border-b border-hairline px-4 py-2">
         <p className="min-w-0 truncate text-[14px]">
           <span className="font-bold text-ink">Inbox</span>
           <span className="text-ink-muted"> · {spaceName} · 자료 → 원본(archive) 저장 → (선택) AI 위키·관계 생성</span>
         </p>
-        <div className="flex shrink-0 items-center rounded-md border border-hairline p-0.5">
-          {(["2", "3"] as const).map((v) => (
+        <div className="flex shrink-0 items-center gap-0.5 rounded-md border border-hairline p-0.5">
+          {(["pdf", "wiki"] as const).map((k) => (
             <button
-              key={v}
+              key={k}
               type="button"
-              onClick={() => changeView(v)}
+              aria-pressed={panels[k]}
+              onClick={() => togglePanel(k)}
               className={cn(
                 "rounded px-2.5 py-1 text-[12px] font-medium transition-colors",
-                view === v ? "bg-surface-soft text-ink" : "text-ink-muted hover:text-ink",
+                panels[k] ? "bg-surface-soft text-ink" : "text-ink-muted hover:text-ink",
               )}
             >
-              {v === "2" ? "2분할" : "3분할"}
+              {k === "pdf" ? "PDF 패널" : "위키 패널"}
             </button>
           ))}
         </div>
       </header>
 
-      {/* 분할 본문 */}
-      <div className="flex min-h-0 flex-1">
-        {view === "2" ? (
-          <>
-            {notePane}
-            {composePane}
-          </>
-        ) : (
+      {/* 본문 — [PDF] | 노트(고정) | [위키]. 디바이더로 폭 조절(더블클릭 = 초기화) */}
+      <div ref={splitRef} className="flex min-h-0 flex-1">
+        {panels.pdf && (
           <>
             {pdfPane}
-            {composePane}
+            <PaneDivider onPointerDown={startPaneDrag("pdf", 1)} onDoubleClick={() => resetPane("pdf")} />
+          </>
+        )}
+        {notePane}
+        {panels.wiki && (
+          <>
+            <PaneDivider onPointerDown={startPaneDrag("wiki", -1)} onDoubleClick={() => resetPane("wiki")} />
             {wikiPane}
           </>
         )}
       </div>
 
-      {/* 업로드 팝업 — PDF 패널 헤더 버튼으로 열림 */}
+      {/* 원본 파일 삭제 확인 */}
+      {confirmDelSrc && (
+        <ConfirmDialog
+          title={`"${refSource}" 삭제`}
+          message="원본 파일이 삭제됩니다. 노트에 남은 ![[임베드]]는 깨진 링크로 표시돼요. 되돌릴 수 없어요."
+          confirmLabel="삭제"
+          danger
+          onConfirm={deleteSource}
+          onCancel={() => setConfirmDelSrc(false)}
+        />
+      )}
+
+      {/* 업로드 팝업 — 새 노트/PDF 패널 헤더 버튼으로 열림 */}
       {uploadOpen && (
-        <div className="fixed inset-0 z-40 flex items-start justify-center bg-black/30 pt-[12vh]" onClick={() => setUploadOpen(false)}>
+        <div className="fixed inset-0 z-40 flex items-start justify-center bg-surface/60 backdrop-blur-md pt-[12vh]" onClick={() => setUploadOpen(false)}>
           <div className="w-full max-w-md rounded-xl border border-hairline bg-surface p-4 shadow-elevated" onClick={(e) => e.stopPropagation()}>
             <FileDropzone
               onFiles={(files) => {
@@ -541,6 +572,20 @@ function PaneHeader({ label, hint, right }: { label: string; hint?: string; righ
       </p>
       {right}
     </div>
+  );
+}
+
+// 패널 사이 세로 디바이더 — 이웃 패널의 border 위에 겹쳐(-mx) 드래그 히트 영역만 넓힌다.
+function PaneDivider({ onPointerDown, onDoubleClick }: { onPointerDown: (e: React.PointerEvent) => void; onDoubleClick: () => void }) {
+  return (
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="패널 폭 조절"
+      onPointerDown={onPointerDown}
+      onDoubleClick={onDoubleClick}
+      className="z-10 -mx-[3px] w-[6px] shrink-0 cursor-col-resize transition-colors hover:bg-primary/30 active:bg-primary/40"
+    />
   );
 }
 

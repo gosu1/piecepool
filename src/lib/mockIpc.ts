@@ -201,6 +201,7 @@ export const mock = {
     return delay(w);
   },
   saveSourceFile: (_space: string, name: string, _dataBase64: string) => delay(name),
+  deleteSource: (_space: string, _file: string) => delay<void>(undefined),
   getGraph: (space: string) => delay(graphOf(space)),
   appendRelations: (space: string, relations: Relation[]) => {
     RELATIONS[space] = [...(RELATIONS[space] ?? []), ...relations];
