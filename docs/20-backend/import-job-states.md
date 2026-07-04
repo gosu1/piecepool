@@ -31,10 +31,10 @@ stateDiagram-v2
 |---|---|---|
 | `idle` | 대기 | — |
 | `parsing` | 입력 해석·PDF 텍스트 추출 | `pdf/` `extract_pdf_text` |
-| `archiving` | 원문 archive 보존 (덮어쓰기 금지) | `storage/` `save_source` |
+| `archiving` | 원문 archive 보존 (덮어쓰기 금지) | `storage/` `save_source_file` + `create_note` |
 | `llm_processing` | 요약·개념추출·관계생성 (1차/2차) | TS `src/llm/` → `LlmWikiResult` |
 | `clarify_pending` | 되묻기: 사용자 응답 대기 (되묻기 on일 때만) | TS UI (Inbox) |
-| `writing` | wiki + relations 영속화 | `storage/` `save_wiki_page`·`save_relations` |
+| `writing` | wiki + relations 영속화 | `storage/` `save_wiki`·`append_relations` |
 | `completed` | 종료 (warn/partial 동봉 가능) | — |
 | `failed` | 치명적 오류 + `errorMessage` | — |
 

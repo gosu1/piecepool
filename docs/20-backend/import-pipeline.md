@@ -53,9 +53,9 @@ idle → parsing → archiving → llm_processing → writing → completed
 | 단계 | 하는 일 | 호출 / 산출 |
 |---|---|---|
 | **parsing** | 입력 해석. PDF면 텍스트 추출 | `pdf/` → `PdfExtractResult { page_count, pages }` ([pdf-extraction.md §2](pdf-extraction.md)). text 입력은 그대로 통과 |
-| **archiving** | 원문을 archive에 보존 | `storage/` `save_source` → `Source` + `ArchiveNote`(`archive/*.md`) + 원본(`sources/original-files/`). **기존 archive 덮어쓰기 금지**([storage-io.md §3.5](storage-io.md)) |
+| **archiving** | 원문을 archive에 보존 | `storage/` `save_source_file`(원본 bytes → `sources/original-files/`) + `create_note`(`ArchiveNote` → `archive/*.md`). **기존 archive 덮어쓰기 금지**([storage-io.md §3.5](storage-io.md)) |
 | **llm_processing** | 요약·개념추출·관계생성 | **TS `src/llm/`** 수행 → `LlmWikiResult`. 입력 = archive 텍스트. 검증/재시도 = [output-validation §3~4](../30-llm/output-validation.md) |
-| **writing** | 결과 영속화 | `storage/` `save_wiki_page`(dedup §7) + `save_relations`(`relations/relations.json`) |
+| **writing** | 결과 영속화 | `storage/` `save_wiki`(dedup §7) + `append_relations`(`relations/relations.json`) |
 | **completed** | 종료 | warn·partial 있으면 `Outcome.warnings` 동봉(§4) |
 
 > parsing 입력은 `Source.type`(`text`/`pdf`/`summary_text`/`image`)에 따라 분기한다. `image`(OCR)는 본 MVP 범위 밖.
@@ -92,7 +92,7 @@ LLM/검증/저장 단계의 **비치명적** 결과는 실패가 아니다. `?`�
 
 ## 7. dedup / merge
 
-`save_wiki_page`는 `Concept.normalizedTitle`(소문자·공백정규화)이 이미 있으면 **새 WikiPage를 만들지 않고 기존에 merge**한다 (CLAUDE.md §LLM Output, [llm-output-schema.md](../10-contracts/llm-output-schema.md)). 이것이 "자료가 쌓일수록 지식 지도가 성장"하는 핵심 동작이다. 응답 내 중복 `normalizedTitle`은 마지막 1개만 유지 ([output-validation §3.7](../30-llm/output-validation.md)).
+`save_wiki`는 `Concept.normalizedTitle`(소문자·공백정규화)이 이미 있으면 **새 WikiPage를 만들지 않고 기존에 merge**한다 (CLAUDE.md §LLM Output, [llm-output-schema.md](../10-contracts/llm-output-schema.md)). 이것이 "자료가 쌓일수록 지식 지도가 성장"하는 핵심 동작이다. 응답 내 중복 `normalizedTitle`은 마지막 1개만 유지 ([output-validation §3.7](../30-llm/output-validation.md)).
 
 ---
 
@@ -105,12 +105,13 @@ LLM/검증/저장 단계의 **비치명적** 결과는 실패가 아니다. `?`�
 | [`pdf-extraction.md`](pdf-extraction.md) · [`storage-io.md`](storage-io.md) | parsing·저장 단계가 호출하는 모듈 |
 | [`error-handling.md`](error-handling.md) | `Outcome` 모델 · 오류 `kind` |
 | [`../30-llm/output-validation.md`](../30-llm/output-validation.md) | LLM 검증·재시도·부분실패·되묻기 |
-| [`ipc-api.md`](ipc-api.md) | `extract_pdf_text`·`save_source`·`save_wiki_page`·`save_relations` |
+| [`ipc-api.md`](ipc-api.md) | `extract_pdf_text`·`save_source_file`·`create_note`·`save_wiki`·`append_relations` |
 
 ---
 
 ## 9. 변경 이력 노트
 
 - 신규 작성 (@O6west). storage-io·pdf-extraction 인터페이스에 맞춰 단계별 호출을 정의.
+- 2026-07-03 @O6west — IPC 커맨드명을 실제 코드(`src/lib/ipc.ts`)에 동기화: `save_source`→`save_source_file`+`create_note`, `save_wiki_page`→`save_wiki`, `save_relations`→`append_relations`.
 - §2 오케스트레이션 주도 = **TS 주도(option A) 결정** ([ADR-0007](../adr/0007-importjob-orchestration-ts.md), [`import-job-states.md`](import-job-states.md)).
 - `clarify_pending`은 enum 미존재 — `contracts-change` 선행 필요.
