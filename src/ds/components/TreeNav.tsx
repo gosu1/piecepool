@@ -143,9 +143,9 @@ export function TreeNav({
                 }
               : undefined
           }
-          style={{ paddingLeft: depth * 12 + 6 }}
+          style={{ paddingLeft: depth * 14 + 8 }}
           className={cn(
-            "h-[26px] w-full rounded-[4px] flex items-center gap-1.5 text-[13px] pr-1.5 transition-colors",
+            "h-[30px] w-full rounded-md flex items-center gap-2 text-[15px] pr-2 transition-colors",
             isSelected
               ? "bg-surface-soft text-ink"
               : "text-ink-muted hover:bg-surface-soft/70 hover:text-ink",
@@ -155,26 +155,26 @@ export function TreeNav({
           {isFolder ? (
             <>
               {isExpanded ? (
-                <ChevronDownIcon size={12} className="shrink-0 text-ink-faint" />
+                <ChevronDownIcon size={14} className="shrink-0 text-ink-faint" />
               ) : (
-                <ChevronRightIcon size={12} className="shrink-0 text-ink-faint" />
+                <ChevronRightIcon size={14} className="shrink-0 text-ink-faint" />
               )}
               {isExpanded ? (
-                <FolderOpenIcon size={14} className="shrink-0" />
+                <FolderOpenIcon size={16} className="shrink-0" />
               ) : (
-                <FolderIcon size={14} className="shrink-0" />
+                <FolderIcon size={16} className="shrink-0" />
               )}
             </>
           ) : (
             <>
               {/* chevron 자리 맞춤용 spacer */}
-              <span className="w-3 shrink-0" />
-              <FileIcon size={14} className="shrink-0" />
+              <span className="w-3.5 shrink-0" />
+              <FileIcon size={16} className="shrink-0" />
             </>
           )}
           <span className="min-w-0 truncate">{ext ? node.label.slice(0, -(ext.length + 1)) : node.label}</span>
           {ext && (
-            <span className="ml-auto shrink-0 rounded-sm bg-fill-subtle px-1 text-[9px] font-semibold uppercase text-ink-faint">{ext}</span>
+            <span className="ml-auto shrink-0 rounded-sm bg-fill-subtle px-1 text-[10px] font-semibold uppercase text-ink-faint">{ext}</span>
           )}
         </button>
         {isFolder && isExpanded && node.children

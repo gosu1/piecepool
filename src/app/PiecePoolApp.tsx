@@ -45,7 +45,8 @@ type ShellDialog =
   | { kind: "rename-note" | "rename-wiki"; space: string; file: string; title: string }
   | { kind: "delete-note" | "delete-wiki"; space: string; file: string; title: string }
   | { kind: "close-dirty"; tabId: string }
-  | { kind: "overwrite-syn"; space: string; file: string; title: string };
+  | { kind: "overwrite-syn"; space: string; file: string; title: string }
+  | { kind: "new-space" };
 
 export default function PiecePoolApp() {
   const [spaces, setSpaces] = useState<KnowledgeSpace[]>([]);
@@ -197,6 +198,22 @@ export default function PiecePoolApp() {
   const openInbox = (space: string) => openTab({ id: `inbox:${space}`, kind: "inbox", title: "Inbox", space });
   const openGraph = (space: string) => openTab({ id: `graph:${space}`, kind: "graph", title: "Graph", space });
   const openHome = () => openTab({ id: "home", kind: "home", title: "Study Home" });
+
+  // 새 지식 공간(폴더) 생성 — 백엔드 create_space → 목록/집계 갱신 후 새 공간으로 이동
+  const createNewSpace = async (name: string) => {
+    try {
+      const sp = await ipc.createSpace(name);
+      const spaceList = await ipc.listSpaces();
+      setSpaces(spaceList);
+      setWikiBySlug((m) => ({ ...m, [sp.slug]: [] }));
+      setNotesBySlug((m) => ({ ...m, [sp.slug]: [] }));
+      setGraphBySlug((m) => ({ ...m, [sp.slug]: { nodes: [], relations: [] } }));
+      setCurrentSpaceSlug(sp.slug);
+      setNotice(`새 공간 "${sp.name}"을(를) 만들었어요`);
+    } catch (e) {
+      setNotice(`공간 만들기 실패: ${String(e)}`);
+    }
+  };
   // "+" 새 탭 — 현재 공간에 빈 노트를 만들고 편집 탭으로 연다.
   const handleNewNote = async () => {
     if (!currentSpace) return;
@@ -950,7 +967,7 @@ export default function PiecePoolApp() {
               onResize={setSidebarWidth}
               onResizeReset={() => setSidebarWidth(SIDEBAR_DEFAULT)}
               headerSlot={<SidebarHeader title={workspace?.name ?? "PiecePool"} onSearch={() => setPaletteOpen(true)} onNewNote={() => openInbox(currentSpace)} />}
-              shortcutsSlot={<SidebarShortcuts onHome={openHome} onNew={() => openInbox(currentSpace)} />}
+              shortcutsSlot={<SidebarShortcuts onHome={openHome} onNewFolder={() => setDialog({ kind: "new-space" })} />}
               footer={<SidebarFooter spaces={spaces} currentSpace={currentSpace} onSpace={selectSpace} onSettings={openSettings} />}
             />
           )
@@ -1018,6 +1035,18 @@ export default function PiecePoolApp() {
           placeholder="새 제목"
           onSubmit={(v) => {
             applyRename(dialog, v);
+            setDialog(null);
+          }}
+          onCancel={() => setDialog(null)}
+        />
+      )}
+      {dialog?.kind === "new-space" && (
+        <PromptDialog
+          title="새 폴더 생성"
+          placeholder="예: 자료구조, 알고리즘"
+          submitLabel="만들기"
+          onSubmit={(v) => {
+            createNewSpace(v);
             setDialog(null);
           }}
           onCancel={() => setDialog(null)}
