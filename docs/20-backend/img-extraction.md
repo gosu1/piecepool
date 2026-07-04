@@ -23,7 +23,7 @@ PDF와 이미지는 입력 형태가 비슷해 보이지만, 변환 메커니즘
 | 변환 주체 | 순수 Rust `pdf/` 모듈 | **vision LLM (TS `src/llm/`)** |
 | 변환 성격 | 결정적(deterministic) 텍스트 추출 | 모델 추론(이미지 이해) |
 | 백엔드 모듈 | `pdf/` 존재 | **없음** (`img/`·`ocr/` 신설 안 함) |
-| 백엔드 역할 | 추출 + 메타데이터 산출 | 원본 bytes read + 결과 persist |
+| 백엔드 역할 | 추출 + 메타데이터 산출 | 원본 저장 + 결과 persist |
 
 별도 OCR 라이브러리(Tesseract.js / PaddleOCR / Apple Vision 등)를 두지 않기로 한 근거는
 [`ocr-client.md §2`](../40-frontend/ocr-client.md)가 SSOT다. 요지만 옮기면:
@@ -47,31 +47,34 @@ PDF와 이미지는 입력 형태가 비슷해 보이지만, 변환 메커니즘
 이미지 인라인 첨부 (note 편집 화면, 사용자 설명 동시 입력 가능)
    │
    ▼
-[1] 원본 보존        [BE] sources/original-files/ 에 원본 이미지 기록 (수정 금지)
+[1] 원본 보존        [BE] save_source_file → sources/original-files/ 에 원본 이미지 기록 (수정 금지)
    │                      storage/ 의 write_atomic + safe_join 경로 검증
    ▼
-[2] 원본 bytes read  [BE] read_file_bytes(path) → base64. vision 호출 입력으로 전달
+[2] vision 입력 준비  [TS] 프론트 FileReader.readAsDataURL → dataUrl 생성 → vision 입력
+   │                      ※ 백엔드 read_file_bytes 를 거치지 않는다
    │
    ▼
 [3] 1차 vision 호출   [TS] 이미지 + 사용자 설명 → [텍스트]+[사용자 설명]+[그림 설명] 블록 (§4)
    │                      ※ 백엔드는 관여하지 않음 — Rust IPC 아님
    ▼
-[4] archive 저장     [BE] save_source → Source + archive/*.md 기록
+[4] archive 저장     [BE] create_note → archive/*.md 기록 (OCR 텍스트 + ![[원본이미지]] embed 를 노트 본문으로)
    │                      이 블록 전체가 "원문". 기존 ArchiveNote 덮어쓰기 금지(§5)
    ▼
 [5] 2차 텍스트 LLM    [TS] text/pdf와 동일 경로 — Concept/WikiPage/Relation 추출 + 그림 설명 정제
    │
    ▼
-[6] wiki/relations    [BE] save_wiki_page · save_relations 로 persist
+[6] wiki/relations    [BE] save_wiki · append_relations 로 persist
                           원본 이미지 ![[...]] embed + 정제된 그림 설명 포함
 ```
 
-- 백엔드 관여 단계는 [1][2][4][6]뿐이며 모두 **파일 I/O + 영속화**다. "텍스트화"의 실체인 [3][5]는
+- 백엔드 관여 단계는 [1][4][6]뿐이며 모두 **파일 I/O + 영속화**다. "텍스트화"의 실체인 [2][3][5]는
   백엔드 밖에 있다.
 - `image`도 결국 archive에 저장된 텍스트를 입력으로 `text`/`pdf`와 같은 2차 진입점에 합류한다
   ([`ocr-client.md §5`](../40-frontend/ocr-client.md)).
 - Import 흐름/상태(`ImportJob`)는 TS 서비스층이 오케스트레이션하고, Rust `import/`는 상태 전이
   추적과 결과 영속화만 한다([architecture.md §2 LLM 제어권 분리](architecture.md)).
+- 저장 시점 분리: 원본 이미지는 첨부 즉시 `save_source_file`로 디스크에 저장되고, OCR 텍스트는
+  사용자가 저장을 누를 때 `create_note`로 archive에 기록된다(그 전까지는 편집기 본문에만 존재).
 
 ---
 
@@ -83,9 +86,10 @@ PDF와 이미지는 입력 형태가 비슷해 보이지만, 변환 메커니즘
 
 | 커맨드 | 결정 | 사유 |
 |---|---|---|
-| `ocr_image(path) → string` | **폐기(remove)** | 변환이 TS vision 호출로 이동. Rust가 텍스트를 산출하지 않음 |
-| `read_file_bytes(path) → base64` | **재사용** | vision 호출 입력(원본 bytes)·`![[...]]` embed 렌더 양쪽을 모두 충족 ([`ipc-api.md §10`](ipc-api.md)) |
-| `save_source(spaceId, input) → Source` | 재사용 | 원본 보존 + archive `.md` 기록. PDF/text와 동일 진입점 |
+| `ocr_image(path) → string` | **폐기(remove)** | 변환이 TS vision 호출로 이동. 실 IPC(`src/lib/ipc.ts`)에는 **처음부터 없음** — `ipc-api.md §4` 문서 표기만 잔존 |
+| `read_file_bytes(path) → base64` | **재사용** | 저장된 원본 이미지 `![[...]]` embed·미리보기 렌더용 bytes 제공. vision 입력 dataUrl 은 프론트 `FileReader` 담당이라 이 커맨드를 **거치지 않는다** ([`ipc-api.md §10`](ipc-api.md)) |
+| `save_source_file(space, name, dataBase64) → filename` | 재사용 | 원본 이미지 bytes → `sources/original-files/` 저장 (`InboxSection.tsx`) |
+| `create_note(space, title, markdown, subjectIds) → Note` | 재사용 | archive `.md` 기록. OCR 텍스트 + `![[embed]]` 를 노트 본문으로 전달. PDF/text와 동일 진입점 |
 
 - 신규 Rust 커맨드는 **추가하지 않는다.** 이미지 입력을 위한 백엔드 IPC는 이미 있는 것으로 충분하다.
 - ⚠️ **정렬 필요**: 위 결정을 반영하려면 [`ipc-api.md §4`](ipc-api.md)의 `ocr_image` 행을 삭제하고
@@ -152,17 +156,19 @@ PDF와 이미지는 입력 형태가 비슷해 보이지만, 변환 메커니즘
 
 ---
 
-## 7. Provider 라우팅 (참고)
+## 7. Provider (참고)
 
 텍스트 단계와 동일한 provider를 vision에도 그대로 쓴다 — **새 환경변수 분기 없음**
-([`ocr-client.md §3`](../40-frontend/ocr-client.md), [pricing-model §6](../00-overview/pricing-model.md) 매트릭스 재사용).
+([`ocr-client.md §3`](../40-frontend/ocr-client.md)). 현재 구현은 **OpenAI 단일** provider다
+(Free/Premium·로컬 모델 분기는 코드에 없다 — CLAUDE.md provider 규약과 일치).
 
-| 단계 | Free | Premium |
-|---|---|---|
-| 1차 — 이미지 vision | 로컬 Gemma (vision 변형) | GPT/Gemini vision |
-| 2차 — 텍스트 요약/Concept 추출 | 로컬 Gemma | GPT/Gemini |
+| 단계 | Provider |
+|---|---|
+| 1차 — 이미지 vision | OpenAI Responses API (`gpt-5-mini`, `input_image`) — `src/llm/ocr.ts` |
+| 2차 — 텍스트 요약/Concept 추출 | OpenAI GPT |
 
-라우팅·게이팅은 TS `src/llm/`이 소유한다. 백엔드는 plan 분기를 직접 수행하지 않는다.
+- API key 미설정 시 네트워크 호출 없이 오프라인 폴백 마크다운을 반환한다(`ocr.ts`).
+- provider 호출·게이팅은 TS `src/llm/`이 소유한다. 백엔드는 provider 분기에 관여하지 않는다.
 
 ---
 
@@ -170,13 +176,14 @@ PDF와 이미지는 입력 형태가 비슷해 보이지만, 변환 메커니즘
 
 | 책임 | 위치 |
 |---|---|
-| 원본 이미지 보존 (`sources/original-files/`) | **`storage/` (BE)** |
-| 원본 bytes read (`read_file_bytes`) | **`storage/` (BE)** |
-| 이미지 → 텍스트 변환 (vision) | TS `src/llm/` ([ocr-client.md](../40-frontend/ocr-client.md)) |
-| 3-블록 원문 archive `.md` 저장 | **`storage/` (BE)** — 내용 재작성 금지 |
-| wiki/relations persist | **`storage/` (BE)** |
+| 원본 이미지 보존 (`save_source_file` → `sources/original-files/`) | **`storage/` (BE)** |
+| 이미지 → 텍스트 변환 (vision) | TS `src/llm/ocr.ts` ([ocr-client.md](../40-frontend/ocr-client.md)) |
+| vision 입력 dataUrl 생성 (`FileReader`) | TS 프론트 (`InboxSection.tsx`) |
+| 3-블록 원문 archive `.md` 저장 (`create_note`) | **`storage/` (BE)** — 내용 재작성 금지 |
+| 원본 이미지 embed/미리보기 bytes 제공 (`read_file_bytes`) | **`storage/` (BE)** |
+| wiki/relations persist (`save_wiki`·`append_relations`) | **`storage/` (BE)** |
 | `ImportJob` 상태 전이 추적 | `import/` (BE) — LLM 호출은 TS 위임 |
-| 변환 품질·되묻기(clarify) 판정 | TS `src/llm/` (Free는 되묻기 없음) |
+| 변환 품질·되묻기(clarify) 판정 | TS `src/llm/` |
 
 ---
 
@@ -191,7 +198,7 @@ PDF와 이미지는 입력 형태가 비슷해 보이지만, 변환 메커니즘
 | [`../10-contracts/wikilink-embed.md`](../10-contracts/wikilink-embed.md) | `![[image]]` embed 해석 루트 |
 | [`../10-contracts/markdown-frontmatter.md`](../10-contracts/markdown-frontmatter.md) | image 저장 시 frontmatter 검증(`originalFilePath` 필수) |
 | [`storage-io.md`](storage-io.md) | `write_atomic` · `safe_join` · 원본 보존 |
-| [`ipc-api.md`](ipc-api.md) | `ocr_image` 폐기 / `read_file_bytes`·`save_source` 재사용 |
+| [`ipc-api.md`](ipc-api.md) | `ocr_image` 폐기 / `save_source_file`·`create_note`·`read_file_bytes` 재사용 |
 | [`error-handling.md`](error-handling.md) | `io_*` · `archive_conflict` · LLM origin kind 레지스트리 |
 | [`architecture.md`](architecture.md) | 모듈 경계 · LLM 제어권 분리 · `AppError` 전파 |
 
@@ -203,8 +210,9 @@ PDF와 이미지는 입력 형태가 비슷해 보이지만, 변환 메커니즘
   모듈(`img/`·`ocr/`)을 두지 않으며, 변환은 TS vision LLM이 담당한다. 변환 파이프라인 SSOT는
   `ocr-client.md`이고 본 문서는 백엔드 요구사항(파일 I/O·영속화·IPC·상태)만 정의한다.
 - **`ocr_image` IPC 폐기 결론**: [`ocr-client.md §6`](../40-frontend/ocr-client.md)가 요청한 Backend
-  확인에 대한 답. `read_file_bytes` + `save_source`로 충분하므로 `ocr_image`를 제거한다.
-  `ipc-api.md §4/§11` 정렬은 별도 PR로 처리(Backend 소유 문서).
+  확인에 대한 답. 원본 저장 `save_source_file` + archive 기록 `create_note` + embed 렌더
+  `read_file_bytes`로 충분하므로 `ocr_image`는 두지 않는다(실 IPC엔 애초에 없고 `ipc-api.md §4`
+  문서 표기만 잔존 — §4/§11 정렬은 별도 PR로 처리, Backend 소유 문서).
 - **신규 오류 kind 없음**: 백엔드가 변환하지 않으므로 `pdf_extract`에 대응하는 image 추출 kind를
   신설하지 않는다. vision 실패는 LLM origin(`network`/`schema`/`empty` 등)으로 흡수한다.
 - archive 3-블록 원문 보존, `originalFilePath` 필수, embed 루트 규약은 각 contracts SSOT를 백엔드
