@@ -32,7 +32,7 @@ export function TitlebarRow({
   return (
     <header
       data-tauri-drag-region=""
-      className="flex h-10 shrink-0 items-center gap-1 border-b border-hairline bg-chrome px-2"
+      className="flex h-11 shrink-0 items-center gap-1 border-b border-hairline bg-chrome px-2"
     >
       {/* macOS 신호등 자리 — overlay 모드에서만 */}
       {macOverlayChrome && <div data-tauri-drag-region="" className="w-[68px] shrink-0 self-stretch" />}
