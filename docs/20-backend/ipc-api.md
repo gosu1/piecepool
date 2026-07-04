@@ -42,7 +42,6 @@ Frontend(`src/`)가 `invoke()`로 호출하는 Tauri command 목록. **Frontend 
 | command | 인자 | 반환 | 상태 |
 |---|---|---|---|
 | `extract_pdf_text` | `path` | `PdfExtractResult` | 🔜 |
-| `ocr_image` | `path` | `string` | ⏳ |
 | `save_source` | `spaceId, input` | `Source` | 🔜 |
 | `list_sources` | `spaceId` | `Source[]` | 🔜 |
 
@@ -52,6 +51,8 @@ Frontend(`src/`)가 `invoke()`로 호출하는 Tauri command 목록. **Frontend 
 > `entities.md`가 아닌 `models/`에 ts-rs로 정의)
 > `save_source` 가 `Source` + 연결된 `ArchiveNote`(`archive/*.md`) + 원본(`sources/original-files/`) 기록.
 > Import 흐름/상태(`ImportJob`)는 TS 서비스층이 오케스트레이션 — `import-pipeline.md` (작성 예정).
+> 이미지 → 텍스트 변환은 Rust IPC가 아니라 TS vision 호출(`src/llm/ocr.ts`)이다 — `ocr_image` 커맨드는
+> 두지 않는다. 원본 bytes는 `save_source` + `read_file_bytes`로 충분 ([`img-extraction.md §3`](img-extraction.md)).
 
 ## 5. Archive note
 
@@ -112,4 +113,4 @@ Graph View 데이터. RelationType/강도/신뢰도/Evidence = [`relation-types.
 `extract_pdf_text` → `save_source` → `save_wiki_page` + `save_relations` →
 `list_wiki_pages` / `read_wiki_page` (Wiki View) → `list_relations` (Graph View).
 
-나머지(`ocr_image`, `list_questions` 등)는 데모 컷 또는 post-MVP.
+나머지(`list_questions` 등)는 데모 컷 또는 post-MVP.
