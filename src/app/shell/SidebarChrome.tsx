@@ -9,28 +9,28 @@ import { VaultSwitcher } from "./VaultSwitcher";
 export function SidebarHeader({ title, onSearch, onNewNote }: { title: string; onSearch: () => void; onNewNote: () => void }) {
   return (
     <div className="flex items-center justify-between px-3 pt-2.5 pb-1.5">
-      <span className="truncate text-[13px] font-medium text-ink-muted">{title}</span>
+      <span className="truncate text-[14px] font-medium text-ink-muted">{title}</span>
       <span className="flex shrink-0 items-center">
         <IconButton size="sm" aria-label="검색 (⌘K)" onClick={onSearch}>
-          <Icons.SearchIcon size={15} />
+          <Icons.SearchIcon size={17} />
         </IconButton>
         <IconButton size="sm" aria-label="새 노트 작성" onClick={onNewNote}>
-          <Icons.EditIcon size={15} />
+          <Icons.EditIcon size={17} />
         </IconButton>
       </span>
     </div>
   );
 }
 
-export function SidebarShortcuts({ onHome, onNew }: { onHome: () => void; onNew: () => void }) {
+export function SidebarShortcuts({ onHome, onNewFolder }: { onHome: () => void; onNewFolder: () => void }) {
   return (
     <div className="flex items-center gap-0.5 border-b border-hairline px-2 pb-1.5">
       <IconButton size="sm" aria-label="Study Home" onClick={onHome}>
-        <Icons.HomeIcon size={15} />
+        <Icons.HomeIcon size={17} />
       </IconButton>
-      {/* 리본의 "새 노트 (Inbox)" 와 라벨 중복 금지 — e2e strict mode */}
-      <IconButton size="sm" aria-label="새 노트 추가" onClick={onNew}>
-        <Icons.PlusIcon size={15} />
+      {/* 새 폴더(지식 공간) 추가 — "새 노트"는 헤더 연필 아이콘이 담당하므로 중복 "+" 제거 */}
+      <IconButton size="sm" aria-label="새 폴더 추가" onClick={onNewFolder}>
+        <Icons.FolderPlusIcon size={17} />
       </IconButton>
     </div>
   );
@@ -78,12 +78,12 @@ export function SidebarFooter({
           </>
         )}
         <IconButton size="sm" aria-label="도움말" onClick={() => setHelpOpen((o) => !o)} className={cn(helpOpen && "bg-surface-soft text-ink")}>
-          <Icons.HelpCircleIcon size={15} />
+          <Icons.HelpCircleIcon size={17} />
         </IconButton>
       </div>
 
       <IconButton size="sm" aria-label="설정" onClick={onSettings}>
-        <Icons.GearIcon size={15} />
+        <Icons.GearIcon size={17} />
       </IconButton>
     </div>
   );

@@ -125,6 +125,16 @@ export const mock = {
   getWorkspace: () =>
     delay<Workspace>({ id: "ws", name: "PiecePool Workspace", rootPath: "~/PiecePool", createdAt: NOW, updatedAt: NOW }),
   listSpaces: () => delay(SPACES),
+  createSpace: (name: string) => {
+    const base = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "untitled";
+    let slug = base;
+    let n = 2;
+    while (SPACES.some((s) => s.slug === slug)) slug = `${base}-${n++}`;
+    const sp: KnowledgeSpace = { id: `space-${Date.now()}`, name: name.trim(), slug, rootPath: "", createdAt: NOW, updatedAt: NOW };
+    SPACES.push(sp);
+    memNotes[slug] = memNotes[slug] ?? [];
+    return delay(sp);
+  },
   listSubjects: (space: string) => delay(SUBJECTS[space] ?? []),
   listSources: (_space: string) => delay<string[]>([]),
   extractPdfText: (_space: string, file: string) =>

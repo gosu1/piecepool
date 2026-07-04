@@ -537,6 +537,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::workspace::get_workspace,
             commands::workspace::list_spaces,
+            commands::workspace::create_space,
             commands::workspace::list_subjects,
             commands::workspace::list_sources,
             commands::workspace::extract_pdf_text,

@@ -19,6 +19,7 @@ import { inTauri } from "./platform";
 const real = {
   getWorkspace: () => invoke<Workspace>("get_workspace"),
   listSpaces: () => invoke<KnowledgeSpace[]>("list_spaces"),
+  createSpace: (name: string) => invoke<KnowledgeSpace>("create_space", { name }),
   listSubjects: (space: string) => invoke<Subject[]>("list_subjects", { space }),
   listSources: (space: string) => invoke<string[]>("list_sources", { space }),
   extractPdfText: (space: string, file: string) => invoke<PdfExtractResult>("extract_pdf_text", { space, file }),
@@ -47,6 +48,7 @@ const api = inTauri ? real : mock;
 
 export const getWorkspace = api.getWorkspace;
 export const listSpaces = api.listSpaces;
+export const createSpace = api.createSpace;
 export const listSubjects = api.listSubjects;
 export const listSources = api.listSources;
 export const extractPdfText = api.extractPdfText;
