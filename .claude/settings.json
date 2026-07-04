@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/scripts/hooks/journey-guard.sh\"",
+            "timeout": 10,
+            "statusMessage": "journey.md 여정 기록 확인 중"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -19,7 +19,14 @@ fn subject(id: &str, space_id: &str, name: &str, color: &str, now: &str) -> Subj
     }
 }
 
-fn note(space_id: &str, subject: &str, id: &str, title: &str, body: &str, now: &str) -> ArchiveNote {
+fn note(
+    space_id: &str,
+    subject: &str,
+    id: &str,
+    title: &str,
+    body: &str,
+    now: &str,
+) -> ArchiveNote {
     ArchiveNote {
         id: id.into(),
         space_id: space_id.into(),
@@ -33,7 +40,14 @@ fn note(space_id: &str, subject: &str, id: &str, title: &str, body: &str, now: &
     }
 }
 
-fn wiki(space_id: &str, subject: &str, concept: &str, title: &str, body: &str, now: &str) -> WikiPage {
+fn wiki(
+    space_id: &str,
+    subject: &str,
+    concept: &str,
+    title: &str,
+    body: &str,
+    now: &str,
+) -> WikiPage {
     WikiPage {
         id: format!("wiki-{concept}"),
         space_id: space_id.into(),
@@ -50,7 +64,16 @@ fn wiki(space_id: &str, subject: &str, concept: &str, title: &str, body: &str, n
 }
 
 #[allow(clippy::too_many_arguments)] // seed 전용 생성 헬퍼
-fn rel(space_id: &str, src: &str, tgt: &str, t: RelationType, strength: f32, conf: f32, why: &str, now: &str) -> Relation {
+fn rel(
+    space_id: &str,
+    src: &str,
+    tgt: &str,
+    t: RelationType,
+    strength: f32,
+    conf: f32,
+    why: &str,
+    now: &str,
+) -> Relation {
     Relation {
         id: storage::gen_id("rel"),
         space_id: space_id.into(),
@@ -92,7 +115,10 @@ fn seed_space(
     relations: &[Relation],
 ) -> R {
     storage::ensure_space_tree(slug)?;
-    storage::write_json(&storage::space_subdir(slug, "config").join("subjects.json"), &subjects.to_vec())?;
+    storage::write_json(
+        &storage::space_subdir(slug, "config").join("subjects.json"),
+        &subjects.to_vec(),
+    )?;
 
     for (file, n) in notes {
         let md = frontmatter::archive_to_md(n, SourceType::Text, None);
@@ -131,7 +157,9 @@ pub fn ensure_seed() -> R {
             id: "space-os".into(),
             name: "운영체제".into(),
             slug: "operating-systems".into(),
-            root_path: storage::space_dir("operating-systems").to_string_lossy().to_string(),
+            root_path: storage::space_dir("operating-systems")
+                .to_string_lossy()
+                .to_string(),
             created_at: now.clone(),
             updated_at: now.clone(),
         },
@@ -139,14 +167,22 @@ pub fn ensure_seed() -> R {
             id: "space-ai".into(),
             name: "AI 딥러닝".into(),
             slug: "deeplearning".into(),
-            root_path: storage::space_dir("deeplearning").to_string_lossy().to_string(),
+            root_path: storage::space_dir("deeplearning")
+                .to_string_lossy()
+                .to_string(),
             created_at: now.clone(),
             updated_at: now.clone(),
         },
     ];
 
     // ── 운영체제 ──
-    let os_subjects = vec![subject("subject-os", "space-os", "운영체제론", "#0075de", &now)];
+    let os_subjects = vec![subject(
+        "subject-os",
+        "space-os",
+        "운영체제론",
+        "#0075de",
+        &now,
+    )];
     let os_notes = vec![(
         format!("{}-os-overview.md", storage::today()),
         note(
@@ -186,17 +222,78 @@ pub fn ensure_seed() -> R {
         ),
     ];
     let os_relations = vec![
-        rel("space-os", "thread", "process", RelationType::PartOf, 0.9, 0.95, "스레드는 프로세스의 실행 단위다.", &now),
-        rel("space-os", "cpu-scheduling", "process", RelationType::UsedIn, 0.8, 0.9, "CPU 스케줄링은 프로세스에 CPU를 할당한다.", &now),
-        rel("space-os", "synchronization", "process", RelationType::RelatedTo, 0.6, 0.8, "동기화는 프로세스/스레드 간 자원 접근을 조율한다.", &now),
-        rel("space-os", "synchronization", "thread", RelationType::Prerequisite, 0.5, 0.7, "스레드 동시 실행을 다루려면 동기화 개념이 필요하다.", &now),
-        rel("space-os", "synchronization", "deadlock", RelationType::Causes, 0.85, 0.9, "잘못된 동기화는 교착상태를 유발한다.", &now),
+        rel(
+            "space-os",
+            "thread",
+            "process",
+            RelationType::PartOf,
+            0.9,
+            0.95,
+            "스레드는 프로세스의 실행 단위다.",
+            &now,
+        ),
+        rel(
+            "space-os",
+            "cpu-scheduling",
+            "process",
+            RelationType::UsedIn,
+            0.8,
+            0.9,
+            "CPU 스케줄링은 프로세스에 CPU를 할당한다.",
+            &now,
+        ),
+        rel(
+            "space-os",
+            "synchronization",
+            "process",
+            RelationType::RelatedTo,
+            0.6,
+            0.8,
+            "동기화는 프로세스/스레드 간 자원 접근을 조율한다.",
+            &now,
+        ),
+        rel(
+            "space-os",
+            "synchronization",
+            "thread",
+            RelationType::Prerequisite,
+            0.5,
+            0.7,
+            "스레드 동시 실행을 다루려면 동기화 개념이 필요하다.",
+            &now,
+        ),
+        rel(
+            "space-os",
+            "synchronization",
+            "deadlock",
+            RelationType::Causes,
+            0.85,
+            0.9,
+            "잘못된 동기화는 교착상태를 유발한다.",
+            &now,
+        ),
     ];
-    let os_relations = with_evidence(os_relations, "source-os-overview", &format!("{}-os-overview.md", storage::today()));
-    seed_space("operating-systems", &os_subjects, &os_notes, &os_wikis, &os_relations)?;
+    let os_relations = with_evidence(
+        os_relations,
+        "source-os-overview",
+        &format!("{}-os-overview.md", storage::today()),
+    );
+    seed_space(
+        "operating-systems",
+        &os_subjects,
+        &os_notes,
+        &os_wikis,
+        &os_relations,
+    )?;
 
     // ── AI 딥러닝 ──
-    let ai_subjects = vec![subject("subject-ai", "space-ai", "AI 딥러닝", "#2a9d99", &now)];
+    let ai_subjects = vec![subject(
+        "subject-ai",
+        "space-ai",
+        "AI 딥러닝",
+        "#2a9d99",
+        &now,
+    )];
     let ai_notes = vec![(
         format!("{}-transformer-notes.md", storage::today()),
         note(
@@ -226,12 +323,49 @@ pub fn ensure_seed() -> R {
         ),
     ];
     let ai_relations = vec![
-        rel("space-ai", "self-attention", "transformer", RelationType::PartOf, 0.9, 0.95, "셀프 어텐션은 트랜스포머의 핵심 구성요소다.", &now),
-        rel("space-ai", "embedding", "transformer", RelationType::Prerequisite, 0.7, 0.85, "임베딩은 트랜스포머 입력의 전제다.", &now),
-        rel("space-ai", "embedding", "self-attention", RelationType::UsedIn, 0.6, 0.8, "셀프 어텐션은 임베딩 벡터에 작용한다.", &now),
+        rel(
+            "space-ai",
+            "self-attention",
+            "transformer",
+            RelationType::PartOf,
+            0.9,
+            0.95,
+            "셀프 어텐션은 트랜스포머의 핵심 구성요소다.",
+            &now,
+        ),
+        rel(
+            "space-ai",
+            "embedding",
+            "transformer",
+            RelationType::Prerequisite,
+            0.7,
+            0.85,
+            "임베딩은 트랜스포머 입력의 전제다.",
+            &now,
+        ),
+        rel(
+            "space-ai",
+            "embedding",
+            "self-attention",
+            RelationType::UsedIn,
+            0.6,
+            0.8,
+            "셀프 어텐션은 임베딩 벡터에 작용한다.",
+            &now,
+        ),
     ];
-    let ai_relations = with_evidence(ai_relations, "source-transformer", &format!("{}-transformer-notes.md", storage::today()));
-    seed_space("deeplearning", &ai_subjects, &ai_notes, &ai_wikis, &ai_relations)?;
+    let ai_relations = with_evidence(
+        ai_relations,
+        "source-transformer",
+        &format!("{}-transformer-notes.md", storage::today()),
+    );
+    seed_space(
+        "deeplearning",
+        &ai_subjects,
+        &ai_notes,
+        &ai_wikis,
+        &ai_relations,
+    )?;
 
     // ── 마지막에 workspace.json/spaces.json (시드 완료 마커) ──
     storage::write_json(&storage::config_dir().join("spaces.json"), &spaces)?;

@@ -58,9 +58,9 @@ export class OpenAiProvider implements LlmProvider {
       model: this.cfg.model,
       input: buildMessages(input),
       // Responses API structured output — SSOT: provider-config.md §3.2.
-      response_format: {
-        type: "json_schema",
-        json_schema: { name: "LlmWikiResult", strict: true, schema },
+      // Chat Completions 의 response_format 이 아니라 text.format 이다(/responses 는 response_format 을 400 으로 거부).
+      text: {
+        format: { type: "json_schema", name: "LlmWikiResult", strict: true, schema },
       },
     };
   }
@@ -122,14 +122,15 @@ function terminal(stage: Stage, cause: string): AttemptResult {
 }
 
 // Responses API 응답 → 구조화 객체. output_parsed 우선, 없으면 output text를 JSON.parse.
-// SSOT: docs/30-llm/output-validation.md §3.
+// raw HTTP 응답에는 output_parsed/output_text 가 없을 수 있으므로 output[].content[] 워크가 필수.
+// gaps.ts(소크라테스 되묻기)도 재사용. SSOT: docs/30-llm/output-validation.md §3.
 type OpenAiResponse = {
   output_parsed?: unknown;
   output_text?: string;
   output?: Array<{ content?: Array<{ type?: string; text?: string }> }>;
 };
 
-function extractStructured(resp: unknown): unknown {
+export function extractStructured(resp: unknown): unknown {
   const r = (resp ?? {}) as OpenAiResponse;
   if (r.output_parsed && typeof r.output_parsed === "object") return r.output_parsed;
   const text = r.output_text ?? collectOutputText(r);

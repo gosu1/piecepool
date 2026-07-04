@@ -6,7 +6,7 @@ import "./styles/index.css";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <ThemeProvider defaultTheme="light">
+    <ThemeProvider defaultTheme="dark">
       <App />
     </ThemeProvider>
   </React.StrictMode>,

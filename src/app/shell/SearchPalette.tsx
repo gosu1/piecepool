@@ -56,7 +56,7 @@ export function SearchPalette({ items, onPick, onClose }: { items: SearchItem[];
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={onKey}
-            placeholder="파일 검색 (제목/공간)…"
+            placeholder="파일로 이동 (⌘O) — 제목·공간·본문 검색…"
             className="h-12 flex-1 bg-transparent text-[15px] text-ink outline-none placeholder:text-ink-faint"
           />
           <kbd className="rounded border border-hairline bg-surface-soft px-1.5 py-0.5 text-[11px] text-ink-muted">Esc</kbd>

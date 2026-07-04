@@ -12,6 +12,8 @@ export interface MarkdownProps {
   source: string;
   className?: string;
   onLink?: (target: string) => void;
+  /** 위키링크 대상 존재 여부 — false 면 깨진 링크 표식(점선 + tooltip)으로 렌더(수용기준 §2.3). */
+  linkExists?: (target: string) => boolean;
   embedSpace?: string; // 있으면 ![[파일]] 를 sources/original-files/ 에서 실제 렌더
 }
 
@@ -26,13 +28,13 @@ function Embed({ target, space }: { target: string; space?: string }) {
       <span>
         <span className="font-medium text-ink">{file}</span>
         {page && <span> · page {page}</span>}
-        <span className="ml-2 text-ink-faint">(원본 미리보기는 후속)</span>
+        <span className="ml-2 text-ink-faint">(미리보기는 데스크톱 앱에서)</span>
       </span>
     </span>
   );
 }
 
-export function Markdown({ source, className, onLink, embedSpace }: MarkdownProps) {
+export function Markdown({ source, className, onLink, linkExists, embedSpace }: MarkdownProps) {
   return (
     <div className={`ds-md space-y-3 ${className ?? ""}`}>
       <ReactMarkdown
@@ -52,6 +54,17 @@ export function Markdown({ source, className, onLink, embedSpace }: MarkdownProp
             };
             if (h.startsWith("wiki:")) {
               const target = decode(h.slice(5));
+              const broken = linkExists ? !linkExists(target) : false;
+              if (broken) {
+                return (
+                  <span
+                    title={`"${target}" — 연결된 위키가 아직 없어요`}
+                    className="cursor-help text-ink-muted underline decoration-dashed underline-offset-2"
+                  >
+                    {children}
+                  </span>
+                );
+              }
               return (
                 <button type="button" onClick={() => onLink?.(target)} className="text-primary underline-offset-2 hover:underline">
                   {children}

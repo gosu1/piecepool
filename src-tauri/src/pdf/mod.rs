@@ -8,13 +8,19 @@ use crate::error::AppError;
 use crate::models::{PageText, PdfExtractResult};
 
 fn pdf_err(msg: impl Into<String>) -> AppError {
-    AppError { kind: "pdf_extract".into(), message: msg.into() }
+    AppError {
+        kind: "pdf_extract".into(),
+        message: msg.into(),
+    }
 }
 
 /// `<space>/sources/original-files/<file>` PDF 를 페이지별 텍스트로 추출.
 pub fn extract(path: &Path) -> Result<PdfExtractResult, AppError> {
     if !path.exists() {
-        return Err(AppError { kind: "not_found".into(), message: format!("PDF 없음: {}", path.display()) });
+        return Err(AppError {
+            kind: "not_found".into(),
+            message: format!("PDF 없음: {}", path.display()),
+        });
     }
     let pages = pdf_extract::extract_text_by_pages(path).map_err(|e| {
         let m = e.to_string();
@@ -33,7 +39,10 @@ pub fn extract(path: &Path) -> Result<PdfExtractResult, AppError> {
     let pages = pages
         .into_iter()
         .enumerate()
-        .map(|(i, text)| PageText { page: (i + 1) as u32, text })
+        .map(|(i, text)| PageText {
+            page: (i + 1) as u32,
+            text,
+        })
         .collect();
     Ok(PdfExtractResult { page_count, pages })
 }

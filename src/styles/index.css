@@ -11,6 +11,8 @@
   --color-canvas: var(--ds-canvas);
   --color-surface: var(--ds-surface);
   --color-surface-soft: var(--ds-surface-soft);
+  /* chrome — 리본·사이드바·타이틀바·상태바 전용 표면 (Obsidian: 에디터보다 짙은 2단 명도) */
+  --color-chrome: var(--ds-chrome);
 
   /* ink (text) */
   --color-ink: var(--ds-ink);
@@ -61,13 +63,9 @@
   --radius-lg: 12px;
   --radius-xl: 16px;
 
-  /* elevation — barely-there 다층 마이크로 섀도 */
-  --shadow-soft:
-    0 0.175px 1.041px rgba(0, 0, 0, 0.01), 0 0.8px 2.925px rgba(0, 0, 0, 0.02),
-    0 2.025px 7.847px rgba(0, 0, 0, 0.027), 0 4px 18px rgba(0, 0, 0, 0.04);
-  --shadow-elevated:
-    0 1px 2px rgba(0, 0, 0, 0.02), 0 4px 9px rgba(0, 0, 0, 0.03),
-    0 10px 22px rgba(0, 0, 0, 0.04), 0 23px 52px rgba(0, 0, 0, 0.05);
+  /* elevation — 테마별 간접화(다크는 더 강한 부양이 필요) */
+  --shadow-soft: var(--ds-shadow-soft);
+  --shadow-elevated: var(--ds-shadow-elevated);
 
   --font-sans:
     "Inter", "Pretendard Variable", "Pretendard", -apple-system,
@@ -81,6 +79,7 @@
   --ds-canvas: #f6f5f4;
   --ds-surface: #ffffff;
   --ds-surface-soft: #f0eeea;
+  --ds-chrome: #f6f5f4;
 
   --ds-ink: #1f1e1c;
   --ds-ink-2: #31302e;
@@ -108,41 +107,55 @@
   --ds-graph-result: #b8b5ad;
   --ds-graph-edge: #c9c6bd;
 
+  /* barely-there 다층 마이크로 섀도 */
+  --ds-shadow-soft:
+    0 0.175px 1.041px rgba(0, 0, 0, 0.01), 0 0.8px 2.925px rgba(0, 0, 0, 0.02),
+    0 2.025px 7.847px rgba(0, 0, 0, 0.027), 0 4px 18px rgba(0, 0, 0, 0.04);
+  --ds-shadow-elevated:
+    0 1px 2px rgba(0, 0, 0, 0.02), 0 4px 9px rgba(0, 0, 0, 0.03),
+    0 10px 22px rgba(0, 0, 0, 0.04), 0 23px 52px rgba(0, 0, 0, 0.05);
+
   color-scheme: light;
 }
 
-/* ── 다크: Notion 다크 (블루 코어 유지) ───────────────────── */
+/* ── 다크(기본): Obsidian 중립 회색 — 크롬(#262626) vs 에디터(#1e1e1e) 2단 명도, 블루 코어 유지 ── */
 [data-theme="dark"] {
-  --ds-canvas: #191817;
-  --ds-surface: #242321;
-  --ds-surface-soft: #201f1d;
+  --ds-canvas: #1e1e1e;
+  --ds-surface: #262626;
+  --ds-surface-soft: #303030;
+  --ds-chrome: #262626;
 
-  --ds-ink: #ededea;
-  --ds-ink-2: #c4c1bb;
-  --ds-ink-muted: #918d86;
-  --ds-ink-faint: #6b6863;
+  --ds-ink: #dadada;
+  --ds-ink-2: #b8b8b8;
+  --ds-ink-muted: #9a9a9a;
+  --ds-ink-faint: #6e6e6e;
 
-  --ds-hairline: #322f2c;
+  --ds-hairline: #363636;
 
   --ds-primary: #4d8df0;
   --ds-primary-active: #3b7ad6;
   --ds-on-primary: #ffffff;
 
   /* 다크 아일랜드(위키 헤더·AI 배너·solid 버튼)는 다크에서도 어둡게 유지(캔버스보다 더 검게) */
-  --ds-fill: #0e0e0c;
-  --ds-on-fill: #ece9e3;
-  --ds-fill-subtle: rgba(255, 255, 255, 0.1);
+  --ds-fill: #141414;
+  --ds-on-fill: #dadada;
+  --ds-fill-subtle: rgba(255, 255, 255, 0.07);
 
-  --ds-danger: #f0736f;
-  --ds-warning: #e0a44e;
+  --ds-danger: #eb6f6b;
+  --ds-warning: #d9a04d;
   --ds-success: #4fb96e;
 
   --ds-secondary: #2c3aa0;
   --ds-on-secondary: #ffffff;
 
   --ds-graph-core: #4d8df0;
-  --ds-graph-result: #8a8780;
-  --ds-graph-edge: #3a3934;
+  --ds-graph-result: #8a8a8a;
+  --ds-graph-edge: #3f3f3f;
+
+  /* 다크는 부양이 보여야 함 — 뚜렷한 섀도 */
+  --ds-shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --ds-shadow-elevated:
+    0 4px 14px rgba(0, 0, 0, 0.35), 0 14px 40px rgba(0, 0, 0, 0.5);
 
   color-scheme: dark;
 }
@@ -192,4 +205,10 @@
   .ds-button { font-size: 16px; font-weight: 500; line-height: 1.5; }
   .ds-caption { font-size: 14px; font-weight: 400; line-height: 1.43; }
   .ds-eyebrow { font-size: 12px; font-weight: 600; line-height: 1.33; letter-spacing: 0.125px; }
+
+  /* 그래프 캔버스용 도트 그리드 배경 (미니 그래프 등) — hairline 토큰이라 다크모드 자동 대응 */
+  .ds-dotgrid {
+    background-image: radial-gradient(var(--ds-hairline) 1px, transparent 1px);
+    background-size: 16px 16px;
+  }
 }

@@ -10,11 +10,17 @@ use crate::error::AppError;
 use crate::models::{ArchiveNote, SourceRef, SourceType, WikiPage};
 
 fn err(msg: impl Into<String>) -> AppError {
-    AppError { kind: "schema".into(), message: msg.into() }
+    AppError {
+        kind: "schema".into(),
+        message: msg.into(),
+    }
 }
 
 fn invalid(msg: impl Into<String>) -> AppError {
-    AppError { kind: "frontmatter_invalid".into(), message: msg.into() }
+    AppError {
+        kind: "frontmatter_invalid".into(),
+        message: msg.into(),
+    }
 }
 
 /// offset-aware ISO 8601 여부 — `YYYY-MM-DDTHH:MM:SS(.fff)?(Z|±HH:MM)`.
@@ -24,13 +30,19 @@ pub fn valid_iso8601(s: &str) -> bool {
         return false;
     }
     let d = |i: usize| b[i].is_ascii_digit();
-    if !(d(0) && d(1) && d(2) && d(3)) || b[4] != b'-' || !(d(5) && d(6)) || b[7] != b'-' || !(d(8) && d(9)) {
+    if !(d(0) && d(1) && d(2) && d(3))
+        || b[4] != b'-'
+        || !(d(5) && d(6))
+        || b[7] != b'-'
+        || !(d(8) && d(9))
+    {
         return false;
     }
     if b[10] != b'T' {
         return false;
     }
-    if !(d(11) && d(12)) || b[13] != b':' || !(d(14) && d(15)) || b[16] != b':' || !(d(17) && d(18)) {
+    if !(d(11) && d(12)) || b[13] != b':' || !(d(14) && d(15)) || b[16] != b':' || !(d(17) && d(18))
+    {
         return false;
     }
     let rest = &s[19..];
@@ -76,10 +88,16 @@ pub fn validate_archive(
         return Err(invalid("pdf/image 원문은 originalFilePath 필수"));
     }
     if !valid_iso8601(&note.created_at) {
-        return Err(invalid(format!("createdAt ISO 8601 아님: {}", note.created_at)));
+        return Err(invalid(format!(
+            "createdAt ISO 8601 아님: {}",
+            note.created_at
+        )));
     }
     if !note.updated_at.is_empty() && !valid_iso8601(&note.updated_at) {
-        return Err(invalid(format!("updatedAt ISO 8601 아님: {}", note.updated_at)));
+        return Err(invalid(format!(
+            "updatedAt ISO 8601 아님: {}",
+            note.updated_at
+        )));
     }
     Ok(())
 }
@@ -101,14 +119,23 @@ pub fn validate_wiki(
     }
     for r in &page.source_refs {
         if !sources.contains(&r.source_id) {
-            return Err(invalid(format!("존재하지 않는 Source 참조: {}", r.source_id)));
+            return Err(invalid(format!(
+                "존재하지 않는 Source 참조: {}",
+                r.source_id
+            )));
         }
     }
     if !valid_iso8601(&page.created_at) {
-        return Err(invalid(format!("createdAt ISO 8601 아님: {}", page.created_at)));
+        return Err(invalid(format!(
+            "createdAt ISO 8601 아님: {}",
+            page.created_at
+        )));
     }
     if !valid_iso8601(&page.updated_at) {
-        return Err(invalid(format!("updatedAt ISO 8601 아님: {}", page.updated_at)));
+        return Err(invalid(format!(
+            "updatedAt ISO 8601 아님: {}",
+            page.updated_at
+        )));
     }
     Ok(())
 }
@@ -145,7 +172,9 @@ pub struct Fm {
 
 impl Fm {
     pub fn parse(fm: &str) -> Self {
-        Fm { lines: fm.lines().map(|l| l.to_string()).collect() }
+        Fm {
+            lines: fm.lines().map(|l| l.to_string()).collect(),
+        }
     }
 
     /// top-level `key: value` 스칼라.
@@ -205,7 +234,9 @@ impl Fm {
             if let Some(rest) = t.strip_prefix("- ") {
                 out.push(vec![]);
                 if let Some((k, v)) = rest.split_once(':') {
-                    out.last_mut().unwrap().push((k.trim().to_string(), unquote(v)));
+                    out.last_mut()
+                        .unwrap()
+                        .push((k.trim().to_string(), unquote(v)));
                 }
             } else if let Some((k, v)) = t.split_once(':') {
                 if let Some(last) = out.last_mut() {
@@ -255,7 +286,11 @@ fn source_type_from(s: &str) -> SourceType {
     }
 }
 
-pub fn archive_to_md(note: &ArchiveNote, source_type: SourceType, original_file_path: Option<&str>) -> String {
+pub fn archive_to_md(
+    note: &ArchiveNote,
+    source_type: SourceType,
+    original_file_path: Option<&str>,
+) -> String {
     let mut fm = String::new();
     yaml_scalar(&mut fm, "id", &note.id);
     fm.push_str("type: archive\n");
@@ -271,7 +306,11 @@ pub fn archive_to_md(note: &ArchiveNote, source_type: SourceType, original_file_
     format!("---\n{fm}---\n\n{}", note.markdown)
 }
 
-pub fn md_to_archive(space_id: &str, path: &str, md: &str) -> std::result::Result<ArchiveNote, AppError> {
+pub fn md_to_archive(
+    space_id: &str,
+    path: &str,
+    md: &str,
+) -> std::result::Result<ArchiveNote, AppError> {
     let (fm_text, body) = split(md);
     let fm = Fm::parse(&fm_text);
     let id = fm.scalar("id").ok_or_else(|| err("archive: missing id"))?;
@@ -293,6 +332,12 @@ pub fn archive_source_type(md: &str) -> SourceType {
     let (fm_text, _) = split(md);
     let fm = Fm::parse(&fm_text);
     source_type_from(&fm.scalar("sourceType").unwrap_or_else(|| "text".into()))
+}
+
+/// archive 파일의 originalFilePath (pdf/image 원본, sources/original-files/ 기준). 없으면 None.
+pub fn archive_original_file_path(md: &str) -> Option<String> {
+    let (fm_text, _) = split(md);
+    Fm::parse(&fm_text).scalar("originalFilePath")
 }
 
 // ── WikiPage ────────────────────────────────────────────────

@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import * as ipc from "./ipc";
+import { clampZoom } from "./pdfView";
 import { parseEmbedTarget } from "./wikilink";
 
 // 원본 파일 미리보기 — 이미지(data URL) / PDF(react-pdf). 규약: docs/10-contracts/wikilink-embed.md.
@@ -27,11 +28,30 @@ export function FilePreview({ space, target }: { space: string; target: string }
   const [err, setErr] = useState<string | null>(null);
   const [numPages, setNumPages] = useState(0);
   const [cur, setCur] = useState(page ?? 1);
+  const [scale, setScale] = useState(1);
+  const pdfBoxRef = useRef<HTMLDivElement | null>(null);
+
+  // 매 렌더 새 문자열을 주면 react-pdf가 PDF를 매번 다시 로드한다 — 고정 필요 (줌마다 재로드 방지)
+  const pdfData = useMemo(() => (b64 ? `data:application/pdf;base64,${b64}` : null), [b64]);
+
+  // Ctrl+휠 줌 — React onWheel은 passive라 preventDefault가 안 먹음 → 네이티브 등록
+  useEffect(() => {
+    const el = pdfBoxRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      setScale((s) => clampZoom(s + (e.deltaY < 0 ? 0.1 : -0.1)));
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [b64, err]);
 
   useEffect(() => {
     let alive = true;
     setB64(null);
     setErr(null);
+    setScale(1); // 파일이 바뀌면 이전 문서의 줌 배율을 물려받지 않는다
     ipc
       .readFileBytes(space, file)
       .then((b) => alive && setB64(b))
@@ -53,15 +73,15 @@ export function FilePreview({ space, target }: { space: string; target: string }
     const over = numPages > 0 && (page ?? 1) > numPages;
     const shown = numPages > 0 ? (over ? 1 : Math.min(Math.max(cur, 1), numPages)) : cur;
     return (
-      <div className="space-y-2">
+      <div ref={pdfBoxRef} className="space-y-2">
         <Document
-          file={`data:application/pdf;base64,${b64}`}
+          file={pdfData}
           onLoadSuccess={(d) => setNumPages(d.numPages)}
           onLoadError={(e) => setErr(String(e))}
           loading={<Box>PDF 여는 중… {file}</Box>}
           error={<Box tone="danger">PDF를 열 수 없습니다: {file}</Box>}
         >
-          <Page pageNumber={shown} width={520} renderTextLayer={false} renderAnnotationLayer={false} />
+          <Page pageNumber={shown} width={520} scale={scale} renderTextLayer={false} renderAnnotationLayer={false} />
         </Document>
         {over && <p className="text-[12px] text-danger">요청한 {page}쪽이 범위를 벗어남(총 {numPages}쪽) — 1쪽을 표시합니다.</p>}
         {numPages > 1 && (

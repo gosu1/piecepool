@@ -23,7 +23,7 @@ export function Ribbon({
   onSettings: () => void;
 }) {
   return (
-    <nav className="flex w-11 shrink-0 flex-col items-center gap-0.5 border-r border-hairline bg-surface py-2">
+    <nav className="flex w-[52px] shrink-0 flex-col items-center gap-1 border-r border-hairline bg-chrome py-3">
       {/* Study Home */}
       <RibbonButton label="Study Home" active={activeKind === "home"} onClick={onHome}>
         <Icons.BarChartIcon size={18} />
@@ -58,7 +58,7 @@ export function Ribbon({
 }
 
 function Divider() {
-  return <div className="my-1.5 h-px w-5 bg-hairline" />;
+  return <div className="my-2 h-px w-6 bg-hairline" />;
 }
 
 function RibbonButton({ label, active, onClick, children }: { label: string; active?: boolean; onClick: () => void; children: ReactNode }) {
@@ -69,12 +69,11 @@ function RibbonButton({ label, active, onClick, children }: { label: string; act
       title={label}
       onClick={onClick}
       className={cn(
-        "relative flex h-9 w-9 items-center justify-center rounded-md transition-colors",
-        active ? "bg-surface-soft text-primary" : "text-ink-muted hover:bg-surface-soft hover:text-ink",
+        "relative flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
+        // Obsidian quiet chrome — 활성도 모노크롬(액센트 없음)
+        active ? "bg-fill-subtle text-ink" : "text-ink-muted hover:bg-fill-subtle hover:text-ink",
       )}
     >
-      {/* Obsidian식 왼쪽 accent 바 */}
-      {active && <span className="absolute -left-1 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-primary" />}
       {children}
     </button>
   );

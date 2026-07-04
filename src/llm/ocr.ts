@@ -29,7 +29,8 @@ export function buildOcrRequest(dataUrl: string, model = "gpt-5-mini") {
   };
 }
 
-function extractText(data: { output_text?: string; output?: Array<{ content?: Array<{ text?: string }> }> }): string {
+// Responses API 응답 → 평문 텍스트. pdfdigest.ts 도 재사용.
+export function extractText(data: { output_text?: string; output?: Array<{ content?: Array<{ text?: string }> }> }): string {
   if (typeof data.output_text === "string") return data.output_text;
   const parts = (data.output ?? []).flatMap((o) => o.content ?? []);
   return parts
