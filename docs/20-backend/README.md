@@ -20,6 +20,7 @@ Tauri + Rust 백엔드. 파일 I/O, PDF/OCR 텍스트 처리, Import 파이프�
 | `architecture.md` | Tauri + Rust 모듈 경계, 의존성 |
 | `storage-io.md` | 파일 atomic write, 경로 해석, 외부 수정 감지 |
 | `pdf-extraction.md` | PDF → text 추출 파이프라인 |
+| `img-extraction.md` | 이미지 → text 변환 (백엔드 관점: vision LLM 위임, 파일 I/O·영속화) |
 | `import-pipeline.md` | Inbox → archive → LLM(요약/추출/관계) → wiki/relations. 되묻기/우선도 로직 포함 |
 | `prompt-design.md` | 도메인 프롬프트 설계 노트 (한국어 학습, 되묻기 문구). `30-llm/prompt-templates.md`와 짝 |
 | `import-job-states.md` | `ImportJobStatus` 전이 다이어그램 (되묻기 round-trip 포함) |
