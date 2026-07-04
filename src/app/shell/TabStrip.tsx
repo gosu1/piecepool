@@ -3,7 +3,7 @@ import type { WorkspaceTab, TabKind } from "../../store/workspaceStore";
 
 // ══ 센터 탭 스트립 (Obsidian pane 탭) — 열린 아티팩트 목록. TitlebarRow 안에서 렌더된다. ══
 export function TabIcon({ kind }: { kind: TabKind }) {
-  const size = 14;
+  const size = 15;
   if (kind === "graph") return <Icons.GraphIcon size={size} />;
   if (kind === "inbox") return <Icons.PlusIcon size={size} />;
   if (kind === "archive") return <Icons.FileUpIcon size={size} />;
@@ -29,7 +29,8 @@ export function TabStrip({
   if (tabs.length === 0) return null;
   return (
     // bare drag-region: 마지막 탭 오른쪽 빈 영역(mousedown 대상 = 이 컨테이너)만 창 드래그.
-    <div data-tauri-drag-region="" className="flex min-w-0 items-center gap-1 self-stretch overflow-x-auto px-1">
+    // 스크롤 없이 overflow-hidden — 넘치는 탭은 우측 "탭 목록" 스택 드롭다운으로 찾는다.
+    <div data-tauri-drag-region="" className="flex min-w-0 items-center gap-1 self-stretch overflow-hidden px-1">
       {tabs.map((t) => {
         const active = t.id === activeId;
         return (
@@ -71,7 +72,7 @@ export function TabStrip({
                 : undefined
             }
             className={cn(
-              "group my-auto flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2.5 text-[13px] transition-colors",
+              "group my-auto flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-3 text-[14px] transition-colors",
               active ? "bg-canvas text-ink" : "text-ink-muted hover:bg-surface-soft/60 hover:text-ink",
             )}
           >
