@@ -72,17 +72,17 @@ describe("chunk settings", () => {
     expect(getInboxPanels()).toEqual({ pdf: false, wiki: true });
   });
 
-  it("inbox 패널 폭 — 기본값, 저장·클램프(15~70), 무효 값 폴백", () => {
+  it("inbox 패널 폭 — 기본값, 저장·클램프(30~70), 무효 값 폴백", () => {
     expect(getInboxPaneWidths()).toEqual(INBOX_PANE_DEFAULTS);
     setInboxPaneWidth("pdf", 55.25);
     expect(getInboxPaneWidths().pdf).toBeCloseTo(55.3);
     setInboxPaneWidth("pdf", 5); // 하한 클램프
-    expect(getInboxPaneWidths().pdf).toBe(15);
+    expect(getInboxPaneWidths().pdf).toBe(30);
     setInboxPaneWidth("wiki", 99); // 상한 클램프
     expect(getInboxPaneWidths().wiki).toBe(70);
     localStorage.setItem("inbox-pane-pdf", "junk");
     expect(getInboxPaneWidths().pdf).toBe(INBOX_PANE_DEFAULTS.pdf);
     expect(clampPanePct(200)).toBe(70);
-    expect(clampPanePct(-3)).toBe(15);
+    expect(clampPanePct(-3)).toBe(30);
   });
 });
