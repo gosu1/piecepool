@@ -7,6 +7,7 @@ pub mod error;
 pub mod import;
 pub mod models;
 pub mod pdf;
+pub mod priority;
 pub mod seed;
 pub mod storage;
 
@@ -45,6 +46,19 @@ mod tests {
         assert_eq!(g.relations.len(), 5);
         let deadlock = g.nodes.iter().find(|n| n.title == "교착상태").unwrap();
         assert_eq!(deadlock.kind, "result");
+
+        // 파생 우선도(§5): 전부 [0,1], 콜드스타트 구조 팩터만으로 허브(프로세스)가 최고점
+        assert!(g.nodes.iter().all(|n| (0.0..=1.0).contains(&n.priority)));
+        let top = g
+            .nodes
+            .iter()
+            .max_by(|a, b| a.priority.total_cmp(&b.priority))
+            .unwrap();
+        assert_eq!(top.title, "프로세스", "허브 노드가 최고 우선도");
+        assert!(
+            deadlock.priority < top.priority,
+            "결과 잎 노드는 허브보다 낮은 우선도"
+        );
 
         // 5) 노트 생성 → archive 파일 + 재조회
         let note = commands::notes::create_note(

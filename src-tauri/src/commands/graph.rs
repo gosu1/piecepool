@@ -4,6 +4,7 @@ use serde::Serialize;
 
 use crate::commands::space_by_slug;
 use crate::models::{Relation, RelationType, WikiPage};
+use crate::priority::{compute_priorities, RawFactors};
 use crate::storage::{self, frontmatter};
 
 // 노드 종류(id 접두사로 판별) + 12행 node-compat 매트릭스.
@@ -46,7 +47,8 @@ pub struct GraphNode {
     pub title: String,
     pub kind: String, // "core" | "result"
     pub subject_ids: Vec<String>,
-    pub path: String, // wiki 파일명 (node 클릭 → 문서 열기)
+    pub path: String,     // wiki 파일명 (node 클릭 → 문서 열기)
+    pub priority: f32,    // 파생 우선도 0~1 (prioritization.md §5). entities 아님 → 계약 변경 아님.
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -71,18 +73,23 @@ pub fn get_graph(space: String) -> Result<GraphData, String> {
     let sp = space_by_slug(&space)?;
     let relations = read_relations(&space)?;
 
-    // 개념별 in/out 차수
+    // 개념별 in/out 차수 + 인접 엣지 품질(strength·confidence 합) — 우선도 팩터 1·2.
     let mut outdeg: HashMap<String, u32> = HashMap::new();
     let mut indeg: HashMap<String, u32> = HashMap::new();
+    let mut edge_quality: HashMap<String, f32> = HashMap::new();
     for r in &relations {
         *outdeg.entry(r.source_node_id.clone()).or_default() += 1;
         *indeg.entry(r.target_node_id.clone()).or_default() += 1;
+        let w = r.strength * r.confidence;
+        *edge_quality.entry(r.source_node_id.clone()).or_default() += w;
+        *edge_quality.entry(r.target_node_id.clone()).or_default() += w;
     }
 
-    // wiki 파일 → 노드
+    // wiki 파일 → 노드. 같은 순서로 RawFactors 를 모아 우선도를 일괄 산정한다.
     let dir = storage::space_subdir(&space, "wiki");
     let files = storage::list_files(&dir, ".md").map_err(|e| e.to_string())?;
     let mut nodes = vec![];
+    let mut raws: Vec<RawFactors> = vec![];
     for f in files {
         let md = storage::read_text(&dir.join(&f)).map_err(|e| e.to_string())?;
         let page: WikiPage = match frontmatter::md_to_wiki(&sp.id, &f, &md) {
@@ -97,13 +104,30 @@ pub fn get_graph(space: String) -> Result<GraphData, String> {
         } else {
             "core"
         };
+
+        raws.push(RawFactors {
+            centrality: (inn + out) as f32,
+            edge_quality: *edge_quality.get(&id).unwrap_or(&0.0),
+            // 클릭은 app-local node-stats(§4) 미배선 상태 → 콜드스타트 0. 후속 단계에서 주입.
+            clicks: 0,
+            // updatedAt 상대 신선도(§5.1 factor 4). 파싱 실패 시 0(=가장 오래됨 취급).
+            recency: storage::iso_to_epoch_days(&page.updated_at).unwrap_or(0) as f32,
+            // 근거 탄탄함(§5.1 factor 5): sourceIds + sourceRefs 개수.
+            source_backing: (page.source_ids.len() + page.source_refs.len()) as f32,
+        });
         nodes.push(GraphNode {
             id,
             title: page.title,
             kind: kind.to_string(),
             subject_ids: page.subject_ids,
             path: f,
+            priority: 0.0,
         });
+    }
+
+    // 파생 우선도 산정 후 각 노드에 주입(§5.3). raws 와 nodes 는 동일 순서.
+    for (node, p) in nodes.iter_mut().zip(compute_priorities(&raws)) {
+        node.priority = p;
     }
 
     Ok(GraphData { nodes, relations })
