@@ -101,6 +101,8 @@ export function InboxSection({
   };
 
   // ── 패널 폭 드래그 리사이즈 (Sidebar 패턴, % 기반) ──
+  // 노트 패널 최소 px 폭 — <section> minWidth 와 드래그 상한 클램프가 공유하는 SSOT
+  const NOTE_MIN_PX = 360;
   const splitRef = useRef<HTMLDivElement>(null);
   const [paneW, setPaneW] = useState(getInboxPaneWidths());
   // dir: 1 = 좌측 패널(오른쪽 드래그 → 커짐), -1 = 우측 패널(왼쪽 드래그 → 커짐)
@@ -114,7 +116,12 @@ export function InboxSection({
     const prevCursor = document.body.style.cursor;
     document.body.style.userSelect = "none";
     document.body.style.cursor = "col-resize";
-    const pctAt = (clientX: number) => clampPanePct(startPct + ((clientX - startX) / total) * 100 * dir);
+    // 상한선: 반대편 패널 폭 + 노트 최소폭을 뺀 나머지까지만 — 더 늘리면 노트가 눌리며 전체가 뷰포트 밖으로 넘친다.
+    const otherKey: InboxPaneKey = key === "pdf" ? "wiki" : "pdf";
+    const otherPct = panels[otherKey] ? paneW[otherKey] : 0;
+    const maxPct = 100 - otherPct - (NOTE_MIN_PX / total) * 100;
+    const pctAt = (clientX: number) =>
+      clampPanePct(Math.min(startPct + ((clientX - startX) / total) * 100 * dir, maxPct));
     const onMove = (ev: PointerEvent) => setPaneW((w) => ({ ...w, [key]: pctAt(ev.clientX) }));
     const onUp = (ev: PointerEvent) => {
       setInboxPaneWidth(key, pctAt(ev.clientX));
@@ -271,7 +278,7 @@ export function InboxSection({
 
   // ── 노트 패널 (중심 고정) — 새 원본(archive) 작성 ──
   const notePane = (
-    <section className="flex min-w-0 flex-1 flex-col">
+    <section style={{ minWidth: NOTE_MIN_PX }} className="flex min-w-0 flex-1 flex-col">
       <PaneHeader label="노트" hint="자료 → 원본(archive) 저장 → (선택) AI 위키·관계 생성" />
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
         <input
@@ -406,7 +413,7 @@ export function InboxSection({
   // ── PDF 패널 (3-split 좌측) — 원본 자료 열람 + 추출 ──
   const refSourceIsPdf = /\.pdf$/i.test(refSource);
   const pdfPane = (
-    <section style={{ width: `${paneW.pdf}%` }} className="flex min-w-0 shrink-0 flex-col border-r border-hairline">
+    <section style={{ width: `${paneW.pdf}%`, minWidth: 280 }} className="flex min-w-0 shrink-0 flex-col border-r border-hairline">
       <PaneHeader
         label="PDF"
         hint={sources.length > 0 ? `원본 파일 ${sources.length}개` : "원본 파일 없음"}
@@ -416,11 +423,11 @@ export function InboxSection({
               <PaneSelect value={refSource} onChange={setRefSource} options={sources.map((s) => ({ value: s, label: s }))} />
             )}
             {refSource && (
-              <Button size="sm" variant="utility" onClick={() => setConfirmDelSrc(true)}>
+              <Button size="sm" variant="utility" className="shrink-0 whitespace-nowrap" onClick={() => setConfirmDelSrc(true)}>
                 삭제
               </Button>
             )}
-            <Button size="sm" variant="utility" onClick={() => setUploadOpen(true)}>
+            <Button size="sm" variant="utility" className="shrink-0 whitespace-nowrap" onClick={() => setUploadOpen(true)}>
               업로드
             </Button>
           </div>
@@ -451,7 +458,7 @@ export function InboxSection({
 
   // ── 위키 패널 (우측 보조) — 생성된 위키 참조 ──
   const wikiPane = (
-    <section style={{ width: `${paneW.wiki}%` }} className="flex min-w-0 shrink-0 flex-col border-l border-hairline">
+    <section style={{ width: `${paneW.wiki}%`, minWidth: 280 }} className="flex min-w-0 shrink-0 flex-col border-l border-hairline">
       <PaneHeader
         label="위키"
         hint={existing.length > 0 ? `위키 ${existing.length}개` : "위키 없음"}
@@ -464,7 +471,7 @@ export function InboxSection({
                 options={existing.map((w) => ({ value: w.path, label: w.title }))}
               />
               {refWiki && (
-                <Button size="sm" variant="utility" onClick={() => onOpenWiki(refWiki.path)}>
+                <Button size="sm" variant="utility" className="shrink-0 whitespace-nowrap" onClick={() => onOpenWiki(refWiki.path)}>
                   열기
                 </Button>
               )}
@@ -516,7 +523,7 @@ export function InboxSection({
       </header>
 
       {/* 본문 — [PDF] | 노트(고정) | [위키]. 디바이더로 폭 조절(더블클릭 = 초기화) */}
-      <div ref={splitRef} className="flex min-h-0 flex-1">
+      <div ref={splitRef} className="flex min-h-0 flex-1 overflow-hidden">
         {panels.pdf && (
           <>
             {pdfPane}
@@ -594,7 +601,7 @@ function PaneSelect({ value, onChange, options }: { value: string; onChange: (v:
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="max-w-[180px] truncate rounded-md border border-hairline bg-surface px-2 py-1 text-[12px] text-ink outline-none"
+      className="min-w-0 max-w-[180px] truncate rounded-md border border-hairline bg-surface px-2 py-1 text-[12px] text-ink outline-none"
     >
       {options.map((o) => (
         <option key={o.value} value={o.value}>

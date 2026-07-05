@@ -74,10 +74,10 @@ export function setInboxPanel(key: InboxPanelKey, open: boolean): void {
 // ── Inbox 패널 폭 (드래그 리사이즈, % 단위) ──
 // pdf = 좌측(PDF), wiki = 우측(위키). 가운데 노트가 나머지를 채운다.
 export type InboxPaneKey = "pdf" | "wiki";
-export const INBOX_PANE_DEFAULTS: Record<InboxPaneKey, number> = { pdf: 33, wiki: 28 };
+export const INBOX_PANE_DEFAULTS: Record<InboxPaneKey, number> = { pdf: 33, wiki: 30 };
 
 export function clampPanePct(pct: number): number {
-  return Math.min(70, Math.max(15, pct));
+  return Math.min(70, Math.max(30, pct));
 }
 
 export function getInboxPaneWidths(): Record<InboxPaneKey, number> {

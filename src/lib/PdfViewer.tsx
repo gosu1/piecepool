@@ -28,7 +28,7 @@ function TBtn({ children, onClick, disabled, title }: { children: React.ReactNod
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className="rounded border border-hairline px-2 py-0.5 hover:bg-surface-soft disabled:opacity-40 disabled:hover:bg-transparent"
+      className="shrink-0 whitespace-nowrap rounded border border-hairline px-2 py-0.5 hover:bg-surface-soft disabled:opacity-40 disabled:hover:bg-transparent"
     >
       {children}
     </button>
@@ -274,7 +274,7 @@ export function PdfViewer({
   return (
     <div className="flex h-full min-h-0 flex-col">
       {/* 툴바 */}
-      <div className="flex shrink-0 items-center gap-1.5 border-b border-hairline px-2 py-1.5 text-[13px] text-ink-2">
+      <div className="flex shrink-0 items-center gap-1.5 overflow-x-auto border-b border-hairline px-2 py-1.5 text-[13px] text-ink-2">
         <TBtn onClick={() => goTo(cur - 1)} disabled={cur <= 1} title="이전 페이지">
           ‹
         </TBtn>
@@ -308,7 +308,7 @@ export function PdfViewer({
             type="button"
             onClick={onExtractText}
             disabled={extractBusy}
-            className="shrink-0 rounded border border-hairline px-2 py-0.5 text-[12px] hover:bg-surface-soft disabled:opacity-50 disabled:hover:bg-transparent"
+            className="shrink-0 whitespace-nowrap rounded border border-hairline px-2 py-0.5 text-[12px] hover:bg-surface-soft disabled:opacity-50 disabled:hover:bg-transparent"
           >
             텍스트 추출 → 에디터
           </button>
