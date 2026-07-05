@@ -7,6 +7,7 @@ pub mod error;
 pub mod import;
 pub mod models;
 pub mod pdf;
+pub mod priority;
 pub mod seed;
 pub mod storage;
 
