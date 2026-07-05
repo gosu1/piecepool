@@ -258,6 +258,29 @@ fn epoch_to_iso(secs: i64) -> String {
     format!("{y:04}-{m:02}-{d:02}T{h:02}:{mi:02}:{s:02}Z")
 }
 
+/// ISO 8601 문자열의 날짜부(`YYYY-MM-DD`)를 epoch day(1970-01-01=0) 정수로. 파싱 실패 시 None.
+/// 우선도 신선도 팩터(prioritization.md §5.1 factor 4)에서 updatedAt 상대 비교용 — 일 단위 granularity.
+pub fn iso_to_epoch_days(iso: &str) -> Option<i64> {
+    let y: i64 = iso.get(0..4)?.parse().ok()?;
+    let m: u32 = iso.get(5..7)?.parse().ok()?;
+    let d: u32 = iso.get(8..10)?.parse().ok()?;
+    if !(1..=12).contains(&m) || !(1..=31).contains(&d) {
+        return None;
+    }
+    Some(days_from_civil(y, m, d))
+}
+
+/// (year, month, day) → days since 1970-01-01. Howard Hinnant. `civil_from_days` 의 역.
+fn days_from_civil(y: i64, m: u32, d: u32) -> i64 {
+    let y = if m <= 2 { y - 1 } else { y };
+    let era = if y >= 0 { y } else { y - 399 } / 400;
+    let yoe = y - era * 400;
+    let mp = if m > 2 { m - 3 } else { m + 9 } as i64;
+    let doy = (153 * mp + 2) / 5 + d as i64 - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    era * 146_097 + doe - 719_468
+}
+
 /// days since 1970-01-01 → (year, month, day). Howard Hinnant's algorithm.
 fn civil_from_days(z: i64) -> (i64, u32, u32) {
     let z = z + 719_468;
