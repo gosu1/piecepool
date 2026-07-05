@@ -11,6 +11,7 @@ import type {
   GraphNode,
   SourceType,
 } from "./types";
+import { computePriorities } from "./priority";
 
 const NOW = "2026-07-01T00:00:00Z";
 let memNotes: Record<string, ArchiveNote[]> = {
@@ -109,15 +110,32 @@ function graphOf(space: string): GraphData {
   const rels = RELATIONS[space] ?? [];
   const out: Record<string, number> = {};
   const inn: Record<string, number> = {};
+  const edgeQ: Record<string, number> = {};
   rels.forEach((r) => {
     out[r.sourceNodeId] = (out[r.sourceNodeId] ?? 0) + 1;
     inn[r.targetNodeId] = (inn[r.targetNodeId] ?? 0) + 1;
+    const w = r.strength * r.confidence;
+    edgeQ[r.sourceNodeId] = (edgeQ[r.sourceNodeId] ?? 0) + w;
+    edgeQ[r.targetNodeId] = (edgeQ[r.targetNodeId] ?? 0) + w;
   });
-  const nodes: GraphNode[] = (WIKI[space] ?? []).map((w) => {
+  const pages = WIKI[space] ?? [];
+  const nodes: GraphNode[] = pages.map((w) => {
     const id = w.conceptId;
     const kind: GraphNode["kind"] = (out[id] ?? 0) === 0 && (inn[id] ?? 0) > 0 ? "result" : "core";
     return { id, title: w.title, kind, subjectIds: w.subjectIds, path: w.path };
   });
+  // 백엔드 get_graph 와 동일한 파생 우선도(§5) — 브라우저 mock 도 노드 크기를 굴린다.
+  // clicks/recency 는 mock 에 없어 콜드스타트(0) → 구조 팩터만으로 산정.
+  const pr = computePriorities(
+    pages.map((w) => ({
+      centrality: (out[w.conceptId] ?? 0) + (inn[w.conceptId] ?? 0),
+      edgeQuality: edgeQ[w.conceptId] ?? 0,
+      clicks: 0,
+      recency: 0,
+      sourceBacking: w.sourceIds.length + w.sourceRefs.length,
+    })),
+  );
+  nodes.forEach((n, i) => (n.priority = pr[i]));
   return { nodes, relations: rels };
 }
 

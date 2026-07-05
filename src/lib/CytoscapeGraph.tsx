@@ -198,19 +198,13 @@ export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, t
       .filter((r) => nodeIds.has(r.sourceNodeId) && nodeIds.has(r.targetNodeId))
       .filter((r) => !typeFilter?.length || typeFilter.includes(r.relationType));
 
-    // 차수 비례 노드 크기 (6px ~ 18px)
-    const deg: Record<string, number> = {};
-    for (const r of rels) {
-      deg[r.sourceNodeId] = (deg[r.sourceNodeId] ?? 0) + 1;
-      deg[r.targetNodeId] = (deg[r.targetNodeId] ?? 0) + 1;
-    }
-
+    // 우선도 비례 노드 크기 (6px ~ 36px). priority: get_graph 파생값(prioritization.md §5).
     const nodeEls: ElementDefinition[] = nodes.map((n) => ({
       data: {
         id: n.id,
         label: n.title,
         kind: n.kind,
-        size: 6 + Math.min(deg[n.id] ?? 0, 8) * 1.5,
+        size: 6 + (n.priority ?? 0) * 30,
         space: n.space, // 병합 뷰 space별 군집(buildSim)용
         // sbg 있으면 스타일이 space 색으로 덮어씀(전체 뷰). 없으면 kind 색 유지.
         ...(spaceColors && n.space ? { sbg: spaceColors[n.space] ?? "#a39e98" } : {}),
