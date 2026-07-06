@@ -42,7 +42,7 @@ export function RelationQualityMeter({ relations }: { relations: Relation[] }) {
   return (
     <span
       title={[`관계 ${s.total}개 · 기준 related_to ${ratioMax}% / confidence ${confMin} (위키 화면 '관계 품질'에서 조절)`, ...hints].join("\n")}
-      className="pointer-events-auto flex h-7 items-center gap-2 rounded-md border border-hairline bg-surface px-2.5 font-mono text-[11px] text-ink-faint shadow-soft"
+      className="pointer-events-auto flex h-7 shrink-0 items-center gap-2 whitespace-nowrap rounded-md border border-hairline bg-surface px-2.5 font-mono text-[11px] text-ink-faint shadow-soft"
     >
       <span>
         related_to <span className={s.ratioOver ? "font-semibold text-danger" : "text-ink-2"}>{s.ratio}%</span>

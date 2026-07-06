@@ -337,7 +337,7 @@ export function GraphSection({
               />
               {/* 그래프 읽는 법(첫 방문 자동 펼침, 이후 ? 재호출) + 관계 품질 미터
                   래퍼는 pointer-events-none — items-end 로 커진 투명 영역이 그래프 클릭·팬을 먹지 않게. */}
-              <div className="pointer-events-none absolute bottom-2 left-2 z-10 flex items-end gap-1.5">
+              <div className="pointer-events-none absolute bottom-2 left-2 z-10 flex flex-wrap items-end gap-1.5">
                 {helpOpen ? (
                   <div className="pointer-events-auto max-w-[300px] rounded-lg border border-hairline bg-surface p-3 shadow-elevated">
                     <div className="mb-1.5 flex items-center justify-between gap-2">
