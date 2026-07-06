@@ -27,13 +27,18 @@ export function SidebarShortcuts({
   onNewFolder,
   pinned = [],
   onOpenPinned,
+  onUnpin,
 }: {
   onHome: () => void;
   onNewFolder: () => void;
   /** 페이지 헤더 "고정하기"로 고정한 문서 — Notion 즐겨찾기 위치 */
   pinned?: { id: string; label: string }[];
   onOpenPinned?: (id: string) => void;
+  /** 우클릭 컨텍스트 메뉴 "고정 해제" */
+  onUnpin?: (id: string) => void;
 }) {
+  // 우클릭 메뉴가 열린 고정 문서 id
+  const [menuFor, setMenuFor] = useState<string | null>(null);
   return (
     <div className="border-b border-hairline px-2 pb-1.5">
       <div className="flex items-center gap-0.5">
@@ -48,15 +53,39 @@ export function SidebarShortcuts({
       {pinned.length > 0 && (
         <div className="pt-0.5">
           {pinned.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => onOpenPinned?.(p.id)}
-              className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-[13px] text-ink-2 hover:bg-surface-soft hover:text-ink"
-            >
-              <Icons.PinIcon size={13} className="shrink-0 text-ink-faint" />
-              <span className="truncate">{p.label}</span>
-            </button>
+            <div key={p.id} className="relative">
+              <button
+                type="button"
+                onClick={() => onOpenPinned?.(p.id)}
+                onContextMenu={(e) => {
+                  if (!onUnpin) return;
+                  e.preventDefault();
+                  setMenuFor(p.id);
+                }}
+                className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-[13px] text-ink-2 hover:bg-surface-soft hover:text-ink"
+              >
+                <Icons.PinIcon size={13} className="shrink-0 text-ink-faint" />
+                <span className="truncate">{p.label}</span>
+              </button>
+              {menuFor === p.id && (
+                <>
+                  <div className="fixed inset-0 z-20" onClick={() => setMenuFor(null)} onContextMenu={(e) => { e.preventDefault(); setMenuFor(null); }} />
+                  <div className="absolute left-2 top-full z-30 mt-0.5 w-36 rounded-lg border border-hairline bg-surface p-1 shadow-elevated">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onUnpin?.(p.id);
+                        setMenuFor(null);
+                      }}
+                      className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-[13px] text-ink-2 hover:bg-surface-soft hover:text-ink"
+                    >
+                      <Icons.PinIcon size={13} className="shrink-0 text-ink-faint" />
+                      <span>고정 해제</span>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           ))}
         </div>
       )}
