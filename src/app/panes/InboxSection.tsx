@@ -3,9 +3,6 @@ import { Button, FileDropzone, Icons, cn } from "../../ds";
 import type { KnowledgeSpace, WikiPage as WikiPageT } from "../../lib/types";
 import * as ipc from "../../lib/ipc";
 import { useImportStore } from "../../store/importStore";
-import type { ImportJobView } from "../../store/importStore";
-import { useWorkspaceStore } from "../../store/workspaceStore";
-import { PAGE_EMOJI, Popover } from "./PageHeader";
 import { runImageOcr } from "../../llm/ocr";
 import { runPdfDigest } from "../../llm/pdfdigest";
 import { SlashBlockEditor } from "../../lib/SlashBlockEditor";
@@ -93,9 +90,6 @@ export function InboxSection({
   const [withLlm, setWithLlm] = useState(true);
   const [clarify, setClarify] = useState(false);
   const [answers, setAnswers] = useState<string[]>([]);
-  // 페이지 아이콘(이모지) — 저장 완료 시 생성된 노트의 아이콘(workspaceStore)으로 연결
-  const [pageIcon, setPageIcon] = useState("");
-  const [iconOpen, setIconOpen] = useState(false);
   const { job, gaps, runImport, respondClarify } = useImportStore();
   const busy = !!job && !["completed", "failed"].includes(job.status);
 
@@ -263,12 +257,6 @@ export function InboxSection({
   };
   const onFiles = (files: FileList) => Array.from(files).forEach(addFile);
 
-  // 저장 완료 → 고른 이모지를 생성된 노트의 페이지 아이콘으로 연결
-  const applyPageIcon = (res: ImportJobView) => {
-    if (pageIcon && res.notePath) useWorkspaceStore.getState().setDocIcon(`archive:${res.space}:${res.notePath}`, pageIcon);
-    setPageIcon("");
-  };
-
   const run = async () => {
     // pdfBusy 게이트: digest 완료 전 저장하면 아카이브에 PDF 내용이 빠진 채 저장되고
     // 뒤늦은 digest 가 비워진 에디터에 고아로 삽입된다.
@@ -277,7 +265,6 @@ export function InboxSection({
     const t = resolveTarget(targetSpace);
     const res = await runImport({ space: targetSpace, spaceId: t.spaceId, title: title.trim(), markdown: body, subjectIds: t.subjectIds, withLlm, clarify, existing: t.existing });
     if (res.status === "completed") {
-      applyPageIcon(res);
       setTitle("");
       setBody("");
       await onRefresh(targetSpace);
@@ -289,7 +276,6 @@ export function InboxSection({
   const finishClarify = async (ans: string[] | null) => {
     const res = await respondClarify(ans);
     if (res.status === "completed") {
-      applyPageIcon(res);
       setTitle("");
       setBody("");
       setAnswers([]);
@@ -310,53 +296,12 @@ export function InboxSection({
     <section style={{ minWidth: NOTE_MIN_PX }} className="flex min-w-0 flex-1 flex-col">
       <PaneHeader label="노트" hint="자료 → 원본(archive) 저장 → (선택) AI 위키·관계 생성" />
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4">
-        {/* Notion풍 새 페이지 헤더 — 아이콘 · 큰 제목 · 속성 행 · 구분선 (문서 뷰 PageHeader 와 같은 시각 언어) */}
-        <div className="relative inline-block shrink-0 self-start">
-          <button
-            type="button"
-            aria-label="페이지 아이콘"
-            onClick={() => setIconOpen((o) => !o)}
-            className="flex h-12 w-12 items-center justify-center rounded-lg text-[32px] leading-none transition-colors hover:bg-surface-soft"
-          >
-            {pageIcon || <span className="h-8 w-8 rounded-md bg-surface-soft ring-1 ring-hairline" />}
-          </button>
-          {iconOpen && (
-            <Popover onClose={() => setIconOpen(false)} className="w-64 p-2">
-              <div className="grid grid-cols-8 gap-0.5">
-                {PAGE_EMOJI.map((e) => (
-                  <button
-                    key={e}
-                    type="button"
-                    onClick={() => {
-                      setPageIcon(e);
-                      setIconOpen(false);
-                    }}
-                    className="rounded p-1 text-[18px] hover:bg-surface-soft"
-                  >
-                    {e}
-                  </button>
-                ))}
-              </div>
-              {pageIcon && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPageIcon("");
-                    setIconOpen(false);
-                  }}
-                  className="mt-1 flex w-full items-center rounded-md px-2 py-1 text-left text-[13px] text-ink-muted hover:bg-surface-soft"
-                >
-                  아이콘 제거
-                </button>
-              )}
-            </Popover>
-          )}
-        </div>
+        {/* Notion풍 새 페이지 헤더 — 큰 제목 · 속성 행 · 구분선 (문서 뷰 PageHeader 와 같은 시각 언어) */}
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="새 페이지"
-          className="mt-1 w-full shrink-0 bg-transparent text-[32px] font-bold leading-tight text-ink outline-none placeholder:text-ink-faint"
+          className="w-full shrink-0 bg-transparent text-[32px] font-bold leading-tight text-ink outline-none placeholder:text-ink-faint"
         />
         <div className="mt-3 shrink-0 space-y-px text-[14px]">
           {spaces.length > 1 && (

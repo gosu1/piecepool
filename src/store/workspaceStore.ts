@@ -30,8 +30,6 @@ interface WorkspaceState {
   // 페이지 헤더의 "고정하기" — 문서 id(`kind:space:file`) 목록. 사이드바 고정 섹션에 표시.
   // frontmatter 는 계약(SSOT) 필드라 pinned 를 넣을 수 없음 — 순수 뷰 상태로 localStorage 에만 둔다.
   pinnedDocs: string[];
-  // 페이지 아이콘(이모지) — 문서 id → emoji. 위와 동일하게 뷰 상태.
-  docIcons: Record<string, string>;
   // 탭 활성화 히스토리(세션 전용, persist 제외) — 뒤로/앞으로. 닫힌 탭 id 는 pop 시 건너뛴다.
   navBack: string[];
   navForward: string[];
@@ -48,7 +46,6 @@ interface WorkspaceState {
   setSidebarWidth: (w: number) => void;
   toggleTreeNode: (id: string) => void;
   togglePinned: (id: string) => void;
-  setDocIcon: (id: string, emoji: string | null) => void;
 }
 
 const NAV_CAP = 50;
@@ -63,7 +60,6 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       sidebarWidth: SIDEBAR_DEFAULT,
       collapsedTreeIds: [],
       pinnedDocs: [],
-      docIcons: {},
       navBack: [],
       navForward: [],
 
@@ -176,14 +172,6 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         set((s) => ({
           pinnedDocs: s.pinnedDocs.includes(id) ? s.pinnedDocs.filter((x) => x !== id) : [...s.pinnedDocs, id],
         })),
-
-      setDocIcon: (id, emoji) =>
-        set((s) => {
-          const docIcons = { ...s.docIcons };
-          if (emoji) docIcons[id] = emoji;
-          else delete docIcons[id];
-          return { docIcons };
-        }),
     }),
     {
       name: "pp-workspace",
@@ -196,7 +184,6 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         sidebarWidth: s.sidebarWidth,
         collapsedTreeIds: s.collapsedTreeIds,
         pinnedDocs: s.pinnedDocs,
-        docIcons: s.docIcons,
       }),
     },
   ),

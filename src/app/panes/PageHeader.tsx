@@ -3,8 +3,8 @@ import type { ReactNode } from "react";
 import { Icons, cn } from "../../ds";
 import type { Subject } from "../../lib/types";
 
-// ══ Notion풍 페이지 헤더 — 아이콘 · 제목(인라인 이름 변경) · 속성(과목/고정/더 보기) · 관계형 ══
-// 아이콘/고정은 뷰 상태(workspaceStore, localStorage) — frontmatter 는 계약(SSOT)이라 건드리지 않는다.
+// ══ Notion풍 페이지 헤더 — 제목(인라인 이름 변경) · 속성(과목/고정/더 보기) · 관계형 ══
+// 고정은 뷰 상태(workspaceStore, localStorage) — frontmatter 는 계약(SSOT)이라 건드리지 않는다.
 
 export interface LinkedItem {
   key: string;
@@ -12,18 +12,10 @@ export interface LinkedItem {
   onClick?: () => void;
 }
 
-export const PAGE_EMOJI = [
-  "📄", "📝", "📚", "🧠", "💡", "⚙️", "🔬", "🧮",
-  "📊", "🗂️", "🎯", "🚀", "🔖", "🧪", "💻", "🌐",
-  "📐", "🗓️", "⭐", "🔥", "✅", "❓", "📌", "🗃️",
-];
-
 export function PageHeader({
   docType,
   title,
   onRename,
-  icon,
-  onChangeIcon,
   subjects,
   subjectIds,
   onToggleSubject,
@@ -39,8 +31,6 @@ export function PageHeader({
   docType: "wiki" | "archive";
   title: string;
   onRename: (title: string) => void;
-  icon?: string;
-  onChangeIcon: (emoji: string | null) => void;
   subjects: Subject[];
   subjectIds: string[];
   onToggleSubject: (id: string) => void;
@@ -54,7 +44,7 @@ export function PageHeader({
   onAddLink: (key: string) => void;
 }) {
   const [moreOpen, setMoreOpen] = useState(false);
-  const [popover, setPopover] = useState<"icon" | "subject" | "link" | null>(null);
+  const [popover, setPopover] = useState<"subject" | "link" | null>(null);
   const [linkQuery, setLinkQuery] = useState("");
 
   // 새 노트 기본 제목("제목 없음")은 Notion 처럼 빈 placeholder 로 보여준다.
@@ -71,49 +61,6 @@ export function PageHeader({
 
   return (
     <div>
-      {/* 페이지 아이콘 — 클릭해 이모지 선택, 없으면 회색 placeholder */}
-      <div className="relative inline-block">
-        <button
-          type="button"
-          aria-label="페이지 아이콘"
-          onClick={() => setPopover(popover === "icon" ? null : "icon")}
-          className="flex h-12 w-12 items-center justify-center rounded-lg text-[32px] leading-none transition-colors hover:bg-surface-soft"
-        >
-          {icon ?? <span className="h-8 w-8 rounded-md bg-surface-soft ring-1 ring-hairline" />}
-        </button>
-        {popover === "icon" && (
-          <Popover onClose={() => setPopover(null)} className="w-64 p-2">
-            <div className="grid grid-cols-8 gap-0.5">
-              {PAGE_EMOJI.map((e) => (
-                <button
-                  key={e}
-                  type="button"
-                  onClick={() => {
-                    onChangeIcon(e);
-                    setPopover(null);
-                  }}
-                  className="rounded p-1 text-[18px] hover:bg-surface-soft"
-                >
-                  {e}
-                </button>
-              ))}
-            </div>
-            {icon && (
-              <button
-                type="button"
-                onClick={() => {
-                  onChangeIcon(null);
-                  setPopover(null);
-                }}
-                className="mt-1 flex w-full items-center rounded-md px-2 py-1 text-left text-[13px] text-ink-muted hover:bg-surface-soft"
-              >
-                아이콘 제거
-              </button>
-            )}
-          </Popover>
-        )}
-      </div>
-
       {/* 제목 — Enter/blur 커밋, Esc 취소 */}
       <input
         key={title}
@@ -130,7 +77,7 @@ export function PageHeader({
             e.currentTarget.blur();
           }
         }}
-        className="mt-1 w-full bg-transparent text-[32px] font-bold leading-tight text-ink outline-none placeholder:text-ink-faint"
+        className="w-full bg-transparent text-[32px] font-bold leading-tight text-ink outline-none placeholder:text-ink-faint"
       />
 
       {/* 속성 행 */}
@@ -268,7 +215,7 @@ export function PageHeader({
 }
 
 // 인라인 앵커 팝오버 — AccountFooter/SidebarChrome 과 같은 패턴(백드롭 + absolute 패널)
-export function Popover({ onClose, className, children }: { onClose: () => void; className?: string; children: ReactNode }) {
+function Popover({ onClose, className, children }: { onClose: () => void; className?: string; children: ReactNode }) {
   return (
     <>
       <div className="fixed inset-0 z-20" onClick={onClose} />

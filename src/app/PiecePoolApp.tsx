@@ -100,8 +100,6 @@ export default function PiecePoolApp() {
   const toggleTreeNode = useWorkspaceStore((s) => s.toggleTreeNode);
   const pinnedDocs = useWorkspaceStore((s) => s.pinnedDocs);
   const togglePinned = useWorkspaceStore((s) => s.togglePinned);
-  const docIcons = useWorkspaceStore((s) => s.docIcons);
-  const setDocIcon = useWorkspaceStore((s) => s.setDocIcon);
 
   // 정리 글 변환 job(convertStore) — 스트림은 스토어 소유라 탭 전환에도 계속된다 (ADR-0008)
   const convertJob = useConvertStore((s) => s.job);
@@ -356,16 +354,12 @@ export default function PiecePoolApp() {
       const moved = await ipc.moveNote(doc.space, doc.file, toSpace);
       clearDocState(docKey(doc.space, doc.file));
       closeTab(tabId);
-      // 고정/아이콘은 kind:space:file 키 — 이동하면 새 키로 이어준다(고아 방지).
+      // 고정은 kind:space:file 키 — 이동하면 새 키로 이어준다(고아 방지).
       const st = useWorkspaceStore.getState();
       const newTabId = `archive:${toSpace}:${moved.path}`;
       if (st.pinnedDocs.includes(tabId)) {
         st.togglePinned(tabId);
         st.togglePinned(newTabId);
-      }
-      if (st.docIcons[tabId]) {
-        st.setDocIcon(newTabId, st.docIcons[tabId]);
-        st.setDocIcon(tabId, null);
       }
       await Promise.all([refreshSpace(doc.space), refreshSpace(toSpace)]);
       setNotice(`"${moved.title}" → ${spaceNameOf(toSpace)} 이동됨`);
@@ -471,11 +465,10 @@ export default function PiecePoolApp() {
     try {
       // 삭제 확인은 이미 받았으므로 문서 세션 상태도 함께 정리(경로 재사용 시 stale 부활 방지).
       clearDocState(docKey(d.space, d.file));
-      // 고정/아이콘도 정리 — localStorage 에 죽은 키가 쌓이지 않게.
+      // 고정도 정리 — localStorage 에 죽은 키가 쌓이지 않게.
       const docId = `${d.kind === "delete-wiki" ? "wiki" : "archive"}:${d.space}:${d.file}`;
       const st = useWorkspaceStore.getState();
       if (st.pinnedDocs.includes(docId)) st.togglePinned(docId);
-      if (st.docIcons[docId]) st.setDocIcon(docId, null);
       if (d.kind === "delete-wiki") {
         const pruned = await ipc.deleteWiki(d.space, d.file);
         closeTab(`wiki:${d.space}:${d.file}`);
@@ -822,8 +815,6 @@ export default function PiecePoolApp() {
             docType="wiki"
             title={page.title}
             onRename={(t) => void applyRename({ kind: "rename-wiki", space, file: page.path, title: page.title }, t)}
-            icon={docIcons[tabId]}
-            onChangeIcon={(e) => setDocIcon(tabId, e)}
             subjects={subjectsBySlug[space] ?? []}
             subjectIds={page.subjectIds}
             onToggleSubject={(id) => toggleWikiSubject(space, page.path, id)}
@@ -907,8 +898,6 @@ export default function PiecePoolApp() {
             docType="archive"
             title={note.title}
             onRename={(t) => void applyRename({ kind: "rename-note", space, file: note.path, title: note.title }, t)}
-            icon={docIcons[tabId]}
-            onChangeIcon={(e) => setDocIcon(tabId, e)}
             subjects={subjectsBySlug[space] ?? []}
             subjectIds={note.subjectIds}
             onToggleSubject={(id) => toggleNoteSubject(space, note.path, id)}
