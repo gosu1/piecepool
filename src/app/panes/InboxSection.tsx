@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, FileDropzone, cn } from "../../ds";
-import type { WikiPage as WikiPageT } from "../../lib/types";
+import type { KnowledgeSpace, WikiPage as WikiPageT } from "../../lib/types";
 import * as ipc from "../../lib/ipc";
 import { useImportStore } from "../../store/importStore";
 import { runImageOcr } from "../../llm/ocr";
@@ -51,6 +51,8 @@ export function InboxSection({
   spaceName,
   subjectIdsDefault,
   existing,
+  spaces,
+  wikiBySlug,
   onOpenWiki,
   onRefresh,
 }: {
@@ -59,9 +61,21 @@ export function InboxSection({
   spaceName: string;
   subjectIdsDefault: string[];
   existing: WikiPageT[];
+  // 저장 대상 폴더 선택용 — 전체 지식 공간 목록과 공간별 위키(대상 폴더의 dedup 기준)
+  spaces: KnowledgeSpace[];
+  wikiBySlug: Record<string, WikiPageT[]>;
   onOpenWiki: (file: string) => void;
-  onRefresh: () => Promise<void> | void;
+  onRefresh: (space: string) => Promise<void> | void;
 }) {
+  // ── 저장 대상 폴더(지식 공간) — 기본은 현재 공간, 저장 버튼 옆 드롭다운으로 변경 ──
+  // 참조 패널(PDF·위키)은 현재 공간 그대로 두고, 저장 목적지만 바꾼다(작성 중 드래프트 유지).
+  const [targetSpace, setTargetSpace] = useState(space);
+  useEffect(() => setTargetSpace(space), [space]);
+  const resolveTarget = (slug: string) => ({
+    spaceId: slug === space ? spaceId : (spaces.find((s) => s.slug === slug)?.id ?? spaceId),
+    existing: slug === space ? existing : (wikiBySlug[slug] ?? []),
+    subjectIds: slug === space ? subjectIdsDefault : (wikiBySlug[slug]?.[0]?.subjectIds ?? []),
+  });
   // ── 보조 패널(PDF·위키) 열림 상태 ──
   const [panels, setPanels] = useState(getInboxPanels());
   const togglePanel = (key: InboxPanelKey, open?: boolean) => {
@@ -248,13 +262,14 @@ export function InboxSection({
     // 뒤늦은 digest 가 비워진 에디터에 고아로 삽입된다.
     if (!title.trim() || busy || pdfBusy) return;
     setAnswers([]);
-    const res = await runImport({ space, spaceId, title: title.trim(), markdown: body, subjectIds: subjectIdsDefault, withLlm, clarify, existing });
+    const t = resolveTarget(targetSpace);
+    const res = await runImport({ space: targetSpace, spaceId: t.spaceId, title: title.trim(), markdown: body, subjectIds: t.subjectIds, withLlm, clarify, existing: t.existing });
     if (res.status === "completed") {
       setTitle("");
       setBody("");
-      await onRefresh();
-      // 생성된 위키를 바로 확인할 수 있게 위키 패널 자동 열림
-      if (withLlm) togglePanel("wiki", true);
+      await onRefresh(targetSpace);
+      // 생성된 위키를 바로 확인할 수 있게 위키 패널 자동 열림 (대상=현재 공간일 때만 — 참조 패널은 현재 공간 기준)
+      if (withLlm && targetSpace === space) togglePanel("wiki", true);
     }
   };
 
@@ -264,8 +279,8 @@ export function InboxSection({
       setTitle("");
       setBody("");
       setAnswers([]);
-      await onRefresh();
-      togglePanel("wiki", true);
+      await onRefresh(targetSpace);
+      if (targetSpace === space) togglePanel("wiki", true);
     }
   };
 
@@ -297,8 +312,8 @@ export function InboxSection({
             className="h-full"
           />
         </div>
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex flex-col gap-1.5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex shrink-0 flex-col gap-1.5">
             <label className="flex items-center gap-2 text-[14px] text-ink-2">
               <input type="checkbox" checked={withLlm} onChange={(e) => setWithLlm(e.target.checked)} className="accent-primary" />
               AI 위키·관계까지 생성
@@ -308,9 +323,27 @@ export function InboxSection({
               되묻기(clarify) — 저장 전 이해 확인
             </label>
           </div>
-          <Button variant="solid" onClick={run} disabled={busy || pdfBusy || !title.trim()}>
-            {busy ? `${IMPORT_STATUS_LABEL[job!.status]}…` : pdfBusy ? "PDF 처리 중…" : withLlm ? "저장 + AI 정리" : "원본으로 저장"}
-          </Button>
+          <div className="flex shrink-0 items-center gap-2">
+            {spaces.length > 1 && (
+              <label className="flex items-center gap-1.5 text-[13px] text-ink-muted">
+                <span className="whitespace-nowrap">저장 위치</span>
+                <select
+                  value={targetSpace}
+                  onChange={(e) => setTargetSpace(e.target.value)}
+                  className="max-w-[140px] truncate rounded-md border border-hairline bg-surface px-2 py-1 text-[13px] text-ink outline-none"
+                >
+                  {spaces.map((s) => (
+                    <option key={s.slug} value={s.slug}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <Button variant="solid" onClick={run} disabled={busy || pdfBusy || !title.trim()}>
+              {busy ? `${IMPORT_STATUS_LABEL[job!.status]}…` : pdfBusy ? "PDF 처리 중…" : withLlm ? "저장 + AI 정리" : "원본으로 저장"}
+            </Button>
+          </div>
         </div>
 
         {job?.status === "clarify_pending" && (
