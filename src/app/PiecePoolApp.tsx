@@ -235,10 +235,11 @@ export default function PiecePoolApp() {
   // "+" 새 탭 — 파일을 만들지 않는 런처 탭(검색·최근·고정·시작 액션).
   // 이전의 즉시 createNote("제목 없음")는 클릭마다 빈 파일을 쌓았다 — 생성은 Inbox(저장 시 생성)로 일원화.
   const openEmptyTab = () => openTab({ id: `empty:${Date.now().toString(36)}`, kind: "empty", title: "새 탭" });
+  // 볼트 전환 = 맥락 전환. 랜덤 첫 위키를 열지 않고 그 공간의 Study Home 으로 착지한다.
+  // Home 탭은 space 가 없어 currentSpace 가 currentSpaceSlug 를 따르므로 내용이 새 공간으로 바뀐다.
   const selectSpace = (slug: string) => {
     setCurrentSpaceSlug(slug);
-    const firstWiki = wikiBySlug[slug]?.[0];
-    if (firstWiki) openWiki(slug, firstWiki.path);
+    openHome();
   };
 
   // 미저장 편집이 있는 탭은 확인 후 닫기
