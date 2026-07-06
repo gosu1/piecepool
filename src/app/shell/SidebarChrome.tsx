@@ -22,16 +22,44 @@ export function SidebarHeader({ title, onSearch, onNewNote }: { title: string; o
   );
 }
 
-export function SidebarShortcuts({ onHome, onNewFolder }: { onHome: () => void; onNewFolder: () => void }) {
+export function SidebarShortcuts({
+  onHome,
+  onNewFolder,
+  pinned = [],
+  onOpenPinned,
+}: {
+  onHome: () => void;
+  onNewFolder: () => void;
+  /** 페이지 헤더 "고정하기"로 고정한 문서 — Notion 즐겨찾기 위치 */
+  pinned?: { id: string; label: string }[];
+  onOpenPinned?: (id: string) => void;
+}) {
   return (
-    <div className="flex items-center gap-0.5 border-b border-hairline px-2 pb-1.5">
-      <IconButton size="sm" aria-label="Study Home" onClick={onHome}>
-        <Icons.HomeIcon size={17} />
-      </IconButton>
-      {/* 새 폴더(지식 공간) 추가 — "새 노트"는 헤더 연필 아이콘이 담당하므로 중복 "+" 제거 */}
-      <IconButton size="sm" aria-label="새 폴더 추가" onClick={onNewFolder}>
-        <Icons.FolderPlusIcon size={17} />
-      </IconButton>
+    <div className="border-b border-hairline px-2 pb-1.5">
+      <div className="flex items-center gap-0.5">
+        <IconButton size="sm" aria-label="Study Home" onClick={onHome}>
+          <Icons.HomeIcon size={17} />
+        </IconButton>
+        {/* 새 폴더(지식 공간) 추가 — "새 노트"는 헤더 연필 아이콘이 담당하므로 중복 "+" 제거 */}
+        <IconButton size="sm" aria-label="새 폴더 추가" onClick={onNewFolder}>
+          <Icons.FolderPlusIcon size={17} />
+        </IconButton>
+      </div>
+      {pinned.length > 0 && (
+        <div className="pt-0.5">
+          {pinned.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => onOpenPinned?.(p.id)}
+              className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-[13px] text-ink-2 hover:bg-surface-soft hover:text-ink"
+            >
+              <Icons.PinIcon size={13} className="shrink-0 text-ink-faint" />
+              <span className="truncate">{p.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

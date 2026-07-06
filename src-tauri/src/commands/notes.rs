@@ -226,3 +226,32 @@ pub fn rename_note(space: String, file: String, new_title: String) -> Result<Arc
     storage::write_text(&path, &md).map_err(|e| e.to_string())?;
     Ok(note)
 }
+
+/// 노트 과목(subjectIds) 갱신. 파일명·본문 유지 — 페이지 헤더의 "영역 · 과목" 속성에서 호출.
+#[tauri::command]
+pub fn update_note_subjects(
+    space: String,
+    file: String,
+    subject_ids: Vec<String>,
+) -> Result<ArchiveNote, String> {
+    let sp = space_by_slug(&space)?;
+    let path = storage::safe_join(&storage::space_subdir(&space, "archive"), &file)
+        .map_err(|e| e.to_string())?;
+    let existing = storage::read_text(&path).map_err(|e| e.to_string())?;
+    let mut note =
+        frontmatter::md_to_archive(&sp.id, &file, &existing).map_err(|e| e.to_string())?;
+    note.subject_ids = subject_ids;
+    note.updated_at = storage::now_iso();
+    let st = frontmatter::archive_source_type(&existing);
+    let original = frontmatter::archive_original_file_path(&existing);
+    frontmatter::validate_archive(
+        &note,
+        st,
+        original.as_deref(),
+        &crate::commands::subject_ids(&space),
+    )
+    .map_err(|e| e.to_string())?;
+    let md = frontmatter::archive_to_md(&note, st, original.as_deref());
+    storage::write_text(&path, &md).map_err(|e| e.to_string())?;
+    Ok(note)
+}

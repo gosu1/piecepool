@@ -202,6 +202,12 @@ export const mock = {
     n.updatedAt = NOW;
     return delay(n);
   },
+  updateNoteSubjects: (space: string, file: string, subjectIds: string[]) => {
+    const n = (memNotes[space] ?? []).find((x) => x.path === file)!;
+    n.subjectIds = subjectIds;
+    n.updatedAt = NOW;
+    return delay(n);
+  },
   listWiki: (space: string) => delay(WIKI[space] ?? []),
   readWiki: (space: string, file: string) => delay((WIKI[space] ?? []).find((w) => w.path === file)!),
   saveWiki: (space: string, page: WikiPage) => {

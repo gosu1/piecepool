@@ -262,3 +262,33 @@ export const ChevronsUpDownIcon = (p: IconProps) => (
     <path d="m7 15 5 5 5-5" />
   </Svg>
 );
+
+export const LayersIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="m12 3 9 4.5-9 4.5-9-4.5L12 3Z" />
+    <path d="m3 12.5 9 4.5 9-4.5" />
+    <path d="m3 17 9 4.5 9-4.5" />
+  </Svg>
+);
+
+export const PinIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M9 4h6v6l2 3H7l2-3V4Z" />
+    <path d="M12 13v7" />
+    <path d="M8 4h8" />
+  </Svg>
+);
+
+export const LinkIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M10 14a4 4 0 0 0 6 .4l3-3a4 4 0 1 0-5.7-5.7l-1.4 1.4" />
+    <path d="M14 10a4 4 0 0 0-6-.4l-3 3a4 4 0 1 0 5.7 5.7l1.4-1.4" />
+  </Svg>
+);
+
+export const CalendarIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="4" y="5" width="16" height="16" rx="2" />
+    <path d="M8 3v4M16 3v4M4 10.5h16" />
+  </Svg>
+);

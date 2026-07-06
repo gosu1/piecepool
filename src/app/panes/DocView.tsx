@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { AIWritingBanner, Button, Card, SkeletonText, WikiPage, Icons, cn } from "../../ds";
+import { AIWritingBanner, Button, Card, SkeletonText, Icons, cn } from "../../ds";
 import { Markdown } from "../../lib/markdown";
 import { SlashBlockEditor } from "../../lib/SlashBlockEditor";
 import { MiniRelationGraph, type MiniGroup } from "../../lib/MiniGraph";
@@ -19,7 +19,7 @@ export interface DocLinkItem {
 export function DocView({
   docType,
   title,
-  meta,
+  header,
   savedMd,
   isEditing,
   draft,
@@ -39,7 +39,8 @@ export function DocView({
 }: {
   docType: "wiki" | "archive";
   title: string;
-  meta?: string;
+  /** Notion풍 페이지 헤더(PageHeader) — 아이콘·제목·속성·관계형 */
+  header?: ReactNode;
   savedMd: string;
   isEditing: boolean;
   draft: string;
@@ -63,9 +64,27 @@ export function DocView({
   embedSpace?: string;
 }) {
   const hasConceptPanel = !!(sources?.length || relationGroups?.length || confused?.length);
+  // 읽기 모드 본문 — Notion 처럼 카드 없이 페이지에 바로. 빈 페이지는 클릭해서 작성 시작.
+  const readBody = savedMd.trim() ? (
+    <div className="px-1">
+      <Markdown source={savedMd} onLink={onLink} linkExists={linkExists} embedSpace={embedSpace} />
+    </div>
+  ) : (
+    <button
+      type="button"
+      onClick={onToggleEdit}
+      className="w-full rounded-md px-1 py-2 text-left text-[15px] text-ink-faint transition-colors hover:bg-surface-soft"
+    >
+      비어 있는 페이지예요 — 클릭해서 작성 시작
+    </button>
+  );
   return (
     <div className="mx-auto max-w-3xl space-y-3 pb-6">
+      {header}
       {topSlot}
+
+      {conflicts && conflicts.length > 0 && <ConflictBanner conflicts={conflicts} />}
+
       <div className="flex items-center justify-end gap-2">
         {isEditing && (
           <Button variant="primary" size="sm" onClick={onSave}>
@@ -77,8 +96,6 @@ export function DocView({
         </Button>
       </div>
 
-      {conflicts && conflicts.length > 0 && <ConflictBanner conflicts={conflicts} />}
-
       {isEditing ? (
         <div className="grid gap-3 md:grid-cols-2">
           <SlashBlockEditor value={draft} onChange={onChangeDraft} onSubmit={onSave} height="480px" placeholder="'/' 로 블록 · ⌘Enter 로 저장" />
@@ -87,34 +104,14 @@ export function DocView({
             <Markdown source={draft} onLink={onLink} linkExists={linkExists} embedSpace={embedSpace} />
           </Card>
         </div>
-      ) : docType === "wiki" ? (
-        <WikiPage title={title}>
-          <Markdown source={savedMd} onLink={onLink} linkExists={linkExists} embedSpace={embedSpace} />
-        </WikiPage>
       ) : sideSlot ? (
         // 변환 중: 파편 원문(좌) | 정리 글 스트리밍(우) — 편집 모드 그리드와 동일 패턴
         <div className="grid items-start gap-3 md:grid-cols-2">
-          <div className="space-y-3">
-            <div>
-              <h1 className="ds-h3 text-ink">{title}</h1>
-              {meta && <p className="text-[12px] text-ink-faint">{meta}</p>}
-            </div>
-            <Card padding="lg">
-              <Markdown source={savedMd} onLink={onLink} linkExists={linkExists} embedSpace={embedSpace} />
-            </Card>
-          </div>
+          {readBody}
           {sideSlot}
         </div>
       ) : (
-        <>
-          <div>
-            <h1 className="ds-h3 text-ink">{title}</h1>
-            {meta && <p className="text-[12px] text-ink-faint">{meta}</p>}
-          </div>
-          <Card padding="lg">
-            <Markdown source={savedMd} onLink={onLink} linkExists={linkExists} embedSpace={embedSpace} />
-          </Card>
-        </>
+        readBody
       )}
 
       {/* 개념 중심 섹션 (scope §2.7) — 관련 소스 · 관계 · 헷갈리는 개념 */}
