@@ -363,7 +363,7 @@ export function InboxSection({
           </div>
         </div>
         <div className="mt-3 shrink-0 border-t border-hairline" />
-        <div className="min-h-[160px] flex-1 pt-3">
+        <div className="min-h-[160px] flex-1 pt-1">
           <SlashBlockEditor
             value={body}
             onChange={setBody}
@@ -371,6 +371,7 @@ export function InboxSection({
             placeholder="'/' 로 블록 삽입 · 마크다운으로 작성 · ⌘Enter 로 저장"
             height="100%"
             className="h-full"
+            frameless
           />
         </div>
         <div className="flex shrink-0 items-center justify-end pt-3">
