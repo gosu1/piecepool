@@ -1192,6 +1192,7 @@ export default function PiecePoolApp() {
                   onNewFolder={() => setDialog({ kind: "new-space" })}
                   pinned={pinnedEntries.map(({ id, label }) => ({ id, label }))}
                   onOpenPinned={openPinned}
+                  onUnpin={togglePinned}
                 />
               }
               footer={<SidebarFooter spaces={spaces} currentSpace={currentSpace} onSpace={selectSpace} />}
