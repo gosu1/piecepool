@@ -9,8 +9,8 @@ import { cn } from "../ds";
 // Notion식 CM6 캡처 에디터: "/" 슬래시 메뉴 + 마크다운 리스트 자동 이어짐 + ⌘Enter 제출.
 // 테마는 DS 토큰 참조(라이트/다크 자동). 한글-first라 슬래시는 ASCII "/"에서만 트리거(IME 안전).
 const theme = EditorView.theme({
-  "&": { backgroundColor: "var(--ds-surface)", color: "var(--ds-ink)", fontSize: "15px" },
-  ".cm-content": { fontFamily: "var(--font-sans)", caretColor: "var(--ds-ink)", padding: "12px 14px", lineHeight: "1.6" },
+  "&": { color: "var(--ds-ink)", fontSize: "15px" },
+  ".cm-content": { fontFamily: "var(--font-sans)", caretColor: "var(--ds-ink)", lineHeight: "1.6" },
   "&.cm-focused": { outline: "none" },
   ".cm-selectionBackground, & ::selection": { backgroundColor: "var(--ds-hairline)" },
   ".cm-cursor": { borderLeftColor: "var(--ds-ink)" },
@@ -27,6 +27,16 @@ const theme = EditorView.theme({
   ".cm-completionMatchedText": { textDecoration: "none", fontWeight: "600", color: "var(--ds-primary)" },
   ".cm-completionDetail": { flex: "0 0 auto", marginLeft: "auto", fontStyle: "normal", fontFamily: "var(--font-mono, ui-monospace, monospace)", fontSize: "10px", fontWeight: "500", letterSpacing: "0.04em", textTransform: "uppercase", whiteSpace: "nowrap", color: "var(--ds-ink-muted)", backgroundColor: "var(--ds-fill-subtle)", border: "1px solid var(--ds-hairline)", borderRadius: "4px", padding: "1px 5px", lineHeight: "1.5" },
   ".cm-tooltip-autocomplete::after": { content: '"↑↓ 이동 · esc 닫기"', display: "block", padding: "8px 16px", borderTop: "1px solid var(--ds-hairline)", fontFamily: "var(--font-sans)", fontSize: "11px", fontWeight: "450", letterSpacing: "0.01em", color: "var(--ds-ink-faint)" },
+});
+
+// 배경·패딩은 프레임 유무에 따라 분리 — frameless 는 패널에 그대로 녹아드는 Notion 본문(투명·수평 패딩 0).
+const boxedFrame = EditorView.theme({
+  "&": { backgroundColor: "var(--ds-surface)" },
+  ".cm-content": { padding: "12px 14px" },
+});
+const framelessFrame = EditorView.theme({
+  "&": { backgroundColor: "transparent" },
+  ".cm-content": { padding: "10px 0" },
 });
 
 type SlashSection = { name: string; rank: number };
@@ -96,6 +106,7 @@ export function SlashBlockEditor({
   placeholder,
   height = "320px",
   className,
+  frameless = false,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -103,6 +114,8 @@ export function SlashBlockEditor({
   placeholder?: string;
   height?: string;
   className?: string;
+  /** 테두리·배경 없이 패널에 녹아드는 Notion 본문 모드 */
+  frameless?: boolean;
 }) {
   const submitRef = useRef(onSubmit);
   submitRef.current = onSubmit;
@@ -114,6 +127,7 @@ export function SlashBlockEditor({
       markdown(),
       EditorView.lineWrapping,
       theme,
+      frameless ? framelessFrame : boxedFrame,
       Prec.high(
         keymap.of([
           { key: "Enter", run: insertNewlineContinueMarkup },
@@ -140,7 +154,7 @@ export function SlashBlockEditor({
       }),
       ...(placeholder ? [cmPlaceholder(placeholder)] : []),
     ],
-    [placeholder],
+    [placeholder, frameless],
   );
 
   return (
@@ -151,7 +165,7 @@ export function SlashBlockEditor({
       extensions={extensions}
       onChange={onChange}
       basicSetup={BASIC_SETUP}
-      className={cn("overflow-hidden rounded-md border border-hairline", className)}
+      className={cn(!frameless && "overflow-hidden rounded-md border border-hairline", className)}
     />
   );
 }
