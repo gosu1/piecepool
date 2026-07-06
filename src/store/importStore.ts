@@ -25,6 +25,7 @@ export interface ImportJobView {
   relationCount?: number;
   mergedCount?: number;
   factChecked?: number; // Liner fact-check 로 출처가 붙은 관계 수
+  notePath?: string; // 생성된 archive 파일명 — 완료 후 페이지 아이콘 연결 등 후처리용
 }
 
 export interface RunImportParams {
@@ -140,6 +141,7 @@ export const useImportStore = create<ImportState>((set, get) => {
       try {
         job = commit({ ...job, status: "archiving" });
         const note = await ipc.createNote(p.space, p.title, p.markdown, p.subjectIds);
+        job = commit({ ...job, notePath: note.path });
 
         if (!p.withLlm) {
           commit({ ...job, status: "writing" });

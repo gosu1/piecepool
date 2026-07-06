@@ -12,7 +12,7 @@ export interface LinkedItem {
   onClick?: () => void;
 }
 
-const PAGE_EMOJI = [
+export const PAGE_EMOJI = [
   "📄", "📝", "📚", "🧠", "💡", "⚙️", "🔬", "🧮",
   "📊", "🗂️", "🎯", "🚀", "🔖", "🧪", "💻", "🌐",
   "📐", "🗓️", "⭐", "🔥", "✅", "❓", "📌", "🗃️",
@@ -268,7 +268,7 @@ export function PageHeader({
 }
 
 // 인라인 앵커 팝오버 — AccountFooter/SidebarChrome 과 같은 패턴(백드롭 + absolute 패널)
-function Popover({ onClose, className, children }: { onClose: () => void; className?: string; children: ReactNode }) {
+export function Popover({ onClose, className, children }: { onClose: () => void; className?: string; children: ReactNode }) {
   return (
     <>
       <div className="fixed inset-0 z-20" onClick={onClose} />
