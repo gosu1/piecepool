@@ -418,7 +418,7 @@ export function InboxSection({
         label="PDF"
         hint={sources.length > 0 ? `원본 파일 ${sources.length}개` : "원본 파일 없음"}
         right={
-          <div className="flex items-center gap-1.5">
+          <div className="flex min-w-0 items-center gap-1.5">
             {sources.length > 0 && (
               <PaneSelect value={refSource} onChange={setRefSource} options={sources.map((s) => ({ value: s, label: s }))} />
             )}
@@ -464,7 +464,7 @@ export function InboxSection({
         hint={existing.length > 0 ? `위키 ${existing.length}개` : "위키 없음"}
         right={
           existing.length > 0 ? (
-            <div className="flex items-center gap-1.5">
+            <div className="flex min-w-0 items-center gap-1.5">
               <PaneSelect
                 value={refWiki?.path ?? ""}
                 onChange={setRefWikiPath}
