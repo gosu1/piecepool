@@ -847,8 +847,10 @@ export default function PiecePoolApp() {
             spaceName={spName}
             subjectIdsDefault={wikiBySlug[sp]?.[0]?.subjectIds ?? []}
             existing={wikiBySlug[sp] ?? []}
+            spaces={spaces}
+            wikiBySlug={wikiBySlug}
             onOpenWiki={(file) => openWiki(sp, file)}
-            onRefresh={() => refreshSpace(sp)}
+            onRefresh={(s) => refreshSpace(s)}
           />
         );
       default:
