@@ -34,6 +34,7 @@ export function DocView({
   conflicts,
   topSlot,
   bottomSlot,
+  toolSlot,
   sideSlot,
   embedSpace,
 }: {
@@ -59,6 +60,8 @@ export function DocView({
   conflicts?: RefConflict[];
   topSlot?: ReactNode;
   bottomSlot?: ReactNode;
+  /** 편집/읽기 버튼 줄에 붙는 도구 — 위키: 관계 품질 점검(RelationQuality) */
+  toolSlot?: ReactNode;
   /** 읽기 모드(archive)에서 본문 옆에 나란히 붙는 패널 — 정리 글 스트리밍 미리보기 */
   sideSlot?: ReactNode;
   embedSpace?: string;
@@ -86,6 +89,7 @@ export function DocView({
       {conflicts && conflicts.length > 0 && <ConflictBanner conflicts={conflicts} />}
 
       <div className="flex items-center justify-end gap-2">
+        {toolSlot}
         {isEditing && (
           <Button variant="primary" size="sm" onClick={onSave}>
             저장

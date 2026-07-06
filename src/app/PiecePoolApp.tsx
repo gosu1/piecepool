@@ -18,6 +18,7 @@ import type { SearchItem } from "./types";
 import { DocView, AiBar, GapPanel, ConvertPanel } from "./panes/DocView";
 import { PageHeader } from "./panes/PageHeader";
 import type { LinkedItem } from "./panes/PageHeader";
+import { RelationQuality } from "./panes/RelationQuality";
 import { GraphSection } from "./panes/GraphSection";
 import { InboxSection } from "./panes/InboxSection";
 import { StudyHome } from "./panes/StudyHome";
@@ -881,6 +882,7 @@ export default function PiecePoolApp() {
         onLink={(t) => resolveLink(space, t)}
         linkExists={linkExistsIn(space)}
         embedSpace={space}
+        toolSlot={<RelationQuality relations={g?.relations ?? []} />}
         sources={sections.sources}
         relationGroups={sections.relationGroups}
         confused={sections.confused}
@@ -1191,7 +1193,7 @@ export default function PiecePoolApp() {
                   onOpenPinned={openPinned}
                 />
               }
-              footer={<SidebarFooter spaces={spaces} currentSpace={currentSpace} onSpace={selectSpace} onSettings={openSettings} />}
+              footer={<SidebarFooter spaces={spaces} currentSpace={currentSpace} onSpace={selectSpace} />}
             />
           )
         }
