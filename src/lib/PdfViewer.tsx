@@ -249,16 +249,25 @@ export function PdfViewer({
                     }}
                     onClick={() => setCur(p)}
                     className={cn(
-                      "mb-2 block w-full rounded border p-0.5 text-center",
+                      "relative mb-2 block w-full overflow-hidden rounded border leading-none",
                       p === cur ? "border-primary" : "border-hairline hover:border-ink-faint",
                     )}
                   >
                     {thumbVisible.has(p) ? (
                       <Page pageNumber={p} width={64} renderTextLayer={false} renderAnnotationLayer={false} onLoadSuccess={recordDim(p)} />
                     ) : (
-                      <div style={{ height: dim.w ? (64 * dim.h) / dim.w : 84 }} />
+                      // placeholder 는 실제 페이지 종횡비로 높이 예약 — 미지 시 가로(4:3) 기본, 세로 84 금지
+                      <div style={{ height: dim.w ? (64 * dim.h) / dim.w : 48 }} />
                     )}
-                    <span className={cn("text-[11px]", p === cur ? "text-primary" : "text-ink-muted")}>{p}</span>
+                    {/* 페이지 번호 — caption 줄 대신 이미지 우하단 오버레이 배지(가로 슬라이드 빈 공간·겹침 제거) */}
+                    <span
+                      className={cn(
+                        "absolute bottom-0.5 right-0.5 rounded-sm px-1 py-px text-[10px] leading-none",
+                        p === cur ? "bg-primary text-on-primary" : "bg-black/55 text-white",
+                      )}
+                    >
+                      {p}
+                    </span>
                   </button>
                 );
               })}
@@ -274,7 +283,7 @@ export function PdfViewer({
   return (
     <div className="flex h-full min-h-0 flex-col">
       {/* 툴바 */}
-      <div className="flex shrink-0 items-center gap-1.5 overflow-x-auto border-b border-hairline px-2 py-1.5 text-[13px] text-ink-2">
+      <div className="flex shrink-0 flex-wrap items-center gap-x-1.5 gap-y-1 border-b border-hairline px-2 py-1.5 text-[13px] text-ink-2">
         <TBtn onClick={() => goTo(cur - 1)} disabled={cur <= 1} title="이전 페이지">
           ‹
         </TBtn>
@@ -302,13 +311,12 @@ export function PdfViewer({
         <TBtn onClick={() => setMode((m) => (m === "scroll" ? "thumbs" : "scroll"))} title="레이아웃 전환">
           {mode === "scroll" ? "썸네일" : "연속"}
         </TBtn>
-        <div className="flex-1" />
         {onExtractText && (
           <button
             type="button"
             onClick={onExtractText}
             disabled={extractBusy}
-            className="shrink-0 whitespace-nowrap rounded border border-hairline px-2 py-0.5 text-[12px] hover:bg-surface-soft disabled:opacity-50 disabled:hover:bg-transparent"
+            className="ml-auto shrink-0 whitespace-nowrap rounded border border-hairline px-2 py-0.5 text-[12px] hover:bg-surface-soft disabled:opacity-50 disabled:hover:bg-transparent"
           >
             텍스트 추출 → 에디터
           </button>
