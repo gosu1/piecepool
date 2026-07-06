@@ -14,6 +14,7 @@ import {
   type RelationGroupId,
 } from "../../lib/relationMeta";
 import { Markdown } from "../../lib/markdown";
+import { RelationQualityMeter } from "./RelationQuality";
 
 // 전체 과목 뷰 space별 구분 색 (8색 순환)
 const SPACE_PALETTE = ["#0075de", "#dd5b00", "#2a9d99", "#7048e8", "#e64980", "#1aae39", "#f08c00", "#1c7ed6"];
@@ -334,10 +335,11 @@ export function GraphSection({
                   setFocus(null);
                 }}
               />
-              {/* 그래프 읽는 법 — 첫 방문 자동 펼침, 이후 ? 버튼으로 재호출 */}
-              <div className="absolute bottom-2 left-2 z-10">
+              {/* 그래프 읽는 법(첫 방문 자동 펼침, 이후 ? 재호출) + 관계 품질 미터
+                  래퍼는 pointer-events-none — items-end 로 커진 투명 영역이 그래프 클릭·팬을 먹지 않게. */}
+              <div className="pointer-events-none absolute bottom-2 left-2 z-10 flex flex-wrap items-end gap-1.5">
                 {helpOpen ? (
-                  <div className="max-w-[300px] rounded-lg border border-hairline bg-surface p-3 shadow-elevated">
+                  <div className="pointer-events-auto max-w-[300px] rounded-lg border border-hairline bg-surface p-3 shadow-elevated">
                     <div className="mb-1.5 flex items-center justify-between gap-2">
                       <p className="text-[12px] font-semibold text-ink">그래프 읽는 법</p>
                       <button
@@ -356,10 +358,11 @@ export function GraphSection({
                     </ul>
                   </div>
                 ) : (
-                  <GraphCtl label="그래프 읽는 법" onClick={() => setHelpOpen(true)}>
+                  <GraphCtl label="그래프 읽는 법" onClick={() => setHelpOpen(true)} className="pointer-events-auto">
                     ?
                   </GraphCtl>
                 )}
+                <RelationQualityMeter relations={graph.relations} />
               </div>
             </>
           ) : (

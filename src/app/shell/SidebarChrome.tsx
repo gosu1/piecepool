@@ -75,12 +75,10 @@ export function SidebarFooter({
   spaces,
   currentSpace,
   onSpace,
-  onSettings,
 }: {
   spaces: KnowledgeSpace[];
   currentSpace: string;
   onSpace: (slug: string) => void;
-  onSettings: () => void;
 }) {
   const [helpOpen, setHelpOpen] = useState(false);
   return (
@@ -109,10 +107,6 @@ export function SidebarFooter({
           <Icons.HelpCircleIcon size={17} />
         </IconButton>
       </div>
-
-      <IconButton size="sm" aria-label="설정" onClick={onSettings}>
-        <Icons.GearIcon size={17} />
-      </IconButton>
     </div>
   );
 }
