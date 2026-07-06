@@ -30,6 +30,8 @@ interface WorkspaceState {
   // 페이지 헤더의 "고정하기" — 문서 id(`kind:space:file`) 목록. 사이드바 고정 섹션에 표시.
   // frontmatter 는 계약(SSOT) 필드라 pinned 를 넣을 수 없음 — 순수 뷰 상태로 localStorage 에만 둔다.
   pinnedDocs: string[];
+  // 최근 연 문서 id(`kind:space:file`, 최신순) — 새 탭 런처의 "최근 문서" 섹션. persist.
+  recentDocs: string[];
   // 탭 활성화 히스토리(세션 전용, persist 제외) — 뒤로/앞으로. 닫힌 탭 id 는 pop 시 건너뛴다.
   navBack: string[];
   navForward: string[];
@@ -50,6 +52,7 @@ interface WorkspaceState {
 
 const NAV_CAP = 50;
 const pushNav = (stack: string[], id: string) => [...stack, id].slice(-NAV_CAP);
+const RECENT_CAP = 12;
 
 export const useWorkspaceStore = create<WorkspaceState>()(
   persist(
@@ -60,6 +63,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       sidebarWidth: SIDEBAR_DEFAULT,
       collapsedTreeIds: [],
       pinnedDocs: [],
+      recentDocs: [],
       navBack: [],
       navForward: [],
 
@@ -72,6 +76,11 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             activeTabId: tab.id,
             navBack: changed ? pushNav(s.navBack, s.activeTabId!) : s.navBack,
             navForward: changed ? [] : s.navForward,
+            // 문서 탭만 최근 목록에 (런처의 "최근 문서")
+            recentDocs:
+              tab.kind === "wiki" || tab.kind === "archive"
+                ? [tab.id, ...s.recentDocs.filter((x) => x !== tab.id)].slice(0, RECENT_CAP)
+                : s.recentDocs,
           };
         }),
 
@@ -184,6 +193,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         sidebarWidth: s.sidebarWidth,
         collapsedTreeIds: s.collapsedTreeIds,
         pinnedDocs: s.pinnedDocs,
+        recentDocs: s.recentDocs,
       }),
     },
   ),

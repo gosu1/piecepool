@@ -24,6 +24,7 @@ import { StudyHome } from "./panes/StudyHome";
 import { Ribbon } from "./shell/Ribbon";
 import { PaneHeader } from "./shell/PaneHeader";
 import { NewTabPane } from "./shell/NewTabPane";
+import type { LauncherDoc } from "./shell/NewTabPane";
 import { StatusBar } from "./shell/StatusBar";
 import { TitlebarRow } from "./shell/TitlebarRow";
 import { SidebarHeader, SidebarShortcuts, SidebarFooter } from "./shell/SidebarChrome";
@@ -100,6 +101,7 @@ export default function PiecePoolApp() {
   const toggleTreeNode = useWorkspaceStore((s) => s.toggleTreeNode);
   const pinnedDocs = useWorkspaceStore((s) => s.pinnedDocs);
   const togglePinned = useWorkspaceStore((s) => s.togglePinned);
+  const recentDocs = useWorkspaceStore((s) => s.recentDocs);
 
   // 정리 글 변환 job(convertStore) — 스트림은 스토어 소유라 탭 전환에도 계속된다 (ADR-0008)
   const convertJob = useConvertStore((s) => s.job);
@@ -229,17 +231,9 @@ export default function PiecePoolApp() {
       setNotice(`공간 만들기 실패: ${String(e)}`);
     }
   };
-  // "+" 새 탭 — 현재 공간에 빈 노트를 만들고 편집 탭으로 연다.
-  const handleNewNote = async () => {
-    if (!currentSpace) return;
-    try {
-      const note = await ipc.createNote(currentSpace, "제목 없음", "", []);
-      await refreshSpace(currentSpace);
-      openTab({ id: `archive:${currentSpace}:${note.path}`, kind: "archive", title: note.title, space: currentSpace, file: note.path });
-    } catch (e) {
-      setNotice(`새 노트 생성 실패: ${String(e)}`);
-    }
-  };
+  // "+" 새 탭 — 파일을 만들지 않는 런처 탭(검색·최근·고정·시작 액션).
+  // 이전의 즉시 createNote("제목 없음")는 클릭마다 빈 파일을 쌓았다 — 생성은 Inbox(저장 시 생성)로 일원화.
+  const openEmptyTab = () => openTab({ id: `empty:${Date.now().toString(36)}`, kind: "empty", title: "새 탭" });
   const selectSpace = (slug: string) => {
     setCurrentSpaceSlug(slug);
     const firstWiki = wikiBySlug[slug]?.[0];
@@ -780,6 +774,35 @@ export default function PiecePoolApp() {
     setPaletteOpen(false);
   };
 
+  // ── 새 탭 런처 데이터 — 검색 대상·최근·고정 (삭제/이동된 문서는 resolve 실패로 자연 제외) ──
+  const launcherDocOf = (id: string): LauncherDoc | null => {
+    const [kind, space, ...rest] = id.split(":");
+    if (kind !== "wiki" && kind !== "archive") return null;
+    const file = rest.join(":");
+    const list = kind === "wiki" ? wikiBySlug[space] : notesBySlug[space];
+    const doc = (list ?? []).find((d) => d.path === file);
+    return doc ? { kind, space, spaceName: spaceNameOf(space), file, title: doc.title } : null;
+  };
+  const launcherRecent = recentDocs.map(launcherDocOf).filter((d): d is LauncherDoc => !!d).slice(0, 6);
+  const launcherPinned = pinnedDocs.map(launcherDocOf).filter((d): d is LauncherDoc => !!d);
+  const launcher = (emptyTabId?: string) => {
+    const go = (open: () => void) => {
+      // 런처 탭은 목적지를 연 뒤 닫는다 — 브라우저 새 탭처럼 소모성
+      open();
+      if (emptyTabId) closeTab(emptyTabId);
+    };
+    return (
+      <NewTabPane
+        docs={allFiles}
+        recent={launcherRecent}
+        pinned={launcherPinned}
+        onOpenDoc={(d) => go(() => (d.kind === "wiki" ? openWiki(d.space, d.file) : openArchive(d.space, d.file)))}
+        onNewNote={() => go(() => openInbox(currentSpace))}
+        onGraph={() => go(() => openGraph(currentSpace))}
+      />
+    );
+  };
+
   // 위키 리더(DocView)
   const wikiReader = (space: string, page: WikiPageT) => {
     const key = docKey(space, page.path);
@@ -985,20 +1008,10 @@ export default function PiecePoolApp() {
   // 활성 탭 본문 렌더 (Obsidian pane)
   const renderActiveTab = () => {
     if (!activeTab) {
-      return <NewTabPane onCreate={() => openInbox(currentSpace)} onSwitch={() => setPaletteOpen(true)} />;
+      return launcher();
     }
     if (activeTab.kind === "empty") {
-      const id = activeTab.id;
-      return (
-        <NewTabPane
-          onCreate={() => {
-            closeTab(id);
-            openInbox(currentSpace);
-          }}
-          onSwitch={() => setPaletteOpen(true)}
-          onClose={() => closeTab(id)}
-        />
-      );
+      return launcher(activeTab.id);
     }
     if (activeTab.kind === "home") {
       return (
@@ -1136,7 +1149,7 @@ export default function PiecePoolApp() {
             onSelect={setActiveTab}
             onClose={requestCloseTab}
             onReorder={reorderTab}
-            onNewTab={handleNewNote}
+            onNewTab={openEmptyTab}
             onToggleFiles={toggleLeftPane}
             filesOpen={!leftCollapsed}
             onSearch={() => setPaletteOpen(true)}
