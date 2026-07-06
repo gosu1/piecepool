@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Button, FileDropzone, cn } from "../../ds";
+import { Button, FileDropzone, Icons, cn } from "../../ds";
 import type { KnowledgeSpace, WikiPage as WikiPageT } from "../../lib/types";
 import * as ipc from "../../lib/ipc";
 import { useImportStore } from "../../store/importStore";
@@ -295,14 +295,75 @@ export function InboxSection({
   const notePane = (
     <section style={{ minWidth: NOTE_MIN_PX }} className="flex min-w-0 flex-1 flex-col">
       <PaneHeader label="노트" hint="자료 → 원본(archive) 저장 → (선택) AI 위키·관계 생성" />
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4">
+        {/* Notion풍 새 페이지 헤더 — 큰 제목 · 속성 행 · 구분선 (문서 뷰 PageHeader 와 같은 시각 언어) */}
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="제목"
-          className="w-full shrink-0 bg-transparent text-[18px] font-bold text-ink outline-none placeholder:text-ink-faint"
+          placeholder="새 페이지"
+          className="w-full shrink-0 bg-transparent text-[32px] font-bold leading-tight text-ink outline-none placeholder:text-ink-faint"
         />
-        <div className="min-h-[160px] flex-1">
+        <div className="mt-3 shrink-0 space-y-px text-[14px]">
+          {spaces.length > 1 && (
+            <div className="flex min-h-[30px] items-center">
+              <span className="flex w-40 shrink-0 items-center gap-2 px-2 text-[14px] text-ink-muted">
+                <span className="text-ink-faint">
+                  <Icons.FolderIcon size={15} />
+                </span>
+                저장 위치
+              </span>
+              <select
+                value={targetSpace}
+                onChange={(e) => setTargetSpace(e.target.value)}
+                className="max-w-[200px] truncate rounded-md bg-transparent px-2 py-1 text-[14px] text-ink outline-none transition-colors hover:bg-surface-soft"
+              >
+                {spaces.map((s) => (
+                  <option key={s.slug} value={s.slug}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div className="flex min-h-[30px] items-center">
+            <span className="flex w-40 shrink-0 items-center gap-2 px-2 text-[14px] text-ink-muted">
+              <span className="text-ink-faint">
+                <Icons.SparkleIcon size={15} />
+              </span>
+              AI 위키·관계 생성
+            </span>
+            <div className="flex-1 px-2">
+              <input
+                type="checkbox"
+                checked={withLlm}
+                onChange={(e) => setWithLlm(e.target.checked)}
+                aria-label="AI 위키·관계까지 생성"
+                className="h-[15px] w-[15px] accent-primary"
+              />
+            </div>
+          </div>
+          <div className="flex min-h-[30px] items-center">
+            <span className={cn("flex w-40 shrink-0 items-center gap-2 px-2 text-[14px]", withLlm ? "text-ink-muted" : "text-ink-faint")}>
+              <span className="text-ink-faint">
+                <Icons.HelpCircleIcon size={15} />
+              </span>
+              되묻기(clarify)
+            </span>
+            <div className="flex flex-1 items-center gap-2 px-2">
+              <input
+                type="checkbox"
+                checked={clarify}
+                onChange={(e) => setClarify(e.target.checked)}
+                disabled={!withLlm}
+                aria-label="되묻기 — 저장 전 이해 확인"
+                className="h-[15px] w-[15px] accent-primary"
+              />
+              <span className="text-[13px] text-ink-faint">저장 전 이해 확인</span>
+            </div>
+          </div>
+        </div>
+        <div className="mt-3 shrink-0 border-t border-hairline" />
+        <div className="min-h-[160px] flex-1 pt-3">
           <SlashBlockEditor
             value={body}
             onChange={setBody}
@@ -312,42 +373,14 @@ export function InboxSection({
             className="h-full"
           />
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex shrink-0 flex-col gap-1.5">
-            <label className="flex items-center gap-2 text-[14px] text-ink-2">
-              <input type="checkbox" checked={withLlm} onChange={(e) => setWithLlm(e.target.checked)} className="accent-primary" />
-              AI 위키·관계까지 생성
-            </label>
-            <label className={cn("flex items-center gap-2 text-[13px]", withLlm ? "text-ink-muted" : "text-ink-faint")}>
-              <input type="checkbox" checked={clarify} onChange={(e) => setClarify(e.target.checked)} disabled={!withLlm} className="accent-primary" />
-              되묻기(clarify) — 저장 전 이해 확인
-            </label>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            {spaces.length > 1 && (
-              <label className="flex items-center gap-1.5 text-[13px] text-ink-muted">
-                <span className="whitespace-nowrap">저장 위치</span>
-                <select
-                  value={targetSpace}
-                  onChange={(e) => setTargetSpace(e.target.value)}
-                  className="max-w-[140px] truncate rounded-md border border-hairline bg-surface px-2 py-1 text-[13px] text-ink outline-none"
-                >
-                  {spaces.map((s) => (
-                    <option key={s.slug} value={s.slug}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
-            <Button variant="solid" onClick={run} disabled={busy || pdfBusy || !title.trim()}>
-              {busy ? `${IMPORT_STATUS_LABEL[job!.status]}…` : pdfBusy ? "PDF 처리 중…" : withLlm ? "저장 + AI 정리" : "원본으로 저장"}
-            </Button>
-          </div>
+        <div className="flex shrink-0 items-center justify-end pt-3">
+          <Button variant="solid" onClick={run} disabled={busy || pdfBusy || !title.trim()}>
+            {busy ? `${IMPORT_STATUS_LABEL[job!.status]}…` : pdfBusy ? "PDF 처리 중…" : withLlm ? "저장 + AI 정리" : "원본으로 저장"}
+          </Button>
         </div>
 
         {job?.status === "clarify_pending" && (
-          <div className="space-y-3 rounded-md border border-primary/40 bg-primary/[0.04] p-3">
+          <div className="mt-3 shrink-0 space-y-3 rounded-md border border-primary/40 bg-primary/[0.04] p-3">
             <p className="text-[14px] font-semibold text-ink">한 번 더 확인할게요 — 되묻기</p>
             {gaps.map((g, i) => (
               <div key={i} className="space-y-1.5">
@@ -389,7 +422,7 @@ export function InboxSection({
         )}
 
         {job && (
-          <div className="rounded-md border border-hairline bg-surface-soft p-3 text-[13px]">
+          <div className="mt-3 shrink-0 rounded-md border border-hairline bg-surface-soft p-3 text-[13px]">
             {job.status === "failed" ? (
               <p className="text-danger">가져오기 실패: {job.errorMessage}</p>
             ) : (

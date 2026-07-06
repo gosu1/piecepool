@@ -27,6 +27,9 @@ interface WorkspaceState {
   leftCollapsed: boolean;
   sidebarWidth: number;
   collapsedTreeIds: string[]; // 기본 전체 펼침 — 사용자가 접은 폴더만 기억
+  // 페이지 헤더의 "고정하기" — 문서 id(`kind:space:file`) 목록. 사이드바 고정 섹션에 표시.
+  // frontmatter 는 계약(SSOT) 필드라 pinned 를 넣을 수 없음 — 순수 뷰 상태로 localStorage 에만 둔다.
+  pinnedDocs: string[];
   // 탭 활성화 히스토리(세션 전용, persist 제외) — 뒤로/앞으로. 닫힌 탭 id 는 pop 시 건너뛴다.
   navBack: string[];
   navForward: string[];
@@ -42,6 +45,7 @@ interface WorkspaceState {
   toggleLeftPane: () => void;
   setSidebarWidth: (w: number) => void;
   toggleTreeNode: (id: string) => void;
+  togglePinned: (id: string) => void;
 }
 
 const NAV_CAP = 50;
@@ -55,6 +59,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       leftCollapsed: false,
       sidebarWidth: SIDEBAR_DEFAULT,
       collapsedTreeIds: [],
+      pinnedDocs: [],
       navBack: [],
       navForward: [],
 
@@ -162,6 +167,11 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             ? s.collapsedTreeIds.filter((x) => x !== id)
             : [...s.collapsedTreeIds, id],
         })),
+
+      togglePinned: (id) =>
+        set((s) => ({
+          pinnedDocs: s.pinnedDocs.includes(id) ? s.pinnedDocs.filter((x) => x !== id) : [...s.pinnedDocs, id],
+        })),
     }),
     {
       name: "pp-workspace",
@@ -173,6 +183,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         leftCollapsed: s.leftCollapsed,
         sidebarWidth: s.sidebarWidth,
         collapsedTreeIds: s.collapsedTreeIds,
+        pinnedDocs: s.pinnedDocs,
       }),
     },
   ),

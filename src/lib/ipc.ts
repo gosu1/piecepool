@@ -33,6 +33,8 @@ const real = {
   moveNote: (space: string, file: string, toSpace: string) => invoke<ArchiveNote>("move_note", { space, file, toSpace }),
   deleteNote: (space: string, file: string) => invoke<void>("delete_note", { space, file }),
   renameNote: (space: string, file: string, newTitle: string) => invoke<ArchiveNote>("rename_note", { space, file, newTitle }),
+  updateNoteSubjects: (space: string, file: string, subjectIds: string[]) =>
+    invoke<ArchiveNote>("update_note_subjects", { space, file, subjectIds }),
   listWiki: (space: string) => invoke<WikiPage[]>("list_wiki", { space }),
   readWiki: (space: string, file: string) => invoke<WikiPage>("read_wiki", { space, file }),
   saveWiki: (space: string, page: WikiPage) => invoke<WikiPage>("save_wiki", { space, page }),
@@ -61,6 +63,7 @@ export const saveNote = api.saveNote;
 export const moveNote = api.moveNote;
 export const deleteNote = api.deleteNote;
 export const renameNote = api.renameNote;
+export const updateNoteSubjects = api.updateNoteSubjects;
 export const listWiki = api.listWiki;
 export const readWiki = api.readWiki;
 export const saveWiki = api.saveWiki;

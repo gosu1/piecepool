@@ -167,6 +167,25 @@ mod tests {
         )
         .is_err());
 
+        // 9-1) update_note_subjects: 실재 과목만 허용, 파일명·본문 유지
+        let subj = commands::notes::update_note_subjects(
+            "operating-systems".into(),
+            note2.path.clone(),
+            vec!["subject-os".into()],
+        )
+        .expect("update subjects");
+        assert_eq!(subj.subject_ids, vec!["subject-os".to_string()]);
+        assert_eq!(subj.path, note2.path, "파일명은 유지");
+        assert!(
+            commands::notes::update_note_subjects(
+                "operating-systems".into(),
+                note2.path.clone(),
+                vec!["subject-없는-과목".into()],
+            )
+            .is_err(),
+            "존재하지 않는 subjectId 는 거부"
+        );
+
         // 10) move_note: os → deeplearning (같은 공간 거부, subject 필터, 원래 파일 삭제, 대상 생성)
         assert!(
             commands::notes::move_note(
@@ -566,6 +585,7 @@ pub fn run() {
             commands::notes::move_note,
             commands::notes::delete_note,
             commands::notes::rename_note,
+            commands::notes::update_note_subjects,
             commands::wiki::list_wiki,
             commands::wiki::read_wiki,
             commands::wiki::save_wiki,

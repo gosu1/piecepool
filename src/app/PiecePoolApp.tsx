@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AppShell, Sidebar, Card, EmptyState, Icons } from "../ds";
 import type { TreeNode } from "../ds";
-import type { KnowledgeSpace, WikiPage as WikiPageT, ArchiveNote, GraphData, Workspace } from "../lib/types";
+import type { KnowledgeSpace, WikiPage as WikiPageT, ArchiveNote, GraphData, Workspace, Subject, Relation } from "../lib/types";
 import * as ipc from "../lib/ipc";
 import { startFileDragOut } from "../lib/dragOut";
 import { runWikiGeneration } from "../llm/generate";
@@ -16,6 +16,8 @@ import { aggregateProvenance, tierFromSourceType, type SourceMeta } from "../llm
 import { docKey } from "./types";
 import type { SearchItem } from "./types";
 import { DocView, AiBar, GapPanel, ConvertPanel } from "./panes/DocView";
+import { PageHeader } from "./panes/PageHeader";
+import type { LinkedItem } from "./panes/PageHeader";
 import { GraphSection } from "./panes/GraphSection";
 import { InboxSection } from "./panes/InboxSection";
 import { StudyHome } from "./panes/StudyHome";
@@ -54,6 +56,7 @@ export default function PiecePoolApp() {
   const [wikiBySlug, setWikiBySlug] = useState<Record<string, WikiPageT[]>>({});
   const [notesBySlug, setNotesBySlug] = useState<Record<string, ArchiveNote[]>>({});
   const [graphBySlug, setGraphBySlug] = useState<Record<string, GraphData>>({});
+  const [subjectsBySlug, setSubjectsBySlug] = useState<Record<string, Subject[]>>({});
 
   const [currentSpaceSlug, setCurrentSpaceSlug] = useState<string>("");
 
@@ -95,6 +98,8 @@ export default function PiecePoolApp() {
   const setSidebarWidth = useWorkspaceStore((s) => s.setSidebarWidth);
   const collapsedTreeIds = useWorkspaceStore((s) => s.collapsedTreeIds);
   const toggleTreeNode = useWorkspaceStore((s) => s.toggleTreeNode);
+  const pinnedDocs = useWorkspaceStore((s) => s.pinnedDocs);
+  const togglePinned = useWorkspaceStore((s) => s.togglePinned);
 
   // 정리 글 변환 job(convertStore) — 스트림은 스토어 소유라 탭 전환에도 계속된다 (ADR-0008)
   const convertJob = useConvertStore((s) => s.job);
@@ -112,17 +117,26 @@ export default function PiecePoolApp() {
         const w: Record<string, WikiPageT[]> = {};
         const n: Record<string, ArchiveNote[]> = {};
         const g: Record<string, GraphData> = {};
+        const sub: Record<string, Subject[]> = {};
         await Promise.all(
           sp.map(async (s) => {
-            const [wikis, notes, graph] = await Promise.all([ipc.listWiki(s.slug), ipc.listNotes(s.slug), ipc.getGraph(s.slug)]);
+            const [wikis, notes, graph, subjects] = await Promise.all([
+              ipc.listWiki(s.slug),
+              ipc.listNotes(s.slug),
+              ipc.getGraph(s.slug),
+              // subjects.json 손상이 부팅 전체를 막으면 안 된다 — 과목 없이도 워크스페이스는 열린다.
+              ipc.listSubjects(s.slug).catch(() => []),
+            ]);
             w[s.slug] = wikis;
             n[s.slug] = notes;
             g[s.slug] = graph;
+            sub[s.slug] = subjects;
           }),
         );
         setWikiBySlug(w);
         setNotesBySlug(n);
         setGraphBySlug(g);
+        setSubjectsBySlug(sub);
         if (sp[0]) setCurrentSpaceSlug(sp[0].slug);
         // persist 복원 탭이 있으면 그대로, 없으면 부팅 탭-0 = Study Home
         if (useWorkspaceStore.getState().openTabs.length === 0) {
@@ -208,6 +222,7 @@ export default function PiecePoolApp() {
       setWikiBySlug((m) => ({ ...m, [sp.slug]: [] }));
       setNotesBySlug((m) => ({ ...m, [sp.slug]: [] }));
       setGraphBySlug((m) => ({ ...m, [sp.slug]: { nodes: [], relations: [] } }));
+      setSubjectsBySlug((m) => ({ ...m, [sp.slug]: [] }));
       setCurrentSpaceSlug(sp.slug);
       setNotice(`새 공간 "${sp.name}"을(를) 만들었어요`);
     } catch (e) {
@@ -300,6 +315,21 @@ export default function PiecePoolApp() {
       ? `doc:${activeTab.kind === "wiki" ? "wiki" : "archive"}:${activeTab.space}:${activeTab.file}`
       : "";
 
+  // 고정된 문서(페이지 헤더 "고정하기") — 삭제/이동으로 사라진 문서는 표시에서 걸러낸다.
+  const pinnedEntries = pinnedDocs.flatMap((id) => {
+    const [kind, space, ...rest] = id.split(":");
+    const file = rest.join(":");
+    const list = kind === "wiki" ? wikiBySlug[space] : notesBySlug[space];
+    const doc = (list ?? []).find((d) => d.path === file);
+    return doc ? [{ id, label: doc.title, kind, space, file }] : [];
+  });
+  const openPinned = (id: string) => {
+    const e = pinnedEntries.find((p) => p.id === id);
+    if (!e) return;
+    if (e.kind === "wiki") openWiki(e.space, e.file);
+    else openArchive(e.space, e.file);
+  };
+
   // ── 트리 DnD: source md 를 다른 공간으로 이동 ──
   const slugOfFolder = (folderId: string) => {
     const [kind, slug] = folderId.split(":");
@@ -324,6 +354,13 @@ export default function PiecePoolApp() {
       const moved = await ipc.moveNote(doc.space, doc.file, toSpace);
       clearDocState(docKey(doc.space, doc.file));
       closeTab(tabId);
+      // 고정은 kind:space:file 키 — 이동하면 새 키로 이어준다(고아 방지).
+      const st = useWorkspaceStore.getState();
+      const newTabId = `archive:${toSpace}:${moved.path}`;
+      if (st.pinnedDocs.includes(tabId)) {
+        st.togglePinned(tabId);
+        st.togglePinned(newTabId);
+      }
       await Promise.all([refreshSpace(doc.space), refreshSpace(toSpace)]);
       setNotice(`"${moved.title}" → ${spaceNameOf(toSpace)} 이동됨`);
     } catch (e) {
@@ -428,6 +465,10 @@ export default function PiecePoolApp() {
     try {
       // 삭제 확인은 이미 받았으므로 문서 세션 상태도 함께 정리(경로 재사용 시 stale 부활 방지).
       clearDocState(docKey(d.space, d.file));
+      // 고정도 정리 — localStorage 에 죽은 키가 쌓이지 않게.
+      const docId = `${d.kind === "delete-wiki" ? "wiki" : "archive"}:${d.space}:${d.file}`;
+      const st = useWorkspaceStore.getState();
+      if (st.pinnedDocs.includes(docId)) st.togglePinned(docId);
       if (d.kind === "delete-wiki") {
         const pruned = await ipc.deleteWiki(d.space, d.file);
         closeTab(`wiki:${d.space}:${d.file}`);
@@ -520,6 +561,58 @@ export default function PiecePoolApp() {
     setNotesBySlug((m) => ({ ...m, [space]: (m[space] ?? []).map((x) => (x.path === file ? saved : x)) }));
     clearDocState(docKey(space, file));
     setTabDirty(`archive:${space}:${file}`, false);
+  };
+
+  // ── 페이지 헤더(Notion풍) — 과목 토글 · 사용자 직접 연결 ──
+  // 토글은 디스크 최신본 기준 + 직렬화 — 연타 레이스로 앞선 토글이 사라지거나,
+  // 메모리 stale markdown 이 디스크의 새 본문을 덮어쓰는 것(saveWiki 는 struct 전체 저장)을 막는다.
+  const subjectChain = useRef(Promise.resolve());
+  const toggleNoteSubject = (space: string, path: string, id: string) => {
+    subjectChain.current = subjectChain.current.then(async () => {
+      try {
+        const cur = await ipc.readNote(space, path);
+        const next = cur.subjectIds.includes(id) ? cur.subjectIds.filter((x) => x !== id) : [...cur.subjectIds, id];
+        const saved = await ipc.updateNoteSubjects(space, path, next);
+        setNotesBySlug((m) => ({ ...m, [space]: (m[space] ?? []).map((x) => (x.path === path ? saved : x)) }));
+      } catch (e) {
+        setNotice(`과목 변경 실패: ${String(e)}`);
+      }
+    });
+  };
+  const toggleWikiSubject = (space: string, path: string, id: string) => {
+    subjectChain.current = subjectChain.current.then(async () => {
+      try {
+        const cur = await ipc.readWiki(space, path);
+        const next = cur.subjectIds.includes(id) ? cur.subjectIds.filter((x) => x !== id) : [...cur.subjectIds, id];
+        const saved = await ipc.saveWiki(space, { ...cur, subjectIds: next });
+        setWikiBySlug((m) => ({ ...m, [space]: (m[space] ?? []).map((x) => (x.path === path ? saved : x)) }));
+      } catch (e) {
+        setNotice(`과목 변경 실패: ${String(e)}`);
+      }
+    });
+  };
+  // 관계 append — 모든 관계는 evidence ≥ 1 (relation-types.md), 사용자 연결도 근거를 합성해 채운다.
+  const addUserLink = async (space: string, rel: Relation) => {
+    try {
+      await ipc.appendRelations(space, [rel]);
+      await refreshSpace(space);
+      setNotice("연결된 노트를 추가했어요");
+    } catch (e) {
+      setNotice(`연결 실패: ${String(e)}`);
+    }
+  };
+  const userRelation = (space: string, part: Pick<Relation, "sourceNodeId" | "targetNodeId" | "relationType" | "evidence">): Relation => {
+    const now = new Date().toISOString();
+    return {
+      id: `rel-user-${crypto.randomUUID()}`,
+      spaceId: spaces.find((s) => s.slug === space)?.id ?? "",
+      strength: 1,
+      confidence: 1,
+      explanation: "사용자 직접 연결",
+      createdAt: now,
+      updatedAt: now,
+      ...part,
+    };
   };
 
   // ── LLM: 위키 생성 / 간극 점검 / 정리 글 변환 (Source 의 원본 노트에서) ──
@@ -692,10 +785,67 @@ export default function PiecePoolApp() {
     const key = docKey(space, page.path);
     const tabId = `wiki:${space}:${page.path}`;
     const sections = conceptSections(space, page);
+    // 관계형(헤더) — related_to 이웃 = 사용자가 잇는 "연결된 노트". 타입별 전체 관계는 하단 개념 섹션이 담당.
+    // 후보에서는 모든 타입의 기존 이웃을 제외 — 이미 prerequisite 등으로 이어진 쌍에 평행 related_to 를 얹지 않는다.
+    const g = graphBySlug[space];
+    const linked: LinkedItem[] = [];
+    const linkedIds = new Set<string>();
+    const neighborIds = new Set<string>([page.conceptId]);
+    if (g) {
+      for (const r of g.relations) {
+        const otherId = r.sourceNodeId === page.conceptId ? r.targetNodeId : r.targetNodeId === page.conceptId ? r.sourceNodeId : null;
+        if (!otherId) continue;
+        neighborIds.add(otherId);
+        if (r.relationType !== "related_to" || linkedIds.has(otherId)) continue;
+        const node = g.nodes.find((n) => n.id === otherId);
+        if (!node) continue;
+        linkedIds.add(otherId);
+        linked.push({ key: otherId, label: node.title, onClick: () => openWiki(space, node.path) });
+      }
+    }
+    const candidates = (wikiBySlug[space] ?? [])
+      .filter((w) => !isSynthesisPage(w) && !neighborIds.has(w.conceptId))
+      .map((w) => ({ key: w.path, label: w.title }));
     return (
       <DocView
         docType="wiki"
         title={page.title}
+        header={
+          <PageHeader
+            docType="wiki"
+            title={page.title}
+            onRename={(t) => void applyRename({ kind: "rename-wiki", space, file: page.path, title: page.title }, t)}
+            subjects={subjectsBySlug[space] ?? []}
+            subjectIds={page.subjectIds}
+            onToggleSubject={(id) => toggleWikiSubject(space, page.path, id)}
+            pinned={pinnedDocs.includes(tabId)}
+            onTogglePin={() => togglePinned(tabId)}
+            createdAt={page.createdAt}
+            updatedAt={page.updatedAt}
+            filePath={`wiki/${page.path}`}
+            linked={linked}
+            candidates={candidates}
+            onAddLink={(path) => {
+              const target = (wikiBySlug[space] ?? []).find((w) => w.path === path);
+              if (!target) return;
+              // evidence.sourceId 는 실재 Source 여야 한다(가짜 id 를 relations.json 에 남기지 않는다).
+              const evidenceSource = page.sourceIds[0] ?? target.sourceIds[0];
+              if (!evidenceSource) {
+                setNotice("두 페이지 모두 원본 소스가 없어 연결 근거를 만들 수 없어요");
+                return;
+              }
+              void addUserLink(
+                space,
+                userRelation(space, {
+                  sourceNodeId: page.conceptId,
+                  targetNodeId: target.conceptId,
+                  relationType: "related_to",
+                  evidence: [{ sourceId: evidenceSource, reason: "사용자가 페이지 헤더에서 직접 연결" }],
+                }),
+              );
+            }}
+          />
+        }
         savedMd={page.markdown}
         isEditing={editing.has(key)}
         draft={drafts[key] ?? page.markdown}
@@ -722,11 +872,62 @@ export default function PiecePoolApp() {
     const tabId = `archive:${space}:${note.path}`;
     // 변환 미리보기는 job 의 노트 화면에서만 렌더 (탭 전환 후 복귀 시 재부착)
     const convertHere = !!convertJob && convertJob.space === space && convertJob.notePath === note.path;
+    // 관계형(헤더) — 이 노트(Source)를 target 으로 갖는 개념들. ArchiveNote 는 관계 노드가 아니므로
+    // 연결은 항상 개념 → Source(extracted_from) 방향으로 만든다 (relation-types.md 매트릭스).
+    const g = graphBySlug[space];
+    const linked: LinkedItem[] = [];
+    const linkedIds = new Set<string>();
+    if (g) {
+      for (const r of g.relations) {
+        if (r.targetNodeId !== note.sourceId || linkedIds.has(r.sourceNodeId)) continue;
+        const node = g.nodes.find((n) => n.id === r.sourceNodeId);
+        if (!node) continue;
+        linkedIds.add(r.sourceNodeId);
+        linked.push({ key: node.id, label: node.title, onClick: () => openWiki(space, node.path) });
+      }
+    }
+    const candidates = (wikiBySlug[space] ?? [])
+      .filter((w) => !isSynthesisPage(w) && !linkedIds.has(w.conceptId))
+      .map((w) => ({ key: w.path, label: w.title }));
     return (
       <DocView
         docType="archive"
         title={note.title}
-        meta={`원본 · ${note.createdAt.slice(0, 10)} · ${note.path}`}
+        header={
+          <PageHeader
+            docType="archive"
+            title={note.title}
+            onRename={(t) => void applyRename({ kind: "rename-note", space, file: note.path, title: note.title }, t)}
+            subjects={subjectsBySlug[space] ?? []}
+            subjectIds={note.subjectIds}
+            onToggleSubject={(id) => toggleNoteSubject(space, note.path, id)}
+            pinned={pinnedDocs.includes(tabId)}
+            onTogglePin={() => togglePinned(tabId)}
+            createdAt={note.createdAt}
+            updatedAt={note.updatedAt}
+            filePath={`archive/${note.path}`}
+            linked={linked}
+            candidates={candidates}
+            onAddLink={(path) => {
+              const w = (wikiBySlug[space] ?? []).find((x) => x.path === path);
+              if (!w) return;
+              // 백엔드 node_kind 는 id 접두사로 Source 를 판별 — 형식이 다른(외부 작성) 노트는 미리 안내.
+              if (!note.sourceId.startsWith("source-")) {
+                setNotice("원본 ID가 없는 노트라 관계를 만들 수 없어요");
+                return;
+              }
+              void addUserLink(
+                space,
+                userRelation(space, {
+                  sourceNodeId: w.conceptId,
+                  targetNodeId: note.sourceId,
+                  relationType: "extracted_from",
+                  evidence: [{ sourceId: note.sourceId, archivePath: `archive/${note.path}`, reason: "사용자가 노트 페이지에서 직접 연결" }],
+                }),
+              );
+            }}
+          />
+        }
         savedMd={note.markdown}
         isEditing={editing.has(key)}
         draft={drafts[key] ?? note.markdown}
@@ -969,7 +1170,14 @@ export default function PiecePoolApp() {
               onResize={setSidebarWidth}
               onResizeReset={() => setSidebarWidth(SIDEBAR_DEFAULT)}
               headerSlot={<SidebarHeader title={workspace?.name ?? "PiecePool"} onSearch={() => setPaletteOpen(true)} onNewNote={() => openInbox(currentSpace)} />}
-              shortcutsSlot={<SidebarShortcuts onHome={openHome} onNewFolder={() => setDialog({ kind: "new-space" })} />}
+              shortcutsSlot={
+                <SidebarShortcuts
+                  onHome={openHome}
+                  onNewFolder={() => setDialog({ kind: "new-space" })}
+                  pinned={pinnedEntries.map(({ id, label }) => ({ id, label }))}
+                  onOpenPinned={openPinned}
+                />
+              }
               footer={<SidebarFooter spaces={spaces} currentSpace={currentSpace} onSpace={selectSpace} onSettings={openSettings} />}
             />
           )
