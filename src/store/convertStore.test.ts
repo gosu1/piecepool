@@ -35,13 +35,13 @@ describe("useConvertStore", () => {
   it("성공: streaming → saving → done, wikiPath 설정", async () => {
     vi.mocked(runSynthesis).mockImplementation(async (_i, _k, opts?: SynthesisOptions) => {
       opts?.onDelta?.("# OS 3주차 정리");
-      return { markdown: "# OS 3주차 정리\n본문", engine: "openai" as const };
+      return { markdown: "# OS 3주차 정리\n본문", engine: "gemini" as const };
     });
     await useConvertStore.getState().runConvert(PARAMS);
     const job = useConvertStore.getState().job!;
     expect(job.status).toBe("done");
     expect(job.text).toBe("# OS 3주차 정리\n본문");
-    expect(job.engine).toBe("openai");
+    expect(job.engine).toBe("gemini");
     expect(job.wikiPath).toBe("syn-source-abc.md");
   });
 
@@ -50,7 +50,7 @@ describe("useConvertStore", () => {
     vi.mocked(runSynthesis).mockImplementation(
       () =>
         new Promise((resolve) => {
-          release = () => resolve({ markdown: "m", engine: "openai" as const });
+          release = () => resolve({ markdown: "m", engine: "gemini" as const });
         }),
     );
     const first = useConvertStore.getState().runConvert(PARAMS);

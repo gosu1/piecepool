@@ -1,4 +1,4 @@
-// 청킹 설정 — localStorage 기반(openai-key와 동형, 이 기기에만 저장). 설정 모달에서 토글/조정.
+// 청킹 설정 — localStorage 기반(gemini-key와 동형, 이 기기에만 저장). 설정 모달에서 토글/조정.
 // runWikiGeneration(opts.chunk)로 전달되어 [C] semantic chunking을 켠다. 기본 off(기존 동작 불변).
 
 const ENABLED_KEY = "chunk-enabled";
@@ -31,7 +31,7 @@ export function chunkOpts(): { enabled: boolean; percentile: number } | undefine
 }
 
 // ── Liner (feature 3: 출처 검색·fact-check) ──
-// SSOT: docs/30-llm/provider-config.md §3.3. openai-key 와 동형(이 기기 localStorage에만 저장).
+// SSOT: docs/30-llm/provider-config.md §3.3. gemini-key 와 동형(이 기기 localStorage에만 저장).
 const LINER_KEY = "liner-key";
 const LINER_ENDPOINT_KEY = "liner-endpoint";
 const FACT_CHECK_KEY = "fact-check";

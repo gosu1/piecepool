@@ -25,7 +25,7 @@ const rel = (from: string, to: string): LlmRelation => ({
 function fakeProvider(fn: (input: LlmWikiInput) => LlmWikiResult) {
   const calls: LlmWikiInput[] = [];
   const provider: LlmProvider = {
-    id: "openai",
+    id: "gemini",
     async generateWikiStructured(input) {
       calls.push(input);
       return fn(input);
@@ -43,7 +43,7 @@ describe("runWikiGeneration — [E] promotion advisory", () => {
   it("연결된 개념은 active, 부착된 promotion 리포트에 staging 0", async () => {
     const { provider } = fakeProvider(() => ({ concepts: [c("A"), c("B")], relations: [rel("A", "B")] }));
     const out = await runWikiGeneration(base, undefined, { provider });
-    expect(out.engine).toBe("openai");
+    expect(out.engine).toBe("gemini");
     expect(out.promotion).toEqual({ active: 2, staging: 0, isolatedTitles: [] });
   });
 

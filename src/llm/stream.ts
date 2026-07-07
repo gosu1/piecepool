@@ -1,6 +1,8 @@
-// OpenAI Responses API 텍스트 스트리밍 수신 (SSE). SSOT: docs/30-llm/note-synthesis.md §3.
-// Chat Completions 와 달리 `data: [DONE]` 센티널이 없다 — 타입 있는 이벤트(response.*)로 종결을 판단한다.
-// 구조화 출력(단발 호출)은 openai.ts 소관 — 본 모듈은 plain text 스트리밍 전용.
+// Gemini(OpenAI 호환 Chat Completions) 텍스트 스트리밍 수신 (SSE). SSOT: docs/30-llm/note-synthesis.md §3.
+// delta.content 를 누적하고 finish_reason(또는 `data: [DONE]`)으로 종결을 판단한다.
+// 구조화 출력(단발 호출)은 gemini.ts 소관 — 본 모듈은 plain text 스트리밍 전용.
+
+import { GEMINI_OPENAI_ENDPOINT, extractChatText } from "./gemini";
 
 export interface SseEvent {
   type: string;
@@ -48,12 +50,12 @@ export interface StreamTextOptions {
   stallMs?: number; // 청크 간 무수신 한계(기본 45s). 전체 타임아웃은 두지 않는다 — 긴 글은 정상.
 }
 
-export async function streamResponsesText(opts: StreamTextOptions): Promise<StreamTextResult> {
-  const endpoint = opts.endpoint ?? "https://api.openai.com/v1";
+export async function streamChatText(opts: StreamTextOptions): Promise<StreamTextResult> {
+  const endpoint = opts.endpoint ?? GEMINI_OPENAI_ENDPOINT;
   const fetchFn = opts.fetchFn ?? globalThis.fetch;
   const headers = { "content-type": "application/json", authorization: `Bearer ${opts.apiKey}` };
 
-  const res = await fetchFn(`${endpoint}/responses`, {
+  const res = await fetchFn(`${endpoint}/chat/completions`, {
     method: "POST",
     headers,
     body: JSON.stringify({ ...opts.body, stream: true }),
@@ -65,14 +67,14 @@ export async function streamResponsesText(opts: StreamTextOptions): Promise<Stre
 
   if (!res.body) {
     // 스트리밍 미지원 환경(body 미노출 webview) — stream:false 버퍼링 폴백, 전체 텍스트 1회 전달.
-    const r2 = await fetchFn(`${endpoint}/responses`, {
+    const r2 = await fetchFn(`${endpoint}/chat/completions`, {
       method: "POST",
       headers,
       body: JSON.stringify(opts.body),
       signal: opts.signal,
     });
     if (!r2.ok) throw new Error(`[stream] fallback HTTP ${r2.status}`);
-    const text = outputText(await r2.json());
+    const text = extractChatText(await r2.json());
     opts.onDelta?.(text);
     return { text };
   }
@@ -83,17 +85,17 @@ export async function streamResponsesText(opts: StreamTextOptions): Promise<Stre
   let done: StreamTextResult | null = null;
   let failure: string | null = null;
   const parser = createSseParser((ev) => {
-    if (ev.type === "response.output_text.delta" && typeof ev.delta === "string") {
-      full += ev.delta;
+    // Chat Completions 스트림 청크: { choices: [{ delta: { content }, finish_reason }] }
+    const choice = (ev.choices as Array<{ delta?: { content?: string }; finish_reason?: string | null }> | undefined)?.[0];
+    const delta = choice?.delta?.content;
+    if (typeof delta === "string" && delta) {
+      full += delta;
       opts.onDelta?.(full);
-    } else if (ev.type === "response.completed") {
-      done = { text: full };
-    } else if (ev.type === "response.incomplete") {
-      done = { text: full, incomplete: incompleteReason(ev) };
-    } else if (ev.type === "response.failed" || ev.type === "error") {
-      failure = `[stream] ${ev.type}: ${eventMessage(ev)}`;
     }
-    // 그 외(created/in_progress/output_item.*/content_part.*/output_text.done/미지 타입)는 무시 — 전방 호환
+    const fr = choice?.finish_reason;
+    if (fr) done = fr === "length" ? { text: full, incomplete: "length" } : { text: full };
+    // OpenAI 호환 에러 이벤트: { error: { message } }
+    if (ev.error) failure = `[stream] error: ${eventMessage(ev)}`;
   });
 
   const stallMs = opts.stallMs ?? 45000;
@@ -125,27 +127,11 @@ export async function streamResponsesText(opts: StreamTextOptions): Promise<Stre
   if (stalled) throw new Error(`[stream] stall: ${stallMs}ms 동안 수신 없음`);
   if (done) return done;
   if (failure) throw new Error(failure);
-  // 종결 이벤트 없이 연결 절단 — 부분 텍스트는 onDelta 로 이미 전달됐고, 저장은 하지 않는다(synthesize 가 판단).
+  // finish_reason 종결 이벤트 없이 연결 절단 — 부분 텍스트는 저장하지 않는다(synthesize 가 판단).
   throw new Error("[stream] 종결 이벤트 없이 스트림 종료");
 }
 
-function incompleteReason(ev: SseEvent): string {
-  const r = ev.response as { incomplete_details?: { reason?: string } } | undefined;
-  return r?.incomplete_details?.reason ?? "incomplete";
-}
-
 function eventMessage(ev: SseEvent): string {
-  if (typeof ev.message === "string") return ev.message;
-  const r = ev.response as { error?: { message?: string } } | undefined;
-  return r?.error?.message ?? "unknown";
-}
-
-// 버퍼링 폴백용 — 단발 응답에서 텍스트 추출 (ocr.ts 와 동일한 응답 모양).
-function outputText(data: { output_text?: string; output?: Array<{ content?: Array<{ text?: string }> }> }): string {
-  if (typeof data.output_text === "string") return data.output_text;
-  const parts = (data.output ?? []).flatMap((o) => o.content ?? []);
-  return parts
-    .map((p) => p.text ?? "")
-    .join("")
-    .trim();
+  const err = ev.error as { message?: string } | undefined;
+  return err?.message ?? "unknown";
 }

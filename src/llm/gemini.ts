@@ -2,13 +2,13 @@ import type { LlmProvider, LlmWikiInput, LlmWikiResult } from "./provider";
 import { normalizeLlmResult, validateLlmWikiResult } from "./validate";
 import schema from "./schema/llm-wiki-result.schema.json" with { type: "json" };
 
-// OpenAI GPT (Responses API, json_schema strict). SSOT: docs/30-llm/provider-config.md §3.2, §4.
-// 출력 검증/정규화는 validate.ts(keystone, 전 provider 공통). 프롬프트 본문 SSOT: prompt-templates.md.
-// 되묻기/fact-check round-trip은 Backend 주도(§6) — 본 어댑터는 단일 구조화 호출만.
+// Gemini (OpenAI 호환 엔드포인트 /chat/completions, response_format json_schema). SSOT: docs/30-llm/provider-config.md §3.2, §4.
+// Google 의 OpenAI 호환층(v1beta/openai)을 쓴다 — Bearer 인증 그대로, Chat Completions 형태.
+// 출력 검증/정규화는 validate.ts(keystone). 프롬프트 본문 SSOT: prompt-templates.md.
 
-export type OpenAiProviderConfig = {
+export type GeminiProviderConfig = {
   apiKey: string;
-  endpoint: string; // base URL (default https://api.openai.com/v1)
+  endpoint: string; // base URL (default Gemini OpenAI 호환 엔드포인트)
   model: string;
   timeoutMs: number;
   maxRetries: number;
@@ -17,34 +17,37 @@ export type OpenAiProviderConfig = {
 
 type FetchFn = typeof fetch;
 
-const DEFAULTS: Omit<OpenAiProviderConfig, "apiKey"> = {
-  endpoint: "https://api.openai.com/v1",
-  model: "gpt-5-mini",
+// Gemini OpenAI 호환 base URL. /chat/completions · /embeddings 를 append 한다.
+export const GEMINI_OPENAI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/openai";
+
+const DEFAULTS: Omit<GeminiProviderConfig, "apiKey"> = {
+  endpoint: GEMINI_OPENAI_ENDPOINT,
+  model: "gemini-2.5-flash",
   timeoutMs: 60000,
   maxRetries: 2,
   backoffMs: 250,
 };
 
-export class OpenAiProvider implements LlmProvider {
-  id = "openai" as const;
-  private readonly cfg: OpenAiProviderConfig;
+export class GeminiProvider implements LlmProvider {
+  id = "gemini" as const;
+  private readonly cfg: GeminiProviderConfig;
   private readonly fetchFn: FetchFn;
 
-  constructor(opts?: { config?: Partial<OpenAiProviderConfig>; fetchFn?: FetchFn }) {
+  constructor(opts?: { config?: Partial<GeminiProviderConfig>; fetchFn?: FetchFn }) {
     this.cfg = { ...envConfig(), ...opts?.config };
     this.fetchFn = opts?.fetchFn ?? globalThis.fetch;
   }
 
   async generateWikiStructured(input: LlmWikiInput): Promise<LlmWikiResult> {
-    if (!this.cfg.apiKey) throw new Error("[provider=openai] auth: OPENAI_API_KEY missing");
+    if (!this.cfg.apiKey) throw new Error("[provider=gemini] auth: GEMINI_API_KEY missing");
     const body = this.buildRequestBody(input);
-    let lastError = "[provider=openai] network: no attempt made";
+    let lastError = "[provider=gemini] network: no attempt made";
     for (let attempt = 0; attempt <= this.cfg.maxRetries; attempt++) {
       if (attempt > 0) await sleep(this.cfg.backoffMs * 2 ** (attempt - 1));
       const r = await this.attempt(body);
       if (r.ok) {
         const { data, warnings } = normalizeLlmResult(r.data, input);
-        for (const w of warnings) console.warn(`[provider=openai] ${w}`);
+        for (const w of warnings) console.warn(`[provider=gemini] ${w}`);
         return data;
       }
       lastError = r.error;
@@ -56,12 +59,9 @@ export class OpenAiProvider implements LlmProvider {
   private buildRequestBody(input: LlmWikiInput) {
     return {
       model: this.cfg.model,
-      input: buildMessages(input),
-      // Responses API structured output — SSOT: provider-config.md §3.2.
-      // Chat Completions 의 response_format 이 아니라 text.format 이다(/responses 는 response_format 을 400 으로 거부).
-      text: {
-        format: { type: "json_schema", name: "LlmWikiResult", strict: true, schema },
-      },
+      messages: buildMessages(input),
+      // Chat Completions 구조화 출력 — SSOT: provider-config.md §3.2. strict:false + 다운스트림 ajv 가 실제 강제.
+      response_format: { type: "json_schema", json_schema: { name: "LlmWikiResult", strict: false, schema } },
     };
   }
 
@@ -70,7 +70,7 @@ export class OpenAiProvider implements LlmProvider {
     const timer = setTimeout(() => ac.abort(), this.cfg.timeoutMs);
     let res: Response;
     try {
-      res = await this.fetchFn(`${this.cfg.endpoint}/responses`, {
+      res = await this.fetchFn(`${this.cfg.endpoint}/chat/completions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -80,22 +80,22 @@ export class OpenAiProvider implements LlmProvider {
         signal: ac.signal,
       });
     } catch (e) {
-      return retriable("network", `OpenAI not reachable at ${this.cfg.endpoint} (${errMsg(e)})`);
+      return retriable("network", `Gemini not reachable at ${this.cfg.endpoint} (${errMsg(e)})`);
     } finally {
       clearTimeout(timer);
     }
 
     // 401/403 재시도 X — 사용자 인증 문제 (provider-config §4.1).
     if (res.status === 401 || res.status === 403) {
-      return terminal("auth", `OPENAI_API_KEY rejected (HTTP ${res.status})`);
+      return terminal("auth", `GEMINI_API_KEY rejected (HTTP ${res.status})`);
     }
-    // 429는 표준 backoff 루프 안에서 재시도 (Retry-After 정밀 존중은 후속).
+    // 429는 표준 backoff 루프 안에서 재시도.
     if (res.status === 429) return retriable("rate_limit", "rate limited (HTTP 429)");
-    if (!res.ok) return retriable("network", `OpenAI HTTP ${res.status}`);
+    if (!res.ok) return retriable("network", `Gemini HTTP ${res.status}`);
 
     let parsed: unknown;
     try {
-      parsed = extractStructured(await res.json());
+      parsed = extractChatJson(await res.json());
     } catch (e) {
       return retriable("parse", `response body not parseable (${errMsg(e)})`);
     }
@@ -114,38 +114,29 @@ type AttemptResult =
 type Stage = "network" | "parse" | "schema" | "auth" | "rate_limit";
 
 function retriable(stage: Stage, cause: string): AttemptResult {
-  return { ok: false, retriable: true, error: `[provider=openai] ${stage}: ${cause}` };
+  return { ok: false, retriable: true, error: `[provider=gemini] ${stage}: ${cause}` };
 }
 
 function terminal(stage: Stage, cause: string): AttemptResult {
-  return { ok: false, retriable: false, error: `[provider=openai] ${stage}: ${cause}` };
+  return { ok: false, retriable: false, error: `[provider=gemini] ${stage}: ${cause}` };
 }
 
-// Responses API 응답 → 구조화 객체. output_parsed 우선, 없으면 output text를 JSON.parse.
-// raw HTTP 응답에는 output_parsed/output_text 가 없을 수 있으므로 output[].content[] 워크가 필수.
+// Chat Completions 응답 → 구조화 객체. choices[0].message.content(JSON 문자열)을 parse.
 // gaps.ts(소크라테스 되묻기)도 재사용. SSOT: docs/30-llm/output-validation.md §3.
-type OpenAiResponse = {
-  output_parsed?: unknown;
-  output_text?: string;
-  output?: Array<{ content?: Array<{ type?: string; text?: string }> }>;
+type ChatResponse = {
+  choices?: Array<{ message?: { content?: string } }>;
 };
 
-export function extractStructured(resp: unknown): unknown {
-  const r = (resp ?? {}) as OpenAiResponse;
-  if (r.output_parsed && typeof r.output_parsed === "object") return r.output_parsed;
-  const text = r.output_text ?? collectOutputText(r);
+export function extractChatJson(resp: unknown): unknown {
+  const text = extractChatText(resp);
   if (!text) return undefined;
   return JSON.parse(text);
 }
 
-function collectOutputText(r: OpenAiResponse): string {
-  const parts: string[] = [];
-  for (const item of r.output ?? []) {
-    for (const c of item.content ?? []) {
-      if (c.type === "output_text" && c.text) parts.push(c.text);
-    }
-  }
-  return parts.join("");
+// Chat Completions 응답 → 평문 텍스트(choices[0].message.content). ocr/pdfdigest 도 재사용.
+export function extractChatText(resp: unknown): string {
+  const r = (resp ?? {}) as ChatResponse;
+  return r.choices?.[0]?.message?.content ?? "";
 }
 
 // 프롬프트 본문은 docs/30-llm/prompt-templates.md SSOT. 여기서는 최소 직렬화만.
@@ -159,10 +150,10 @@ function buildMessages(input: LlmWikiInput) {
   ];
 }
 
-function envConfig(): OpenAiProviderConfig {
+function envConfig(): GeminiProviderConfig {
   const env = readEnv();
   return {
-    apiKey: env.OPENAI_API_KEY || "",
+    apiKey: env.GEMINI_API_KEY || "",
     endpoint: DEFAULTS.endpoint,
     model: env.PIECEPOOL_LLM_MODEL || DEFAULTS.model,
     timeoutMs: numEnv(env.PIECEPOOL_LLM_TIMEOUT_MS, DEFAULTS.timeoutMs),

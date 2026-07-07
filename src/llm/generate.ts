@@ -1,18 +1,18 @@
 import type { LlmProvider, LlmWikiInput, LlmWikiResult, LlmConcept, LlmRelation } from "./provider";
-import { OpenAiProvider } from "./openai";
+import { GeminiProvider } from "./gemini";
 import { semanticChunk, type EmbedFn, type Chunk } from "./chunk";
-import { createOpenAiEmbedder } from "./embeddings";
+import { createGeminiEmbedder } from "./embeddings";
 import { promote } from "./promote";
 import { classify, type NodeType } from "./classify";
 
 // LLM 위키 생성 오케스트레이션 (README §LLM ①).
-//  - apiKey 있으면 OpenAI(Responses API, 구조화 출력) 호출.
+//  - apiKey 있으면 Gemini(OpenAI 호환 Chat Completions, 구조화 출력) 호출.
 //  - 없거나 실패하면 노트를 헤딩 단위 개념으로 쪼개는 휴리스틱으로 폴백 → 키 없이도 동작.
 //  - [C] semantic chunking(opt-in) + [E] promotion 연결성 게이트(항상, advisory) 연결. SSOT: docs/30-llm/README.md §C·§E.
 
 export interface WikiGenResult {
   result: LlmWikiResult;
-  engine: "openai" | "heuristic";
+  engine: "gemini" | "heuristic";
   warning?: string;
   promotion?: PromotionReport; // [E] 이번 추출 그래프의 연결성 게이트 리포트(비파괴 advisory).
   chunks?: number; // [C] 청킹으로 처리한 조각 수(청킹 켰을 때만).
@@ -32,9 +32,9 @@ export interface WikiGenOptions {
     percentile?: number; // 의미 경계 하위 N%(chunk.ts). 실데이터로 튜닝.
     minSentences?: number;
     maxChunks?: number; // 조각별 호출 상한(비용 방어, 기본 12). 초과분은 로그 후 절단.
-    embed?: EmbedFn; // 주입(테스트/대체). 기본 createOpenAiEmbedder(apiKey).
+    embed?: EmbedFn; // 주입(테스트/대체). 기본 createGeminiEmbedder(apiKey).
   };
-  provider?: LlmProvider; // 주입(테스트/대체). 기본 new OpenAiProvider(apiKey).
+  provider?: LlmProvider; // 주입(테스트/대체). 기본 new GeminiProvider(apiKey).
 }
 
 export async function runWikiGeneration(
@@ -43,7 +43,7 @@ export async function runWikiGeneration(
   opts?: WikiGenOptions,
 ): Promise<WikiGenResult> {
   const key = apiKey?.trim();
-  const provider = opts?.provider ?? (key ? new OpenAiProvider({ config: { apiKey: key } }) : null);
+  const provider = opts?.provider ?? (key ? new GeminiProvider({ config: { apiKey: key } }) : null);
 
   if (!provider) {
     // 키 없음 → 휴리스틱(기능은 동작시킨다)
@@ -53,10 +53,10 @@ export async function runWikiGeneration(
   try {
     if (opts?.chunk?.enabled) {
       const { result, chunkCount, nodeTypes } = await chunkedExtract(input, provider, opts.chunk, key);
-      return withPromotion({ result, engine: "openai", chunks: chunkCount, nodeTypes });
+      return withPromotion({ result, engine: "gemini", chunks: chunkCount, nodeTypes });
     }
     const result = await provider.generateWikiStructured(input);
-    return withPromotion({ result, engine: "openai" });
+    return withPromotion({ result, engine: "gemini" });
   } catch (e) {
     // 네트워크/CORS/키 문제 → 휴리스틱으로 폴백
     return withPromotion({ result: heuristicWiki(input), engine: "heuristic", warning: errMsg(e) });
@@ -72,7 +72,7 @@ async function chunkedExtract(
   chunkOpts: NonNullable<WikiGenOptions["chunk"]>,
   key?: string,
 ): Promise<{ result: LlmWikiResult; chunkCount: number; nodeTypes: Partial<Record<NodeType, number>> }> {
-  const embed = chunkOpts.embed ?? createOpenAiEmbedder({ config: { apiKey: key ?? "" } });
+  const embed = chunkOpts.embed ?? createGeminiEmbedder({ config: { apiKey: key ?? "" } });
   const { chunks } = await semanticChunk(input.sourceText, {
     embed,
     percentile: chunkOpts.percentile,

@@ -17,7 +17,7 @@ export interface ConvertJob {
   sourceId: string;
   status: ConvertStatus;
   text: string; // 스로틀된 스트리밍 텍스트 스냅샷
-  engine?: "openai" | "heuristic";
+  engine?: "gemini" | "heuristic";
   warning?: string;
   error?: string;
   wikiPath?: string; // done 시 "열기" 대상
@@ -46,7 +46,7 @@ let latest = "";
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
 
 function apiKey(): string {
-  return (typeof localStorage !== "undefined" && localStorage.getItem("openai-key")) || "";
+  return (typeof localStorage !== "undefined" && localStorage.getItem("gemini-key")) || "";
 }
 
 export const useConvertStore = create<ConvertState>((set, get) => {

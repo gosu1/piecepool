@@ -1,11 +1,11 @@
 import { LinerClient, type LinerSource } from "./liner";
-import { extractStructured } from "./openai";
+import { extractChatJson, GEMINI_OPENAI_ENDPOINT } from "./gemini";
 
 // 정보 간극 메우기 (README §LLM ③, feature 3). 정답(label)과 사용자 필기 사이 간극을
 // 소크라테스/하브루타식으로 되묻는다 — 정답을 주입하지 않고 1~3개 선택지 + "기타"로 가이드.
 // 엔진 우선순위(SSOT: CLAUDE.md LLM Provider Rules · provider-config.md §3.3):
 //   ① Liner — 권위 출처 검색으로 정답 기준(label)을 세워 선택지·출처 구성 (주)
-//   ② OpenAI — Liner 미가용 시 소크라테스식 되묻기 생성 (보조)
+//   ② Gemini — Liner 미가용 시 소크라테스식 되묻기 생성 (보조)
 //   ③ 휴리스틱 — 키 전부 없음/전부 실패 (오프라인 최후)
 
 export interface GapSource {
@@ -21,7 +21,7 @@ export interface GapQuestion {
   sources?: GapSource[]; // Liner 검증 출처(있을 때만)
 }
 
-export type GapEngine = "liner" | "openai" | "heuristic";
+export type GapEngine = "liner" | "gemini" | "heuristic";
 
 export interface GapReport {
   questions: GapQuestion[];
@@ -30,14 +30,14 @@ export interface GapReport {
 
 export interface BuildGapDeps {
   linerClient?: LinerClient; // 주입(테스트/대체)
-  fetchFn?: typeof fetch; // OpenAI 보조 호출용 주입
-  openaiEndpoint?: string;
+  fetchFn?: typeof fetch; // Gemini 보조 호출용 주입
+  geminiEndpoint?: string;
 }
 
 export async function buildGaps(
   title: string,
   text: string,
-  keys: { liner?: string; openai?: string },
+  keys: { liner?: string; gemini?: string },
   deps?: BuildGapDeps,
 ): Promise<GapReport> {
   // ① Liner
@@ -48,15 +48,15 @@ export async function buildGaps(
       const questions = await linerGaps(title, text, client);
       if (questions.length > 0) return { questions, engine: "liner" };
     } catch {
-      // ↓ OpenAI 보조로
+      // ↓ Gemini 보조로
     }
   }
-  // ② OpenAI 소크라테스식
-  const openaiKey = keys.openai?.trim();
-  if (openaiKey) {
+  // ② Gemini 소크라테스식
+  const geminiKey = keys.gemini?.trim();
+  if (geminiKey) {
     try {
-      const questions = await openaiGaps(title, text, openaiKey, deps);
-      if (questions.length > 0) return { questions, engine: "openai" };
+      const questions = await geminiGaps(title, text, geminiKey, deps);
+      if (questions.length > 0) return { questions, engine: "gemini" };
     } catch {
       // ↓ 휴리스틱으로
     }
@@ -92,7 +92,7 @@ async function linerGaps(title: string, text: string, client: LinerClient): Prom
   return out;
 }
 
-// ── ② OpenAI: 소크라테스식 되묻기 생성 (Responses API, json_schema) ──────
+// ── ② Gemini: 소크라테스식 되묻기 생성 (OpenAI 호환 Chat Completions, json_schema) ──────
 const GAP_SCHEMA = {
   type: "object",
   additionalProperties: false,
@@ -115,32 +115,32 @@ const GAP_SCHEMA = {
   },
 } as const;
 
-async function openaiGaps(title: string, text: string, apiKey: string, deps?: BuildGapDeps): Promise<GapQuestion[]> {
+async function geminiGaps(title: string, text: string, apiKey: string, deps?: BuildGapDeps): Promise<GapQuestion[]> {
   const fetchFn = deps?.fetchFn ?? globalThis.fetch;
-  const endpoint = deps?.openaiEndpoint ?? "https://api.openai.com/v1";
+  const endpoint = deps?.geminiEndpoint ?? GEMINI_OPENAI_ENDPOINT;
   const system =
     "You are a Socratic study coach. Given a student's note, produce up to 3 gap-check questions in Korean. " +
     "Never inject the answer; each question offers 1-3 guiding choices (student's likely claim first). " +
     "Respond ONLY with JSON conforming to the schema.";
-  const res = await fetchFn(`${endpoint}/responses`, {
+  const res = await fetchFn(`${endpoint}/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
-      model: "gpt-5-mini",
-      input: [
+      model: "gemini-2.5-flash",
+      messages: [
         { role: "system", content: system },
         { role: "user", content: JSON.stringify({ title, note: text.slice(0, 6000) }) },
       ],
-      // Responses API 구조화 출력 — response_format 아님(openai.ts 와 동일 규약).
-      text: { format: { type: "json_schema", name: "GapQuestions", strict: true, schema: GAP_SCHEMA } },
+      // Chat Completions 구조화 출력 — strict:false + 다운스트림 파싱(gemini.ts 와 동일 규약).
+      response_format: { type: "json_schema", json_schema: { name: "GapQuestions", strict: false, schema: GAP_SCHEMA } },
     }),
   });
-  if (!res.ok) throw new Error(`[provider=openai] gaps: HTTP ${res.status}`);
-  // raw HTTP 응답은 output[].content[] 에 텍스트가 실린다 — openai.ts extractStructured 재사용.
-  const parsed = extractStructured(await res.json()) as {
+  if (!res.ok) throw new Error(`[provider=gemini] gaps: HTTP ${res.status}`);
+  // Chat Completions 응답 → choices[0].message.content JSON — gemini.ts extractChatJson 재사용.
+  const parsed = extractChatJson(await res.json()) as {
     questions?: Array<{ context?: string; prompt?: string; choices?: string[] }>;
   } | null;
-  if (!parsed?.questions) throw new Error("[provider=openai] gaps: no structured output");
+  if (!parsed?.questions) throw new Error("[provider=gemini] gaps: no structured output");
   return parsed.questions
     .filter((q) => q.prompt)
     .map((q) => ({
