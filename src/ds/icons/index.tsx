@@ -94,8 +94,17 @@ export const PlusIcon = (p: IconProps) => (
 
 export const SortIcon = (p: IconProps) => (
   <Svg {...p}>
-    <path d="M7 4v16M7 4 4 7m3-3 3 3" />
-    <path d="M17 20V4m0 16 3-3m-3 3-3-3" />
+    <path d="m3 16 4 4 4-4" />
+    <path d="M7 20V4" />
+    <path d="M11 4h10" />
+    <path d="M11 8h7" />
+    <path d="M11 12h4" />
+  </Svg>
+);
+
+export const CheckIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M20 6 9 17l-5-5" />
   </Svg>
 );
 

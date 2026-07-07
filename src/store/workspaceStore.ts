@@ -17,6 +17,13 @@ export interface WorkspaceTab {
   dirty?: boolean; // 미저장 표시(●)
 }
 
+export type TreeSortKey = "name" | "updated" | "created";
+export type TreeSortDir = "asc" | "desc";
+export interface TreeSort {
+  key: TreeSortKey;
+  dir: TreeSortDir;
+}
+
 export const SIDEBAR_MIN = 180;
 export const SIDEBAR_MAX = 480;
 export const SIDEBAR_DEFAULT = 240;
@@ -32,6 +39,8 @@ interface WorkspaceState {
   pinnedDocs: string[];
   // 최근 연 문서 id(`kind:space:file`, 최신순) — 새 탭 런처의 "최근 문서" 섹션. persist.
   recentDocs: string[];
+  // 사이드바 파일 트리 정렬(이름/업데이트/생성일 × 오름·내림). persist.
+  treeSort: TreeSort;
   // 탭 활성화 히스토리(세션 전용, persist 제외) — 뒤로/앞으로. 닫힌 탭 id 는 pop 시 건너뛴다.
   navBack: string[];
   navForward: string[];
@@ -48,6 +57,7 @@ interface WorkspaceState {
   setSidebarWidth: (w: number) => void;
   toggleTreeNode: (id: string) => void;
   togglePinned: (id: string) => void;
+  setTreeSort: (s: TreeSort) => void;
 }
 
 const NAV_CAP = 50;
@@ -64,6 +74,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       collapsedTreeIds: [],
       pinnedDocs: [],
       recentDocs: [],
+      treeSort: { key: "name", dir: "asc" },
       navBack: [],
       navForward: [],
 
@@ -181,6 +192,8 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         set((s) => ({
           pinnedDocs: s.pinnedDocs.includes(id) ? s.pinnedDocs.filter((x) => x !== id) : [...s.pinnedDocs, id],
         })),
+
+      setTreeSort: (treeSort) => set({ treeSort }),
     }),
     {
       name: "pp-workspace",
@@ -194,6 +207,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         collapsedTreeIds: s.collapsedTreeIds,
         pinnedDocs: s.pinnedDocs,
         recentDocs: s.recentDocs,
+        treeSort: s.treeSort,
       }),
     },
   ),
