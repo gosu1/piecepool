@@ -127,9 +127,7 @@ export async function streamChatText(opts: StreamTextOptions): Promise<StreamTex
   if (stalled) throw new Error(`[stream] stall: ${stallMs}ms 동안 수신 없음`);
   if (done) return done;
   if (failure) throw new Error(failure);
-  // finish_reason 없이 [DONE]/EOF 로 정상 종료된 경우 — 누적 텍스트를 완성으로 취급.
-  if (full.trim()) return { text: full };
-  // 텍스트도 종결 신호도 없이 절단 — 저장하지 않는다(synthesize 가 판단).
+  // finish_reason 종결 이벤트 없이 연결 절단 — 부분 텍스트는 저장하지 않는다(synthesize 가 판단).
   throw new Error("[stream] 종결 이벤트 없이 스트림 종료");
 }
 

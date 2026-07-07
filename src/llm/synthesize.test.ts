@@ -24,42 +24,42 @@ const INPUT = {
 describe("buildSynthesisBody", () => {
   it("system 규칙 + 제목 지시 + 스트리밍 파라미터를 포함한다", () => {
     const b = buildSynthesisBody(INPUT);
-    expect(b.model).toBe("gpt-5-mini");
-    expect(b.input[0].content).toContain("모든 사실을 보존");
-    expect(b.input[1].content).toContain("# OS 3주차 정리");
-    expect(b.max_output_tokens).toBeGreaterThan(0);
+    expect(b.model).toBe("gemini-2.5-flash");
+    expect(b.messages[0].content).toContain("모든 사실을 보존");
+    expect(b.messages[1].content).toContain("# OS 3주차 정리");
+    expect(b.max_tokens).toBeGreaterThan(0);
   });
 });
 
-describe("runSynthesis — OpenAI 경로", () => {
-  it("스트림 성공 → engine openai, delta 누적 텍스트 반환", async () => {
+describe("runSynthesis — Gemini 경로", () => {
+  it("스트림 성공 → engine gemini, delta 누적 텍스트 반환", async () => {
     const seen: string[] = [];
     const r = await runSynthesis(INPUT, "sk-test", {
       fetchFn: (async () =>
         sseRes(
-          frame({ type: "response.output_text.delta", delta: "# OS 3주차 정리\n" }),
-          frame({ type: "response.output_text.delta", delta: "본문" }),
-          frame({ type: "response.completed", response: {} }),
+          frame({ choices: [{ delta: { content: "# OS 3주차 정리\n" } }] }),
+          frame({ choices: [{ delta: { content: "본문" } }] }),
+          frame({ choices: [{ delta: {}, finish_reason: "stop" }] }),
         )) as unknown as typeof fetch,
       onDelta: (t) => seen.push(t),
       backoffMs: 0,
     });
-    expect(r.engine).toBe("openai");
+    expect(r.engine).toBe("gemini");
     expect(r.markdown).toBe("# OS 3주차 정리\n본문");
     expect(r.warning).toBeUndefined();
     expect(seen[seen.length - 1]).toBe("# OS 3주차 정리\n본문");
   });
 
-  it("incomplete 종결 → 성공 + '일부만 생성됨' 경고", async () => {
+  it("incomplete(finish_reason=length) 종결 → 성공 + '일부만 생성됨' 경고", async () => {
     const r = await runSynthesis(INPUT, "sk-test", {
       fetchFn: (async () =>
         sseRes(
-          frame({ type: "response.output_text.delta", delta: "부분" }),
-          frame({ type: "response.incomplete", response: { incomplete_details: { reason: "max_output_tokens" } } }),
+          frame({ choices: [{ delta: { content: "부분" } }] }),
+          frame({ choices: [{ delta: {}, finish_reason: "length" }] }),
         )) as unknown as typeof fetch,
       backoffMs: 0,
     });
-    expect(r.engine).toBe("openai");
+    expect(r.engine).toBe("gemini");
     expect(r.warning).toContain("일부만 생성됨");
   });
 
@@ -98,8 +98,8 @@ describe("runSynthesis — OpenAI 경로", () => {
       runSynthesis(INPUT, "sk-test", {
         fetchFn: (async () =>
           sseRes(
-            frame({ type: "response.output_text.delta", delta: "반쯤 온 글" }),
-            frame({ type: "error", message: "connection reset" }),
+            frame({ choices: [{ delta: { content: "반쯤 온 글" } }] }),
+            frame({ error: { message: "connection reset" } }),
           )) as unknown as typeof fetch,
         backoffMs: 0,
       }),

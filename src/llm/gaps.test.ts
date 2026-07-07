@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { buildGaps, heuristicGaps } from "./gaps";
 import { LinerClient } from "./liner";
 
-// buildGaps 3단 폴백: Liner(주) → OpenAI 소크라테스(보조) → 휴리스틱(오프라인).
+// buildGaps 3단 폴백: Liner(주) → Gemini 소크라테스(보조) → 휴리스틱(오프라인).
 
 type FetchFn = typeof fetch;
 const jsonRes = (body: unknown, status = 200) =>
@@ -30,7 +30,7 @@ describe("buildGaps 폴백 체인", () => {
     expect(r.questions[0].choices.some((c) => c.startsWith("출처 기준:"))).toBe(true);
   });
 
-  it("Liner 전체 실패 + OpenAI 키 없음 → 휴리스틱", async () => {
+  it("Liner 전체 실패 + Gemini 키 없음 → 휴리스틱", async () => {
     const client = liner(async () => {
       throw new Error("down");
     });
@@ -38,44 +38,41 @@ describe("buildGaps 폴백 체인", () => {
     expect(r.engine).toBe("heuristic");
   });
 
-  it("Liner 실패 + OpenAI 성공 → engine=openai (소크라테스식, raw Responses API 형태)", async () => {
+  it("Liner 실패 + Gemini 성공 → engine=gemini (소크라테스식, Chat Completions 형태)", async () => {
     const client = liner(async () => {
       throw new Error("down");
     });
-    const openaiFetch: FetchFn = (async (url: string | URL | Request, init?: RequestInit) => {
-      expect(String(url)).toContain("/responses");
-      // Responses API 규약: 구조화 출력은 text.format (response_format 은 400 거부됨)
+    const geminiFetch: FetchFn = (async (url: string | URL | Request, init?: RequestInit) => {
+      expect(String(url)).toContain("/chat/completions");
+      // Chat Completions 규약: 구조화 출력은 response_format (text.format 아님)
       const body = JSON.parse(String(init?.body ?? "{}"));
-      expect(body.text?.format?.type).toBe("json_schema");
-      expect(body.response_format).toBeUndefined();
-      // raw HTTP 응답에는 output_parsed 가 없다 — output[].content[].text 로 온다
+      expect(body.response_format?.type).toBe("json_schema");
+      expect(body.text).toBeUndefined();
+      // Chat Completions 응답은 choices[0].message.content 에 JSON 문자열로 온다
       return jsonRes({
-        output: [
+        choices: [
           {
-            content: [
-              {
-                type: "output_text",
-                text: JSON.stringify({
-                  questions: [{ context: "페이징", prompt: "페이지 크기가 왜 고정일까요?", choices: ["단편화 관리", "속도"] }],
-                }),
-              },
-            ],
+            message: {
+              content: JSON.stringify({
+                questions: [{ context: "페이징", prompt: "페이지 크기가 왜 고정일까요?", choices: ["단편화 관리", "속도"] }],
+              }),
+            },
           },
         ],
       });
     }) as FetchFn;
-    const r = await buildGaps("OS", NOTE, { liner: "k", openai: "sk-x" }, { linerClient: client, fetchFn: openaiFetch });
-    expect(r.engine).toBe("openai");
+    const r = await buildGaps("OS", NOTE, { liner: "k", gemini: "sk-x" }, { linerClient: client, fetchFn: geminiFetch });
+    expect(r.engine).toBe("gemini");
     expect(r.questions[0].prompt).toContain("왜");
     expect(r.questions[0].allowOther).toBe(true);
   });
 
-  it("Liner + OpenAI 둘 다 실패 → 휴리스틱 (절대 throw 하지 않음)", async () => {
+  it("Liner + Gemini 둘 다 실패 → 휴리스틱 (절대 throw 하지 않음)", async () => {
     const client = liner(async () => {
       throw new Error("down");
     });
-    const openaiFetch: FetchFn = (async () => jsonRes({}, 500)) as FetchFn;
-    const r = await buildGaps("OS", NOTE, { liner: "k", openai: "sk-x" }, { linerClient: client, fetchFn: openaiFetch });
+    const geminiFetch: FetchFn = (async () => jsonRes({}, 500)) as FetchFn;
+    const r = await buildGaps("OS", NOTE, { liner: "k", gemini: "sk-x" }, { linerClient: client, fetchFn: geminiFetch });
     expect(r.engine).toBe("heuristic");
     expect(r.questions.length).toBeGreaterThan(0);
   });
