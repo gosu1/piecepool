@@ -20,7 +20,7 @@ export interface ImportJobView {
   title: string;
   status: ImportJobStatus;
   errorMessage?: string;
-  engine?: "openai" | "heuristic";
+  engine?: "gemini" | "heuristic";
   wikiCount?: number;
   relationCount?: number;
   mergedCount?: number;
@@ -42,7 +42,7 @@ interface Pending {
   result: LlmWikiResult;
   input: LlmWikiInput;
   note: ArchiveNote;
-  engine: "openai" | "heuristic";
+  engine: "gemini" | "heuristic";
   params: RunImportParams;
 }
 
@@ -76,7 +76,7 @@ function loadLast(): ImportJobView | null {
   }
 }
 function apiKey(): string {
-  return (typeof localStorage !== "undefined" && localStorage.getItem("openai-key")) || "";
+  return (typeof localStorage !== "undefined" && localStorage.getItem("gemini-key")) || "";
 }
 function buildInput(note: ArchiveNote, existing: WikiPage[]): LlmWikiInput {
   return {
@@ -103,7 +103,7 @@ export const useImportStore = create<ImportState>((set, get) => {
   const writeAndComplete = async (
     job: ImportJobView,
     result: LlmWikiResult,
-    engine: "openai" | "heuristic",
+    engine: "gemini" | "heuristic",
     note: ArchiveNote,
     p: RunImportParams,
   ) => {
@@ -151,9 +151,9 @@ export const useImportStore = create<ImportState>((set, get) => {
         const { result, engine } = await runWikiGeneration(input, apiKey(), { chunk: chunkOpts() });
 
         // clarify(되묻기) 분기 — 간극이 있으면 저장 전 사용자에게 되묻는다.
-        // 엔진: Liner 출처 기반(주) → OpenAI 소크라테스(보조) → 휴리스틱(오프라인).
+        // 엔진: Liner 출처 기반(주) → Gemini 소크라테스(보조) → 휴리스틱(오프라인).
         if (p.clarify) {
-          const { questions: gaps } = await buildGaps(note.title, note.markdown, { liner: getLinerKey(), openai: apiKey() });
+          const { questions: gaps } = await buildGaps(note.title, note.markdown, { liner: getLinerKey(), gemini: apiKey() });
           if (gaps.length > 0) {
             set({ pending: { result, input, note, engine, params: p }, gaps });
             return commit({ ...job, status: "clarify_pending", engine });

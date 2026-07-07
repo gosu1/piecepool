@@ -1,11 +1,12 @@
-// PDF 추출 텍스트 → 요약·정리 마크다운 (Inbox PDF 임포트). OpenAI Responses API.
+// PDF 추출 텍스트 → 요약·정리 마크다운 (Inbox PDF 임포트). Gemini(OpenAI 호환 Chat Completions).
 // 정답 주입 금지 — 추출 텍스트에 있는 것만 정리한다. 키 없거나 실패면 원문 폴백(오프라인 전기능).
 
 import { extractText } from "./ocr";
+import { GEMINI_OPENAI_ENDPOINT } from "./gemini";
 
 export interface PdfDigestResult {
   markdown: string;
-  engine: "openai" | "none";
+  engine: "gemini" | "none";
   truncated: boolean; // 입력이 48k 상한을 넘어 잘렸는지 — 호출부가 사용자에게 알린다
 }
 
@@ -17,11 +18,11 @@ const DIGEST_INSTRUCTION =
   "## 정리\n(제목·목록으로 핵심 내용을 재구성 — 개념·정의·수식 포함)\n" +
   "## 요약\n(핵심 3줄 이내)";
 
-export function buildPdfDigestRequest(text: string, model = "gpt-5-mini") {
+export function buildPdfDigestRequest(text: string, model = "gemini-2.5-flash") {
   const clipped = text.length > DIGEST_MAX_CHARS ? `${text.slice(0, DIGEST_MAX_CHARS)}\n\n(입력 상한 초과 — 이후 내용 잘림)` : text;
   return {
     model,
-    input: [
+    messages: [
       { role: "system", content: "너는 학습 자료 정리 도우미다. PDF 추출 텍스트만 근거로 구조화·요약한다." },
       { role: "user", content: `${DIGEST_INSTRUCTION}\n\n---\n\n${clipped}` },
     ],
@@ -34,9 +35,9 @@ export async function runPdfDigest(
   opts?: { endpoint?: string; model?: string; fetchFn?: typeof fetch },
 ): Promise<PdfDigestResult> {
   if (!apiKey || !text.trim()) return { engine: "none", markdown: text, truncated: false };
-  const endpoint = opts?.endpoint ?? "https://api.openai.com/v1";
+  const endpoint = opts?.endpoint ?? GEMINI_OPENAI_ENDPOINT;
   const fetchFn = opts?.fetchFn ?? globalThis.fetch;
-  const res = await fetchFn(`${endpoint}/responses`, {
+  const res = await fetchFn(`${endpoint}/chat/completions`, {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
     body: JSON.stringify(buildPdfDigestRequest(text, opts?.model)),
@@ -44,5 +45,5 @@ export async function runPdfDigest(
   });
   if (!res.ok) throw new Error(`[pdfdigest] HTTP ${res.status}`);
   const markdown = extractText(await res.json());
-  return { engine: "openai", markdown: markdown || text, truncated: text.length > DIGEST_MAX_CHARS };
+  return { engine: "gemini", markdown: markdown || text, truncated: text.length > DIGEST_MAX_CHARS };
 }

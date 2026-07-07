@@ -278,7 +278,7 @@ export function AiBar({
 }
 
 // ══ 정리 글 변환 패널 — 스트리밍 미리보기 (docs/40-frontend/screens/convert.md) ══
-const CONVERT_ENGINE_LABEL: Record<string, string> = { openai: "GPT", heuristic: "휴리스틱" };
+const CONVERT_ENGINE_LABEL: Record<string, string> = { gemini: "Gemini", heuristic: "휴리스틱" };
 
 export function ConvertPanel({
   job,
@@ -399,7 +399,7 @@ export function ConvertPanel({
 
 const GAP_ENGINE_LABEL: Record<GapEngine, string> = {
   liner: "Liner 출처 기반",
-  openai: "GPT 소크라테스",
+  gemini: "Gemini 소크라테스",
   heuristic: "오프라인 점검",
 };
 

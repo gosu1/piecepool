@@ -687,7 +687,7 @@ export default function PiecePoolApp() {
         .filter((w) => !isSynthesisPage(w))
         .map((w) => ({ id: w.conceptId, title: w.title, normalizedTitle: w.title.toLowerCase() })),
     };
-    const apiKey = (typeof localStorage !== "undefined" && localStorage.getItem("openai-key")) || "";
+    const apiKey = (typeof localStorage !== "undefined" && localStorage.getItem("gemini-key")) || "";
     const { result, engine, warning, promotion, nodeTypes } = await runWikiGeneration(input, apiKey, { chunk: chunkOpts() });
     // feature 3: Liner fact-check — 관계 근거에 권위 출처 URL 누적(설정 게이트, advisory).
     const fc = await maybeFactCheck(result);
@@ -715,7 +715,7 @@ export default function PiecePoolApp() {
         : "";
     const fcNote = fc.checked > 0 ? ` · 출처검증 ${fc.checked}건` : "";
     return {
-      status: `${engine === "openai" ? "GPT" : "휴리스틱"}로 위키 ${applied.pages.length}개 · 관계 ${applied.relationCount}개${mergedNote}${isoNote}${typeNote}${provNote}${fcNote}${warning ? " · GPT 실패→휴리스틱" : ""}`,
+      status: `${engine === "gemini" ? "Gemini" : "휴리스틱"}로 위키 ${applied.pages.length}개 · 관계 ${applied.relationCount}개${mergedNote}${isoNote}${typeNote}${provNote}${fcNote}${warning ? " · Gemini 실패→휴리스틱" : ""}`,
       firstWikiPath: applied.pages[0]?.path,
     };
   };
@@ -790,8 +790,8 @@ export default function PiecePoolApp() {
     const key = docKey(space, note.path);
     setGapBusy(key);
     try {
-      const openaiKey = (typeof localStorage !== "undefined" && localStorage.getItem("openai-key")) || "";
-      const report = await buildGaps(note.title, note.markdown, { liner: getLinerKey(), openai: openaiKey });
+      const geminiKey = (typeof localStorage !== "undefined" && localStorage.getItem("gemini-key")) || "";
+      const report = await buildGaps(note.title, note.markdown, { liner: getLinerKey(), gemini: geminiKey });
       // v(논스) — 같은 질문 목록이라도 재점검 시 GapPanel 을 리마운트(Liner 선택지는 비결정적).
       setGaps((g) => ({ ...g, [key]: { ...report, v: ++gapRunSeq.current } }));
     } finally {

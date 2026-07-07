@@ -3,7 +3,7 @@
 // 본 파일 타입은 위 SSOT 문서의 TS 정의를 그대로 실현한다. 런타임 검증 schema는
 // docs 문서에서 생성: npm run gen:llm-schema → src/llm/schema/llm-wiki-result.schema.json.
 
-export type ProviderId = "openai";
+export type ProviderId = "gemini";
 
 // 입력 — provider-config.md §1.
 export type LlmWikiInput = {

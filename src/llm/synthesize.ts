@@ -1,9 +1,9 @@
 // 파편 노트 → 정리 글 합성 (README §정리 글). SSOT: docs/30-llm/note-synthesis.md, 프롬프트: prompt-templates.md §10.
-//  - apiKey 있으면 OpenAI Responses API 를 stream:true 로 호출해 delta 를 실시간 전달.
+//  - apiKey 있으면 Gemini(OpenAI 호환 Chat Completions) 를 stream:true 로 호출해 delta 를 실시간 전달.
 //  - 없으면 결정적 휴리스틱 재배열 → 키 없이도 동작(가짜 스트리밍 없음, 즉시 전체 전달).
 //  - 재시도는 첫 delta 이전 실패만 — 도중 실패는 부분 텍스트를 유지한 채 SynthesisStreamError.
 
-import { streamResponsesText } from "./stream";
+import { streamChatText } from "./stream";
 
 export interface SynthesisInput {
   sourceTitle: string;
@@ -12,7 +12,7 @@ export interface SynthesisInput {
 
 export interface SynthesisResult {
   markdown: string;
-  engine: "openai" | "heuristic";
+  engine: "gemini" | "heuristic";
   warning?: string; // 폴백 사유 / 일부만 생성됨
 }
 
@@ -43,12 +43,11 @@ const SYSTEM_PROMPT =
 
 // 첫 토큰 지연 최소화(reasoning 모델) + 출력 상한 — 튜너블 상수.
 const MAX_OUTPUT_TOKENS = 8192;
-const REASONING_EFFORT = "low";
 
-export function buildSynthesisBody(input: SynthesisInput, model = "gpt-5-mini") {
+export function buildSynthesisBody(input: SynthesisInput, model = "gemini-2.5-flash") {
   return {
     model,
-    input: [
+    messages: [
       { role: "system", content: SYSTEM_PROMPT },
       {
         role: "user",
@@ -57,8 +56,7 @@ export function buildSynthesisBody(input: SynthesisInput, model = "gpt-5-mini") 
           `위 파편을 '# ${input.sourceTitle} 정리'로 시작하는 하나의 정리 글로 재구성하라.`,
       },
     ],
-    max_output_tokens: MAX_OUTPUT_TOKENS,
-    reasoning: { effort: REASONING_EFFORT },
+    max_tokens: MAX_OUTPUT_TOKENS,
   };
 }
 
@@ -86,7 +84,7 @@ export async function runSynthesis(
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     if (attempt > 0) await sleep(backoffMs * 2 ** (attempt - 1));
     try {
-      const r = await streamResponsesText({
+      const r = await streamChatText({
         apiKey: key,
         body: buildSynthesisBody(input, opts?.model),
         endpoint: opts?.endpoint,
@@ -97,14 +95,14 @@ export async function runSynthesis(
       if (!r.text.trim()) throw new Error("[synthesize] 빈 응답");
       return {
         markdown: r.text,
-        engine: "openai",
+        engine: "gemini",
         warning: r.incomplete ? `일부만 생성됨 (${r.incomplete})` : undefined,
       };
     } catch (e) {
       if (isAbort(e)) throw e; // 사용자 취소 — 폴백/재시도 없음
       if (gotDelta) throw new SynthesisStreamError(errMsg(e)); // 도중 실패 — 부분 유지
       lastError = errMsg(e);
-      if (lastError.includes("auth")) break; // 401/403 터미널 (openai.ts 와 동일 정책)
+      if (lastError.includes("auth")) break; // 401/403 터미널 (gemini.ts 와 동일 정책)
     }
   }
   // 스트림 시작 전 실패(재시도 소진) → 휴리스틱 폴백 (generate.ts 패턴)

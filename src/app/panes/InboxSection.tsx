@@ -194,7 +194,7 @@ export function InboxSection({
           // 스캔본(전 페이지 빈 텍스트)은 추출이 성공으로 떨어진다 — 안내 필요
           content = "> PDF에서 텍스트를 찾지 못했어요 — 스캔본이면 이미지로 올려 OCR 하세요.";
         } else {
-          const apiKey = (typeof localStorage !== "undefined" && localStorage.getItem("openai-key")) || "";
+          const apiKey = (typeof localStorage !== "undefined" && localStorage.getItem("gemini-key")) || "";
           try {
             const digest = await runPdfDigest(text, apiKey);
             content = digest.markdown;
@@ -240,7 +240,7 @@ export function InboxSection({
         } catch {
           // 저장 실패해도 OCR 은 계속
         }
-        const apiKey = (typeof localStorage !== "undefined" && localStorage.getItem("openai-key")) || "";
+        const apiKey = (typeof localStorage !== "undefined" && localStorage.getItem("gemini-key")) || "";
         try {
           const { markdown } = await runImageOcr(dataUrl, apiKey);
           setBody((b) => (b ? b + "\n\n" : "") + embed + markdown);
@@ -449,7 +449,7 @@ export function InboxSection({
                 ))}
                 {job.status === "completed" && (
                   <span className="ml-1 text-ink-muted">
-                    · {job.engine === "openai" ? "GPT" : "휴리스틱"}
+                    · {job.engine === "gemini" ? "Gemini" : "휴리스틱"}
                     {typeof job.wikiCount === "number" && ` · 위키 ${job.wikiCount} · 관계 ${job.relationCount}`}
                     {job.mergedCount ? ` · 병합 ${job.mergedCount}` : ""}
                     {job.factChecked ? ` · 출처검증 ${job.factChecked}건` : ""}
