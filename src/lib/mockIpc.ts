@@ -153,6 +153,18 @@ export const mock = {
     memNotes[slug] = memNotes[slug] ?? [];
     return delay(sp);
   },
+  renameSpace: (slug: string, newName: string) => {
+    const sp = SPACES.find((s) => s.slug === slug);
+    if (!sp) return Promise.reject(new Error("unknown space"));
+    sp.name = newName.trim();
+    return delay(sp);
+  },
+  deleteSpace: (slug: string) => {
+    const i = SPACES.findIndex((s) => s.slug === slug);
+    if (i >= 0) SPACES.splice(i, 1);
+    delete memNotes[slug];
+    return delay(undefined as void);
+  },
   listSubjects: (space: string) => delay(SUBJECTS[space] ?? []),
   listSources: (_space: string) => delay<string[]>([]),
   extractPdfText: (_space: string, file: string) =>

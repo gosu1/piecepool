@@ -571,6 +571,8 @@ pub fn run() {
             commands::workspace::get_workspace,
             commands::workspace::list_spaces,
             commands::workspace::create_space,
+            commands::workspace::rename_space,
+            commands::workspace::delete_space,
             commands::workspace::list_subjects,
             commands::workspace::list_sources,
             commands::workspace::extract_pdf_text,

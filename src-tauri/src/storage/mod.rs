@@ -167,6 +167,14 @@ pub fn remove_file(p: &Path) -> Result<()> {
     fs::remove_file(p).map_err(|e| io_err(&format!("remove {}", p.display()), e))
 }
 
+/// 디렉토리와 그 안의 모든 내용을 재귀 삭제. 없는 경로는 성공 취급(멱등).
+pub fn remove_dir_all(p: &Path) -> Result<()> {
+    if !p.exists() {
+        return Ok(());
+    }
+    fs::remove_dir_all(p).map_err(|e| io_err(&format!("remove_dir {}", p.display()), e))
+}
+
 pub fn exists(p: &Path) -> bool {
     p.exists()
 }

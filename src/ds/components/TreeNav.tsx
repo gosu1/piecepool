@@ -38,7 +38,7 @@ export interface TreeNavProps {
   onDragOutFile?: (id: string) => void;
   /** OS 파일을 dropTarget 폴더에 드랍했을 때. */
   onDropFiles?: (dropFolderId: string, files: FileList) => void;
-  /** 파일 노드 우클릭(컨텍스트 메뉴). 화면 좌표 전달. */
+  /** 파일 노드·공간 루트 폴더 우클릭(컨텍스트 메뉴). 화면 좌표 전달. */
   onContextMenu?: (id: string, x: number, y: number) => void;
   className?: string;
 }
@@ -97,7 +97,8 @@ export function TreeNav({
           type="button"
           onClick={() => (isFolder ? toggle(node.id) : onSelect?.(node.id))}
           onContextMenu={
-            !isFolder && onContextMenu
+            // 파일 노드 + 공간 루트 폴더(sp:) 만 컨텍스트 메뉴 — wiki/source 하위 폴더는 제외.
+            onContextMenu && (!isFolder || node.id.startsWith("sp:"))
               ? (e) => {
                   e.preventDefault();
                   onContextMenu(node.id, e.clientX, e.clientY);
