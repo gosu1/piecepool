@@ -55,6 +55,44 @@ pub fn create_space(name: String) -> Result<KnowledgeSpace, String> {
     Ok(space)
 }
 
+/// 지식 영역(공간)의 표시 이름을 바꾼다. slug/폴더는 그대로 유지 — 참조 안정(rename_note 와 동일 규칙).
+#[tauri::command]
+pub fn rename_space(slug: String, new_name: String) -> Result<KnowledgeSpace, String> {
+    let name = new_name.trim();
+    if name.is_empty() {
+        return Err("공간 이름을 입력해 주세요".into());
+    }
+    let spaces_path = storage::config_dir().join("spaces.json");
+    let mut spaces: Vec<KnowledgeSpace> =
+        storage::read_json(&spaces_path).map_err(|e| e.to_string())?;
+    let sp = spaces
+        .iter_mut()
+        .find(|s| s.slug == slug)
+        .ok_or_else(|| format!("unknown space: {slug}"))?;
+    sp.name = name.to_string();
+    sp.updated_at = storage::now_iso();
+    let updated = sp.clone();
+    storage::write_json(&spaces_path, &spaces).map_err(|e| e.to_string())?;
+    Ok(updated)
+}
+
+/// 지식 영역(공간)을 삭제한다 — 공간 디렉토리 전체(노트·위키·관계 포함) + spaces.json 항목.
+/// 되돌릴 수 없다(프론트가 확인 다이얼로그로 감싼다). 디렉토리 제거가 실패하면 목록은 건드리지 않아 공간이 온전히 남는다.
+#[tauri::command]
+pub fn delete_space(slug: String) -> Result<(), String> {
+    let spaces_path = storage::config_dir().join("spaces.json");
+    let mut spaces: Vec<KnowledgeSpace> =
+        storage::read_json(&spaces_path).map_err(|e| e.to_string())?;
+    let before = spaces.len();
+    spaces.retain(|s| s.slug != slug);
+    if spaces.len() == before {
+        return Err(format!("unknown space: {slug}"));
+    }
+    storage::remove_dir_all(&storage::space_dir(&slug)).map_err(|e| e.to_string())?;
+    storage::write_json(&spaces_path, &spaces).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 /// 한 지식 영역의 과목 목록 (<space>/config/subjects.json).
 #[tauri::command]
 pub fn list_subjects(space: String) -> Result<Vec<Subject>, String> {

@@ -50,7 +50,9 @@ type ShellDialog =
   | { kind: "delete-note" | "delete-wiki"; space: string; file: string; title: string }
   | { kind: "close-dirty"; tabId: string }
   | { kind: "overwrite-syn"; space: string; file: string; title: string }
-  | { kind: "new-space" };
+  | { kind: "new-space" }
+  | { kind: "rename-space"; slug: string; name: string }
+  | { kind: "delete-space"; slug: string; name: string };
 
 export default function PiecePoolApp() {
   const [spaces, setSpaces] = useState<KnowledgeSpace[]>([]);
@@ -232,6 +234,42 @@ export default function PiecePoolApp() {
       setNotice(`공간 만들기 실패: ${String(e)}`);
     }
   };
+
+  // 공간 이름 변경 — 백엔드 rename_space (slug/폴더는 그대로, 표시 이름만 바뀜)
+  const renameSpaceFlow = async (slug: string, newName: string) => {
+    try {
+      await ipc.renameSpace(slug, newName);
+      setSpaces(await ipc.listSpaces());
+    } catch (e) {
+      setNotice(`이름 변경 실패: ${String(e)}`);
+    }
+  };
+
+  // 공간 삭제 — 백엔드 delete_space (디렉토리 전체 삭제). 열린 탭·로컬 집계 정리, 현재 공간이면 홈으로.
+  const deleteSpaceFlow = async (slug: string, name: string) => {
+    try {
+      await ipc.deleteSpace(slug);
+      const spaceList = await ipc.listSpaces();
+      setSpaces(spaceList);
+      const drop = <T,>(m: Record<string, T>) => {
+        const n = { ...m };
+        delete n[slug];
+        return n;
+      };
+      setWikiBySlug(drop);
+      setNotesBySlug(drop);
+      setGraphBySlug(drop);
+      setSubjectsBySlug(drop);
+      openTabs.filter((t) => t.space === slug).forEach((t) => closeTab(t.id));
+      if (currentSpace === slug) {
+        setCurrentSpaceSlug(spaceList[0]?.slug ?? "");
+        openHome();
+      }
+      setNotice(`공간 "${name}"을(를) 삭제했어요`);
+    } catch (e) {
+      setNotice(`공간 삭제 실패: ${String(e)}`);
+    }
+  };
   // "+" 새 탭 — 파일을 만들지 않는 런처 탭(검색·최근·고정·시작 액션).
   // 이전의 즉시 createNote("제목 없음")는 클릭마다 빈 파일을 쌓았다 — 생성은 Inbox(저장 시 생성)로 일원화.
   const openEmptyTab = () => openTab({ id: `empty:${Date.now().toString(36)}`, kind: "empty", title: "새 탭" });
@@ -397,6 +435,8 @@ export default function PiecePoolApp() {
 
   // ── 트리 컨텍스트 메뉴(이름 변경 · 삭제) ──
   const menuDoc = menu ? parseDocId(menu.id) : null;
+  // 공간 폴더 우클릭(sp:slug) — 이름 변경·삭제
+  const menuSpace = menu && menu.id.startsWith("sp:") ? (spaces.find((s) => s.slug === menu.id.slice(3)) ?? null) : null;
   const menuItems = menuDoc
     ? [
         {
@@ -440,7 +480,19 @@ export default function PiecePoolApp() {
           },
         },
       ]
-    : [];
+    : menuSpace
+      ? [
+          {
+            label: "이름 변경…",
+            onClick: () => setDialog({ kind: "rename-space", slug: menuSpace.slug, name: menuSpace.name }),
+          },
+          {
+            label: "삭제…",
+            danger: true,
+            onClick: () => setDialog({ kind: "delete-space", slug: menuSpace.slug, name: menuSpace.name }),
+          },
+        ]
+      : [];
 
   const applyRename = async (d: Extract<ShellDialog, { kind: "rename-note" | "rename-wiki" }>, newTitle: string) => {
     try {
@@ -1274,6 +1326,32 @@ export default function PiecePoolApp() {
           submitLabel="만들기"
           onSubmit={(v) => {
             createNewSpace(v);
+            setDialog(null);
+          }}
+          onCancel={() => setDialog(null)}
+        />
+      )}
+      {dialog?.kind === "rename-space" && (
+        <PromptDialog
+          title="폴더 이름 변경"
+          initial={dialog.name}
+          placeholder="새 이름"
+          submitLabel="변경"
+          onSubmit={(v) => {
+            renameSpaceFlow(dialog.slug, v);
+            setDialog(null);
+          }}
+          onCancel={() => setDialog(null)}
+        />
+      )}
+      {dialog?.kind === "delete-space" && (
+        <ConfirmDialog
+          title={`"${dialog.name}" 폴더 삭제`}
+          message="이 폴더의 모든 노트·위키·관계가 함께 삭제됩니다. 되돌릴 수 없어요."
+          confirmLabel="삭제"
+          danger
+          onConfirm={() => {
+            deleteSpaceFlow(dialog.slug, dialog.name);
             setDialog(null);
           }}
           onCancel={() => setDialog(null)}
