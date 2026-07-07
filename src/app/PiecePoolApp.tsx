@@ -102,6 +102,7 @@ export default function PiecePoolApp() {
   const toggleTreeNode = useWorkspaceStore((s) => s.toggleTreeNode);
   const pinnedDocs = useWorkspaceStore((s) => s.pinnedDocs);
   const togglePinned = useWorkspaceStore((s) => s.togglePinned);
+  const treeSort = useWorkspaceStore((s) => s.treeSort);
   const recentDocs = useWorkspaceStore((s) => s.recentDocs);
 
   // 정리 글 변환 job(convertStore) — 스트림은 스토어 소유라 탭 전환에도 계속된다 (ADR-0008)
@@ -274,6 +275,14 @@ export default function PiecePoolApp() {
 
   // ── 사이드바 vault 트리(전체 vault) ──
   // source(archive) md 는 드래그 이동 가능, 공간 루트/ source 폴더가 드랍 대상.
+  // 파일 정렬(treeSort): 이름/업데이트/생성일 × 오름·내림. 날짜는 ISO 문자열이라 사전식=시간순.
+  const sortDocs = <T extends { title: string; createdAt: string; updatedAt: string }>(list: T[]): T[] => {
+    const val = (d: T) => (treeSort.key === "name" ? d.title : treeSort.key === "updated" ? d.updatedAt : d.createdAt);
+    return [...list].sort((a, b) => {
+      const c = val(a).localeCompare(val(b), "ko");
+      return treeSort.dir === "asc" ? c : -c;
+    });
+  };
   const tree: TreeNode[] = spaces.map((s) => ({
     id: `sp:${s.slug}`,
     label: s.name,
@@ -284,14 +293,14 @@ export default function PiecePoolApp() {
         id: `wf:${s.slug}`,
         label: "wiki",
         type: "folder",
-        children: (wikiBySlug[s.slug] ?? []).map((w) => ({ id: `doc:wiki:${s.slug}:${w.path}`, label: w.title, type: "file" as const })),
+        children: sortDocs(wikiBySlug[s.slug] ?? []).map((w) => ({ id: `doc:wiki:${s.slug}:${w.path}`, label: w.title, type: "file" as const })),
       },
       {
         id: `af:${s.slug}`,
         label: "source",
         type: "folder",
         dropTarget: true,
-        children: (notesBySlug[s.slug] ?? []).map((nt) => ({
+        children: sortDocs(notesBySlug[s.slug] ?? []).map((nt) => ({
           id: `doc:archive:${s.slug}:${nt.path}`,
           label: nt.title,
           type: "file" as const,

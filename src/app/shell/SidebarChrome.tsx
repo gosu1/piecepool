@@ -1,7 +1,55 @@
 import { useState } from "react";
 import { cn, Icons, IconButton } from "../../ds";
 import type { KnowledgeSpace } from "../../lib/types";
+import { useWorkspaceStore, type TreeSort } from "../../store/workspaceStore";
 import { VaultSwitcher } from "./VaultSwitcher";
+
+// 사이드바 파일 정렬 드롭다운 (이름/업데이트/생성일 × 오름·내림) — Obsidian 파일 정렬 패턴
+const SORT_OPTIONS: { label: string; sort: TreeSort }[] = [
+  { label: "파일 이름 (알파벳순)", sort: { key: "name", dir: "asc" } },
+  { label: "파일 이름 (알파벳 역순)", sort: { key: "name", dir: "desc" } },
+  { label: "업데이트 날짜 (최신순)", sort: { key: "updated", dir: "desc" } },
+  { label: "업데이트 날짜 (오래된 순)", sort: { key: "updated", dir: "asc" } },
+  { label: "생성일 (최신순)", sort: { key: "created", dir: "desc" } },
+  { label: "생성일 (오래된 순)", sort: { key: "created", dir: "asc" } },
+];
+
+function SortButton() {
+  const [open, setOpen] = useState(false);
+  const treeSort = useWorkspaceStore((s) => s.treeSort);
+  const setTreeSort = useWorkspaceStore((s) => s.setTreeSort);
+  const active = (s: TreeSort) => s.key === treeSort.key && s.dir === treeSort.dir;
+  return (
+    <div className="relative">
+      <IconButton size="sm" aria-label="파일 정렬" onClick={() => setOpen((o) => !o)} className={cn(open && "bg-surface-soft text-ink")}>
+        <Icons.SortIcon size={17} />
+      </IconButton>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 top-full z-30 mt-1 w-56 rounded-lg border border-hairline bg-surface p-1 shadow-elevated">
+            {SORT_OPTIONS.map((o, i) => (
+              <div key={o.label}>
+                {(i === 2 || i === 4) && <div className="my-1 h-px bg-hairline" />}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTreeSort(o.sort);
+                    setOpen(false);
+                  }}
+                  className="flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left text-[13px] text-ink-2 transition-colors hover:bg-surface-soft hover:text-ink"
+                >
+                  <span>{o.label}</span>
+                  {active(o.sort) && <Icons.CheckIcon size={14} className="shrink-0 text-primary" />}
+                </button>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 // ══ 사이드바 크롬 (Obsidian식) — 헤더 액션 · 숏컷 행 · 하단 볼트바 ══
 // Sidebar 의 headerSlot / shortcutsSlot / footer 슬롯에 꽂힌다. 트리(TreeNav)는 건드리지 않는다.
@@ -49,6 +97,8 @@ export function SidebarShortcuts({
         <IconButton size="sm" aria-label="새 폴더 추가" onClick={onNewFolder}>
           <Icons.FolderPlusIcon size={17} />
         </IconButton>
+        {/* 파일 정렬 — 이름/업데이트/생성일 */}
+        <SortButton />
       </div>
       {pinned.length > 0 && (
         <div className="pt-0.5">
