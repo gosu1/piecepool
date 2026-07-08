@@ -92,6 +92,14 @@ export const PlusIcon = (p: IconProps) => (
   </Svg>
 );
 
+// 수집함(Inbox) — 트레이 모양. 새 노트(+)·새 탭(+)과 구분되는 정체성
+export const InboxIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M22 12h-6l-2 3h-4l-2-3H2" />
+    <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+  </Svg>
+);
+
 export const SortIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="m3 16 4 4 4-4" />
