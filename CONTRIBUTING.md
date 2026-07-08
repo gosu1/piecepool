@@ -36,6 +36,7 @@ npm run tauri dev      # Tauri + Vite 동시 실행
 - CI(`docs-check`, `code-check`)가 red면 merge 금지.
 - merge 후 feature branch 삭제.
 - **큰 변화(기능·피벗·확정 결정)는 merge 전에 [`docs/00-overview/journey.md`](docs/00-overview/journey.md) 타임라인에 한 줄 추가** — 누가 merge하든 여정 기록이 남는다 (보고서·사업·PPT 원재료). PR 템플릿 체크리스트에 포함.
+- **UI/UX 변경 PR은 비포·애프터 스크린샷 첨부** — 리뷰어가 시각 변화를 코드 없이 확인할 수 있게. PR 템플릿 체크리스트에 포함.
 
 ## 커밋 컨벤션
 

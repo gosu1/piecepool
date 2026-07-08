@@ -31,6 +31,7 @@
 - [ ] 변경된 모든 라인이 본 PR 목표와 직접 연결됨 (무관한 리팩터링 없음)
 - [ ] 깨진 link 없음 (가능한 경우 markdown-link-check 실행)
 - [ ] (contracts 변경 시) 의존 문서 동기화 PR을 issue로 trace
+- [ ] UI/UX 변경이면 비포·애프터 스크린샷 첨부 (해당 없으면 skip)
 
 ## 검증
 
