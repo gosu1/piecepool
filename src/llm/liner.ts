@@ -39,7 +39,7 @@ export class LinerClient {
 
   constructor(opts?: { config?: Partial<LinerConfig>; fetchFn?: FetchFn }) {
     this.cfg = { ...DEFAULTS, apiKey: "", ...opts?.config };
-    this.fetchFn = opts?.fetchFn ?? globalThis.fetch;
+    this.fetchFn = opts?.fetchFn ?? globalThis.fetch.bind(globalThis);
   }
 
   /** 출처 검색. 결과가 비어도 throw 하지 않는다 — 없음(sources: [])과 실패(throw)를 구분. */

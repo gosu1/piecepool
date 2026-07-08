@@ -116,7 +116,7 @@ const GAP_SCHEMA = {
 } as const;
 
 async function geminiGaps(title: string, text: string, apiKey: string, deps?: BuildGapDeps): Promise<GapQuestion[]> {
-  const fetchFn = deps?.fetchFn ?? globalThis.fetch;
+  const fetchFn = deps?.fetchFn ?? globalThis.fetch.bind(globalThis);
   const endpoint = deps?.geminiEndpoint ?? GEMINI_OPENAI_ENDPOINT;
   const system =
     "You are a Socratic study coach. Given a student's note, produce up to 3 gap-check questions in Korean. " +

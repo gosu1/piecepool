@@ -35,7 +35,8 @@ export class GeminiProvider implements LlmProvider {
 
   constructor(opts?: { config?: Partial<GeminiProviderConfig>; fetchFn?: FetchFn }) {
     this.cfg = { ...envConfig(), ...opts?.config };
-    this.fetchFn = opts?.fetchFn ?? globalThis.fetch;
+    // globalThis.fetch 는 window 바인딩 필수 — 변수/프로퍼티로 담아 호출하면 브라우저에서 "Illegal invocation" throw.
+    this.fetchFn = opts?.fetchFn ?? globalThis.fetch.bind(globalThis);
   }
 
   async generateWikiStructured(input: LlmWikiInput): Promise<LlmWikiResult> {

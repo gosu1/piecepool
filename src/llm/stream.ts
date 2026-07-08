@@ -52,7 +52,7 @@ export interface StreamTextOptions {
 
 export async function streamChatText(opts: StreamTextOptions): Promise<StreamTextResult> {
   const endpoint = opts.endpoint ?? GEMINI_OPENAI_ENDPOINT;
-  const fetchFn = opts.fetchFn ?? globalThis.fetch;
+  const fetchFn = opts.fetchFn ?? globalThis.fetch.bind(globalThis);
   const headers = { "content-type": "application/json", authorization: `Bearer ${opts.apiKey}` };
 
   const res = await fetchFn(`${endpoint}/chat/completions`, {
