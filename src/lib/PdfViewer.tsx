@@ -38,13 +38,9 @@ function TBtn({ children, onClick, disabled, title }: { children: React.ReactNod
 export function PdfViewer({
   space,
   file,
-  onExtractText,
-  extractBusy,
 }: {
   space: string;
   file: string;
-  onExtractText?: () => void;
-  extractBusy?: boolean;
 }) {
   const [b64, setB64] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -311,16 +307,6 @@ export function PdfViewer({
         <TBtn onClick={() => setMode((m) => (m === "scroll" ? "thumbs" : "scroll"))} title="레이아웃 전환">
           {mode === "scroll" ? "썸네일" : "연속"}
         </TBtn>
-        {onExtractText && (
-          <button
-            type="button"
-            onClick={onExtractText}
-            disabled={extractBusy}
-            className="ml-auto shrink-0 whitespace-nowrap rounded border border-hairline px-2 py-0.5 text-[12px] hover:bg-surface-soft disabled:opacity-50 disabled:hover:bg-transparent"
-          >
-            텍스트 추출 → 에디터
-          </button>
-        )}
       </div>
       {/* 본문 — Ctrl+휠 줌 리스너가 붙는 컨테이너 */}
       <div ref={bodyRef} className={cn("min-h-0 flex-1", mode === "scroll" ? "overflow-y-auto" : "overflow-hidden")}>
