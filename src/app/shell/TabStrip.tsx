@@ -6,7 +6,7 @@ import type { WorkspaceTab, TabKind } from "../../store/workspaceStore";
 export function TabIcon({ kind }: { kind: TabKind }) {
   const size = 15;
   if (kind === "graph") return <Icons.GraphIcon size={size} />;
-  if (kind === "inbox") return <Icons.PlusIcon size={size} />;
+  if (kind === "inbox") return <Icons.InboxIcon size={size} />;
   if (kind === "archive") return <Icons.FileUpIcon size={size} />;
   if (kind === "home") return <Icons.BarChartIcon size={size} />;
   return <Icons.FileIcon size={size} />;
