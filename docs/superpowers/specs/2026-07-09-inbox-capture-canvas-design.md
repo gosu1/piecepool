@@ -60,8 +60,7 @@ Inbox는 "수집 작업공간"의 심장인데, 중앙 노트 에디터가 밋�
 ### 4. 주액션 CTA (저장 + AI 정리)
 
 - 에디터 캔버스 아래, **좌: `⌘Enter 로 저장` 힌트 / 우: 파란 CTA**.
-- CTA: 기존 `<Button variant="solid">` → **primary 블루 + `✦`(SparkleIcon) + 은은한 후광**.
-  - 후광은 **연하게**(StudyHome CTA보다 약하게): 예) `shadow-[0_10px_22px_-12px_var(--color-primary)]` 수준(사용자 요청: 살짝만).
+- CTA: 기존 `<Button variant="solid">` → **primary 블루 알약 + `✦`(SparkleIcon)**. (후광은 실제로 보니 과해서 제외 — 사용자 결정)
   - 라벨: `withLlm` → `저장 + AI 정리`, 아니면 `원본으로 저장`, busy/pdfBusy 시 기존 진행 라벨. (기존 로직 그대로)
   - disabled: `busy || pdfBusy || !title.trim()` (기존 그대로).
 - SparkleIcon 은 이미 아이콘 세트에 있음(`Icons.SparkleIcon`).

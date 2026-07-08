@@ -230,4 +230,8 @@
   .pp-cline { transition: stroke 0.35s ease, opacity 0.35s ease; }
   .pp-map:hover .pp-star { animation: pp-twinkle 1.6s ease-in-out infinite; }
   .pp-map:hover .pp-cline { stroke: var(--color-primary); opacity: 0.6; }
+
+  /* Inbox 수집 캔버스 헤더 밴드 — primary 은은한 틴트(다크는 조금 더 진하게). 신규 색 없이 토큰만 사용. */
+  .pp-capture-band { background: linear-gradient(180deg, color-mix(in srgb, var(--color-primary) 6%, transparent), transparent); }
+  [data-theme="dark"] .pp-capture-band { background: linear-gradient(180deg, color-mix(in srgb, var(--color-primary) 12%, transparent), transparent); }
 }
