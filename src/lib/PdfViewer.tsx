@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import { cn } from "../ds";
 import * as ipc from "./ipc";
@@ -21,14 +21,17 @@ function Msg({ children, tone = "muted" }: { children: React.ReactNode; tone?: "
   );
 }
 
-function TBtn({ children, onClick, disabled, title }: { children: React.ReactNode; onClick: () => void; disabled?: boolean; title?: string }) {
+function TBtn({ children, onClick, disabled, title, active }: { children: React.ReactNode; onClick: () => void; disabled?: boolean; title?: string; active?: boolean }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className="shrink-0 whitespace-nowrap rounded border border-hairline px-2 py-0.5 hover:bg-surface-soft disabled:opacity-40 disabled:hover:bg-transparent"
+      className={cn(
+        "shrink-0 whitespace-nowrap rounded border px-2 py-0.5 disabled:opacity-40 disabled:hover:bg-transparent",
+        active ? "border-primary text-primary" : "border-hairline hover:bg-surface-soft",
+      )}
     >
       {children}
     </button>
@@ -48,6 +51,8 @@ export function PdfViewer({
   const [cur, setCur] = useState(1);
   const [pageInput, setPageInput] = useState("1");
   const [zoom, setZoom] = useState(1);
+  // 폭 맞춤 모드 — 켜지면 패널 폭에 맞춰 줌 자동 계산(리사이즈·페이지 이동 시 재계산). 수동 줌하면 해제.
+  const [fitWidth, setFitWidth] = useState(true);
   const [mode, setMode] = useState<"scroll" | "thumbs">("scroll");
   // 연속 모드에서 실제 <Page>를 렌더할 페이지 집합 — 나머지는 placeholder로 높이만 유지
   const [visible, setVisible] = useState<Set<number>>(new Set([1]));
@@ -92,11 +97,34 @@ export function PdfViewer({
     const onWheel = (e: WheelEvent) => {
       if (!e.ctrlKey) return;
       e.preventDefault();
+      setFitWidth(false); // 수동 줌 → 폭 맞춤 해제
       setZoom((z) => clampZoom(z + (e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP)));
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
   }, []);
+
+  // 폭 맞춤 — 줌 = 사용 가능한 패널 폭 ÷ 현재 페이지 원본 폭. 페이지 크기(pageDims)를 알아야 계산된다.
+  const applyFitWidth = useCallback(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    const w = (pageDims.get(cur) ?? pageDims.values().next().value)?.w ?? 0;
+    if (!w) return;
+    // p-4 양쪽(32) + 세로 스크롤바·여유(16), 썸네일 모드는 좌측 레일(84) 추가 제외
+    const avail = el.clientWidth - (mode === "thumbs" ? 84 : 0) - 48;
+    if (avail > 0) setZoom(clampZoom(avail / w));
+  }, [cur, mode, pageDims]);
+
+  // 폭 맞춤 모드일 때 패널 리사이즈·페이지 로드·이동 시 자동 재계산
+  useEffect(() => {
+    if (!fitWidth) return;
+    const el = bodyRef.current;
+    if (!el) return;
+    applyFitWidth();
+    const ro = new ResizeObserver(() => applyFitWidth());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [fitWidth, applyFitWidth]);
 
   // 연속 모드: 지연 렌더 + 현재 페이지 추적 (둘 다 IntersectionObserver)
   useEffect(() => {
@@ -296,12 +324,15 @@ export function PdfViewer({
           ›
         </TBtn>
         <span className="mx-1 h-4 w-px bg-hairline" />
-        <TBtn onClick={() => setZoom((z) => clampZoom(z - ZOOM_STEP))} title="축소">
+        <TBtn onClick={() => { setFitWidth(false); setZoom((z) => clampZoom(z - ZOOM_STEP)); }} title="축소">
           −
         </TBtn>
         <span className="w-11 text-center text-[12px]">{Math.round(zoom * 100)}%</span>
-        <TBtn onClick={() => setZoom((z) => clampZoom(z + ZOOM_STEP))} title="확대">
+        <TBtn onClick={() => { setFitWidth(false); setZoom((z) => clampZoom(z + ZOOM_STEP)); }} title="확대">
           +
+        </TBtn>
+        <TBtn onClick={() => { setFitWidth(true); applyFitWidth(); }} active={fitWidth} title="패널 폭에 맞추기">
+          폭 맞춤
         </TBtn>
         <span className="mx-1 h-4 w-px bg-hairline" />
         <TBtn onClick={() => setMode((m) => (m === "scroll" ? "thumbs" : "scroll"))} title="레이아웃 전환">
