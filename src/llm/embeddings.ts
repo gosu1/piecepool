@@ -32,7 +32,7 @@ export function createGeminiEmbedder(opts?: {
   fetchFn?: FetchFn;
 }): EmbedFn {
   const cfg: GeminiEmbedConfig = { ...envConfig(), ...opts?.config };
-  const fetchFn = opts?.fetchFn ?? globalThis.fetch;
+  const fetchFn = opts?.fetchFn ?? globalThis.fetch.bind(globalThis);
 
   return async (texts: string[]): Promise<number[][]> => {
     if (!cfg.apiKey) throw new Error("[embed=gemini] auth: GEMINI_API_KEY missing");

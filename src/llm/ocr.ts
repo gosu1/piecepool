@@ -46,7 +46,7 @@ export async function runImageOcr(
 ): Promise<OcrResult> {
   if (!apiKey) return { engine: "none", markdown: OFFLINE_FALLBACK };
   const endpoint = opts?.endpoint ?? GEMINI_OPENAI_ENDPOINT;
-  const fetchFn = opts?.fetchFn ?? globalThis.fetch;
+  const fetchFn = opts?.fetchFn ?? globalThis.fetch.bind(globalThis);
   const res = await fetchFn(`${endpoint}/chat/completions`, {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },

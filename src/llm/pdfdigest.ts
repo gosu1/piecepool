@@ -36,7 +36,7 @@ export async function runPdfDigest(
 ): Promise<PdfDigestResult> {
   if (!apiKey || !text.trim()) return { engine: "none", markdown: text, truncated: false };
   const endpoint = opts?.endpoint ?? GEMINI_OPENAI_ENDPOINT;
-  const fetchFn = opts?.fetchFn ?? globalThis.fetch;
+  const fetchFn = opts?.fetchFn ?? globalThis.fetch.bind(globalThis);
   const res = await fetchFn(`${endpoint}/chat/completions`, {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
