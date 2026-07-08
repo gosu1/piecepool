@@ -5,11 +5,12 @@ describe("clampZoom", () => {
   it("keeps values in range", () => {
     expect(clampZoom(1)).toBe(1);
     expect(clampZoom(0.5)).toBe(0.5);
+    expect(clampZoom(0.1)).toBe(0.1);
     expect(clampZoom(3)).toBe(3);
   });
-  it("clamps below 0.5 and above 3.0", () => {
-    expect(clampZoom(0.4)).toBe(0.5);
-    expect(clampZoom(0)).toBe(0.5);
+  it("clamps below 0.1 and above 3.0", () => {
+    expect(clampZoom(0.05)).toBe(0.1);
+    expect(clampZoom(0)).toBe(0.1);
     expect(clampZoom(3.1)).toBe(3);
   });
 });
