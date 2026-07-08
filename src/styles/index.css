@@ -189,6 +189,15 @@
       transform: scaleY(1);
     }
   }
+  /* StudyHome 태그라인 — 단어별 순차 페이드업(총 ~3s), 날짜는 그 뒤 페이드 */
+  @keyframes pp-word-in {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes pp-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
 }
 
 /* ── 타이포그래피 역할 클래스 (DESIGN-notion.md 정확값) ──────
@@ -211,4 +220,14 @@
     background-image: radial-gradient(var(--ds-hairline) 1px, transparent 1px);
     background-size: 16px 16px;
   }
+
+  /* StudyHome 히어로 태그라인 — 단어 span 은 인라인 style 로 animation-delay 를 준다 */
+  .pp-tagword { display: inline-block; animation: pp-word-in 0.9s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+  .pp-date-in { animation: pp-fade-in 0.8s ease 3s both; }
+
+  /* 개념 지도 프리뷰 = 북두칠성. 카드(.pp-map) hover 시 별이 엇갈려 반짝이고(pp-star) 별자리 선이 파랗게 켜짐(pp-cline). */
+  @keyframes pp-twinkle { 0%, 100% { opacity: 1; } 50% { opacity: 0.32; } }
+  .pp-cline { transition: stroke 0.35s ease, opacity 0.35s ease; }
+  .pp-map:hover .pp-star { animation: pp-twinkle 1.6s ease-in-out infinite; }
+  .pp-map:hover .pp-cline { stroke: var(--color-primary); opacity: 0.6; }
 }

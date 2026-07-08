@@ -1,11 +1,27 @@
-import { useState } from "react";
-import type { ReactNode } from "react";
-import { Button, Card, EmptyState, Icons, cn } from "../../ds";
+import { Button, EmptyState, Icons, cn } from "../../ds";
 import type { KnowledgeSpace, WikiPage as WikiPageT, ArchiveNote, GraphData } from "../../lib/types";
 
-// ══ Study Home (부팅 탭-0) — 유니브-AI식 warm 대시보드 ══
-// 처음 화면: 히어로 카드 2개(새 노트 · 개념 지도)가 중앙에 크게. 상세(나의 학습 공간 · 최근 위키 ·
-// 정리 추천)는 기본 접힘 토글. 토글을 하나라도 열면 히어로가 자연스럽게 축소되며 아래로 자리 정렬(reflow).
+// ══ Study Home (부팅 탭-0) — "파편이 지식이 되다, Piecepool" ══
+// C1 저널 레이아웃(넉넉·시원): 브랜드 태그라인(단어별 3초 페이드업) → 새 노트 CTA(블루+후광)
+// → 개념 지도 미니 그래프(추상 장식) → 최근 위키 피드 → 정리 추천 → 공간. 색은 기존 primary(Notion 블루) 토큰.
+const TAGWORDS = ["파편이", "지식이", "되다,", "Piecepool"];
+
+// 상대 시간 — 최근 피드용(방금/N분/N시간/어제/N일/날짜).
+function relTime(iso?: string): string {
+  if (!iso) return "";
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return "";
+  const min = Math.floor((Date.now() - t) / 60000);
+  if (min < 1) return "방금";
+  if (min < 60) return `${min}분 전`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}시간 전`;
+  const day = Math.floor(hr / 24);
+  if (day === 1) return "어제";
+  if (day < 7) return `${day}일 전`;
+  return new Date(iso).toLocaleDateString("ko-KR", { month: "long", day: "numeric" });
+}
+
 export function StudyHome({
   spaces,
   wikiBySlug,
@@ -29,15 +45,17 @@ export function StudyHome({
 }) {
   const nameOf = (slug: string) => spaces.find((s) => s.slug === slug)?.name ?? slug;
 
-  const allWiki = spaces.flatMap((s) => (wikiBySlug[s.slug] ?? []).map((wiki) => ({ wiki, space: s.slug })));
+  // 최근 위키(전체 공간) — updatedAt 내림차순. ISO 문자열이라 사전식 = 시간순.
+  const recentWiki = spaces
+    .flatMap((s) => (wikiBySlug[s.slug] ?? []).map((wiki) => ({ wiki, space: s.slug })))
+    .sort((a, b) => (b.wiki.updatedAt || "").localeCompare(a.wiki.updatedAt || ""))
+    .slice(0, 6);
 
-  const recentWiki = [...allWiki].sort((a, b) => (b.wiki.updatedAt || "").localeCompare(a.wiki.updatedAt || "")).slice(0, 6);
+  const graph = graphBySlug[currentSpace];
+  const conceptCount = graph?.nodes.length ?? 0;
+  const relationCount = graph?.relations.length ?? 0;
 
-  const totalNotes = spaces.reduce((n, s) => n + (notesBySlug[s.slug] ?? []).length, 0);
-  const totalWiki = allWiki.length;
-  const totalConcepts = spaces.reduce((a, s) => a + (graphBySlug[s.slug]?.nodes.length ?? 0), 0);
-
-  // 정리 추천 (candidates only — review_needed 절대 자동기록 안 함, SSOT: user-only)
+  // 정리 추천 (candidates only — review_needed 는 절대 자동기록 안 함, SSOT: user-only)
   const nudges: string[] = [];
   for (const s of spaces) {
     const g = graphBySlug[s.slug];
@@ -51,18 +69,7 @@ export function StudyHome({
     const wiki = wikiBySlug[s.slug] ?? [];
     if (notes.length > wiki.length) nudges.push(`${s.name} · 원본 ${notes.length}개 · 위키 ${wiki.length}개 — 위키로 정리할 여지가 있어요`);
   }
-  const topNudges = nudges.slice(0, 5);
-
-  // 열린 토글 집합 — 하나라도 열리면 히어로 축소(compact)
-  const [open, setOpen] = useState<Set<string>>(() => new Set());
-  const toggle = (key: string) =>
-    setOpen((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  const compact = open.size > 0;
+  const topNudges = nudges.slice(0, 3);
 
   // 콜드스타트 온보딩
   if (spaces.length === 0) {
@@ -82,171 +89,137 @@ export function StudyHome({
     );
   }
 
+  const today = new Date().toLocaleDateString("ko-KR", { month: "long", day: "numeric", weekday: "long" });
+
   return (
-    <div className="mx-auto max-w-4xl space-y-8">
-      <header className="space-y-2">
-        <h1 className="ds-h2 text-ink">안녕하세요 👋</h1>
-        <p className="text-[16px] text-ink-muted">오늘도 배운 걸 정리해볼까요?</p>
-        <p className="text-[14px] text-ink-faint">
-          노트 {totalNotes} · 위키 {totalWiki} · 개념 {totalConcepts}
-        </p>
-      </header>
+    <div className="mx-auto max-w-[680px] pt-10 pb-16">
+      {/* 브랜드 태그라인 — 단어가 파편이 → 지식이 → 되다 → Piecepool 순서로 3초에 걸쳐 떠오름.
+          span 이 inline-block 이라 span 끝 일반 공백은 잘린다 → 단어 사이는 nbsp( ) 로 유지. */}
+      <h1 className="text-center text-[36px] font-extrabold leading-[1.15] tracking-tight text-ink">
+        {TAGWORDS.map((w, i) => (
+          <span key={w} className={cn("pp-tagword", w === "Piecepool" && "text-primary")} style={{ animationDelay: `${i * 0.7}s` }}>
+            {w}
+            {i < TAGWORDS.length - 1 ? " " : ""}
+          </span>
+        ))}
+      </h1>
+      <p className="pp-date-in mt-3 text-center text-[14px] text-ink-faint">{today}</p>
 
-      {/* 히어로 카드 — 처음엔 크게, 토글 열리면(compact) 자연스럽게 축소 */}
-      <section className="grid gap-5 sm:grid-cols-2">
-        <HeroCard
-          compact={compact}
-          onClick={onNewNote}
-          tone="fill"
-          icon={<Icons.PlusIcon size={24} />}
-          title="새 노트"
-          subtitle="오늘 배운 걸 캡처하고 AI로 정리"
-        />
-        <HeroCard
-          compact={compact}
-          onClick={() => onOpenGraph(currentSpace)}
-          tone="surface"
-          icon={<Icons.GraphIcon size={24} />}
-          title="개념 지도"
-          subtitle="개념들이 어떻게 연결됐는지 보기"
-        />
-      </section>
+      {/* 새 노트 — 유일한 주액션. 블루 채움 + accent 후광(시그니처) */}
+      <button
+        type="button"
+        onClick={onNewNote}
+        className="mt-9 flex w-full items-center justify-center gap-3 rounded-2xl bg-primary px-6 py-[18px] text-[17px] font-semibold text-on-primary shadow-[0_14px_32px_-12px_var(--color-primary)] transition-transform hover:-translate-y-0.5"
+      >
+        <Icons.PlusIcon size={22} /> 새 노트
+      </button>
 
-      {/* 상세 — 기본 접힘 토글. 열면 펼쳐지고 히어로가 축소되며 자리 정렬(reflow) */}
-      <div className="space-y-3">
-        <CollapsibleSection title="나의 학습 공간" count={spaces.length} open={open.has("spaces")} onToggle={() => toggle("spaces")}>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {spaces.map((s) => {
-              const noteCount = (notesBySlug[s.slug] ?? []).length;
-              const wikiCount = (wikiBySlug[s.slug] ?? []).length;
-              const relCount = graphBySlug[s.slug]?.relations.length ?? 0;
-              return (
-                <Card key={s.slug} interactive padding="lg" onClick={() => onSelectSpace?.(s.slug)}>
-                  <p className="truncate text-[16px] font-semibold text-ink">{s.name}</p>
-                  <p className="text-[14px] text-ink-muted">
-                    원본 {noteCount} · 위키 {wikiCount} · 관계 {relCount}
-                  </p>
-                </Card>
-              );
-            })}
+      {/* 개념 지도 — 핵심 차별점. 추상 그래프 일러스트로 "지식망" 은유 + 클릭 시 진짜 그래프 */}
+      <button
+        type="button"
+        onClick={() => onOpenGraph(currentSpace)}
+        className="pp-map mt-5 block w-full rounded-3xl border border-hairline bg-surface p-6 text-left shadow-soft transition-transform hover:-translate-y-0.5"
+      >
+        <ConceptMapPreview empty={conceptCount < 2} />
+        <div className="flex items-center gap-2.5 px-1 pt-4">
+          <span className="text-[17px] font-bold text-ink">개념 지도</span>
+          <span className="text-[13px] text-ink-faint">
+            {conceptCount}개 개념 · {relationCount}개 연결
+          </span>
+          <Icons.ArrowRightIcon size={18} className="ml-auto text-primary" />
+        </div>
+      </button>
+
+      {/* 최근 위키 — 이어서 학습(타임라인 피드) */}
+      {recentWiki.length > 0 && (
+        <section className="mt-10">
+          <p className="mb-2 px-1 text-[12px] font-bold uppercase tracking-wider text-ink-faint">최근</p>
+          <div>
+            {recentWiki.map((x) => (
+              <button
+                key={`${x.space}:${x.wiki.path}`}
+                type="button"
+                onClick={() => onOpenWiki(x.space, x.wiki.path)}
+                className="flex w-full items-baseline gap-4 border-b border-hairline px-1 py-3.5 text-left transition-colors hover:bg-surface-soft/50"
+              >
+                <span className="truncate text-[15px] font-medium text-ink">{x.wiki.title}</span>
+                <span className="ml-auto shrink-0 text-[12px] text-ink-faint">
+                  {nameOf(x.space)} · {relTime(x.wiki.updatedAt)}
+                </span>
+              </button>
+            ))}
           </div>
-        </CollapsibleSection>
+        </section>
+      )}
 
-        {recentWiki.length > 0 && (
-          <CollapsibleSection title="최근 위키" count={recentWiki.length} open={open.has("recent")} onToggle={() => toggle("recent")}>
-            <div className="grid gap-3 sm:grid-cols-3">
-              {recentWiki.map((x) => (
-                <Card key={`${x.space}:${x.wiki.path}`} interactive padding="lg" onClick={() => onOpenWiki(x.space, x.wiki.path)}>
-                  <p className="truncate text-[16px] font-medium text-ink">{x.wiki.title}</p>
-                  <p className="truncate text-[14px] text-ink-faint">{nameOf(x.space)}</p>
-                </Card>
-              ))}
-            </div>
-          </CollapsibleSection>
-        )}
+      {/* 정리 추천 — 절제된 어드바이저리(있을 때만). 자동으로 아무것도 바꾸지 않음 */}
+      {topNudges.length > 0 && (
+        <section className="mt-8">
+          <p className="mb-2 px-1 text-[12px] font-bold uppercase tracking-wider text-ink-faint">정리 추천</p>
+          <div className="space-y-2">
+            {topNudges.map((t, i) => (
+              <div key={i} className="flex items-start gap-2.5 rounded-xl bg-surface-soft px-4 py-3 text-[14px] text-ink-2">
+                <Icons.ArrowRightIcon size={15} className="mt-0.5 shrink-0 text-ink-faint" />
+                <span>{t}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
-        {topNudges.length > 0 && (
-          <CollapsibleSection title="정리 추천" count={topNudges.length} open={open.has("nudges")} onToggle={() => toggle("nudges")}>
-            <div className="space-y-2">
-              {topNudges.map((t, i) => (
-                <div key={i} className="flex items-start gap-2.5 rounded-md bg-surface-soft px-4 py-3 text-[15px] text-ink-2">
-                  <Icons.ArrowRightIcon size={16} className="mt-0.5 shrink-0 text-ink-faint" />
-                  <span>{t}</span>
-                </div>
-              ))}
-            </div>
-            <p className="mt-3 text-[14px] text-ink-faint">※ 추천일 뿐이에요 — 아무것도 자동으로 바꾸지 않아요.</p>
-          </CollapsibleSection>
-        )}
+      {/* 공간 — 조용한 footer. 클릭하면 그 공간으로 이동 */}
+      <div className="mt-12 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-[13px] text-ink-muted">
+        {spaces.map((s, i) => (
+          <span key={s.slug} className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => onSelectSpace?.(s.slug)}
+              className={cn("transition-colors hover:text-primary", s.slug === currentSpace && "font-semibold text-ink")}
+            >
+              {s.name}
+            </button>
+            {i < spaces.length - 1 && <span className="text-ink-faint">·</span>}
+          </span>
+        ))}
       </div>
     </div>
   );
 }
 
-// 히어로 카드 — compact 여부에 따라 패딩·아이콘·제목이 부드럽게(300ms) 축소된다.
-function HeroCard({
-  compact,
-  onClick,
-  tone,
-  icon,
-  title,
-  subtitle,
-}: {
-  compact: boolean;
-  onClick: () => void;
-  tone: "fill" | "surface";
-  icon: ReactNode;
-  title: string;
-  subtitle: string;
-}) {
-  const dark = tone === "fill";
+// 개념 지도 미니 프리뷰 — 북두칠성(Big Dipper) 별자리. 국자로 흩어진 조각을 퍼 담는(pool) 형상 + 길잡이 은유.
+// 별은 밝기에 따라 크기가 다르고, 카드(.pp-map) hover 시 엇갈려 반짝이며(pp-star) 별자리 선이 파랗게 켜진다(pp-cline).
+// 실제 탐색은 카드 클릭 → onOpenGraph. 개념이 거의 없으면(empty) 전체 톤다운.
+function ConceptMapPreview({ empty }: { empty: boolean }) {
+  // 북두칠성 7성 (viewBox 460×200) — 손잡이(왼쪽) → 국자(오른쪽). 캔버스를 크게 채운다. r = 밝기(magnitude).
+  const stars = [
+    { x: 44, y: 66, r: 4.2 }, // Alkaid (손잡이 끝)
+    { x: 124, y: 96, r: 3.4 }, // Mizar
+    { x: 204, y: 118, r: 3.8 }, // Alioth
+    { x: 290, y: 128, r: 3 }, // Megrez (손잡이-국자 연결)
+    { x: 392, y: 66, r: 4.8 }, // Dubhe (국자 우상)
+    { x: 420, y: 166, r: 3.7 }, // Merak (국자 우하)
+    { x: 300, y: 180, r: 3.4 }, // Phecda (국자 좌하)
+  ];
+  const lines: [number, number][] = [
+    [0, 1], [1, 2], [2, 3], // 손잡이
+    [3, 4], [4, 5], [5, 6], [6, 3], // 국자
+  ];
+  // 배경 성진(star dust) — 밤하늘 앰비언스. 함께 반짝인다.
+  const dust = [
+    { x: 96, y: 42, r: 1.5 }, { x: 224, y: 46, r: 1.2 }, { x: 340, y: 40, r: 1.6 }, { x: 436, y: 116, r: 1.3 },
+    { x: 158, y: 186, r: 1.2 }, { x: 40, y: 148, r: 1.4 }, { x: 262, y: 78, r: 1.1 },
+  ];
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "group relative flex cursor-pointer flex-col items-start rounded-xl text-left shadow-soft transition-all duration-300 hover:-translate-y-0.5 hover:shadow-elevated",
-        dark ? "bg-fill text-on-fill" : "border border-hairline bg-surface",
-        compact ? "gap-4 p-4" : "gap-10 p-7",
-      )}
-    >
-      <span
-        className={cn(
-          "flex items-center justify-center rounded-lg transition-all duration-300",
-          dark ? "bg-primary text-on-primary" : "bg-fill text-on-fill",
-          compact ? "h-11 w-11" : "h-14 w-14",
-        )}
-      >
-        {icon}
-      </span>
-      <span className="min-w-0">
-        <span className={cn("block font-semibold transition-all duration-300", dark ? "" : "text-ink", compact ? "text-[17px]" : "text-[20px]")}>
-          {title}
-        </span>
-        <span className={cn("mt-1 block text-[14px]", dark ? "text-on-fill/60" : "text-ink-muted")}>{subtitle}</span>
-      </span>
-      <Icons.ArrowRightIcon
-        size={18}
-        className={cn(
-          "absolute right-5 top-5 opacity-0 transition-opacity group-hover:opacity-100",
-          dark ? "text-on-fill/40" : "text-ink-faint",
-        )}
-      />
-    </button>
-  );
-}
-
-// 접이식 섹션 — 헤더 클릭으로 열고 닫기(상태는 부모 소유). 기본 접힘. 열면 본문이 렌더되며 아래가 자연스럽게 정렬.
-function CollapsibleSection({
-  title,
-  count,
-  open,
-  onToggle,
-  children,
-}: {
-  title: string;
-  count?: number;
-  open: boolean;
-  onToggle: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <div className="overflow-hidden rounded-lg border border-hairline bg-surface">
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={open}
-        className="flex w-full items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-surface-soft/60"
-      >
-        {open ? (
-          <Icons.ChevronDownIcon size={16} className="shrink-0 text-ink-faint" />
-        ) : (
-          <Icons.ChevronRightIcon size={16} className="shrink-0 text-ink-faint" />
-        )}
-        <span className="text-[15px] font-semibold text-ink">{title}</span>
-        {count != null && <span className="ml-0.5 text-[13px] text-ink-faint">{count}</span>}
-      </button>
-      {open && <div className="border-t border-hairline p-4">{children}</div>}
-    </div>
+    <svg viewBox="0 0 460 200" className={cn("w-full", empty && "opacity-50")} role="img" aria-label="개념 지도 미리보기 — 북두칠성">
+      {lines.map(([a, b], i) => (
+        <line key={i} className="pp-cline" x1={stars[a].x} y1={stars[a].y} x2={stars[b].x} y2={stars[b].y} stroke="var(--color-graph-edge)" strokeWidth={1.5} />
+      ))}
+      {dust.map((d, i) => (
+        <circle key={`d${i}`} className="pp-star" style={{ animationDelay: `${i * 0.21}s` }} cx={d.x} cy={d.y} r={d.r} fill="var(--color-graph-result)" />
+      ))}
+      {stars.map((s, i) => (
+        <circle key={i} className="pp-star" style={{ animationDelay: `${i * 0.19}s` }} cx={s.x} cy={s.y} r={s.r} fill="var(--color-primary)" />
+      ))}
+    </svg>
   );
 }
