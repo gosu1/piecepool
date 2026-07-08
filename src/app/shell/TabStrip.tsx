@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { cn, Icons } from "../../ds";
 import type { WorkspaceTab, TabKind } from "../../store/workspaceStore";
 
@@ -27,15 +28,22 @@ export function TabStrip({
   onReorder?: (dragId: string, targetId: string) => void;
 }) {
   if (tabs.length === 0) return null;
+  // 옵시디언식 개수 기반 폭 — 5개까지 220px, 6개부터 개당 16px씩 점진 축소(하한 132px).
+  // 창이 좁으면 flex-shrink + min-w-[96px] 가 추가로 줄이고, 그 이하는 우측 드롭다운.
+  const tabW = tabs.length <= 5 ? 220 : Math.max(132, 220 - (tabs.length - 5) * 16);
   return (
     // bare drag-region: 마지막 탭 오른쪽 빈 영역(mousedown 대상 = 이 컨테이너)만 창 드래그.
     // 스크롤 없이 overflow-hidden — 넘치는 탭은 우측 "탭 목록" 스택 드롭다운으로 찾는다.
-    <div data-tauri-drag-region="" className="flex min-w-0 items-center gap-1 self-stretch overflow-hidden px-1">
-      {tabs.map((t) => {
+    <div data-tauri-drag-region="" className="flex min-w-0 shrink items-center self-stretch overflow-hidden px-1">
+      {tabs.map((t, i) => {
         const active = t.id === activeId;
+        // 옵시디언식 구분선 — 인접한 두 비활성 탭 사이에만. 활성 탭 양옆은 숨김.
+        const prevActive = i > 0 && tabs[i - 1].id === activeId;
+        const showDivider = i > 0 && !active && !prevActive;
         return (
+          <Fragment key={t.id}>
+            {showDivider && <div aria-hidden="true" className="h-5 w-px shrink-0 self-center bg-ink-faint/50" />}
           <div
-            key={t.id}
             role="tab"
             aria-selected={active}
             onClick={() => onSelect(t.id)}
@@ -71,15 +79,17 @@ export function TabStrip({
                   }
                 : undefined
             }
+            style={{ width: tabW }}
             className={cn(
-              "group my-auto flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-3 text-[14px] transition-colors",
+              // 폭은 개수 기반(tabW). min 96px 까지 축소 허용, width 전환으로 부드럽게.
+              "group my-auto flex h-9 min-w-[96px] cursor-pointer items-center gap-1.5 rounded-md px-3 text-[14px] transition-[width,background-color,color] duration-150",
               active ? "bg-canvas text-ink" : "text-ink-muted hover:bg-surface-soft/60 hover:text-ink",
             )}
           >
             <span className={cn("shrink-0", active ? "text-ink-muted" : "text-ink-faint")}>
               <TabIcon kind={t.kind} />
             </span>
-            <span className="max-w-[160px] truncate">{t.title}</span>
+            <span className="min-w-0 flex-1 truncate">{t.title}</span>
             {t.dirty && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-ink-faint" />}
             <button
               type="button"
@@ -93,6 +103,7 @@ export function TabStrip({
               <Icons.CloseIcon size={12} />
             </button>
           </div>
+          </Fragment>
         );
       })}
     </div>

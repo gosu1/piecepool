@@ -272,6 +272,14 @@ export const ChevronsUpDownIcon = (p: IconProps) => (
   </Svg>
 );
 
+// 전체 접기 — 셰브론이 안쪽(중앙)으로 모임
+export const ChevronsDownUpIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="m7 20 5-5 5 5" />
+    <path d="m7 4 5 5 5-5" />
+  </Svg>
+);
+
 export const LayersIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="m12 3 9 4.5-9 4.5-9-4.5L12 3Z" />

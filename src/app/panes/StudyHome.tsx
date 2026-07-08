@@ -95,7 +95,7 @@ export function StudyHome({
     <div className="mx-auto max-w-[680px] pt-10 pb-16">
       {/* 브랜드 태그라인 — 단어가 파편이 → 지식이 → 되다 → Piecepool 순서로 3초에 걸쳐 떠오름.
           span 이 inline-block 이라 span 끝 일반 공백은 잘린다 → 단어 사이는 nbsp( ) 로 유지. */}
-      <h1 className="text-center text-[36px] font-extrabold leading-[1.15] tracking-tight text-ink">
+      <h1 className="text-center text-[36px] font-bold leading-[1.15] tracking-tight text-ink">
         {TAGWORDS.map((w, i) => (
           <span key={w} className={cn("pp-tagword", w === "Piecepool" && "text-primary")} style={{ animationDelay: `${i * 0.7}s` }}>
             {w}
@@ -109,7 +109,7 @@ export function StudyHome({
       <button
         type="button"
         onClick={onNewNote}
-        className="mt-9 flex w-full items-center justify-center gap-3 rounded-2xl bg-primary px-6 py-[18px] text-[17px] font-semibold text-on-primary shadow-[0_14px_32px_-12px_var(--color-primary)] transition-transform hover:-translate-y-0.5"
+        className="mt-9 flex w-full items-center justify-center gap-3 rounded-2xl bg-primary px-6 py-[18px] text-[17px] font-semibold text-on-primary shadow-[0_14px_32px_-12px_var(--color-primary)] dark:shadow-[0_10px_24px_-17px_var(--color-primary)] transition-transform hover:-translate-y-0.5"
       >
         <Icons.PlusIcon size={22} /> 새 노트
       </button>
