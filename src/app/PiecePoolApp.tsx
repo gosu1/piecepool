@@ -102,6 +102,7 @@ export default function PiecePoolApp() {
   const setSidebarWidth = useWorkspaceStore((s) => s.setSidebarWidth);
   const collapsedTreeIds = useWorkspaceStore((s) => s.collapsedTreeIds);
   const toggleTreeNode = useWorkspaceStore((s) => s.toggleTreeNode);
+  const setCollapsedTree = useWorkspaceStore((s) => s.setCollapsedTree);
   const pinnedDocs = useWorkspaceStore((s) => s.pinnedDocs);
   const togglePinned = useWorkspaceStore((s) => s.togglePinned);
   const treeSort = useWorkspaceStore((s) => s.treeSort);
@@ -353,6 +354,13 @@ export default function PiecePoolApp() {
     if (doc.kind === "wiki") openWiki(doc.space, doc.file);
     else openArchive(doc.space, doc.file);
   };
+
+  // 전체 폴더 접기/펼치기 — 모든 폴더 id 를 collapsedTreeIds 에 넣거나(접기) 비운다(펼치기)
+  const collectFolderIds = (nodes: TreeNode[]): string[] =>
+    nodes.flatMap((n) => (n.type === "folder" ? [n.id, ...collectFolderIds(n.children ?? [])] : []));
+  const allFolderIds = collectFolderIds(tree);
+  const allCollapsed = allFolderIds.length > 0 && allFolderIds.every((id) => collapsedTreeIds.includes(id));
+  const onToggleCollapseAll = () => setCollapsedTree(allCollapsed ? [] : allFolderIds);
   const selectedTreeId =
     activeTab && (activeTab.kind === "wiki" || activeTab.kind === "archive")
       ? `doc:${activeTab.kind === "wiki" ? "wiki" : "archive"}:${activeTab.space}:${activeTab.file}`
@@ -1219,6 +1227,7 @@ export default function PiecePoolApp() {
             onNewTab={openEmptyTab}
             onToggleFiles={toggleLeftPane}
             filesOpen={!leftCollapsed}
+            sidebarWidth={sidebarWidth}
             onSearch={() => setPaletteOpen(true)}
           />
         }
@@ -1227,10 +1236,6 @@ export default function PiecePoolApp() {
             activeKind={activeTab?.kind}
             onHome={openHome}
             onGraph={() => openGraph(currentSpace)}
-            onCapture={() => openInbox(currentSpace)}
-            onSearch={() => setPaletteOpen(true)}
-            onToggleFiles={toggleLeftPane}
-            filesOpen={!leftCollapsed}
             onSettings={openSettings}
           />
         }
@@ -1249,11 +1254,12 @@ export default function PiecePoolApp() {
               width={sidebarWidth}
               onResize={setSidebarWidth}
               onResizeReset={() => setSidebarWidth(SIDEBAR_DEFAULT)}
-              headerSlot={<SidebarHeader title={workspace?.name ?? "PiecePool"} onSearch={() => setPaletteOpen(true)} onNewNote={() => openInbox(currentSpace)} />}
+              headerSlot={<SidebarHeader title={workspace?.name ?? "PiecePool"} onNewNote={() => openInbox(currentSpace)} />}
               shortcutsSlot={
                 <SidebarShortcuts
-                  onHome={openHome}
                   onNewFolder={() => setDialog({ kind: "new-space" })}
+                  onToggleCollapseAll={onToggleCollapseAll}
+                  allCollapsed={allCollapsed}
                   pinned={pinnedEntries.map(({ id, label }) => ({ id, label }))}
                   onOpenPinned={openPinned}
                   onUnpin={togglePinned}

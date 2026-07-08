@@ -22,7 +22,7 @@ function SortButton() {
   return (
     <div className="relative">
       <IconButton size="sm" aria-label="파일 정렬" onClick={() => setOpen((o) => !o)} className={cn(open && "bg-surface-soft text-ink")}>
-        <Icons.SortIcon size={17} />
+        <Icons.SortIcon size={19} />
       </IconButton>
       {open && (
         <>
@@ -54,16 +54,14 @@ function SortButton() {
 // ══ 사이드바 크롬 (Obsidian식) — 헤더 액션 · 숏컷 행 · 하단 볼트바 ══
 // Sidebar 의 headerSlot / shortcutsSlot / footer 슬롯에 꽂힌다. 트리(TreeNav)는 건드리지 않는다.
 
-export function SidebarHeader({ title, onSearch, onNewNote }: { title: string; onSearch: () => void; onNewNote: () => void }) {
+export function SidebarHeader({ title, onNewNote }: { title: string; onNewNote: () => void }) {
   return (
     <div className="flex items-center justify-between px-3 pt-2.5 pb-1.5">
-      <span className="truncate text-[14px] font-medium text-ink-muted">{title}</span>
+      <span className="truncate text-[16px] font-semibold text-ink-2">{title}</span>
       <span className="flex shrink-0 items-center">
-        <IconButton size="sm" aria-label="검색 (⌘K)" onClick={onSearch}>
-          <Icons.SearchIcon size={17} />
-        </IconButton>
+        {/* 검색은 좌측 리본 돋보기로 통일(중복 제거). 새 노트만 유지 */}
         <IconButton size="sm" aria-label="새 노트 작성" onClick={onNewNote}>
-          <Icons.EditIcon size={17} />
+          <Icons.EditIcon size={19} />
         </IconButton>
       </span>
     </div>
@@ -71,14 +69,17 @@ export function SidebarHeader({ title, onSearch, onNewNote }: { title: string; o
 }
 
 export function SidebarShortcuts({
-  onHome,
   onNewFolder,
+  onToggleCollapseAll,
+  allCollapsed = false,
   pinned = [],
   onOpenPinned,
   onUnpin,
 }: {
-  onHome: () => void;
   onNewFolder: () => void;
+  onToggleCollapseAll: () => void;
+  /** 모든 폴더가 접혀 있으면 true → 버튼이 "전체 펼치기"로 전환 */
+  allCollapsed?: boolean;
   /** 페이지 헤더 "고정하기"로 고정한 문서 — Notion 즐겨찾기 위치 */
   pinned?: { id: string; label: string }[];
   onOpenPinned?: (id: string) => void;
@@ -89,16 +90,18 @@ export function SidebarShortcuts({
   const [menuFor, setMenuFor] = useState<string | null>(null);
   return (
     <div className="border-b border-hairline px-2 pb-1.5">
-      <div className="flex items-center gap-0.5">
-        <IconButton size="sm" aria-label="Study Home" onClick={onHome}>
-          <Icons.HomeIcon size={17} />
-        </IconButton>
-        {/* 새 폴더(지식 공간) 추가 — "새 노트"는 헤더 연필 아이콘이 담당하므로 중복 "+" 제거 */}
+      {/* 가운데 정렬 · 순서: 새 폴더 → 정렬 → 전체 여닫이. 아이콘 3개뿐이라 간격 여유 있게 */}
+      <div className="flex items-center justify-center gap-2.5">
+        {/* 새 폴더(지식 공간) 추가. 홈은 좌측 리본 집 아이콘이 담당 */}
         <IconButton size="sm" aria-label="새 폴더 추가" onClick={onNewFolder}>
-          <Icons.FolderPlusIcon size={17} />
+          <Icons.FolderPlusIcon size={19} />
         </IconButton>
         {/* 파일 정렬 — 이름/업데이트/생성일 */}
         <SortButton />
+        {/* 전체 폴더 접기/펼치기 — 접혀 있으면 펼치기로 전환 */}
+        <IconButton size="sm" aria-label={allCollapsed ? "전체 펼치기" : "전체 접기"} onClick={onToggleCollapseAll}>
+          {allCollapsed ? <Icons.ChevronsUpDownIcon size={19} /> : <Icons.ChevronsDownUpIcon size={19} />}
+        </IconButton>
       </div>
       {pinned.length > 0 && (
         <div className="pt-0.5">

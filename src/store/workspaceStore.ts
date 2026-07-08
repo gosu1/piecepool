@@ -56,6 +56,7 @@ interface WorkspaceState {
   toggleLeftPane: () => void;
   setSidebarWidth: (w: number) => void;
   toggleTreeNode: (id: string) => void;
+  setCollapsedTree: (ids: string[]) => void; // 전체 접기/펼치기 — 폴더 id 목록 통째 교체
   togglePinned: (id: string) => void;
   setTreeSort: (s: TreeSort) => void;
 }
@@ -187,6 +188,8 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             ? s.collapsedTreeIds.filter((x) => x !== id)
             : [...s.collapsedTreeIds, id],
         })),
+
+      setCollapsedTree: (ids) => set({ collapsedTreeIds: ids }),
 
       togglePinned: (id) =>
         set((s) => ({
