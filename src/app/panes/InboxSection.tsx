@@ -302,75 +302,46 @@ export function InboxSection({
   const notePane = (
     <section style={{ minWidth: NOTE_MIN_PX }} className="flex min-w-0 flex-1 flex-col">
       <PaneHeader right={panelToggles} />
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4">
-        {/* Notion풍 새 페이지 헤더 — 큰 제목 · 속성 행 · 구분선 (문서 뷰 PageHeader 와 같은 시각 언어) */}
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="새 페이지"
-          className="w-full shrink-0 bg-transparent text-[32px] font-bold leading-tight text-ink outline-none placeholder:text-ink-faint"
-        />
-        <div className="mt-3 shrink-0 space-y-px text-[14px]">
-          {spaces.length > 1 && (
-            <div className="flex min-h-[30px] items-center">
-              <span className="flex w-40 shrink-0 items-center gap-2 px-2 text-[14px] text-ink-muted">
-                <span className="text-ink-faint">
-                  <Icons.FolderIcon size={15} />
-                </span>
-                저장 위치
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+        {/* 수집 캔버스 헤더 밴드 — 제목 · 한 줄 안내 · 속성 pill. 구분선으로만 몸통과 분리(틴트 없음) */}
+        <div className="shrink-0 border-b border-hairline px-5 pb-4 pt-5">
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="새 페이지"
+            className="w-full bg-transparent text-[30px] font-bold leading-tight text-ink outline-none placeholder:text-ink-faint"
+          />
+          <p className="mt-1.5 text-[13px] text-ink-muted">생각의 파편을 담아보세요 — 저장하면 AI가 위키로 정리해요.</p>
+          <div className="mt-3 flex flex-wrap items-center gap-1.5">
+            {spaces.length > 1 && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-hairline px-3 py-1 text-[12px] text-ink-muted">
+                <Icons.FolderIcon size={13} className="text-ink-faint" />
+                <select
+                  value={targetSpace}
+                  onChange={(e) => setTargetSpace(e.target.value)}
+                  aria-label="저장 위치"
+                  className="max-w-[150px] truncate bg-transparent text-[12px] text-ink outline-none"
+                >
+                  {spaces.map((s) => (
+                    <option key={s.slug} value={s.slug}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
               </span>
-              <select
-                value={targetSpace}
-                onChange={(e) => setTargetSpace(e.target.value)}
-                className="max-w-[200px] truncate rounded-md bg-transparent px-2 py-1 text-[14px] text-ink outline-none transition-colors hover:bg-surface-soft"
-              >
-                {spaces.map((s) => (
-                  <option key={s.slug} value={s.slug}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-          <div className="flex min-h-[30px] items-center">
-            <span className="flex w-40 shrink-0 items-center gap-2 px-2 text-[14px] text-ink-muted">
-              <span className="text-ink-faint">
-                <Icons.SparkleIcon size={15} />
-              </span>
-              AI 위키·관계 생성
-            </span>
-            <div className="flex-1 px-2">
-              <input
-                type="checkbox"
-                checked={withLlm}
-                onChange={(e) => setWithLlm(e.target.checked)}
-                aria-label="AI 위키·관계까지 생성"
-                className="h-[15px] w-[15px] accent-primary"
-              />
-            </div>
-          </div>
-          <div className="flex min-h-[30px] items-center">
-            <span className={cn("flex w-40 shrink-0 items-center gap-2 px-2 text-[14px]", withLlm ? "text-ink-muted" : "text-ink-faint")}>
-              <span className="text-ink-faint">
-                <Icons.HelpCircleIcon size={15} />
-              </span>
-              되묻기(clarify)
-            </span>
-            <div className="flex flex-1 items-center gap-2 px-2">
-              <input
-                type="checkbox"
-                checked={clarify}
-                onChange={(e) => setClarify(e.target.checked)}
-                disabled={!withLlm}
-                aria-label="되묻기 — 저장 전 이해 확인"
-                className="h-[15px] w-[15px] accent-primary"
-              />
-              <span className="text-[13px] text-ink-faint">저장 전 이해 확인</span>
-            </div>
+            )}
+            <PropertyPill active={withLlm} onClick={() => setWithLlm(!withLlm)} icon={<Icons.SparkleIcon size={13} />}>
+              AI 생성
+              {withLlm && <Icons.CheckIcon size={12} className="ml-0.5" />}
+            </PropertyPill>
+            <PropertyPill active={clarify} disabled={!withLlm} onClick={() => setClarify(!clarify)} icon={<Icons.HelpCircleIcon size={13} />}>
+              되묻기
+            </PropertyPill>
           </div>
         </div>
-        <div className="mt-3 shrink-0 border-t border-hairline" />
-        <div className="min-h-[160px] flex-1 pt-1">
+        {/* 캔버스 — 에디터 + 주액션 (수집의 본체) */}
+        <div className="flex min-h-0 flex-1 flex-col p-4">
+          <div className="min-h-[160px] flex-1 pt-1">
           <SlashBlockEditor
             value={body}
             onChange={setBody}
@@ -381,8 +352,14 @@ export function InboxSection({
             frameless
           />
         </div>
-        <div className="flex shrink-0 items-center justify-end pt-3">
-          <Button variant="solid" onClick={run} disabled={busy || pdfBusy || !title.trim()}>
+        <div className="flex shrink-0 items-center justify-between pt-3">
+          <span className="text-[12px] text-ink-faint">⌘Enter 로 저장</span>
+          <Button
+            variant="primary"
+            onClick={run}
+            disabled={busy || pdfBusy || !title.trim()}
+            leftIcon={<Icons.SparkleIcon size={16} />}
+          >
             {busy ? `${IMPORT_STATUS_LABEL[job!.status]}…` : pdfBusy ? "PDF 처리 중…" : withLlm ? "저장 + AI 정리" : "원본으로 저장"}
           </Button>
         </div>
@@ -428,6 +405,7 @@ export function InboxSection({
             </div>
           </div>
         )}
+        </div>
 
       </div>
     </section>
@@ -608,5 +586,24 @@ function PaneSelect({ value, onChange, options }: { value: string; onChange: (v:
         </option>
       ))}
     </select>
+  );
+}
+
+// 속성 토글 pill (AI 생성 · 되묻기) — 기존 checkbox 대체. 켜지면 primary 계열, 상태가 한눈에. 저장위치는 select pill 로 별도.
+function PropertyPill({ active, disabled, onClick, icon, children }: { active?: boolean; disabled?: boolean; onClick: () => void; icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      disabled={disabled}
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-45",
+        active ? "border-primary/40 bg-primary/[0.08] text-primary" : "border-hairline text-ink-muted hover:bg-surface-soft hover:text-ink",
+      )}
+    >
+      <span className={active ? "text-primary" : "text-ink-faint"}>{icon}</span>
+      {children}
+    </button>
   );
 }
