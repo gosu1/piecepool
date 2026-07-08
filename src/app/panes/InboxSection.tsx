@@ -4,7 +4,6 @@ import type { KnowledgeSpace, WikiPage as WikiPageT } from "../../lib/types";
 import * as ipc from "../../lib/ipc";
 import { useImportStore } from "../../store/importStore";
 import { runImageOcr } from "../../llm/ocr";
-import { runPdfDigest } from "../../llm/pdfdigest";
 import { SlashBlockEditor } from "../../lib/SlashBlockEditor";
 import { ConfirmDialog } from "../shell/Dialogs";
 import { Markdown } from "../../lib/markdown";
@@ -176,8 +175,9 @@ export function InboxSection({
     if (panels.pdf) void loadSources();
   }, [panels.pdf, loadSources]);
 
-  // PDF → sources/original-files 저장 + 텍스트 추출 → (키 있으면) AI 요약·정리 → 에디터에 삽입.
-  // 요약 실패/키 없음이면 추출 원문 그대로 — 원문은 "텍스트 추출 → 에디터" 버튼으로 언제든 다시 가져온다.
+  // PDF → sources/original-files 저장 + 패널 열람 + 출처 임베드만 노트에 남긴다.
+  // 추출 텍스트는 본문에 붓지 않는다 — 노트는 사용자 파편 캔버스, PDF 원문은 뒷단 출처(AI fuel)로만 보유.
+  // (extract_pdf_text 추출 자체는 유지 — 저장+AI정리 시 뒷단에서 출처로 사용)
   const importPdf = async (f: File) => {
     setPdfJobs((n) => n + 1);
     try {
@@ -187,29 +187,10 @@ export function InboxSection({
       // 올린 PDF 를 바로 볼 수 있게 PDF 패널 자동 열림
       togglePanel("pdf", true);
       setTitle((t) => t || f.name.replace(/\.[^.]+$/, ""));
-      try {
-        const ext = await ipc.extractPdfText(space, stored);
-        const text = ext.pages.map((p) => p.text).join("\n\n").trim();
-        let content = text;
-        if (!text) {
-          // 스캔본(전 페이지 빈 텍스트)은 추출이 성공으로 떨어진다 — 안내 필요
-          content = "> PDF에서 텍스트를 찾지 못했어요 — 스캔본이면 이미지로 올려 OCR 하세요.";
-        } else {
-          const apiKey = (typeof localStorage !== "undefined" && localStorage.getItem("gemini-key")) || "";
-          try {
-            const digest = await runPdfDigest(text, apiKey);
-            content = digest.markdown;
-            if (digest.truncated) content += "\n\n> ⚠️ 원문이 길어 앞 48,000자만 요약됐어요 — 전체 텍스트는 '텍스트 추출 → 에디터' 버튼으로 가져올 수 있어요.";
-          } catch {
-            // 요약 실패(네트워크 등) → 추출 원문 폴백
-          }
-        }
-        setBody((b) => (b ? b + "\n\n" : "") + `![[${stored}]]\n\n${content}`);
-      } catch {
-        setBody((b) => (b ? b + "\n\n" : "") + `![[${stored}]]\n\n> PDF 텍스트 추출 실패 — 스캔본이면 이미지로 올려 OCR 하세요.`);
-      }
+      // 출처 연결용 임베드만 삽입(현재 출처 연결이 본문 ![[...]] 파싱에 의존 — 2단계에서 메타데이터로 이관 예정)
+      setBody((b) => (b ? b + "\n\n" : "") + `![[${stored}]]`);
     } catch (e) {
-      setBody((b) => b + `\n\n> ${f.name} 저장 실패: ${String(e)}`);
+      onNotice?.(`${f.name} 저장 실패: ${String(e)}`);
     } finally {
       setPdfJobs((n) => n - 1);
     }
