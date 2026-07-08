@@ -54,6 +54,7 @@ export function InboxSection({
   wikiBySlug,
   onOpenWiki,
   onRefresh,
+  onNotice,
 }: {
   space: string;
   spaceId: string;
@@ -64,6 +65,8 @@ export function InboxSection({
   wikiBySlug: Record<string, WikiPageT[]>;
   onOpenWiki: (file: string) => void;
   onRefresh: (space: string) => Promise<void> | void;
+  // 저장 실패 등 사용자 알림(상태바 토스트). 성공은 노트 초기화·위키 패널로 암시.
+  onNotice?: (msg: string) => void;
 }) {
   // ── 저장 대상 폴더(지식 공간) — 기본은 현재 공간, 저장 버튼 옆 드롭다운으로 변경 ──
   // 참조 패널(PDF·위키)은 현재 공간 그대로 두고, 저장 목적지만 바꾼다(작성 중 드래프트 유지).
@@ -268,6 +271,8 @@ export function InboxSection({
       await onRefresh(targetSpace);
       // 생성된 위키를 바로 확인할 수 있게 위키 패널 자동 열림 (대상=현재 공간일 때만 — 참조 패널은 현재 공간 기준)
       if (withLlm && targetSpace === space) togglePanel("wiki", true);
+    } else if (res.status === "failed") {
+      onNotice?.(`저장 실패: ${res.errorMessage ?? "알 수 없는 오류"}`);
     }
   };
 
@@ -279,6 +284,8 @@ export function InboxSection({
       setAnswers([]);
       await onRefresh(targetSpace);
       if (targetSpace === space) togglePanel("wiki", true);
+    } else if (res.status === "failed") {
+      onNotice?.(`저장 실패: ${res.errorMessage ?? "알 수 없는 오류"}`);
     }
   };
 
