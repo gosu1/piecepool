@@ -303,8 +303,8 @@ export function InboxSection({
     <section style={{ minWidth: NOTE_MIN_PX }} className="flex min-w-0 flex-1 flex-col">
       <PaneHeader right={panelToggles} />
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-        {/* 수집 캔버스 헤더 밴드 — 제목 · 한 줄 안내 · 속성 pill (primary 은은한 틴트). 문서 뷰 PageHeader 와 같은 시각 언어 */}
-        <div className="pp-capture-band shrink-0 border-b border-hairline px-5 pb-4 pt-5">
+        {/* 수집 캔버스 헤더 밴드 — 제목 · 한 줄 안내 · 속성 pill. 구분선으로만 몸통과 분리(틴트 없음) */}
+        <div className="shrink-0 border-b border-hairline px-5 pb-4 pt-5">
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
