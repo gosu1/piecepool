@@ -25,6 +25,7 @@ export interface ImportJobView {
   relationCount?: number;
   mergedCount?: number;
   factChecked?: number; // Liner fact-check 로 출처가 붙은 관계 수
+  firstWikiPath?: string; // 이번 임포트로 생성/갱신된 첫 위키 경로 — 위키 패널이 방금 만든 위키를 열도록
 }
 
 export interface RunImportParams {
@@ -125,6 +126,7 @@ export const useImportStore = create<ImportState>((set, get) => {
       relationCount: applied.relationCount,
       mergedCount: applied.merged,
       factChecked: fc.checked,
+      firstWikiPath: applied.pages[0]?.path,
     });
   };
 
