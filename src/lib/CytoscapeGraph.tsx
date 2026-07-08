@@ -109,6 +109,16 @@ function buildSim(cy: Core, layout: "force" | "hier"): { sim: Simulation<SimNode
       for (const nd of nodes) {
         if (nd.x != null && nd.y != null) cy.getElementById(nd.id).position({ x: nd.x, y: nd.y });
       }
+      // 아래(이름표 쪽)에서 진입해 하단 이름표에 묻히는 엣지만 .to-label 로 표시한다.
+      // 조건: 화살표가 있는 그룹 + 세로 낙차가 가로 이동보다 커(≈±45° 수직 원뿔) 화살촉이 노드 하단에 닿는 경우.
+      for (const e of cy.edges()) {
+        const grp = e.data("grp") as string;
+        const hasArrow = grp !== "assoc" && grp !== "review";
+        const dy = e.source().position("y") - e.target().position("y");
+        const dx = Math.abs(e.source().position("x") - e.target().position("x"));
+        const below = hasArrow && dy > 0 && dy >= dx;
+        if (below !== e.hasClass("to-label")) e.toggleClass("to-label", below);
+      }
     });
   });
   return { sim, map };
@@ -122,6 +132,12 @@ function buildSim(cy: Core, layout: "force" | "hier"): { sim: Simulation<SimNode
 
 // 이 배율 이상 확대하면 모든 엣지에 한국어 라벨 노출 (읽을 거리에서만 설명 등장)
 const LABEL_ZOOM = 1.1;
+
+// "이름표까지 노드로 취급": 이름표는 노드 하단(text-valign:bottom)에 붙으므로, 아래에서 올라오는
+// 화살표만 이름표에 묻힌다. 그런 엣지는 화살촉을 이름표 높이만큼 내려(target-distance-from-node)
+// 이름표 바로 아래에서 이름표를 가리키게 한다 — 위·옆 진입은 그대로 노드를 가리킨다.
+// 값 = text-margin-y(3) + 라벨 박스 높이(≈font 7 + padding). 라벨 하단에 바짝(작은 간격만) 붙인다.
+const LABEL_OFFSET = 12;
 
 export interface CytoscapeGraphProps {
   data: GraphData;
@@ -353,6 +369,8 @@ export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, t
       { selector: 'edge[grp = "assoc"]', style: { "line-style": "dashed", "target-arrow-shape": "none" } },
       { selector: 'edge[grp = "prov"]', style: { "line-style": "dashed", opacity: 0.4 } },
       { selector: 'edge[grp = "review"]', style: { "line-style": "dashed", "target-arrow-shape": "none", "line-color": REVIEW_COLOR, opacity: 0.9 } },
+      // 이름표까지 노드로: 아래-진입 엣지는 화살촉을 이름표 아래로 내려 이름표를 가리키게 한다.
+      { selector: "edge.to-label", style: { "target-distance-from-node": LABEL_OFFSET } },
       { selector: "edge.zoomed, edge.hl", style: { "text-opacity": 1 } },
       { selector: "node:selected", style: { "border-width": 3, "border-color": t.selection } },
       { selector: "edge:selected", style: { opacity: 1, width: 4, "text-opacity": 1 } },
