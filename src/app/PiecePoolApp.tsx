@@ -1128,6 +1128,7 @@ export default function PiecePoolApp() {
             wikiBySlug={wikiBySlug}
             onOpenWiki={(file) => openWiki(sp, file)}
             onRefresh={(s) => refreshSpace(s)}
+            onNotice={setNotice}
           />
         );
       default:
