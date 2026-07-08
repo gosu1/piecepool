@@ -282,12 +282,6 @@ export function InboxSection({
     }
   };
 
-  const steps = withLlm
-    ? clarify
-      ? ["archiving", "llm_processing", "clarify_pending", "writing", "completed"]
-      : ["archiving", "llm_processing", "writing", "completed"]
-    : ["archiving", "writing", "completed"];
-  const curIdx = job ? steps.indexOf(job.status) : -1;
 
   // ── 노트 패널 (중심 고정) — 새 원본(archive) 작성 ──
   // PDF·위키 보조 패널 토글 — 노트 헤더 우측 슬롯에 배치(독립 헤더 줄 제거 → 3줄→2줄)
@@ -440,40 +434,17 @@ export function InboxSection({
           </div>
         )}
 
-        {job && (
+        {/* 결과 표시 — 내부 상태기계 단계 노출은 제거. 실패 에러 + 완료 결과 한 줄만(처리 중은 저장 버튼이 표시) */}
+        {(job?.status === "completed" || job?.status === "failed") && (
           <div className="mt-3 shrink-0 rounded-md border border-hairline bg-surface-soft p-3 text-[13px]">
             {job.status === "failed" ? (
               <p className="text-danger">가져오기 실패: {job.errorMessage}</p>
             ) : (
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                {steps.map((s, i) => (
-                  <span key={s} className="flex items-center gap-2">
-                    {i > 0 && <span className="text-ink-faint">→</span>}
-                    <span
-                      className={cn(
-                        "flex items-center gap-1.5",
-                        job.status === "completed" || i < curIdx ? "text-ink-2" : i === curIdx ? "font-semibold text-primary" : "text-ink-faint",
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "h-1.5 w-1.5 rounded-full",
-                          job.status === "completed" || i < curIdx ? "bg-primary" : i === curIdx ? "bg-primary" : "bg-hairline",
-                        )}
-                      />
-                      {IMPORT_STATUS_LABEL[s]}
-                    </span>
-                  </span>
-                ))}
-                {job.status === "completed" && (
-                  <span className="ml-1 text-ink-muted">
-                    · {job.engine === "gemini" ? "Gemini" : "휴리스틱"}
-                    {typeof job.wikiCount === "number" && ` · 위키 ${job.wikiCount} · 관계 ${job.relationCount}`}
-                    {job.mergedCount ? ` · 병합 ${job.mergedCount}` : ""}
-                    {job.factChecked ? ` · 출처검증 ${job.factChecked}건` : ""}
-                  </span>
-                )}
-              </div>
+              <p className="text-ink-muted">
+                정리 완료
+                {typeof job.wikiCount === "number" && ` · 위키 ${job.wikiCount}개 · 관계 ${job.relationCount}개`}
+                {job.mergedCount ? ` · 병합 ${job.mergedCount}개` : ""}
+              </p>
             )}
           </div>
         )}
