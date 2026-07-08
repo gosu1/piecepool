@@ -1,6 +1,6 @@
-import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
+import ReactMarkdown, { defaultUrlTransform, type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
-import type { ReactNode } from "react";
+import { memo, useMemo, type ReactNode } from "react";
 import { remarkWikilink, parseEmbedTarget } from "./wikilink";
 import { FilePreview } from "./FilePreview";
 
@@ -34,15 +34,17 @@ function Embed({ target, space }: { target: string; space?: string }) {
   );
 }
 
-export function Markdown({ source, className, onLink, linkExists, embedSpace }: MarkdownProps) {
-  return (
-    <div className={`ds-md space-y-3 ${className ?? ""}`}>
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkWikilink as never]}
-        // 커스텀 스킴(wiki:/embed:) 은 기본 sanitizer 가 제거하므로 보존 — 나머지는 기본 정화.
-        urlTransform={(url) => (url.startsWith("wiki:") || url.startsWith("embed:") ? url : defaultUrlTransform(url))}
-        components={{
-          a({ href, children }) {
+// 매 렌더 새 배열/함수를 주면 react-markdown 이 파이프라인을 재실행한다 — 모듈 스코프로 고정.
+const REMARK_PLUGINS = [remarkGfm, remarkWikilink as never];
+// 커스텀 스킴(wiki:/embed:) 은 기본 sanitizer 가 제거하므로 보존 — 나머지는 기본 정화.
+const urlTransform = (url: string) => (url.startsWith("wiki:") || url.startsWith("embed:") ? url : defaultUrlTransform(url));
+
+// memo + components useMemo: 부모(노트 에디터) 리렌더마다 components 신원이 바뀌면
+// react-markdown 이 embed(=FilePreview/PDF) 를 재마운트해 PDF 를 다시 로드한다 → 초기화·렉.
+export const Markdown = memo(function Markdown({ source, className, onLink, linkExists, embedSpace }: MarkdownProps) {
+  const components = useMemo<Components>(
+    () => ({
+        a({ href, children }) {
             const h = href ?? "";
             // href 는 react-markdown 이 percent-encoding 하므로 대상(한글 포함)을 디코드한다.
             const decode = (s: string) => {
@@ -98,12 +100,17 @@ export function Markdown({ source, className, onLink, linkExists, embedSpace }: 
               <table className="w-full border-collapse text-[14px]">{children}</table>
             </div>
           ),
-          th: ({ children }) => <th className="border border-hairline bg-surface-soft px-3 py-1.5 text-left font-semibold text-ink">{children}</th>,
-          td: ({ children }) => <td className="border border-hairline px-3 py-1.5 text-ink-2">{children}</td>,
-        }}
-      >
+        th: ({ children }) => <th className="border border-hairline bg-surface-soft px-3 py-1.5 text-left font-semibold text-ink">{children}</th>,
+        td: ({ children }) => <td className="border border-hairline px-3 py-1.5 text-ink-2">{children}</td>,
+      }),
+    [onLink, linkExists, embedSpace],
+  );
+
+  return (
+    <div className={`ds-md space-y-3 ${className ?? ""}`}>
+      <ReactMarkdown remarkPlugins={REMARK_PLUGINS} urlTransform={urlTransform} components={components}>
         {source}
       </ReactMarkdown>
     </div>
   );
-}
+});
