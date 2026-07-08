@@ -29,10 +29,24 @@ export function FilePreview({ space, target }: { space: string; target: string }
   const [numPages, setNumPages] = useState(0);
   const [cur, setCur] = useState(page ?? 1);
   const [scale, setScale] = useState(1);
+  // 패널 폭에 맞춤(fit-to-width) — 컨테이너 실제 폭을 측정해 Page width 로 준다. 패널 드래그 시 재측정.
+  const [boxW, setBoxW] = useState(0);
   const pdfBoxRef = useRef<HTMLDivElement | null>(null);
 
   // 매 렌더 새 문자열을 주면 react-pdf가 PDF를 매번 다시 로드한다 — 고정 필요 (줌마다 재로드 방지)
   const pdfData = useMemo(() => (b64 ? `data:application/pdf;base64,${b64}` : null), [b64]);
+
+  // 컨테이너 폭 측정 — 패널 리사이즈(드래그)마다 boxW 갱신 → PDF 가 폭에 맞게 재렌더
+  useEffect(() => {
+    const el = pdfBoxRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width ?? 0;
+      if (w > 0) setBoxW(w);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [b64, err]);
 
   // Ctrl+휠 줌 — React onWheel은 passive라 preventDefault가 안 먹음 → 네이티브 등록
   useEffect(() => {
@@ -81,7 +95,7 @@ export function FilePreview({ space, target }: { space: string; target: string }
           loading={<Box>PDF 여는 중… {file}</Box>}
           error={<Box tone="danger">PDF를 열 수 없습니다: {file}</Box>}
         >
-          <Page pageNumber={shown} width={520} scale={scale} renderTextLayer={false} renderAnnotationLayer={false} />
+          <Page pageNumber={shown} width={boxW || 520} scale={scale} renderTextLayer={false} renderAnnotationLayer={false} />
         </Document>
         {over && <p className="text-[12px] text-danger">요청한 {page}쪽이 범위를 벗어남(총 {numPages}쪽) — 1쪽을 표시합니다.</p>}
         {numPages > 1 && (
