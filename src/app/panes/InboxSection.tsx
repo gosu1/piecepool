@@ -251,7 +251,11 @@ export function InboxSection({
       setBody("");
       await onRefresh(targetSpace);
       // 생성된 위키를 바로 확인할 수 있게 위키 패널 자동 열림 (대상=현재 공간일 때만 — 참조 패널은 현재 공간 기준)
-      if (withLlm && targetSpace === space) togglePanel("wiki", true);
+      if (withLlm && targetSpace === space) {
+        // 최근 위키(existing[0]) 대신 방금 만든 위키를 선택해 연다
+        if (res.firstWikiPath) setRefWikiPath(res.firstWikiPath);
+        togglePanel("wiki", true);
+      }
     } else if (res.status === "failed") {
       onNotice?.(`저장 실패: ${res.errorMessage ?? "알 수 없는 오류"}`);
     }
@@ -264,7 +268,10 @@ export function InboxSection({
       setBody("");
       setAnswers([]);
       await onRefresh(targetSpace);
-      if (targetSpace === space) togglePanel("wiki", true);
+      if (targetSpace === space) {
+        if (res.firstWikiPath) setRefWikiPath(res.firstWikiPath);
+        togglePanel("wiki", true);
+      }
     } else if (res.status === "failed") {
       onNotice?.(`저장 실패: ${res.errorMessage ?? "알 수 없는 오류"}`);
     }
