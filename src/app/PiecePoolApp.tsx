@@ -1122,7 +1122,6 @@ export default function PiecePoolApp() {
             key={activeTab.id}
             space={sp}
             spaceId={spaces.find((s) => s.slug === sp)?.id ?? ""}
-            spaceName={spName}
             subjectIdsDefault={wikiBySlug[sp]?.[0]?.subjectIds ?? []}
             existing={wikiBySlug[sp] ?? []}
             spaces={spaces}
@@ -1150,7 +1149,9 @@ export default function PiecePoolApp() {
           ? `${activeTab.space} / wiki / ${activeTab.file}`
           : activeTab.kind === "archive"
             ? `${activeTab.space} / archive / ${activeTab.file}`
-            : `${activeTab.space ?? currentSpace} / ${activeTab.kind}`;
+            : activeTab.kind === "inbox"
+              ? "Inbox"
+              : `${activeTab.space ?? currentSpace} / ${activeTab.kind}`;
 
   // 페인 헤더 breadcrumb
   const crumbs = ["PiecePool"];
@@ -1159,7 +1160,8 @@ export default function PiecePoolApp() {
   } else if (activeTab?.kind === "empty") {
     crumbs.push("새 탭");
   } else if (activeTab) {
-    if (spaceName || currentSpace) crumbs.push(spaceName || currentSpace);
+    // Inbox 는 캡처존 — 특정 공간에 묶이지 않는다(저장 위치는 노트 헤더 드롭다운이 지정). 공간 크럼 생략.
+    if ((spaceName || currentSpace) && activeTab.kind !== "inbox") crumbs.push(spaceName || currentSpace);
     crumbs.push(KIND_LABEL[activeTab.kind]);
     if (activeTab.kind === "wiki" || activeTab.kind === "archive") crumbs.push(activeTab.title);
   } else if (spaceName || currentSpace) {

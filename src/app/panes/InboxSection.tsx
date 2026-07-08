@@ -48,7 +48,6 @@ function fileToBase64(f: File): Promise<string> {
 export function InboxSection({
   space,
   spaceId,
-  spaceName,
   subjectIdsDefault,
   existing,
   spaces,
@@ -58,7 +57,6 @@ export function InboxSection({
 }: {
   space: string;
   spaceId: string;
-  spaceName: string;
   subjectIdsDefault: string[];
   existing: WikiPageT[];
   // 저장 대상 폴더 선택용 — 전체 지식 공간 목록과 공간별 위키(대상 폴더의 dedup 기준)
@@ -292,9 +290,29 @@ export function InboxSection({
   const curIdx = job ? steps.indexOf(job.status) : -1;
 
   // ── 노트 패널 (중심 고정) — 새 원본(archive) 작성 ──
+  // PDF·위키 보조 패널 토글 — 노트 헤더 우측 슬롯에 배치(독립 헤더 줄 제거 → 3줄→2줄)
+  const panelToggles = (
+    <div className="flex shrink-0 items-center gap-0.5 rounded-md border border-hairline p-0.5">
+      {(["pdf", "wiki"] as const).map((k) => (
+        <button
+          key={k}
+          type="button"
+          aria-pressed={panels[k]}
+          onClick={() => togglePanel(k)}
+          className={cn(
+            "rounded px-2.5 py-1 text-[12px] font-medium transition-colors",
+            panels[k] ? "bg-surface-soft text-ink" : "text-ink-muted hover:text-ink",
+          )}
+        >
+          {k === "pdf" ? "PDF 패널" : "위키 패널"}
+        </button>
+      ))}
+    </div>
+  );
+
   const notePane = (
     <section style={{ minWidth: NOTE_MIN_PX }} className="flex min-w-0 flex-1 flex-col">
-      <PaneHeader label="노트" hint="자료 → 원본(archive) 저장 → (선택) AI 위키·관계 생성" />
+      <PaneHeader right={panelToggles} />
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4">
         {/* Notion풍 새 페이지 헤더 — 큰 제목 · 속성 행 · 구분선 (문서 뷰 PageHeader 와 같은 시각 언어) */}
         <input
@@ -463,21 +481,7 @@ export function InboxSection({
     </section>
   );
 
-  // PDF 원문 텍스트를 에디터로 가져오기 — PdfViewer 툴바 버튼에서 호출
-  const extractToEditor = async () => {
-    setPdfJobs((n) => n + 1);
-    try {
-      const ext = await ipc.extractPdfText(space, refSource);
-      const text = ext.pages.map((p) => p.text).join("\n\n").trim();
-      setBody((b) => (b ? b + "\n\n" : "") + `![[${refSource}]]\n\n${text}`);
-    } catch {
-      setBody((b) => b + `\n\n> ${refSource} 텍스트 추출 실패`);
-    } finally {
-      setPdfJobs((n) => n - 1);
-    }
-  };
-
-  // ── PDF 패널 (3-split 좌측) — 원본 자료 열람 + 추출 ──
+  // ── PDF 패널 (3-split 좌측) — 원본 자료 열람 ──
   const refSourceIsPdf = /\.pdf$/i.test(refSource);
   const pdfPane = (
     <section style={{ width: `${paneW.pdf}%`, minWidth: 280 }} className="flex min-w-0 shrink-0 flex-col border-r border-hairline">
@@ -504,7 +508,7 @@ export function InboxSection({
       {refSource && refSourceIsPdf ? (
         <div className="flex min-h-0 flex-1 flex-col">
           {pdfBusy && <p className="shrink-0 border-b border-hairline px-4 py-1.5 text-[13px] text-ink-muted">PDF 처리 중…</p>}
-          <PdfViewer space={space} file={refSource} onExtractText={extractToEditor} extractBusy={pdfBusy} />
+          <PdfViewer space={space} file={refSource} />
         </div>
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
@@ -565,31 +569,7 @@ export function InboxSection({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* 헤더 — 보조 패널(PDF·위키) 토글. 노트는 항상 중심 고정 */}
-      <header className="flex shrink-0 items-center justify-between gap-3 border-b border-hairline px-4 py-2">
-        <p className="min-w-0 truncate text-[14px]">
-          <span className="font-bold text-ink">Inbox</span>
-          <span className="text-ink-muted"> · {spaceName} · 자료 → 원본(archive) 저장 → (선택) AI 위키·관계 생성</span>
-        </p>
-        <div className="flex shrink-0 items-center gap-0.5 rounded-md border border-hairline p-0.5">
-          {(["pdf", "wiki"] as const).map((k) => (
-            <button
-              key={k}
-              type="button"
-              aria-pressed={panels[k]}
-              onClick={() => togglePanel(k)}
-              className={cn(
-                "rounded px-2.5 py-1 text-[12px] font-medium transition-colors",
-                panels[k] ? "bg-surface-soft text-ink" : "text-ink-muted hover:text-ink",
-              )}
-            >
-              {k === "pdf" ? "PDF 패널" : "위키 패널"}
-            </button>
-          ))}
-        </div>
-      </header>
-
-      {/* 본문 — [PDF] | 노트(고정) | [위키]. 디바이더로 폭 조절(더블클릭 = 초기화) */}
+      {/* 본문 — [PDF] | 노트(고정) | [위키]. 디바이더로 폭 조절(더블클릭 = 초기화). 패널 토글은 노트 헤더 우측으로 이동 */}
       <div ref={splitRef} className="flex min-h-0 flex-1 overflow-hidden">
         {panels.pdf && (
           <>
@@ -637,11 +617,11 @@ export function InboxSection({
   );
 }
 
-function PaneHeader({ label, hint, right }: { label: string; hint?: string; right?: React.ReactNode }) {
+function PaneHeader({ label, hint, right }: { label?: string; hint?: string; right?: React.ReactNode }) {
   return (
     <div className="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-hairline px-3">
       <p className="min-w-0 truncate">
-        <span className="ds-eyebrow text-ink-faint">{label}</span>
+        {label && <span className="ds-eyebrow text-ink-faint">{label}</span>}
         {hint && <span className="ml-2 text-[12px] text-ink-muted">{hint}</span>}
       </p>
       {right}
