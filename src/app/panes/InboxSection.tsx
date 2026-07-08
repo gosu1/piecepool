@@ -434,20 +434,6 @@ export function InboxSection({
           </div>
         )}
 
-        {/* 결과 표시 — 내부 상태기계 단계 노출은 제거. 실패 에러 + 완료 결과 한 줄만(처리 중은 저장 버튼이 표시) */}
-        {(job?.status === "completed" || job?.status === "failed") && (
-          <div className="mt-3 shrink-0 rounded-md border border-hairline bg-surface-soft p-3 text-[13px]">
-            {job.status === "failed" ? (
-              <p className="text-danger">가져오기 실패: {job.errorMessage}</p>
-            ) : (
-              <p className="text-ink-muted">
-                정리 완료
-                {typeof job.wikiCount === "number" && ` · 위키 ${job.wikiCount}개 · 관계 ${job.relationCount}개`}
-                {job.mergedCount ? ` · 병합 ${job.mergedCount}개` : ""}
-              </p>
-            )}
-          </div>
-        )}
       </div>
     </section>
   );
