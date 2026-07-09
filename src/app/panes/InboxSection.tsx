@@ -4,6 +4,7 @@ import type { KnowledgeSpace, WikiPage as WikiPageT } from "../../lib/types";
 import * as ipc from "../../lib/ipc";
 import { useImportStore } from "../../store/importStore";
 import { runImageOcr } from "../../llm/ocr";
+import { runOutline } from "../../llm/outline";
 import { SlashBlockEditor } from "../../lib/SlashBlockEditor";
 import { ConfirmDialog } from "../shell/Dialogs";
 import { Markdown } from "../../lib/markdown";
@@ -175,9 +176,8 @@ export function InboxSection({
     if (panels.pdf) void loadSources();
   }, [panels.pdf, loadSources]);
 
-  // PDF → sources/original-files 저장 + 패널 열람 + 출처 임베드만 노트에 남긴다.
-  // 추출 텍스트는 본문에 붓지 않는다 — 노트는 사용자 파편 캔버스, PDF 원문은 뒷단 출처(AI fuel)로만 보유.
-  // (extract_pdf_text 추출 자체는 유지 — 저장+AI정리 시 뒷단에서 출처로 사용)
+  // PDF → sources/original-files 저장 + 패널 열람 + 출처 임베드 + LLM 목차(뼈대) 삽입.
+  // 본문 내용은 붓지 않는다 — 노트는 사용자 파편 캔버스. 목차(헤딩만)로 구조를 잡아 주고 필기는 사용자가 채운다.
   const importPdf = async (f: File) => {
     setPdfJobs((n) => n + 1);
     try {
@@ -189,6 +189,16 @@ export function InboxSection({
       setTitle((t) => t || f.name.replace(/\.[^.]+$/, ""));
       // 출처 연결용 임베드만 삽입(현재 출처 연결이 본문 ![[...]] 파싱에 의존 — 2단계에서 메타데이터로 이관 예정)
       setBody((b) => (b ? b + "\n\n" : "") + `![[${stored}]]`);
+      // PDF 내용 → LLM 목차 생성 → 노트 뼈대로 삽입. 추출/키없음/실패면 목차 없이 진행(embed 는 이미 들어감).
+      try {
+        const ext = await ipc.extractPdfText(space, stored);
+        const text = ext.pages.map((p) => p.text).join("\n\n").trim();
+        const apiKey = (typeof localStorage !== "undefined" && localStorage.getItem("gemini-key")) || "";
+        const { markdown } = await runOutline(text, apiKey);
+        if (markdown.trim()) setBody((b) => (b ? b + "\n\n" : "") + markdown.trim());
+      } catch {
+        // 목차 생성 실패 — 사용자가 직접 필기하면 됨
+      }
     } catch (e) {
       onNotice?.(`${f.name} 저장 실패: ${String(e)}`);
     } finally {
