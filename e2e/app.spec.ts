@@ -77,6 +77,21 @@ test("에디터 라이브 프리뷰 — 헤딩이 타이핑 즉시 커진다", a
   expect(h3).toBeGreaterThan(base);
 });
 
+// Obsidian 라이브 프리뷰 — 커서가 떠난 줄의 "#" 는 화면에서 사라지고, 돌아가면 다시 보인다(문서는 불변).
+test("에디터 라이브 프리뷰 — 커서 떠난 줄의 # 기호가 사라진다", async ({ page }) => {
+  await page.getByRole("button", { name: "새 노트 작성" }).click();
+  await page.locator(".cm-content").click();
+  await page.keyboard.type("# 제목1\n본문");
+
+  const headingLine = page.locator(".cm-line").first();
+  // 커서는 "본문" 줄 → 헤딩 줄의 마크는 감춰진다
+  await expect(headingLine).toHaveText("제목1");
+
+  // 헤딩 줄로 커서를 옮기면 원문이 그대로 드러난다 — 감췄을 뿐 문서에는 "#" 가 남아 있다
+  await headingLine.click();
+  await expect(headingLine).toHaveText("# 제목1");
+});
+
 // 회귀 방지: 빈 새 노트에 이 공간의 아무 위키(제목 정렬 1등)·아무 원본이 딸려 열리던 버그.
 test("새 노트 — 보조 패널 닫힌 빈 화면으로 시작", async ({ page }) => {
   await page.getByRole("button", { name: "새 노트 작성" }).click();

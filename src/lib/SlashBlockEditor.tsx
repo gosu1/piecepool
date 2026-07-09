@@ -1,9 +1,10 @@
 import { useMemo, useRef } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { markdown, insertNewlineContinueMarkup, deleteMarkupBackward } from "@codemirror/lang-markdown";
-import { EditorView, keymap, placeholder as cmPlaceholder } from "@codemirror/view";
-import { Prec } from "@codemirror/state";
-import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
+import { Decoration, EditorView, ViewPlugin, keymap, placeholder as cmPlaceholder } from "@codemirror/view";
+import type { DecorationSet, ViewUpdate } from "@codemirror/view";
+import { Prec, RangeSetBuilder } from "@codemirror/state";
+import { HighlightStyle, syntaxHighlighting, syntaxTree } from "@codemirror/language";
 import { tags } from "@lezer/highlight";
 import { autocompletion, startCompletion, type Completion, type CompletionContext } from "@codemirror/autocomplete";
 import { cn } from "../ds";
@@ -33,8 +34,9 @@ const theme = EditorView.theme({
 
 // ── 라이브 프리뷰 ──
 // CM6 기본 highlightStyle 은 heading 에 굵기만 준다(크기 없음) → "# 제목"을 쳐도 글자가 안 커진다.
-// 마크다운 태그별로 실제 타이포를 입혀 타이핑과 동시에 문서처럼 보이게 한다. 마크업 기호(#, -, >, **)는
-// 지우지 않고 흐리게만 둔다 — 원문이 곧 저장물(archive)이라 숨기면 무엇이 저장되는지 알 수 없다.
+// 마크다운 태그별로 실제 타이포를 입혀 타이핑과 동시에 문서처럼 보이게 한다.
+// 마크업 기호는 커서가 그 줄을 벗어나면 감춘다(아래 hideHeaderMarks) — 편집 중인 줄에서는 항상 보이므로
+// 원문(=저장물 archive)을 잃지 않는다.
 const liveMarkdown = HighlightStyle.define([
   { tag: tags.heading1, fontSize: "1.75em", fontWeight: "700", lineHeight: "1.35", color: "var(--ds-ink)" },
   { tag: tags.heading2, fontSize: "1.4em", fontWeight: "700", lineHeight: "1.4", color: "var(--ds-ink)" },
@@ -48,9 +50,61 @@ const liveMarkdown = HighlightStyle.define([
   { tag: tags.url, color: "var(--ds-ink-muted)" },
   { tag: tags.monospace, fontFamily: "var(--font-mono, ui-monospace, monospace)", fontSize: "0.92em", color: "var(--ds-ink)" },
   { tag: tags.contentSeparator, color: "var(--ds-ink-faint)" },
-  // #, -, >, **, ``` 같은 마크업 기호 — 크기는 주변 헤딩을 따라가고 색만 흐리다.
+  // 마크업 기호 — 커서가 있는 줄에서만 보이며, 크기는 주변 헤딩을 따라가고 색만 흐리다.
   { tag: tags.processingInstruction, color: "var(--ds-ink-faint)", fontWeight: "400" },
 ]);
+
+// ── 헤딩 마크(`# `) 감추기 — Obsidian 라이브 프리뷰 ──
+// 커서가 그 줄에 없을 때만 "#"와 뒤따르는 공백 한 칸을 화면에서 지운다. 문서는 그대로다(Decoration.replace 는
+// 표시만 바꾼다). 편집하러 줄에 들어가면 다시 나타나므로 무엇이 저장되는지 언제든 확인·수정할 수 있다.
+const hiddenMark = Decoration.replace({});
+
+function headerMarkDecorations(view: EditorView): DecorationSet {
+  const builder = new RangeSetBuilder<Decoration>();
+  const doc = view.state.doc;
+
+  // 커서/선택이 걸친 줄은 원문 그대로 보여준다.
+  const activeLines = new Set<number>();
+  for (const r of view.state.selection.ranges) {
+    const first = doc.lineAt(r.from).number;
+    const last = doc.lineAt(r.to).number;
+    for (let n = first; n <= last; n++) activeLines.add(n);
+  }
+
+  for (const { from, to } of view.visibleRanges) {
+    syntaxTree(view.state).iterate({
+      from,
+      to,
+      enter: (node) => {
+        if (node.name !== "HeaderMark") return;
+        // Setext 헤딩(밑줄 `===`)의 마크는 줄 전체다 — 지우면 빈 줄만 남으므로 ATX("#")만 다룬다.
+        if (doc.sliceString(node.from, node.from + 1) !== "#") return;
+        if (activeLines.has(doc.lineAt(node.from).number)) return;
+        // "# " 의 공백까지 함께 감춰야 제목이 왼쪽 끝에서 시작한다.
+        const end = doc.sliceString(node.to, node.to + 1) === " " ? node.to + 1 : node.to;
+        builder.add(node.from, end, hiddenMark);
+      },
+    });
+  }
+  return builder.finish();
+}
+
+const hideHeaderMarks = ViewPlugin.fromClass(
+  class {
+    decorations: DecorationSet;
+    constructor(view: EditorView) {
+      this.decorations = headerMarkDecorations(view);
+    }
+    update(u: ViewUpdate) {
+      if (u.docChanged || u.selectionSet || u.viewportChanged) this.decorations = headerMarkDecorations(u.view);
+    }
+  },
+  {
+    decorations: (v) => v.decorations,
+    // 감춘 구간을 원자 단위로 — 좌우 화살표·backspace 가 보이지 않는 "#" 안에 갇히지 않는다.
+    provide: (plugin) => EditorView.atomicRanges.of((view) => view.plugin(plugin)?.decorations ?? Decoration.none),
+  },
+);
 
 // 배경·패딩은 프레임 유무에 따라 분리 — frameless 는 패널에 그대로 녹아드는 Notion 본문(투명·수평 패딩 0).
 const boxedFrame = EditorView.theme({
@@ -150,6 +204,7 @@ export function SlashBlockEditor({
     () => [
       markdown(),
       syntaxHighlighting(liveMarkdown),
+      hideHeaderMarks,
       EditorView.lineWrapping,
       theme,
       frameless ? framelessFrame : boxedFrame,
