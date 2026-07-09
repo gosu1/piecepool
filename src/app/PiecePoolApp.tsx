@@ -11,7 +11,7 @@ import { buildGaps } from "../llm/gaps";
 import type { GapReport } from "../llm/gaps";
 import { maybeFactCheck } from "../lib/factCheck";
 import { detectSourceRefConflicts } from "../lib/sourceRefConflicts";
-import { chunkOpts, getLinerKey } from "../lib/settings";
+import { chunkOpts, getLinerKey, getNewNoteVariant } from "../lib/settings";
 import { aggregateProvenance, tierFromSourceType, type SourceMeta } from "../llm/provenance";
 import { docKey } from "./types";
 import type { SearchItem } from "./types";
@@ -36,7 +36,10 @@ import { useWorkspaceStore, SIDEBAR_DEFAULT } from "../store/workspaceStore";
 import type { TabKind } from "../store/workspaceStore";
 import { useConvertStore } from "../store/convertStore";
 
-const KIND_LABEL: Record<TabKind, string> = { wiki: "Wiki", archive: "Source", inbox: "Inbox", graph: "Graph", home: "Home", empty: "새 탭" };
+const KIND_LABEL: Record<TabKind, string> = { wiki: "Wiki", archive: "Source", inbox: "Inbox", note: "새 노트", graph: "Graph", home: "Home", empty: "새 탭" };
+
+// 초안 탭 id — 파일이 아직 없으므로 파일명 대신 카운터로 구분한다(Date.now 는 렌더 순수성 밖).
+let draftSeq = 0;
 
 // 트리 id 파서 — 파일명에 ":" 가 없다는 계약(kebab/slug)에 기대지 않고 앞 3개만 분해한다.
 function parseDocId(id: string): { kind: string; space: string; file: string } | null {
@@ -49,6 +52,7 @@ type ShellDialog =
   | { kind: "rename-note" | "rename-wiki"; space: string; file: string; title: string }
   | { kind: "delete-note" | "delete-wiki"; space: string; file: string; title: string }
   | { kind: "close-dirty"; tabId: string }
+  | { kind: "discard-draft"; space: string }
   | { kind: "overwrite-syn"; space: string; file: string; title: string }
   | { kind: "new-space" }
   | { kind: "rename-space"; slug: string; name: string }
@@ -171,8 +175,7 @@ export default function PiecePoolApp() {
         setPaletteOpen((o) => !o);
       } else if (k === "n") {
         e.preventDefault();
-        const sp = currentSpaceRef.current;
-        if (sp) useWorkspaceStore.getState().openTab({ id: `inbox:${sp}`, kind: "inbox", title: "Inbox", space: sp });
+        openNewNoteRef.current(currentSpaceRef.current);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -219,6 +222,29 @@ export default function PiecePoolApp() {
   const openInbox = (space: string) => openTab({ id: `inbox:${space}`, kind: "inbox", title: "Inbox", space });
   const openGraph = (space: string) => openTab({ id: `graph:${space}`, kind: "graph", title: "Graph", space });
   const openHome = () => openTab({ id: "home", kind: "home", title: "Study Home" });
+
+  // ── "새 노트" — A/B 실험(설정 > 실험). 고른 뒤 진 쪽과 이 분기를 지운다 ──
+  // 공통: 파일은 저장할 때 생긴다(빈 파일 누적 방지). 달라지는 건 착지 화면뿐.
+  // A = 파일 없는 초안 탭. 빈 초안 탭이 이미 있으면 재사용해 ⌘N 연타로 빈 탭이 쌓이지 않게 한다.
+  // B = 공간 Inbox 를 재사용하되 초안 세대를 올려 remount → 초안·패널·선택이 전부 초기화된다.
+  const [draftEpoch, setDraftEpoch] = useState<Record<string, number>>({});
+  const bumpDraftEpoch = (space: string) => setDraftEpoch((m) => ({ ...m, [space]: (m[space] ?? 0) + 1 }));
+
+  const openNewNote = (space: string) => {
+    if (!space) return;
+    if (getNewNoteVariant() === "A") {
+      const reusable = openTabs.find((t) => t.kind === "note" && t.space === space && !t.dirty);
+      if (reusable) setActiveTab(reusable.id);
+      else openTab({ id: `note:${space}:${++draftSeq}`, kind: "note", title: "새 노트", space });
+      return;
+    }
+    openInbox(space);
+    // 작성 중 초안은 말없이 버리지 않는다 — 확인 후에만 초기화.
+    if (openTabs.find((t) => t.id === `inbox:${space}`)?.dirty) setDialog({ kind: "discard-draft", space });
+    else bumpDraftEpoch(space);
+  };
+  const openNewNoteRef = useRef(openNewNote);
+  openNewNoteRef.current = openNewNote;
 
   // 새 지식 공간(폴더) 생성 — 백엔드 create_space → 목록/집계 갱신 후 새 공간으로 이동
   const createNewSpace = async (name: string) => {
@@ -273,7 +299,7 @@ export default function PiecePoolApp() {
     }
   };
   // "+" 새 탭 — 파일을 만들지 않는 런처 탭(검색·최근·고정·시작 액션).
-  // 이전의 즉시 createNote("제목 없음")는 클릭마다 빈 파일을 쌓았다 — 생성은 Inbox(저장 시 생성)로 일원화.
+  // 이전의 즉시 createNote("제목 없음")는 클릭마다 빈 파일을 쌓았다 — 생성은 저장 시점으로 일원화.
   const openEmptyTab = () => openTab({ id: `empty:${Date.now().toString(36)}`, kind: "empty", title: "새 탭" });
   // 볼트 전환 = 맥락 전환. 랜덤 첫 위키를 열지 않고 그 공간의 Study Home 으로 착지한다.
   // Home 탭은 space 가 없어 currentSpace 가 currentSpaceSlug 를 따르므로 내용이 새 공간으로 바뀐다.
@@ -868,7 +894,7 @@ export default function PiecePoolApp() {
         recent={launcherRecent}
         pinned={launcherPinned}
         onOpenDoc={(d) => go(() => (d.kind === "wiki" ? openWiki(d.space, d.file) : openArchive(d.space, d.file)))}
-        onNewNote={() => go(() => openInbox(currentSpace))}
+        onNewNote={() => go(() => openNewNote(currentSpace))}
         onGraph={() => go(() => openGraph(currentSpace))}
       />
     );
@@ -1094,7 +1120,7 @@ export default function PiecePoolApp() {
           graphBySlug={graphBySlug}
           currentSpace={currentSpace}
           onOpenWiki={openWiki}
-          onNewNote={() => openInbox(currentSpace)}
+          onNewNote={() => openNewNote(currentSpace)}
           onNewFolder={() => setDialog({ kind: "new-space" })}
           onOpenGraph={openGraph}
           onSelectSpace={selectSpace}
@@ -1128,9 +1154,15 @@ export default function PiecePoolApp() {
           />
         );
       case "inbox":
+      case "note": {
+        const isNote = activeTab.kind === "note";
+        const tabId = activeTab.id;
         return (
           <InboxSection
-            key={activeTab.id}
+            // B안: 새 노트 = 같은 Inbox 탭의 다음 초안 세대 → key 가 바뀌며 remount(초안·패널·선택 초기화)
+            key={isNote ? tabId : `${tabId}:${draftEpoch[sp] ?? 0}`}
+            variant={isNote ? "note" : "inbox"}
+            onDirtyChange={(d) => setTabDirty(tabId, d)}
             space={sp}
             spaceId={spaces.find((s) => s.slug === sp)?.id ?? ""}
             subjectIdsDefault={wikiBySlug[sp]?.[0]?.subjectIds ?? []}
@@ -1142,13 +1174,14 @@ export default function PiecePoolApp() {
             onNotice={setNotice}
           />
         );
+      }
       default:
         return null;
     }
   };
 
-  // Inbox/Graph 는 분할 레이아웃이라 풀-블리드(스크롤은 각 패널이 소유)
-  const fullBleed = !!activeTab && (activeTab.kind === "inbox" || activeTab.kind === "graph");
+  // Inbox/새 노트/Graph 는 분할 레이아웃이라 풀-블리드(스크롤은 각 패널이 소유)
+  const fullBleed = !!activeTab && (activeTab.kind === "inbox" || activeTab.kind === "note" || activeTab.kind === "graph");
 
   // 상태바 경로 라벨
   const pathLabel = !activeTab
@@ -1163,7 +1196,9 @@ export default function PiecePoolApp() {
             ? `${activeTab.space} / archive / ${activeTab.file}`
             : activeTab.kind === "inbox"
               ? "Inbox"
-              : `${activeTab.space ?? currentSpace} / ${activeTab.kind}`;
+              : activeTab.kind === "note"
+                ? `${activeTab.space ?? currentSpace} / 새 노트`
+                : `${activeTab.space ?? currentSpace} / ${activeTab.kind}`;
 
   // 페인 헤더 breadcrumb
   const crumbs = ["PiecePool"];
@@ -1173,6 +1208,7 @@ export default function PiecePoolApp() {
     crumbs.push("새 탭");
   } else if (activeTab) {
     // Inbox 는 캡처존 — 특정 공간에 묶이지 않는다(저장 위치는 노트 헤더 드롭다운이 지정). 공간 크럼 생략.
+    // 새 노트는 반대로 어디에 저장될지가 핵심 정보 → 공간 크럼을 반드시 보여준다.
     if ((spaceName || currentSpace) && activeTab.kind !== "inbox") crumbs.push(spaceName || currentSpace);
     crumbs.push(KIND_LABEL[activeTab.kind]);
     if (activeTab.kind === "wiki" || activeTab.kind === "archive") crumbs.push(activeTab.title);
@@ -1238,6 +1274,7 @@ export default function PiecePoolApp() {
           <Ribbon
             activeKind={activeTab?.kind}
             onHome={openHome}
+            onInbox={() => openInbox(currentSpace)}
             onGraph={() => openGraph(currentSpace)}
             onSettings={openSettings}
           />
@@ -1257,7 +1294,7 @@ export default function PiecePoolApp() {
               width={sidebarWidth}
               onResize={setSidebarWidth}
               onResizeReset={() => setSidebarWidth(SIDEBAR_DEFAULT)}
-              headerSlot={<SidebarHeader title={workspace?.name ?? "PiecePool"} onNewNote={() => openInbox(currentSpace)} />}
+              headerSlot={<SidebarHeader title={workspace?.name ?? "PiecePool"} onNewNote={() => openNewNote(currentSpace)} />}
               shortcutsSlot={
                 <SidebarShortcuts
                   onNewFolder={() => setDialog({ kind: "new-space" })}
@@ -1301,6 +1338,20 @@ export default function PiecePoolApp() {
 
       {menu && menuItems.length > 0 && <ContextMenu x={menu.x} y={menu.y} items={menuItems} onClose={() => setMenu(null)} />}
       {paneMenu && paneMenuItems.length > 0 && <ContextMenu x={paneMenu.x} y={paneMenu.y} items={paneMenuItems} onClose={() => setPaneMenu(null)} />}
+
+      {dialog?.kind === "discard-draft" && (
+        <ConfirmDialog
+          title="작성 중인 초안이 있어요"
+          message="새 노트를 시작하면 지금 Inbox 에 쓰던 내용이 사라집니다."
+          confirmLabel="새로 시작"
+          danger
+          onConfirm={() => {
+            bumpDraftEpoch(dialog.space);
+            setDialog(null);
+          }}
+          onCancel={() => setDialog(null)}
+        />
+      )}
 
       {dialog?.kind === "close-dirty" && (
         <ConfirmDialog

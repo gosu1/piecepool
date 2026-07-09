@@ -4,8 +4,8 @@ import {
   setChunkEnabled,
   setChunkPercentile,
   chunkOpts,
-  getInboxPanels,
-  setInboxPanel,
+  getNewNoteVariant,
+  setNewNoteVariant,
   getInboxPaneWidths,
   setInboxPaneWidth,
   clampPanePct,
@@ -63,13 +63,14 @@ describe("chunk settings", () => {
     expect(getChunkSettings().percentile).toBe(10);
   });
 
-  it("inbox 보조 패널 — 기본 모두 닫힘, 저장·복원", () => {
-    expect(getInboxPanels()).toEqual({ pdf: false, wiki: false });
-    setInboxPanel("pdf", true);
-    expect(getInboxPanels()).toEqual({ pdf: true, wiki: false });
-    setInboxPanel("wiki", true);
-    setInboxPanel("pdf", false);
-    expect(getInboxPanels()).toEqual({ pdf: false, wiki: true });
+  it("새 노트 흐름 — 기본 A, 저장·복원, 알 수 없는 값은 A 로 폴백", () => {
+    expect(getNewNoteVariant()).toBe("A");
+    setNewNoteVariant("B");
+    expect(getNewNoteVariant()).toBe("B");
+    setNewNoteVariant("A");
+    expect(getNewNoteVariant()).toBe("A");
+    localStorage.setItem("pp-newnote-variant", "junk");
+    expect(getNewNoteVariant()).toBe("A");
   });
 
   it("inbox 패널 폭 — 기본값, 저장·클램프(30~70), 무효 값 폴백", () => {

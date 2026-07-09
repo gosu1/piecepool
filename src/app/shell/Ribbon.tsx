@@ -1,17 +1,20 @@
 import type { ReactNode } from "react";
 import { cn, Icons } from "../../ds";
 
-// ══ 좌측 리본 (Obsidian식 세로 아이콘 네비) — 홈 · 그래프 · 설정 ══
+// ══ 좌측 리본 (Obsidian식 세로 아이콘 네비) — 홈 · Inbox · 그래프 · 설정 ══
 // 파일트리 토글(미닫이)·검색은 상단 타이틀바가 담당(중복 제거).
 // Wiki/Source 는 파일 트리로 접근(리본에서 제거). 활성 표시는 현재 탭 kind 기준.
+// Inbox = 자료 임포트 작업대. "새 노트"(사이드바 연필/⌘N)와 목적이 달라 별도 진입점이 필요하다.
 export function Ribbon({
   activeKind,
   onHome,
+  onInbox,
   onGraph,
   onSettings,
 }: {
   activeKind?: string;
   onHome: () => void;
+  onInbox: () => void;
   onGraph: () => void;
   onSettings: () => void;
 }) {
@@ -24,7 +27,10 @@ export function Ribbon({
 
       <Divider />
 
-      {/* 그래프 (새 노트는 사이드바 헤더 연필 아이콘이 담당 → 중복 "+" 제거) */}
+      {/* Inbox · 그래프 (새 노트는 사이드바 헤더 연필 아이콘이 담당 → 중복 "+" 제거) */}
+      <RibbonButton label="Inbox" active={activeKind === "inbox"} onClick={onInbox}>
+        <Icons.InboxIcon size={21} />
+      </RibbonButton>
       <RibbonButton label="Graph" active={activeKind === "graph"} onClick={onGraph}>
         <Icons.GraphIcon size={21} />
       </RibbonButton>

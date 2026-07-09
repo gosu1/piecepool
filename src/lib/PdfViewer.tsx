@@ -46,7 +46,10 @@ export function PdfViewer({
   file: string;
 }) {
   const [b64, setB64] = useState<string | null>(null);
-  const [err, setErr] = useState<string | null>(null);
+  // 파일 읽기 실패(loadErr)와 pdf.js 파싱 실패(parseErr)는 원인도 대처도 다르다 — 한 state 에 합치면
+  // <Document error> 분기가 영영 도달 불가가 되고 실제 에러 문자열도 화면에 안 나온다.
+  const [loadErr, setLoadErr] = useState<string | null>(null);
+  const [parseErr, setParseErr] = useState<string | null>(null);
   const [numPages, setNumPages] = useState(0);
   const [cur, setCur] = useState(1);
   const [pageInput, setPageInput] = useState("1");
@@ -70,7 +73,8 @@ export function PdfViewer({
   useEffect(() => {
     let alive = true;
     setB64(null);
-    setErr(null);
+    setLoadErr(null);
+    setParseErr(null);
     setNumPages(0);
     setCur(1);
     setVisible(new Set([1]));
@@ -79,7 +83,7 @@ export function PdfViewer({
     ipc
       .readFileBytes(space, file)
       .then((b) => alive && setB64(b))
-      .catch((e) => alive && setErr(String(e)));
+      .catch((e) => alive && setLoadErr(String(e)));
     return () => {
       alive = false;
     };
@@ -221,7 +225,8 @@ export function PdfViewer({
     setPageDims((m) => (m.has(p) ? m : new Map(m).set(p, { w: pg.originalWidth, h: pg.originalHeight })));
 
   let body: React.ReactNode;
-  if (err) body = <Msg tone="danger">원본을 불러오지 못했습니다: {file}</Msg>;
+  if (loadErr) body = <Msg tone="danger">원본을 불러오지 못했습니다: {file} — {loadErr}</Msg>;
+  else if (parseErr) body = <Msg tone="danger">PDF를 열 수 없습니다: {file} — {parseErr}</Msg>;
   else if (b64 === null) body = <Msg>불러오는 중… {file}</Msg>;
   else if (!b64) body = <Msg>원본 미리보기는 데스크톱(Tauri)에서 볼 수 있습니다: {file}</Msg>;
   else
@@ -229,7 +234,7 @@ export function PdfViewer({
       <Document
         file={pdfData}
         onLoadSuccess={(d) => setNumPages(d.numPages)}
-        onLoadError={(e) => setErr(String(e))}
+        onLoadError={(e) => setParseErr(String(e))}
         loading={<Msg>PDF 여는 중… {file}</Msg>}
         error={<Msg tone="danger">PDF를 열 수 없습니다: {file}</Msg>}
         className="h-full"

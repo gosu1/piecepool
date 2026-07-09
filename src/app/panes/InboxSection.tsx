@@ -11,8 +11,6 @@ import { Markdown } from "../../lib/markdown";
 import { FilePreview } from "../../lib/FilePreview";
 import { PdfViewer } from "../../lib/PdfViewer";
 import {
-  getInboxPanels,
-  setInboxPanel,
   getInboxPaneWidths,
   setInboxPaneWidth,
   clampPanePct,
@@ -25,6 +23,12 @@ import {
 // Inbox 의 목적 = 수집: 자료를 옆에 두고 필기를 만들어 원본(archive)으로 저장.
 // 노트 에디터가 중심(항상 고정), 좌(PDF 자료)·우(위키 참조)는 보조 패널로 여닫는다.
 // PDF 업로드 → PDF 패널 자동 열림, AI 정리 완료 → 위키 패널 자동 열림.
+//
+// 보조 패널은 "이 노트에 딸린 것"이다. 열림 상태는 저장하지 않고(노트마다 닫힌 채 시작),
+// 아무것도 자동 선택하지 않는다 — 빈 노트에 공간의 아무 PDF·아무 위키가 뜨면 안 된다.
+// 셀렉트는 고를 게 2개 이상일 때만 나온다(1개짜리 드롭다운은 선택지가 아니라 소음).
+//
+// variant: "note" = 새 노트 전용 화면(패널 토글 없음, 자동 열림만) · "inbox" = 3분할 자료 작업대
 const IMPORT_STATUS_LABEL: Record<string, string> = {
   idle: "대기",
   parsing: "파싱",
@@ -55,6 +59,8 @@ export function InboxSection({
   onOpenWiki,
   onRefresh,
   onNotice,
+  variant = "inbox",
+  onDirtyChange,
 }: {
   space: string;
   spaceId: string;
@@ -67,6 +73,9 @@ export function InboxSection({
   onRefresh: (space: string) => Promise<void> | void;
   // 저장 실패 등 사용자 알림(상태바 토스트). 성공은 노트 초기화·위키 패널로 암시.
   onNotice?: (msg: string) => void;
+  variant?: "note" | "inbox";
+  // 작성 중 초안 유무를 탭에 알린다 — 빈 초안 탭 재사용(A) · 초안 폐기 확인(B) 판정용
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   // ── 저장 대상 폴더(지식 공간) — 기본은 현재 공간, 저장 버튼 옆 드롭다운으로 변경 ──
   // 참조 패널(PDF·위키)은 현재 공간 그대로 두고, 저장 목적지만 바꾼다(작성 중 드래프트 유지).
@@ -77,12 +86,10 @@ export function InboxSection({
     existing: slug === space ? existing : (wikiBySlug[slug] ?? []),
     subjectIds: slug === space ? subjectIdsDefault : (wikiBySlug[slug]?.[0]?.subjectIds ?? []),
   });
-  // ── 보조 패널(PDF·위키) 열림 상태 ──
-  const [panels, setPanels] = useState(getInboxPanels());
+  // ── 보조 패널(PDF·위키) 열림 상태 — 저장하지 않음(노트 단위 상태) ──
+  const [panels, setPanels] = useState<Record<InboxPanelKey, boolean>>({ pdf: false, wiki: false });
   const togglePanel = (key: InboxPanelKey, open?: boolean) => {
-    const next = open ?? !panels[key];
-    setInboxPanel(key, next);
-    setPanels((p) => ({ ...p, [key]: next }));
+    setPanels((p) => ({ ...p, [key]: open ?? !p[key] }));
   };
 
   // ── 작성(새 페이지) 상태 ──
@@ -96,7 +103,8 @@ export function InboxSection({
 
   // ── 참조 패널 상태 ──
   const [refWikiPath, setRefWikiPath] = useState<string>("");
-  const [sources, setSources] = useState<string[]>([]);
+  const [sources, setSources] = useState<string[]>([]); // 공간의 원본 파일 전체 (inbox 브라우저용)
+  const [noteSources, setNoteSources] = useState<string[]>([]); // 이 초안에 올린 원본만
   const [refSource, setRefSource] = useState<string>("");
   // 동시 임포트(다중 drop) 대응 — 불리언이면 먼저 끝난 건이 busy 를 풀어버린다.
   const [pdfJobs, setPdfJobs] = useState(0);
@@ -160,13 +168,15 @@ export function InboxSection({
     return () => window.removeEventListener("keydown", onKey);
   }, [uploadOpen]);
 
-  const refWiki = existing.find((w) => w.path === refWikiPath) ?? existing[0];
+  // 고른 게 없으면 없는 것 — `?? existing[0]` 폴백은 빈 노트에 공간의 첫 위키(제목 정렬 1등)를 띄웠다.
+  const refWiki = existing.find((w) => w.path === refWikiPath) ?? null;
 
   const loadSources = useCallback(async () => {
     try {
       const list = await ipc.listSources(space);
       setSources(list);
-      setRefSource((cur) => (cur && list.includes(cur) ? cur : (list[0] ?? "")));
+      // 목록의 첫 파일을 자동 선택하지 않는다 — 이 노트와 무관한 원본이 열린다.
+      setRefSource((cur) => (cur && list.includes(cur) ? cur : ""));
     } catch {
       setSources([]);
     }
@@ -183,6 +193,7 @@ export function InboxSection({
     try {
       const stored = await ipc.saveSourceFile(space, f.name, await fileToBase64(f));
       await loadSources();
+      setNoteSources((n) => (n.includes(stored) ? n : [...n, stored]));
       setRefSource(stored);
       // 올린 PDF 를 바로 볼 수 있게 PDF 패널 자동 열림
       togglePanel("pdf", true);
@@ -228,6 +239,7 @@ export function InboxSection({
         try {
           const stored = await ipc.saveSourceFile(space, f.name, dataUrl.split(",")[1] ?? "");
           embed = `![[${stored}]]\n\n`;
+          setNoteSources((n) => (n.includes(stored) ? n : [...n, stored]));
           void loadSources();
         } catch {
           // 저장 실패해도 OCR 은 계속
@@ -260,10 +272,9 @@ export function InboxSection({
       setTitle("");
       setBody("");
       await onRefresh(targetSpace);
-      // 생성된 위키를 바로 확인할 수 있게 위키 패널 자동 열림 (대상=현재 공간일 때만 — 참조 패널은 현재 공간 기준)
-      if (withLlm && targetSpace === space) {
-        // 최근 위키(existing[0]) 대신 방금 만든 위키를 선택해 연다
-        if (res.firstWikiPath) setRefWikiPath(res.firstWikiPath);
+      // 방금 만든 위키가 있을 때만 위키 패널을 연다 (대상=현재 공간일 때만 — 참조 패널은 현재 공간 기준)
+      if (withLlm && targetSpace === space && res.firstWikiPath) {
+        setRefWikiPath(res.firstWikiPath);
         togglePanel("wiki", true);
       }
     } else if (res.status === "failed") {
@@ -278,8 +289,8 @@ export function InboxSection({
       setBody("");
       setAnswers([]);
       await onRefresh(targetSpace);
-      if (targetSpace === space) {
-        if (res.firstWikiPath) setRefWikiPath(res.firstWikiPath);
+      if (targetSpace === space && res.firstWikiPath) {
+        setRefWikiPath(res.firstWikiPath);
         togglePanel("wiki", true);
       }
     } else if (res.status === "failed") {
@@ -288,31 +299,53 @@ export function InboxSection({
   };
 
 
+  // 작성 중 초안 여부를 탭에 알린다 — 저장하면 title/body 가 비워지므로 자동으로 clean 이 된다.
+  // 콜백은 매 렌더 새 함수라 deps 에 넣으면 setTabDirty → 리렌더 → 다시 호출로 돈다. ref 로 고정.
+  const dirty = !!(title.trim() || body.trim());
+  const onDirtyChangeRef = useRef(onDirtyChange);
+  onDirtyChangeRef.current = onDirtyChange;
+  useEffect(() => onDirtyChangeRef.current?.(dirty), [dirty]);
+
   // ── 노트 패널 (중심 고정) — 새 원본(archive) 작성 ──
   // PDF·위키 보조 패널 토글 — 노트 헤더 우측 슬롯에 배치(독립 헤더 줄 제거 → 3줄→2줄)
-  const panelToggles = (
-    <div className="flex shrink-0 items-center gap-0.5 rounded-md border border-hairline p-0.5">
-      {(["pdf", "wiki"] as const).map((k) => (
-        <button
-          key={k}
-          type="button"
-          aria-pressed={panels[k]}
-          onClick={() => togglePanel(k)}
-          className={cn(
-            "rounded px-2.5 py-1 text-[12px] font-medium transition-colors",
-            panels[k] ? "bg-surface-soft text-ink" : "text-ink-muted hover:text-ink",
-          )}
-        >
-          {k === "pdf" ? "PDF 패널" : "위키 패널"}
-        </button>
-      ))}
-    </div>
+  // note variant 는 토글이 없다: 패널은 PDF 업로드·AI 정리로만 등장하고, 각 패널 헤더의 ×로 닫는다.
+  const panelToggles =
+    variant === "inbox" ? (
+      <div className="flex shrink-0 items-center gap-0.5 rounded-md border border-hairline p-0.5">
+        {(["pdf", "wiki"] as const).map((k) => (
+          <button
+            key={k}
+            type="button"
+            aria-pressed={panels[k]}
+            onClick={() => togglePanel(k)}
+            className={cn(
+              "rounded px-2.5 py-1 text-[12px] font-medium transition-colors",
+              panels[k] ? "bg-surface-soft text-ink" : "text-ink-muted hover:text-ink",
+            )}
+          >
+            {k === "pdf" ? "PDF 패널" : "위키 패널"}
+          </button>
+        ))}
+      </div>
+    ) : undefined;
+
+  const closeButton = (k: InboxPanelKey) => (
+    <button
+      type="button"
+      aria-label={k === "pdf" ? "PDF 패널 닫기" : "위키 패널 닫기"}
+      onClick={() => togglePanel(k, false)}
+      className="shrink-0 rounded p-1 text-ink-faint transition-colors hover:bg-surface-soft hover:text-ink"
+    >
+      <Icons.CloseIcon size={14} />
+    </button>
   );
 
+  // 패널이 하나도 없는 새 노트 = 읽기 좋은 폭으로 가운데 정렬. 패널이 열리면 다시 꽉 채운다.
+  const soloNote = variant === "note" && !panels.pdf && !panels.wiki;
   const notePane = (
     <section style={{ minWidth: NOTE_MIN_PX }} className="flex min-w-0 flex-1 flex-col">
-      <PaneHeader right={panelToggles} />
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+      {panelToggles && <PaneHeader right={panelToggles} />}
+      <div className={cn("flex min-h-0 flex-1 flex-col overflow-y-auto", soloNote && "mx-auto w-full max-w-[900px]")}>
         {/* 수집 캔버스 헤더 밴드 — 제목 · 한 줄 안내 · 속성 pill. 구분선으로만 몸통과 분리(틴트 없음) */}
         <div className="shrink-0 border-b border-hairline px-5 pb-4 pt-5">
           <input
@@ -422,16 +455,25 @@ export function InboxSection({
   );
 
   // ── PDF 패널 (3-split 좌측) — 원본 자료 열람 ──
+  // inbox 는 공간 전체를 훑는 작업대라 파일 목록이 곧 선택지. note 는 이 노트에 올린 원본만이 선택지고,
+  // 하나뿐이면 고를 게 없으므로 셀렉트를 내리지 않는다.
+  const pdfOptions = variant === "inbox" ? sources : noteSources.length > 1 ? noteSources : [];
   const refSourceIsPdf = /\.pdf$/i.test(refSource);
   const pdfPane = (
     <section style={{ width: `${paneW.pdf}%`, minWidth: 280 }} className="flex min-w-0 shrink-0 flex-col border-r border-hairline">
       <PaneHeader
         label="PDF"
-        hint={sources.length > 0 ? `원본 파일 ${sources.length}개` : "원본 파일 없음"}
+        // inbox = 공간 파일 브라우저(그렇다고 밝힌다) · note = 이 노트에 올린 원본만
+        hint={variant === "inbox" ? (sources.length > 0 ? `이 공간의 원본 ${sources.length}개` : "원본 없음") : refSource || "원본 없음"}
         right={
           <div className="flex min-w-0 items-center gap-1.5">
-            {sources.length > 0 && (
-              <PaneSelect value={refSource} onChange={setRefSource} options={sources.map((s) => ({ value: s, label: s }))} />
+            {pdfOptions.length > 0 && (
+              <PaneSelect
+                value={refSource}
+                onChange={setRefSource}
+                options={pdfOptions.map((s) => ({ value: s, label: s }))}
+                placeholder="원본 고르기…"
+              />
             )}
             {refSource && (
               <Button size="sm" variant="utility" className="shrink-0 whitespace-nowrap" onClick={() => setConfirmDelSrc(true)}>
@@ -441,6 +483,7 @@ export function InboxSection({
             <Button size="sm" variant="utility" className="shrink-0 whitespace-nowrap" onClick={() => setUploadOpen(true)}>
               업로드
             </Button>
+            {closeButton("pdf")}
           </div>
         }
       />
@@ -472,22 +515,25 @@ export function InboxSection({
     <section style={{ width: `${paneW.wiki}%`, minWidth: 280 }} className="flex min-w-0 shrink-0 flex-col border-l border-hairline">
       <PaneHeader
         label="위키"
-        hint={existing.length > 0 ? `위키 ${existing.length}개` : "위키 없음"}
+        // inbox = 공간 위키 브라우저 · note = 이 노트가 만든 위키만
+        hint={variant === "inbox" ? (existing.length > 0 ? `이 공간의 위키 ${existing.length}개` : "위키 없음") : (refWiki?.title ?? "위키 없음")}
         right={
-          existing.length > 0 ? (
-            <div className="flex min-w-0 items-center gap-1.5">
+          <div className="flex min-w-0 items-center gap-1.5">
+            {variant === "inbox" && existing.length > 0 && (
               <PaneSelect
                 value={refWiki?.path ?? ""}
                 onChange={setRefWikiPath}
                 options={existing.map((w) => ({ value: w.path, label: w.title }))}
+                placeholder="위키 고르기…"
               />
-              {refWiki && (
-                <Button size="sm" variant="utility" className="shrink-0 whitespace-nowrap" onClick={() => onOpenWiki(refWiki.path)}>
-                  열기
-                </Button>
-              )}
-            </div>
-          ) : undefined
+            )}
+            {refWiki && (
+              <Button size="sm" variant="utility" className="shrink-0 whitespace-nowrap" onClick={() => onOpenWiki(refWiki.path)}>
+                열기
+              </Button>
+            )}
+            {closeButton("wiki")}
+          </div>
         }
       />
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
@@ -498,9 +544,9 @@ export function InboxSection({
           </>
         ) : (
           <p className="pt-8 text-center text-[14px] text-ink-muted">
-            AI 정리를 실행하면
+            저장 + AI 정리하면
             <br />
-            생성된 위키가 여기 나타나요.
+            이 노트의 위키가 여기 나타나요.
           </p>
         )}
       </div>
@@ -583,13 +629,25 @@ function PaneDivider({ onPointerDown, onDoubleClick }: { onPointerDown: (e: Reac
   );
 }
 
-function PaneSelect({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) {
+// value="" 일 때 placeholder 옵션이 없으면 브라우저가 첫 옵션을 고른 것처럼 그린다 — 자동 선택을 없앤 이상 반드시 필요.
+function PaneSelect({
+  value,
+  onChange,
+  options,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+  placeholder?: string;
+}) {
   return (
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
       className="min-w-0 max-w-[180px] truncate rounded-md border border-hairline bg-surface px-2 py-1 text-[12px] text-ink outline-none"
     >
+      {!value && <option value="">{placeholder ?? "고르기…"}</option>}
       {options.map((o) => (
         <option key={o.value} value={o.value}>
           {o.label}

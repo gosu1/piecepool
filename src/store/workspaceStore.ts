@@ -6,7 +6,8 @@ import { persist } from "zustand/middleware";
 // useImportStore 단일 소유(두 스토어 드리프트 방지). 순수 뷰 상태라 백엔드/계약 무관.
 // localStorage persist — 재시작 시 열린 탭·활성 탭·사이드바 상태 복원(수용기준 §1).
 
-export type TabKind = "home" | "wiki" | "archive" | "inbox" | "graph" | "empty";
+// note = 아직 파일이 없는 새 노트 초안 탭(저장 시 archive 로 기록). inbox = 자료 임포트 작업대.
+export type TabKind = "home" | "wiki" | "archive" | "inbox" | "note" | "graph" | "empty";
 
 export interface WorkspaceTab {
   id: string; // 안정 식별자. 예: "home" · "wiki:operating-systems:paging.md"
@@ -120,8 +121,13 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           };
         }),
 
+      // 값이 그대로면 새 배열을 만들지 않는다 — 매 렌더 호출하는 구독자가 리렌더 루프를 돌지 않게.
       setTabDirty: (id, dirty) =>
-        set((s) => ({ openTabs: s.openTabs.map((t) => (t.id === id ? { ...t, dirty } : t)) })),
+        set((s) =>
+          s.openTabs.some((t) => t.id === id && !!t.dirty !== dirty)
+            ? { openTabs: s.openTabs.map((t) => (t.id === id ? { ...t, dirty } : t)) }
+            : s,
+        ),
 
       renameTab: (id, title) =>
         set((s) => ({ openTabs: s.openTabs.map((t) => (t.id === id ? { ...t, title } : t)) })),

@@ -45,7 +45,7 @@ test("위키링크 클릭 → 다른 위키로 이동", async ({ page }) => {
   await expect(page.getByText(/코드·데이터·힙을 공유/)).toBeVisible();
 });
 
-test("Import 머신 — Inbox 저장 후 완료 파이프라인", async ({ page }) => {
+test("Import 머신 — 새 노트 저장 후 완료 파이프라인", async ({ page }) => {
   await page.getByRole("button", { name: "새 노트 작성" }).click();
   await page.getByPlaceholder("새 페이지").fill("e2e 노트");
   await page.locator(".cm-content").click();
@@ -55,22 +55,62 @@ test("Import 머신 — Inbox 저장 후 완료 파이프라인", async ({ page 
   await expect(page.getByText("완료", { exact: false }).first()).toBeVisible();
 });
 
-test("Inbox 패널 — 노트 고정, PDF·위키 보조 패널 여닫기", async ({ page }) => {
+// 회귀 방지: 빈 새 노트에 이 공간의 아무 위키(제목 정렬 1등)·아무 원본이 딸려 열리던 버그.
+test("새 노트 — 보조 패널도 셀렉트도 없는 빈 화면으로 시작", async ({ page }) => {
   await page.getByRole("button", { name: "새 노트 작성" }).click();
-  // 기본: 노트 에디터만 (보조 패널 닫힘)
+  await expect(page.getByPlaceholder("새 페이지")).toBeVisible();
+  // 저장 위치를 알 수 있게 공간 크럼이 보인다
+  await expect(page.getByText("새 노트").first()).toBeVisible();
+  // 시드 위키(CPU 스케줄링)가 우측 패널에 자동으로 뜨지 않는다
+  await expect(page.getByText(/선점형/)).not.toBeVisible();
+  // 패널 토글 없음. 셀렉트는 "저장 위치" 하나뿐 — 원본/위키 셀렉트는 없다.
+  await expect(page.getByRole("button", { name: "PDF 패널" })).toHaveCount(0);
+  await expect(page.getByRole("combobox")).toHaveCount(1);
+  await expect(page.getByRole("combobox", { name: "저장 위치" })).toBeVisible();
+});
+
+test("Inbox 패널 — 노트 고정, PDF·위키 보조 패널 여닫기", async ({ page }) => {
+  await page.getByRole("button", { name: "Inbox" }).click();
+  // 기본: 노트 에디터만 (보조 패널 닫힘 — 열림 상태를 저장하지 않는다)
   await expect(page.getByPlaceholder("새 페이지")).toBeVisible();
   await expect(page.getByText("PDF", { exact: true })).not.toBeVisible();
-  // PDF 패널 열고 닫기
-  await page.getByRole("button", { name: "PDF 패널" }).click();
+  // PDF 패널 열고 닫기 (exact — 패널 헤더의 "PDF 패널 닫기" ×버튼과 구분)
+  await page.getByRole("button", { name: "PDF 패널", exact: true }).click();
   await expect(page.getByText("PDF", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "PDF 패널" }).click();
+  await page.getByRole("button", { name: "PDF 패널", exact: true }).click();
   await expect(page.getByText("PDF", { exact: true })).not.toBeVisible();
   // 위키 패널 열고 닫기 — 노트 에디터는 그대로
-  await page.getByRole("button", { name: "위키 패널" }).click();
+  await page.getByRole("button", { name: "위키 패널", exact: true }).click();
   await expect(page.getByText("위키", { exact: true })).toBeVisible();
   await expect(page.getByPlaceholder("새 페이지")).toBeVisible();
-  await page.getByRole("button", { name: "위키 패널" }).click();
+  await page.getByRole("button", { name: "위키 패널", exact: true }).click();
   await expect(page.getByText("위키", { exact: true })).not.toBeVisible();
+});
+
+// B안(설정 > 실험) — 새 노트가 Inbox 를 재사용하되 초안을 초기화한다. 초안이 있으면 먼저 확인.
+test("새 노트 B안 — 작성 중 초안은 확인 후에만 버려진다", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("pp-newnote-variant", "B"));
+  await page.reload();
+  await expect(page.getByRole("button", { name: "프로세스", exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "새 노트 작성" }).click();
+  await page.getByPlaceholder("새 페이지").fill("버려질 초안");
+  // 다시 새 노트 → 초안이 있으므로 확인 다이얼로그
+  await page.getByRole("button", { name: "새 노트 작성" }).click();
+  await expect(page.getByText("작성 중인 초안이 있어요")).toBeVisible();
+  await page.getByRole("button", { name: "새로 시작" }).click();
+  await expect(page.getByPlaceholder("새 페이지")).toHaveValue("");
+});
+
+// 위키 패널을 열어도 아무 위키가 자동 선택되지 않는다 — 고르기 전엔 빈 상태.
+test("Inbox 위키 패널 — 자동 선택 없음, 고른 뒤에만 본문 표시", async ({ page }) => {
+  await page.getByRole("button", { name: "Inbox" }).click();
+  await page.getByRole("button", { name: "위키 패널" }).click();
+  await expect(page.getByText(/이 노트의 위키가 여기 나타나요/)).toBeVisible();
+  await expect(page.getByText(/선점형/)).not.toBeVisible();
+  // 셀렉트로 고르면 그제서야 본문이 뜬다
+  await page.getByRole("combobox").last().selectOption({ label: "CPU 스케줄링" });
+  await expect(page.getByText(/선점형/)).toBeVisible();
 });
 
 test("사이드바 리사이즈 — 핸들 드래그로 폭 변경", async ({ page }) => {
