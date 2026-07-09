@@ -210,7 +210,18 @@ export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, t
   const elements = useMemo<ElementDefinition[]>(() => {
     const nodes = data.nodes.filter((n) => !subjectFilter?.length || n.subjectIds.some((s) => subjectFilter.includes(s)));
     const nodeIds = new Set(nodes.map((n) => n.id));
+
+    // 사용자가 "아직 모르겠어요" 로 표시한 개념 (review_needed self-loop).
+    // 엣지로 그리면 노드 위 작은 고리가 되어 읽히지 않는다 → 노드 테두리로 표현하고 엣지는 감춘다.
+    // 채움(선택/중심)·크기(우선도)와 직교하는 채널이라 서로 덮어쓰지 않는다.
+    const reviewed = new Set(
+      data.relations
+        .filter((r) => r.relationType === "review_needed" && r.sourceNodeId === r.targetNodeId)
+        .map((r) => r.sourceNodeId),
+    );
+
     const rels = data.relations
+      .filter((r) => r.sourceNodeId !== r.targetNodeId) // self-loop 는 테두리로 표현
       .filter((r) => nodeIds.has(r.sourceNodeId) && nodeIds.has(r.targetNodeId))
       .filter((r) => !typeFilter?.length || typeFilter.includes(r.relationType));
 
@@ -222,6 +233,8 @@ export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, t
         kind: n.kind,
         size: 6 + (n.priority ?? 0) * 30,
         space: n.space, // 병합 뷰 space별 군집(buildSim)용
+        // 크고 빨간 테두리 = 중요한데 아직 설명 못 하는 개념 → 지금 먼저 공부할 것.
+        ...(reviewed.has(n.id) ? { review: 1 } : {}),
         // sbg 있으면 스타일이 space 색으로 덮어씀(전체 뷰). 없으면 kind 색 유지.
         ...(spaceColors && n.space ? { sbg: spaceColors[n.space] ?? "#a39e98" } : {}),
       },
@@ -338,6 +351,12 @@ export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, t
       { selector: 'node[kind = "core"]', style: { "background-color": t.core } },
       // 전체 과목 뷰: sbg(space 색)가 있으면 kind 색을 덮어쓴다.
       { selector: "node[sbg]", style: { "background-color": "data(sbg)" } },
+      // 사용자가 "아직 모르겠어요" 로 표시한 개념 — 모노크롬의 유일한 예외(relationMeta.ts REVIEW_COLOR).
+      // 채움(선택/중심)이 아니라 테두리를 쓴다. :selected 는 아래에서 색·굵기만 덮으므로 dashed 는 남는다.
+      {
+        selector: "node[review]",
+        style: { "border-width": 2.5, "border-color": REVIEW_COLOR, "border-style": "dashed", "border-opacity": 0.95 },
+      },
       // 배경 잡고 팬할 때 뜨는 회색 원(core active-bg) 제거.
       { selector: "core", style: { "active-bg-opacity": 0 } },
       {

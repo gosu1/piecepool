@@ -15,7 +15,7 @@ import { chunkOpts, getLinerKey } from "../lib/settings";
 import { aggregateProvenance, tierFromSourceType, type SourceMeta } from "../llm/provenance";
 import { docKey } from "./types";
 import type { SearchItem } from "./types";
-import { DocView, AiBar, GapPanel, ConvertPanel } from "./panes/DocView";
+import { DocView, AiBar, GapPanel, ConvertPanel, ReviewBar } from "./panes/DocView";
 import { PageHeader } from "./panes/PageHeader";
 import type { LinkedItem } from "./panes/PageHeader";
 import { RelationQuality } from "./panes/RelationQuality";
@@ -682,6 +682,16 @@ export default function PiecePoolApp() {
       setNotice(`연결 실패: ${String(e)}`);
     }
   };
+  // 복습 표시 해제 — 붙일 때와 마찬가지로 사용자만 거둔다(relation-types.md §review_needed).
+  const unmarkReview = async (space: string, conceptId: string, title: string) => {
+    try {
+      await ipc.unmarkReviewNeeded(space, conceptId);
+      await refreshSpace(space);
+      setNotice(`"${title}" 복습 표시를 해제했어요`);
+    } catch (e) {
+      setNotice(`해제 실패: ${String(e)}`);
+    }
+  };
   const userRelation = (space: string, part: Pick<Relation, "sourceNodeId" | "targetNodeId" | "relationType" | "evidence">): Relation => {
     const now = new Date().toISOString();
     return {
@@ -1000,6 +1010,23 @@ export default function PiecePoolApp() {
     const candidates = (wikiBySlug[space] ?? [])
       .filter((w) => !isSynthesisPage(w) && !linkedIds.has(w.conceptId))
       .map((w) => ({ key: w.path, label: w.title }));
+
+    // 이 노트에서 나온 개념 중 사용자가 "아직 모르겠어요" 로 표시한 것.
+    // 노트↔개념 경로는 둘이다: LLM 생성(WikiPage.sourceIds) + 사용자 수동 연결(extracted_from).
+    // 둘을 합쳐야 빠짐이 없다. (relations 에 extracted_from 은 사용자가 만들 때만 생긴다)
+    const reviewedIds = new Set(
+      (g?.relations ?? [])
+        .filter((r) => r.relationType === "review_needed" && r.sourceNodeId === r.targetNodeId)
+        .map((r) => r.sourceNodeId),
+    );
+    const fromThisNote = new Set(
+      (wikiBySlug[space] ?? []).filter((w) => w.sourceIds.includes(note.sourceId)).map((w) => w.conceptId),
+    );
+    for (const id of linkedIds) fromThisNote.add(id);
+    const reviewedHere = (wikiBySlug[space] ?? [])
+      .filter((w) => fromThisNote.has(w.conceptId) && reviewedIds.has(w.conceptId))
+      .map((w) => ({ conceptId: w.conceptId, title: w.title, path: w.path }));
+
     return (
       <DocView
         docType="archive"
@@ -1078,16 +1105,25 @@ export default function PiecePoolApp() {
           ) : undefined
         }
         bottomSlot={
-          gaps[key] ? (
-            <GapPanel
-              // 재점검마다 리마운트(v 논스) — 이전 선택이 새 질문/선택지에 매핑되는 것 방지
-              key={gaps[key].v}
-              questions={gaps[key].questions}
-              engine={gaps[key].engine}
-              onClose={() => clearGaps(key)}
-              onSubmit={(answers) => appendGapAnswers(space, note, answers)}
+          <>
+            {gaps[key] && (
+              <GapPanel
+                // 재점검마다 리마운트(v 논스) — 이전 선택이 새 질문/선택지에 매핑되는 것 방지
+                key={gaps[key].v}
+                questions={gaps[key].questions}
+                engine={gaps[key].engine}
+                onClose={() => clearGaps(key)}
+                onSubmit={(answers) => appendGapAnswers(space, note, answers)}
+              />
+            )}
+            <ReviewBar
+              concepts={reviewedHere}
+              onOpen={(id) => {
+                const w = reviewedHere.find((c) => c.conceptId === id);
+                if (w) openWiki(space, w.path);
+              }}
             />
-          ) : undefined
+          </>
         }
       />
     );
@@ -1141,6 +1177,7 @@ export default function PiecePoolApp() {
             spaceName={spName}
             onOpenWiki={openWiki}
             onOpenArchive={openArchive}
+            onUnmarkReview={unmarkReview}
           />
         );
       case "inbox": {

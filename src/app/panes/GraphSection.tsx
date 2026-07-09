@@ -33,6 +33,7 @@ export function GraphSection({
   spaceName,
   onOpenWiki,
   onOpenArchive,
+  onUnmarkReview,
 }: {
   spaces: KnowledgeSpace[];
   graphBySlug: Record<string, GraphData>;
@@ -41,6 +42,8 @@ export function GraphSection({
   spaceName: string;
   onOpenWiki: (space: string, file: string) => void;
   onOpenArchive: (space: string, file: string) => void;
+  /** 복습 표시 해제 — 붙일 때처럼 거둘 때도 사용자만 한다(relation-types.md §review_needed). */
+  onUnmarkReview: (space: string, conceptId: string, title: string) => Promise<void>;
 }) {
   const [scope, setScope] = useState<"space" | "all">("space");
   const [selNode, setSelNode] = useState<string | null>(null);
@@ -111,6 +114,13 @@ export function GraphSection({
   const node = graph?.nodes.find((n) => n.id === selNode) ?? null;
   const nodeSpace = node?.space ?? space; // 병합 뷰에서 노드가 어느 space 소속인지 → 올바른 파일 열기
   const page = node ? (wikiBySlug[nodeSpace] ?? []).find((w) => w.path === node.path) : undefined;
+  // "아직 모르겠어요" 로 표시된 개념 = review_needed self-loop. 노드 테두리와 같은 판정식.
+  const nodeReviewed =
+    !!node &&
+    !!graph?.relations.some(
+      (r) => r.relationType === "review_needed" && r.sourceNodeId === node.id && r.targetNodeId === node.id,
+    );
+  const [unmarking, setUnmarking] = useState(false);
   const edge = graph?.relations.find((r) => r.id === selEdge) ?? null;
   const edgeSpace = edge ? graph?.nodes.find((n) => n.id === edge.sourceNodeId)?.space ?? space : space;
   // 그룹 칩(존재 타입만) + 유효 필터 전개(칩 = 필터 + 범례 겸용 — 스와치가 곧 그래프 인코딩).
@@ -415,6 +425,30 @@ export function GraphSection({
                 열기
               </Button>
             </div>
+            {/* 붙일 때처럼 거둘 때도 사용자만 한다 — AI 는 이 표시를 못 만들고 못 지운다. */}
+            {nodeReviewed && (
+              <div className="mb-2 flex items-center gap-2 rounded-md border border-dashed px-2 py-1.5" style={{ borderColor: REVIEW_COLOR }}>
+                <p className="min-w-0 flex-1 text-[12px] leading-snug" style={{ color: REVIEW_COLOR }}>
+                  아직 모르겠다고 표시한 개념
+                </p>
+                <Button
+                  size="sm"
+                  variant="utility"
+                  className="shrink-0 whitespace-nowrap"
+                  disabled={unmarking}
+                  onClick={async () => {
+                    setUnmarking(true);
+                    try {
+                      await onUnmarkReview(nodeSpace, node.id, page.title);
+                    } finally {
+                      setUnmarking(false);
+                    }
+                  }}
+                >
+                  {unmarking ? "해제 중…" : "표시 해제"}
+                </Button>
+              </div>
+            )}
             <div className="min-h-0 flex-1 overflow-y-auto">
               <Markdown source={page.markdown} />
             </div>

@@ -41,7 +41,8 @@
     "promote": "tsx scripts/promote-preview.ts",
     "classify": "tsx scripts/classify-preview.ts",
     "provenance": "tsx scripts/provenance-preview.ts",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "eval:feynman": "tsx scripts/feynman-eval.ts"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",

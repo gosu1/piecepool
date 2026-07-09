@@ -340,8 +340,39 @@ export const mock = {
   saveSourceFile: (_space: string, name: string, _dataBase64: string) => delay(name),
   deleteSource: (_space: string, _file: string) => delay<void>(undefined),
   getGraph: (space: string) => delay(graphOf(space)),
+  // Rust graph.rs 와 같은 불변식을 브라우저에서도 지킨다 — mock 이 검증을 우회하면
+  // "LLM 은 review_needed 를 못 붙인다" 는 주장이 브라우저에서 거짓이 된다.
   appendRelations: (space: string, relations: Relation[]) => {
+    if (relations.some((r) => r.relationType === "review_needed"))
+      return Promise.reject(new Error("[relation_invalid] review_needed 는 사용자만 지정 가능(자동 부여 금지)"));
     RELATIONS[space] = [...(RELATIONS[space] ?? []), ...relations];
+    return delay(RELATIONS[space].length);
+  },
+  markReviewNeeded: (space: string, conceptId: string, sourceId: string, quotes: string[]) => {
+    if (!conceptId.startsWith("concept-"))
+      return Promise.reject(new Error(`[relation_invalid] review_needed 는 Concept 에만 붙는다: ${conceptId}`));
+    if (!sourceId.trim()) return Promise.reject(new Error("[relation_invalid] source_id 필수"));
+    const qs = quotes.map((q) => q.trim()).filter(Boolean);
+    if (!qs.length) return Promise.reject(new Error("[relation_invalid] 모든 관계는 evidence ≥ 1: 설명 시도가 곧 근거다"));
+
+    const rels = RELATIONS[space] ?? (RELATIONS[space] = []);
+    const already = rels.some((r) => r.relationType === "review_needed" && r.sourceNodeId === conceptId && r.targetNodeId === conceptId);
+    if (already) return delay(rels.length); // 멱등
+    const concept = conceptId.replace(/^concept-/, "");
+    const spaceId = SPACES.find((s) => s.slug === space)?.id ?? space;
+    rels.push({
+      ...rel(spaceId, concept, concept, "review_needed", 1.0),
+      confidence: 1.0,
+      explanation: "사용자가 아직 자기 말로 설명하지 못한다고 표시한 개념",
+      evidence: qs.map((q) => ({ sourceId, quote: q, reason: "파인만 되묻기에서 사용자가 '아직 모르겠어요' 선택" })),
+    } as Relation);
+    return delay(rels.length);
+  },
+  unmarkReviewNeeded: (space: string, conceptId: string) => {
+    const rels = RELATIONS[space] ?? [];
+    RELATIONS[space] = rels.filter(
+      (r) => !(r.relationType === "review_needed" && r.sourceNodeId === conceptId && r.targetNodeId === conceptId),
+    );
     return delay(RELATIONS[space].length);
   },
 };
