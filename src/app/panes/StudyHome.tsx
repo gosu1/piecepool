@@ -30,6 +30,7 @@ export function StudyHome({
   currentSpace,
   onOpenWiki,
   onNewNote,
+  onNewFolder,
   onOpenGraph,
   onSelectSpace,
 }: {
@@ -40,6 +41,8 @@ export function StudyHome({
   currentSpace: string;
   onOpenWiki: (space: string, file: string) => void;
   onNewNote: () => void;
+  // 폴더(지식 공간) 0개일 때 첫 행동 — 노트가 아니라 폴더부터 만들게 유도한다.
+  onNewFolder: () => void;
   onOpenGraph: (space: string) => void;
   onSelectSpace?: (slug: string) => void;
 }) {
@@ -78,10 +81,10 @@ export function StudyHome({
         <EmptyState
           icon={<Icons.SparkleIcon size={28} />}
           title="세컨드브레인을 시작해볼까요?"
-          description="강의 노트 · PDF · 필기를 올리면 AI가 개념 위키와 관계 그래프로 정리해줘요."
+          description="먼저 학습 공간(폴더)을 만들어요. 과목·주제별로 폴더를 만들면 노트 · PDF · 위키가 그 안에 정리돼요."
           action={
-            <Button variant="solid" onClick={onNewNote}>
-              새 노트
+            <Button variant="solid" onClick={onNewFolder}>
+              폴더 만들기
             </Button>
           }
         />
