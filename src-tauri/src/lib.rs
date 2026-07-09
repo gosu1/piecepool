@@ -31,9 +31,53 @@ mod tests {
             &storage::space_subdir("operating-systems", "wiki").join("process.md")
         ));
 
-        // 2) 공간 목록
+        // 2) 공간 목록 — 운영체제·AI 딥러닝 + 데모 3과목(통계학·경제학·생리학)
         let spaces = commands::workspace::list_spaces().expect("spaces");
-        assert_eq!(spaces.len(), 2);
+        assert_eq!(spaces.len(), 5);
+
+        // 2-1) 데모 공간은 과목 2개를 갖고, 그 둘을 잇는 크로스 과목 엣지가 실재한다.
+        //      (공간을 넘는 엣지는 계약상 불가 — 크로스 "과목"은 같은 relations.json 안에 산다)
+        for (slug, a, b) in [
+            (
+                "statistics",
+                "concept-regression-analysis",
+                "concept-linear-regression",
+            ),
+            ("economics", "concept-marginal-cost", "concept-derivative"),
+            (
+                "physiology",
+                "concept-diffusion",
+                "concept-concentration-gradient",
+            ),
+        ] {
+            let g = commands::graph::get_graph(slug.into()).expect("graph");
+            let subj: std::collections::HashSet<_> =
+                g.nodes.iter().flat_map(|n| n.subject_ids.clone()).collect();
+            assert_eq!(subj.len(), 2, "{slug}: 과목 2개");
+            assert!(
+                g.relations.iter().any(|r| {
+                    (r.source_node_id == a && r.target_node_id == b)
+                        || (r.source_node_id == b && r.target_node_id == a)
+                }),
+                "{slug}: 크로스 과목 엣지 없음"
+            );
+            // relation-types.md §related_to — 최후의 수단. 30% 초과 시 리뷰 대상.
+            let loose = g
+                .relations
+                .iter()
+                .filter(|r| r.relation_type == crate::models::RelationType::RelatedTo)
+                .count();
+            assert!(
+                loose * 10 <= g.relations.len() * 3,
+                "{slug}: related_to {loose}/{} — 30% 초과",
+                g.relations.len()
+            );
+            // 모든 엣지는 evidence ≥ 1 (graph.rs append_relations 와 같은 불변식)
+            assert!(
+                g.relations.iter().all(|r| !r.evidence.is_empty()),
+                "{slug}: evidence 누락"
+            );
+        }
 
         // 3) 위키 5개 (운영체제)
         let wikis = commands::wiki::list_wiki("operating-systems".into()).expect("wiki");
