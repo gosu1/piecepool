@@ -241,6 +241,24 @@ mod tests {
             assert!(commands::graph::unmark_review_needed(sp(), cid.into()).is_ok());
             assert_eq!(review_loops("operating-systems"), 0, "표시 해제됨");
             assert!(commands::graph::unmark_review_needed(sp(), cid.into()).is_ok());
+
+            // 해제 후 다시 표시할 수 있어야 한다 — 시연 촬영을 반복하려면 왕복이 성립해야 한다.
+            assert!(
+                commands::graph::mark_review_needed(sp(), cid.into(), src.clone(), q()).is_ok()
+            );
+            assert_eq!(review_loops("operating-systems"), 1, "재표시됨");
+            assert!(commands::graph::unmark_review_needed(sp(), cid.into()).is_ok());
+
+            // 해제는 무관한 관계를 건드리지 않는다 (블록 7 이 넣은 concept-a→concept-b PartOf 는 남아야 한다)
+            let rels = commands::graph::get_graph("operating-systems".to_string())
+                .unwrap()
+                .relations;
+            assert!(
+                rels.iter().any(|r| r.source_node_id == "concept-a"
+                    && r.target_node_id == "concept-b"
+                    && r.relation_type == RelationType::PartOf),
+                "unmark 이 무관한 관계를 지웠다"
+            );
             // (LLM 경로가 review_needed 를 거부하는지는 블록 7 에서 이미 검증한다)
         }
 

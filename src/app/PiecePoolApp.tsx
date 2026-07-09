@@ -682,6 +682,16 @@ export default function PiecePoolApp() {
       setNotice(`연결 실패: ${String(e)}`);
     }
   };
+  // 복습 표시 해제 — 붙일 때와 마찬가지로 사용자만 거둔다(relation-types.md §review_needed).
+  const unmarkReview = async (space: string, conceptId: string, title: string) => {
+    try {
+      await ipc.unmarkReviewNeeded(space, conceptId);
+      await refreshSpace(space);
+      setNotice(`"${title}" 복습 표시를 해제했어요`);
+    } catch (e) {
+      setNotice(`해제 실패: ${String(e)}`);
+    }
+  };
   const userRelation = (space: string, part: Pick<Relation, "sourceNodeId" | "targetNodeId" | "relationType" | "evidence">): Relation => {
     const now = new Date().toISOString();
     return {
@@ -1141,6 +1151,7 @@ export default function PiecePoolApp() {
             spaceName={spName}
             onOpenWiki={openWiki}
             onOpenArchive={openArchive}
+            onUnmarkReview={unmarkReview}
           />
         );
       case "inbox": {

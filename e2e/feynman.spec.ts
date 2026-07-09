@@ -139,6 +139,31 @@ test("2차 생성이 실패해도 1차 Gemini 결과를 휴리스틱으로 덮�
   await expect(page.getByRole("complementary").getByRole("button", { name: "세마포어" })).toBeVisible();
 });
 
+test("표시 → 해제 왕복 — 사용자가 붙이고 사용자가 거둔다", async ({ page }) => {
+  await openFeynman(page);
+  await page.getByLabel("개념 설명").fill("동시에 들어가면 안 되는 코드요");
+  await page.getByRole("button", { name: "설명 보내기" }).click();
+  await expect(page.getByText("왜 동시에 들어가면 안 되나요?")).toBeVisible();
+  await page.getByRole("button", { name: "아직 모르겠어요" }).click();
+  await expect(page.getByText(/복습 필요로 표시했어요/)).toBeVisible();
+
+  await page.getByRole("button", { name: "Graph" }).click();
+  await expect(page.getByRole("button", { name: "복습" })).toBeVisible();
+
+  // 노드는 Cytoscape 캔버스라 DOM 클릭이 안 된다 — "개념 찾기" 로 선택한다(pickMatch).
+  // 트리에도 "세마포어" 버튼이 있으므로 검색 드롭다운 안으로 범위를 좁힌다.
+  const search = page.getByPlaceholder("개념 찾기…");
+  await search.fill("세마포어");
+  await search.locator("xpath=following-sibling::div").getByRole("button", { name: "세마포어", exact: true }).click();
+  await expect(page.getByText("아직 모르겠다고 표시한 개념")).toBeVisible();
+
+  await page.getByRole("button", { name: "표시 해제" }).click();
+  await expect(page.getByText(/복습 표시를 해제했어요/)).toBeVisible({ timeout: 15000 });
+  // 관계가 사라졌으므로 복습 그룹 칩도 사라진다
+  await expect(page.getByRole("button", { name: "복습" })).toHaveCount(0);
+  await expect(page.getByText("아직 모르겠다고 표시한 개념")).toHaveCount(0);
+});
+
 test("[네, 이해했어요] → 표시하지 않는다 (판정은 사용자가 한다)", async ({ page }) => {
   await openFeynman(page);
   await page.getByLabel("개념 설명").fill("동시에 들어가면 안 되는 코드요");
