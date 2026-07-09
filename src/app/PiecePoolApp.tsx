@@ -11,7 +11,7 @@ import { buildGaps } from "../llm/gaps";
 import type { GapReport } from "../llm/gaps";
 import { maybeFactCheck } from "../lib/factCheck";
 import { detectSourceRefConflicts } from "../lib/sourceRefConflicts";
-import { chunkOpts, getLinerKey, getNewNoteVariant } from "../lib/settings";
+import { chunkOpts, getLinerKey } from "../lib/settings";
 import { aggregateProvenance, tierFromSourceType, type SourceMeta } from "../llm/provenance";
 import { docKey } from "./types";
 import type { SearchItem } from "./types";
@@ -36,10 +36,7 @@ import { useWorkspaceStore, SIDEBAR_DEFAULT } from "../store/workspaceStore";
 import type { TabKind } from "../store/workspaceStore";
 import { useConvertStore } from "../store/convertStore";
 
-const KIND_LABEL: Record<TabKind, string> = { wiki: "Wiki", archive: "Source", inbox: "Inbox", note: "새 노트", graph: "Graph", home: "Home", empty: "새 탭" };
-
-// 초안 탭 id — 파일이 아직 없으므로 파일명 대신 카운터로 구분한다(Date.now 는 렌더 순수성 밖).
-let draftSeq = 0;
+const KIND_LABEL: Record<TabKind, string> = { wiki: "Wiki", archive: "Source", inbox: "Inbox", graph: "Graph", home: "Home", empty: "새 탭" };
 
 // 트리 id 파서 — 파일명에 ":" 가 없다는 계약(kebab/slug)에 기대지 않고 앞 3개만 분해한다.
 function parseDocId(id: string): { kind: string; space: string; file: string } | null {
@@ -223,21 +220,14 @@ export default function PiecePoolApp() {
   const openGraph = (space: string) => openTab({ id: `graph:${space}`, kind: "graph", title: "Graph", space });
   const openHome = () => openTab({ id: "home", kind: "home", title: "Study Home" });
 
-  // ── "새 노트" — A/B 실험(설정 > 실험). 고른 뒤 진 쪽과 이 분기를 지운다 ──
-  // 공통: 파일은 저장할 때 생긴다(빈 파일 누적 방지). 달라지는 건 착지 화면뿐.
-  // A = 파일 없는 초안 탭. 빈 초안 탭이 이미 있으면 재사용해 ⌘N 연타로 빈 탭이 쌓이지 않게 한다.
-  // B = 공간 Inbox 를 재사용하되 초안 세대를 올려 remount → 초안·패널·선택이 전부 초기화된다.
+  // ── "새 노트" — 공간 Inbox 를 재사용하되 초안 세대를 올려 remount 한다 ──
+  // 파일은 저장할 때 생긴다(빈 파일 누적 방지). remount 로 초안·보조 패널·참조 선택이 전부 초기화되므로
+  // 앞 노트의 PDF·위키가 다음 노트로 따라오지 않는다.
   const [draftEpoch, setDraftEpoch] = useState<Record<string, number>>({});
   const bumpDraftEpoch = (space: string) => setDraftEpoch((m) => ({ ...m, [space]: (m[space] ?? 0) + 1 }));
 
   const openNewNote = (space: string) => {
     if (!space) return;
-    if (getNewNoteVariant() === "A") {
-      const reusable = openTabs.find((t) => t.kind === "note" && t.space === space && !t.dirty);
-      if (reusable) setActiveTab(reusable.id);
-      else openTab({ id: `note:${space}:${++draftSeq}`, kind: "note", title: "새 노트", space });
-      return;
-    }
     openInbox(space);
     // 작성 중 초안은 말없이 버리지 않는다 — 확인 후에만 초기화.
     if (openTabs.find((t) => t.id === `inbox:${space}`)?.dirty) setDialog({ kind: "discard-draft", space });
@@ -1153,15 +1143,12 @@ export default function PiecePoolApp() {
             onOpenArchive={openArchive}
           />
         );
-      case "inbox":
-      case "note": {
-        const isNote = activeTab.kind === "note";
+      case "inbox": {
         const tabId = activeTab.id;
         return (
           <InboxSection
-            // B안: 새 노트 = 같은 Inbox 탭의 다음 초안 세대 → key 가 바뀌며 remount(초안·패널·선택 초기화)
-            key={isNote ? tabId : `${tabId}:${draftEpoch[sp] ?? 0}`}
-            variant={isNote ? "note" : "inbox"}
+            // 새 노트 = 같은 Inbox 탭의 다음 초안 세대 → key 가 바뀌며 remount(초안·패널·선택 초기화)
+            key={`${tabId}:${draftEpoch[sp] ?? 0}`}
             onDirtyChange={(d) => setTabDirty(tabId, d)}
             space={sp}
             spaceId={spaces.find((s) => s.slug === sp)?.id ?? ""}
@@ -1180,8 +1167,8 @@ export default function PiecePoolApp() {
     }
   };
 
-  // Inbox/새 노트/Graph 는 분할 레이아웃이라 풀-블리드(스크롤은 각 패널이 소유)
-  const fullBleed = !!activeTab && (activeTab.kind === "inbox" || activeTab.kind === "note" || activeTab.kind === "graph");
+  // Inbox/Graph 는 분할 레이아웃이라 풀-블리드(스크롤은 각 패널이 소유)
+  const fullBleed = !!activeTab && (activeTab.kind === "inbox" || activeTab.kind === "graph");
 
   // 상태바 경로 라벨
   const pathLabel = !activeTab
@@ -1195,10 +1182,8 @@ export default function PiecePoolApp() {
           : activeTab.kind === "archive"
             ? `${activeTab.space} / archive / ${activeTab.file}`
             : activeTab.kind === "inbox"
-              ? "Inbox"
-              : activeTab.kind === "note"
-                ? `${activeTab.space ?? currentSpace} / 새 노트`
-                : `${activeTab.space ?? currentSpace} / ${activeTab.kind}`;
+              ? `${activeTab.space ?? currentSpace} / Inbox`
+              : `${activeTab.space ?? currentSpace} / ${activeTab.kind}`;
 
   // 페인 헤더 breadcrumb
   const crumbs = ["PiecePool"];
@@ -1207,9 +1192,9 @@ export default function PiecePoolApp() {
   } else if (activeTab?.kind === "empty") {
     crumbs.push("새 탭");
   } else if (activeTab) {
-    // Inbox 는 캡처존 — 특정 공간에 묶이지 않는다(저장 위치는 노트 헤더 드롭다운이 지정). 공간 크럼 생략.
-    // 새 노트는 반대로 어디에 저장될지가 핵심 정보 → 공간 크럼을 반드시 보여준다.
-    if ((spaceName || currentSpace) && activeTab.kind !== "inbox") crumbs.push(spaceName || currentSpace);
+    // Inbox 도 공간 크럼을 보여준다 — "새 노트"가 어디에 저장될지가 핵심 정보다.
+    // (기본 저장 위치 = 이 공간. 노트 헤더 드롭다운으로 다른 공간을 고를 수 있다.)
+    if (spaceName || currentSpace) crumbs.push(spaceName || currentSpace);
     crumbs.push(KIND_LABEL[activeTab.kind]);
     if (activeTab.kind === "wiki" || activeTab.kind === "archive") crumbs.push(activeTab.title);
   } else if (spaceName || currentSpace) {
@@ -1274,7 +1259,6 @@ export default function PiecePoolApp() {
           <Ribbon
             activeKind={activeTab?.kind}
             onHome={openHome}
-            onInbox={() => openInbox(currentSpace)}
             onGraph={() => openGraph(currentSpace)}
             onSettings={openSettings}
           />

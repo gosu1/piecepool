@@ -8,16 +8,7 @@ import {
   setLinerKey,
   getFactCheck,
   setFactCheck,
-  getNewNoteVariant,
-  setNewNoteVariant,
-  type NewNoteVariant,
 } from "../../lib/settings";
-
-// 새 노트 흐름 A/B — 사용자가 눈으로 비교해 고르면 진 쪽과 이 섹션을 제거한다.
-const NEW_NOTE_OPTIONS: { value: NewNoteVariant; label: string; hint: string }[] = [
-  { value: "A", label: "A — 빈 노트", hint: "단일 컬럼. PDF 올리면 좌패널, AI 정리하면 우패널이 등장. Inbox 는 별도 작업대." },
-  { value: "B", label: "B — Inbox 3분할", hint: "지금 화면 유지. 새 노트를 누를 때마다 초안·패널·선택을 초기화." },
-];
 
 // ══ 설정 모달 (§I) ══
 export function SettingsModal({ onClose, workspacePath }: { onClose: () => void; workspacePath?: string }) {
@@ -30,11 +21,6 @@ export function SettingsModal({ onClose, workspacePath }: { onClose: () => void;
   const [liner, setLiner] = useState(getLinerKey());
   const [linerSaved, setLinerSaved] = useState(false);
   const [factOn, setFactOn] = useState(getFactCheck());
-  const [newNote, setNewNote] = useState<NewNoteVariant>(getNewNoteVariant());
-  const pickNewNote = (v: NewNoteVariant) => {
-    setNewNoteVariant(v);
-    setNewNote(v);
-  };
   const saveLiner = () => {
     setLinerKey(liner);
     setLinerSaved(true);
@@ -71,10 +57,7 @@ export function SettingsModal({ onClose, workspacePath }: { onClose: () => void;
 
   return (
     <div className="fixed inset-0 z-40 flex items-start justify-center bg-black/30 pt-[12vh]" onClick={onClose}>
-      <div
-        className="max-h-[76vh] w-full max-w-lg overflow-y-auto rounded-xl border border-hairline bg-surface p-5 shadow-elevated"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="w-full max-w-lg rounded-xl border border-hairline bg-surface p-5 shadow-elevated" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-[18px] font-bold text-ink">설정</h2>
           <button type="button" onClick={onClose} className="text-[16px] text-ink-faint hover:text-ink">
@@ -152,27 +135,6 @@ export function SettingsModal({ onClose, workspacePath }: { onClose: () => void;
                 />
               </div>
             )}
-          </div>
-          <div className="space-y-2 rounded-md border border-primary/40 p-3">
-            <div>
-              <span className="text-[14px] text-ink-2">실험 — 새 노트 흐름</span>
-              <p className="text-[12px] text-ink-muted">“새 노트”(⌘N)를 눌렀을 때 어디로 갈지. 다음 클릭부터 바로 적용됩니다.</p>
-            </div>
-            {NEW_NOTE_OPTIONS.map((o) => (
-              <button
-                key={o.value}
-                type="button"
-                aria-pressed={newNote === o.value}
-                onClick={() => pickNewNote(o.value)}
-                className={cn(
-                  "w-full rounded-md border p-2.5 text-left transition-colors",
-                  newNote === o.value ? "border-primary bg-primary/[0.06]" : "border-hairline hover:bg-surface-soft",
-                )}
-              >
-                <span className={cn("text-[13px] font-semibold", newNote === o.value ? "text-primary" : "text-ink")}>{o.label}</span>
-                <p className="mt-0.5 text-[12px] text-ink-muted">{o.hint}</p>
-              </button>
-            ))}
           </div>
           <div className="flex items-center justify-between rounded-md border border-hairline p-3">
             <span className="text-[14px] text-ink-2">테마</span>

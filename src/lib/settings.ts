@@ -64,21 +64,6 @@ export function setFactCheck(v: boolean): void {
 // 남의 공간 파일·위키가 딸려 열렸다.)
 export type InboxPanelKey = "pdf" | "wiki";
 
-// ── 새 노트 흐름 A/B (실험) ──
-// A = 빈 노트 전용 탭(보조 패널 없음, Inbox 는 별도 작업대)
-// B = 지금의 Inbox 3분할을 재사용하되 새 노트마다 초안·패널을 초기화
-// 사용자가 눈으로 비교해 하나를 고르면 진 쪽과 이 토글을 제거한다.
-const NEW_NOTE_VARIANT_KEY = "pp-newnote-variant";
-export type NewNoteVariant = "A" | "B";
-
-export function getNewNoteVariant(): NewNoteVariant {
-  return ls()?.getItem(NEW_NOTE_VARIANT_KEY) === "B" ? "B" : "A";
-}
-
-export function setNewNoteVariant(v: NewNoteVariant): void {
-  ls()?.setItem(NEW_NOTE_VARIANT_KEY, v);
-}
-
 // ── Inbox 패널 폭 (드래그 리사이즈, % 단위) ──
 // pdf = 좌측(PDF), wiki = 우측(위키). 가운데 노트가 나머지를 채운다.
 export type InboxPaneKey = "pdf" | "wiki";
