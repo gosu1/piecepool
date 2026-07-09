@@ -1095,6 +1095,7 @@ export default function PiecePoolApp() {
           currentSpace={currentSpace}
           onOpenWiki={openWiki}
           onNewNote={() => openInbox(currentSpace)}
+          onNewFolder={() => setDialog({ kind: "new-space" })}
           onOpenGraph={openGraph}
           onSelectSpace={selectSpace}
         />
