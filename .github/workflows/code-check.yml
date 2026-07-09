@@ -26,6 +26,11 @@ jobs:
         run: |
           npm run gen:types
           git diff --exit-code src/lib/generated
+      # e2e 는 blocking — 여기가 continue-on-error 였다면 셀렉터가 썩어도 아무도 모른다.
+      - name: e2e (playwright)
+        run: |
+          npx playwright install chromium
+          npm run e2e
 
   rust:
     # Tauri(wry/webkit) 의존으로 macOS 유지 — bare ubuntu 금지
