@@ -1100,7 +1100,9 @@ export default function PiecePoolApp() {
         />
       );
     }
-    const sp = activeTab.space ?? currentSpace;
+    // ?? 가 아니라 || — 빈 문자열("") space 도 유효 공간(currentSpace)으로 폴백해야 한다.
+    // (Inbox 탭이 space:"" 로 열리면 saveSourceFile("") 가 "unknown space:" 로 실패)
+    const sp = activeTab.space || currentSpace;
     const spName = spaces.find((s) => s.slug === sp)?.name ?? "";
     switch (activeTab.kind) {
       case "wiki": {
