@@ -49,6 +49,16 @@ const SPACES: KnowledgeSpace[] = [
   { id: "space-physio", name: "생리학", slug: "physiology", rootPath: "", createdAt: NOW, updatedAt: NOW },
 ];
 
+// 공간별 원본 노트 — Rust seed/data.rs 의 with_source 와 같은 매핑.
+// 위키가 출처를 가져야 "관련 소스"·노트 하단 복습 바·그래프 표시(mark_review_needed)가 동작한다.
+const SPACE_SOURCE: Record<string, string> = {
+  "space-os": "source-os-overview",
+  "space-ai": "source-transformer",
+  "space-stats": "source-stats-lecture",
+  "space-econ": "source-econ-lecture",
+  "space-physio": "source-physio-endocrine",
+};
+
 // subjectId 를 주면 그대로, 없으면 space 로 추론(기존 os/ai 호출부 하위호환).
 // 한 공간 안의 서로 다른 과목을 잇는 "크로스 과목" 엣지를 표현하려면 위키마다 과목이 달라야 한다.
 function wiki(space: string, concept: string, title: string, body: string, subjectId?: string): WikiPage {
@@ -59,7 +69,7 @@ function wiki(space: string, concept: string, title: string, body: string, subje
     title,
     path: `${concept}.md`,
     subjectIds: [subjectId ?? (space === "space-os" ? "subject-os" : "subject-ai")],
-    sourceIds: [],
+    sourceIds: SPACE_SOURCE[space] ? [SPACE_SOURCE[space]] : [],
     sourceRefs: [],
     markdown: body,
     createdAt: NOW,

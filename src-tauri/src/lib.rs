@@ -83,6 +83,15 @@ mod tests {
         let wikis = commands::wiki::list_wiki("operating-systems".into()).expect("wiki");
         assert_eq!(wikis.len(), 5);
         assert!(wikis.iter().any(|w| w.title == "프로세스"));
+        // 모든 시드 위키는 출처(원본 노트)를 갖는다 — "모든 개념은 출처를 갖는다"(vision §6).
+        // 없으면 위키의 "관련 소스"가 비고, 노트 하단 복습 바가 안 뜨고,
+        // mark_review_needed 가 source_id 를 못 채워 그래프에서 표시를 못 붙인다.
+        assert!(
+            wikis
+                .iter()
+                .all(|w| w.source_ids == vec!["source-os-overview".to_string()]),
+            "시드 위키에 source_ids 누락"
+        );
 
         // 4) 그래프: 노드 5, 교착상태는 result
         let g = commands::graph::get_graph("operating-systems".into()).expect("graph");

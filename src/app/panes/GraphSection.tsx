@@ -14,6 +14,7 @@ import {
   type RelationGroupId,
 } from "../../lib/relationMeta";
 import { Markdown } from "../../lib/markdown";
+import { PromptDialog } from "../shell/Dialogs";
 import { RelationQualityMeter } from "./RelationQuality";
 
 // 전체 과목 뷰 space별 구분 색 (8색 순환)
@@ -34,6 +35,7 @@ export function GraphSection({
   onOpenWiki,
   onOpenArchive,
   onUnmarkReview,
+  onMarkReview,
 }: {
   spaces: KnowledgeSpace[];
   graphBySlug: Record<string, GraphData>;
@@ -44,6 +46,8 @@ export function GraphSection({
   onOpenArchive: (space: string, file: string) => void;
   /** 복습 표시 해제 — 붙일 때처럼 거둘 때도 사용자만 한다(relation-types.md §review_needed). */
   onUnmarkReview: (space: string, conceptId: string, title: string) => Promise<void>;
+  /** 복습 표시 — reason 이 곧 evidence 다(evidence ≥ 1). AI 는 이 표시를 못 만든다. */
+  onMarkReview: (space: string, conceptId: string, title: string, sourceId: string, reason: string) => Promise<void>;
 }) {
   const [scope, setScope] = useState<"space" | "all">("space");
   const [selNode, setSelNode] = useState<string | null>(null);
@@ -121,6 +125,10 @@ export function GraphSection({
       (r) => r.relationType === "review_needed" && r.sourceNodeId === node.id && r.targetNodeId === node.id,
     );
   const [unmarking, setUnmarking] = useState(false);
+  const [markOpen, setMarkOpen] = useState(false);
+  // 표시하려면 evidence 의 출처가 필요하다(graph.rs: source_id 필수).
+  // 출처 없는 위키는 표시할 수 없다 — 없는 걸 있는 척하지 않고 버튼을 잠근다.
+  const nodeSourceId = page?.sourceIds?.[0] ?? "";
   const edge = graph?.relations.find((r) => r.id === selEdge) ?? null;
   const edgeSpace = edge ? graph?.nodes.find((n) => n.id === edge.sourceNodeId)?.space ?? space : space;
   // 그룹 칩(존재 타입만) + 유효 필터 전개(칩 = 필터 + 범례 겸용 — 스와치가 곧 그래프 인코딩).
@@ -425,8 +433,8 @@ export function GraphSection({
                 열기
               </Button>
             </div>
-            {/* 붙일 때처럼 거둘 때도 사용자만 한다 — AI 는 이 표시를 못 만들고 못 지운다. */}
-            {nodeReviewed && (
+            {/* 붙이는 것도 거두는 것도 사용자다 — AI 는 이 표시를 못 만들고 못 지운다. */}
+            {nodeReviewed ? (
               <div className="mb-2 flex items-center gap-2 rounded-md border border-dashed px-2 py-1.5" style={{ borderColor: REVIEW_COLOR }}>
                 <p className="min-w-0 flex-1 text-[12px] leading-snug" style={{ color: REVIEW_COLOR }}>
                   아직 모르겠다고 표시한 개념
@@ -448,6 +456,32 @@ export function GraphSection({
                   {unmarking ? "해제 중…" : "표시 해제"}
                 </Button>
               </div>
+            ) : (
+              <div className="mb-2 flex justify-end">
+                <Button
+                  size="sm"
+                  variant="utility"
+                  className="whitespace-nowrap"
+                  disabled={!nodeSourceId}
+                  title={nodeSourceId ? undefined : "출처가 없는 개념은 표시할 수 없어요"}
+                  onClick={() => setMarkOpen(true)}
+                >
+                  아직 모르겠다고 표시
+                </Button>
+              </div>
+            )}
+            {markOpen && node && page && (
+              // 이유가 곧 evidence 다 — 사용자의 말이 근거로 남는다(graph.rs: evidence ≥ 1).
+              <PromptDialog
+                title={`"${page.title}" — 무엇이 아직 막히나요?`}
+                placeholder="예: 왜 그렇게 되는지 설명을 못 하겠어요"
+                submitLabel="표시"
+                onCancel={() => setMarkOpen(false)}
+                onSubmit={async (reason) => {
+                  setMarkOpen(false);
+                  await onMarkReview(nodeSpace, node.id, page.title, nodeSourceId, reason);
+                }}
+              />
             )}
             <div className="min-h-0 flex-1 overflow-y-auto">
               <Markdown source={page.markdown} />

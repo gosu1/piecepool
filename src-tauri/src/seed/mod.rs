@@ -101,6 +101,19 @@ fn rel(
     }
 }
 
+/// seed 위키에 출처(원본 노트)를 매단다.
+///
+/// 없으면 (1) 위키 화면의 "관련 소스"가 비고 (2) 노트 하단 복습 바가 뜨지 않고
+/// (3) 그래프에서 개념을 "아직 모르겠다"고 표시할 수 없다 —
+/// mark_review_needed 가 evidence 의 source_id 를 요구하기 때문이다(graph.rs).
+/// "모든 개념은 출처를 갖는다"(vision §6)를 시드 데이터도 지켜야 한다.
+fn with_source(mut wikis: Vec<(String, WikiPage)>, source_id: &str) -> Vec<(String, WikiPage)> {
+    for (_, w) in &mut wikis {
+        w.source_ids = vec![source_id.into()];
+    }
+    wikis
+}
+
 /// seed 관계에 원본 노트 근거(evidence) 를 채운다 — 모든 엣지는 evidence ≥ 1.
 fn with_evidence(mut rels: Vec<Relation>, source_id: &str, archive_file: &str) -> Vec<Relation> {
     for r in &mut rels {
