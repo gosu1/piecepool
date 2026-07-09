@@ -55,6 +55,28 @@ test("Import 머신 — 새 노트 저장 후 완료 파이프라인", async ({ 
   await expect(page.getByText("완료", { exact: false }).first()).toBeVisible();
 });
 
+// 라이브 프리뷰 — 타이핑과 동시에 "#" 수에 따라 글자 크기가 커진다(기본 highlightStyle 은 굵기만 준다).
+test("에디터 라이브 프리뷰 — 헤딩이 타이핑 즉시 커진다", async ({ page }) => {
+  await page.getByRole("button", { name: "새 노트 작성" }).click();
+  await page.locator(".cm-content").click();
+  await page.keyboard.type("# 제목1\n## 제목2\n### 제목3\n본문");
+
+  // CM6 는 highlightStyle 클래스명을 자동 생성하므로(ͼ…) 텍스트로 찾아 실제 계산값을 잰다.
+  const sizeOf = (txt: string) =>
+    page.locator(".cm-content").evaluate((root, t) => {
+      const el = [...root.querySelectorAll("span")].find((s) => s.textContent?.includes(t));
+      return el ? parseFloat(getComputedStyle(el).fontSize) : 0;
+    }, txt);
+  const h1 = await sizeOf("제목1");
+  const h2 = await sizeOf("제목2");
+  const h3 = await sizeOf("제목3");
+  const base = await page.locator(".cm-content").evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+
+  expect(h1).toBeGreaterThan(h2);
+  expect(h2).toBeGreaterThan(h3);
+  expect(h3).toBeGreaterThan(base);
+});
+
 // 회귀 방지: 빈 새 노트에 이 공간의 아무 위키(제목 정렬 1등)·아무 원본이 딸려 열리던 버그.
 test("새 노트 — 보조 패널 닫힌 빈 화면으로 시작", async ({ page }) => {
   await page.getByRole("button", { name: "새 노트 작성" }).click();

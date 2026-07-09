@@ -3,6 +3,8 @@ import CodeMirror from "@uiw/react-codemirror";
 import { markdown, insertNewlineContinueMarkup, deleteMarkupBackward } from "@codemirror/lang-markdown";
 import { EditorView, keymap, placeholder as cmPlaceholder } from "@codemirror/view";
 import { Prec } from "@codemirror/state";
+import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
+import { tags } from "@lezer/highlight";
 import { autocompletion, startCompletion, type Completion, type CompletionContext } from "@codemirror/autocomplete";
 import { cn } from "../ds";
 
@@ -28,6 +30,27 @@ const theme = EditorView.theme({
   ".cm-completionDetail": { flex: "0 0 auto", marginLeft: "auto", fontStyle: "normal", fontFamily: "var(--font-mono, ui-monospace, monospace)", fontSize: "10px", fontWeight: "500", letterSpacing: "0.04em", textTransform: "uppercase", whiteSpace: "nowrap", color: "var(--ds-ink-muted)", backgroundColor: "var(--ds-fill-subtle)", border: "1px solid var(--ds-hairline)", borderRadius: "4px", padding: "1px 5px", lineHeight: "1.5" },
   ".cm-tooltip-autocomplete::after": { content: '"↑↓ 이동 · esc 닫기"', display: "block", padding: "8px 16px", borderTop: "1px solid var(--ds-hairline)", fontFamily: "var(--font-sans)", fontSize: "11px", fontWeight: "450", letterSpacing: "0.01em", color: "var(--ds-ink-faint)" },
 });
+
+// ── 라이브 프리뷰 ──
+// CM6 기본 highlightStyle 은 heading 에 굵기만 준다(크기 없음) → "# 제목"을 쳐도 글자가 안 커진다.
+// 마크다운 태그별로 실제 타이포를 입혀 타이핑과 동시에 문서처럼 보이게 한다. 마크업 기호(#, -, >, **)는
+// 지우지 않고 흐리게만 둔다 — 원문이 곧 저장물(archive)이라 숨기면 무엇이 저장되는지 알 수 없다.
+const liveMarkdown = HighlightStyle.define([
+  { tag: tags.heading1, fontSize: "1.75em", fontWeight: "700", lineHeight: "1.35", color: "var(--ds-ink)" },
+  { tag: tags.heading2, fontSize: "1.4em", fontWeight: "700", lineHeight: "1.4", color: "var(--ds-ink)" },
+  { tag: tags.heading3, fontSize: "1.18em", fontWeight: "600", color: "var(--ds-ink)" },
+  { tag: [tags.heading4, tags.heading5, tags.heading6], fontWeight: "600", color: "var(--ds-ink)" },
+  { tag: tags.strong, fontWeight: "700", color: "var(--ds-ink)" },
+  { tag: tags.emphasis, fontStyle: "italic" },
+  { tag: tags.strikethrough, textDecoration: "line-through", color: "var(--ds-ink-muted)" },
+  { tag: tags.quote, color: "var(--ds-ink-muted)", fontStyle: "italic" },
+  { tag: tags.link, color: "var(--ds-primary)" },
+  { tag: tags.url, color: "var(--ds-ink-muted)" },
+  { tag: tags.monospace, fontFamily: "var(--font-mono, ui-monospace, monospace)", fontSize: "0.92em", color: "var(--ds-ink)" },
+  { tag: tags.contentSeparator, color: "var(--ds-ink-faint)" },
+  // #, -, >, **, ``` 같은 마크업 기호 — 크기는 주변 헤딩을 따라가고 색만 흐리다.
+  { tag: tags.processingInstruction, color: "var(--ds-ink-faint)", fontWeight: "400" },
+]);
 
 // 배경·패딩은 프레임 유무에 따라 분리 — frameless 는 패널에 그대로 녹아드는 Notion 본문(투명·수평 패딩 0).
 const boxedFrame = EditorView.theme({
@@ -86,7 +109,8 @@ function slashSource(context: CompletionContext) {
 }
 
 // 안정 참조(렌더마다 새 객체면 @uiw 가 에디터 재구성 → 팝업 닫힘).
-const BASIC_SETUP = { lineNumbers: false, foldGutter: false, highlightActiveLine: false, autocompletion: false } as const;
+// syntaxHighlighting:false — @uiw 기본 defaultHighlightStyle 을 끄고 liveMarkdown 만 쓴다(둘 다 켜면 클래스가 겹친다).
+const BASIC_SETUP = { lineNumbers: false, foldGutter: false, highlightActiveLine: false, autocompletion: false, syntaxHighlighting: false } as const;
 
 // "/" 는 word 문자가 아니라 activateOnTyping 으로 자동 안 열림 → 삽입을 감지해 명시적으로 연다.
 const slashTrigger = EditorView.updateListener.of((u) => {
@@ -125,6 +149,7 @@ export function SlashBlockEditor({
   const extensions = useMemo(
     () => [
       markdown(),
+      syntaxHighlighting(liveMarkdown),
       EditorView.lineWrapping,
       theme,
       frameless ? framelessFrame : boxedFrame,
