@@ -47,8 +47,8 @@ pub struct GraphNode {
     pub title: String,
     pub kind: String, // "core" | "result"
     pub subject_ids: Vec<String>,
-    pub path: String,     // wiki 파일명 (node 클릭 → 문서 열기)
-    pub priority: f32,    // 파생 우선도 0~1 (prioritization.md §5). entities 아님 → 계약 변경 아님.
+    pub path: String,  // wiki 파일명 (node 클릭 → 문서 열기)
+    pub priority: f32, // 파생 우선도 0~1 (prioritization.md §5). entities 아님 → 계약 변경 아님.
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -202,4 +202,93 @@ pub fn append_relations(space: String, relations: Vec<Relation>) -> Result<usize
     let path = storage::space_subdir(&space, "relations").join("relations.json");
     storage::write_json(&path, &existing).map_err(|e| e.to_string())?;
     Ok(existing.len())
+}
+
+fn write_relations(space: &str, rels: &[Relation]) -> Result<usize, String> {
+    let path = storage::space_subdir(space, "relations").join("relations.json");
+    storage::write_json(&path, &rels.to_vec()).map_err(|e| e.to_string())?;
+    Ok(rels.len())
+}
+
+fn is_review_self_loop(r: &Relation, concept_id: &str) -> bool {
+    r.relation_type == RelationType::ReviewNeeded
+        && r.source_node_id == concept_id
+        && r.target_node_id == concept_id
+}
+
+/// 사용자가 "아직 모르겠어요" 를 선언했을 때 review_needed self-loop 를 기록한다.
+///
+/// [`append_relations`] 의 **거울상**이다. 저쪽은 review_needed 만 거부하고,
+/// 이쪽은 review_needed 만 허용한다. 두 커맨드가 나뉘어 있다는 사실 자체가
+/// "LLM 은 못 붙이고 사용자만 붙인다"(relation-types.md §review_needed) 의 구조적 증명이다.
+///
+/// `quotes` = 사용자가 실제로 쓴 설명 시도. 그 자체가 "아직 못 한다" 의 근거다.
+#[tauri::command]
+pub fn mark_review_needed(
+    space: String,
+    concept_id: String,
+    source_id: String,
+    quotes: Vec<String>,
+) -> Result<usize, String> {
+    if node_kind(&concept_id) != NodeKind::Concept {
+        return Err(format!(
+            "[relation_invalid] review_needed 는 Concept 에만 붙는다: {concept_id}"
+        ));
+    }
+    if source_id.trim().is_empty() {
+        return Err("[relation_invalid] source_id 필수".into());
+    }
+    let quotes: Vec<String> = quotes
+        .into_iter()
+        .map(|q| q.trim().to_string())
+        .filter(|q| !q.is_empty())
+        .collect();
+    if quotes.is_empty() {
+        return Err("[relation_invalid] 모든 관계는 evidence ≥ 1: 설명 시도가 곧 근거다".into());
+    }
+
+    let mut existing = read_relations(&space)?;
+    if existing.iter().any(|r| is_review_self_loop(r, &concept_id)) {
+        return Ok(existing.len()); // 이미 표시됨 — 멱등
+    }
+
+    let now = storage::now_iso();
+    let space_id = space_by_slug(&space)?.id;
+    existing.push(Relation {
+        id: storage::gen_id("rel"),
+        space_id,
+        source_node_id: concept_id.clone(),
+        target_node_id: concept_id,
+        relation_type: RelationType::ReviewNeeded,
+        strength: 1.0,
+        confidence: 1.0,
+        explanation: "사용자가 아직 자기 말로 설명하지 못한다고 표시한 개념".into(),
+        evidence: quotes
+            .into_iter()
+            .map(|q| crate::models::Evidence {
+                source_id: source_id.clone(),
+                source_ref_id: None,
+                archive_path: None,
+                original_file_path: None,
+                page: None,
+                quote: Some(q),
+                location: None,
+                reason: "파인만 되묻기에서 사용자가 '아직 모르겠어요' 선택".into(),
+            })
+            .collect(),
+        created_at: now.clone(),
+        updated_at: now,
+    });
+    write_relations(&space, &existing)
+}
+
+/// 사용자가 복습 표시를 거둔다(= 이제 설명할 수 있다). 없으면 멱등하게 no-op.
+#[tauri::command]
+pub fn unmark_review_needed(space: String, concept_id: String) -> Result<usize, String> {
+    let existing = read_relations(&space)?;
+    let kept: Vec<Relation> = existing
+        .into_iter()
+        .filter(|r| !is_review_self_loop(r, &concept_id))
+        .collect();
+    write_relations(&space, &kept)
 }

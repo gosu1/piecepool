@@ -46,6 +46,11 @@ const real = {
   deleteSource: (space: string, file: string) => invoke<void>("delete_source", { space, file }),
   getGraph: (space: string) => invoke<GraphData>("get_graph", { space }),
   appendRelations: (space: string, relations: Relation[]) => invoke<number>("append_relations", { space, relations }),
+  // 사용자 전용 — review_needed self-loop. append_relations 는 이 타입을 거부한다(계약).
+  markReviewNeeded: (space: string, conceptId: string, sourceId: string, quotes: string[]) =>
+    invoke<number>("mark_review_needed", { space, conceptId, sourceId, quotes }),
+  unmarkReviewNeeded: (space: string, conceptId: string) =>
+    invoke<number>("unmark_review_needed", { space, conceptId }),
 };
 
 const api = inTauri ? real : mock;
@@ -77,3 +82,5 @@ export const saveSourceFile = api.saveSourceFile;
 export const deleteSource = api.deleteSource;
 export const getGraph = api.getGraph;
 export const appendRelations = api.appendRelations;
+export const markReviewNeeded = api.markReviewNeeded;
+export const unmarkReviewNeeded = api.unmarkReviewNeeded;

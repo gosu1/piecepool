@@ -180,6 +180,70 @@ mod tests {
             .is_err());
         }
 
+        // 7-1) mark_review_needed — append_relations 의 거울상.
+        //      계약(relation-types.md §review_needed): LLM 자동 부여 금지, 사용자만 지정.
+        {
+            use crate::models::RelationType;
+            let sp = || "operating-systems".to_string();
+            let cid = "concept-deadlock";
+            let src = "source-os-overview".to_string();
+            let q = || vec!["둘이 서로 기다리는 거...".to_string()];
+
+            let review_loops = |space: &str| -> usize {
+                commands::graph::get_graph(space.to_string())
+                    .unwrap()
+                    .relations
+                    .iter()
+                    .filter(|r| {
+                        r.relation_type == RelationType::ReviewNeeded
+                            && r.source_node_id == r.target_node_id
+                    })
+                    .count()
+            };
+
+            // 사용자 전용 통로로는 기록된다 (append_relations 가 거부하던 바로 그 타입)
+            assert!(
+                commands::graph::mark_review_needed(sp(), cid.into(), src.clone(), q()).is_ok()
+            );
+            assert_eq!(review_loops("operating-systems"), 1, "self-loop 1개 기록");
+
+            // 멱등 — 두 번 눌러도 중복 엣지가 생기지 않는다
+            assert!(
+                commands::graph::mark_review_needed(sp(), cid.into(), src.clone(), q()).is_ok()
+            );
+            assert_eq!(review_loops("operating-systems"), 1, "중복 기록 없음");
+
+            // evidence 없이는 거부 — 설명 시도가 곧 근거다
+            assert!(
+                commands::graph::mark_review_needed(sp(), cid.into(), src.clone(), vec![]).is_err()
+            );
+            assert!(commands::graph::mark_review_needed(
+                sp(),
+                cid.into(),
+                src.clone(),
+                vec!["   ".into()]
+            )
+            .is_err());
+
+            // source_id 없이는 거부
+            assert!(commands::graph::mark_review_needed(sp(), cid.into(), "".into(), q()).is_err());
+
+            // Concept 아닌 노드에는 못 붙인다
+            assert!(commands::graph::mark_review_needed(
+                sp(),
+                "wiki-deadlock".into(),
+                src.clone(),
+                q()
+            )
+            .is_err());
+
+            // 거두면 사라진다 (멱등)
+            assert!(commands::graph::unmark_review_needed(sp(), cid.into()).is_ok());
+            assert_eq!(review_loops("operating-systems"), 0, "표시 해제됨");
+            assert!(commands::graph::unmark_review_needed(sp(), cid.into()).is_ok());
+            // (LLM 경로가 review_needed 를 거부하는지는 블록 7 에서 이미 검증한다)
+        }
+
         // 8) PDF 추출: 비-PDF 파일 → pdf_extract 오류, 원본은 보존
         {
             let src_dir = storage::space_subdir("operating-systems", "sources/original-files");
@@ -639,6 +703,8 @@ pub fn run() {
             commands::wiki::rename_wiki,
             commands::graph::get_graph,
             commands::graph::append_relations,
+            commands::graph::mark_review_needed,
+            commands::graph::unmark_review_needed,
         ])
         .run(tauri::generate_context!())
         .expect("error while building tauri application");
