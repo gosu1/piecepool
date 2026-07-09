@@ -59,17 +59,10 @@ export function setFactCheck(v: boolean): void {
 
 // ── Inbox 보조 패널 열림 상태 ──
 // 노트 에디터는 항상 중심에 고정. 좌(PDF 자료)·우(위키 참조)만 여닫는다.
-// 기본 둘 다 닫힘 — PDF 업로드 시 PDF, AI 정리 완료 시 위키가 자동으로 열린다.
+// 열림 여부는 저장하지 않는다 — 노트마다 닫힌 채 시작하고, PDF 업로드 시 PDF,
+// AI 정리 완료 시 위키가 그 노트의 내용으로 열린다. (전역 저장 시 빈 새 노트에도
+// 남의 공간 파일·위키가 딸려 열렸다.)
 export type InboxPanelKey = "pdf" | "wiki";
-
-export function getInboxPanels(): Record<InboxPanelKey, boolean> {
-  const store = ls();
-  return { pdf: store?.getItem("inbox-panel-pdf") === "1", wiki: store?.getItem("inbox-panel-wiki") === "1" };
-}
-
-export function setInboxPanel(key: InboxPanelKey, open: boolean): void {
-  ls()?.setItem(`inbox-panel-${key}`, open ? "1" : "0");
-}
 
 // ── Inbox 패널 폭 (드래그 리사이즈, % 단위) ──
 // pdf = 좌측(PDF), wiki = 우측(위키). 가운데 노트가 나머지를 채운다.

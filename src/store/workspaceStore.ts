@@ -120,8 +120,13 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           };
         }),
 
+      // 값이 그대로면 새 배열을 만들지 않는다 — 매 렌더 호출하는 구독자가 리렌더 루프를 돌지 않게.
       setTabDirty: (id, dirty) =>
-        set((s) => ({ openTabs: s.openTabs.map((t) => (t.id === id ? { ...t, dirty } : t)) })),
+        set((s) =>
+          s.openTabs.some((t) => t.id === id && !!t.dirty !== dirty)
+            ? { openTabs: s.openTabs.map((t) => (t.id === id ? { ...t, dirty } : t)) }
+            : s,
+        ),
 
       renameTab: (id, title) =>
         set((s) => ({ openTabs: s.openTabs.map((t) => (t.id === id ? { ...t, title } : t)) })),

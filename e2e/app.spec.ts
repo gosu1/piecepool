@@ -45,7 +45,7 @@ test("위키링크 클릭 → 다른 위키로 이동", async ({ page }) => {
   await expect(page.getByText(/코드·데이터·힙을 공유/)).toBeVisible();
 });
 
-test("Import 머신 — Inbox 저장 후 완료 파이프라인", async ({ page }) => {
+test("Import 머신 — 새 노트 저장 후 완료 파이프라인", async ({ page }) => {
   await page.getByRole("button", { name: "새 노트 작성" }).click();
   await page.getByPlaceholder("새 페이지").fill("e2e 노트");
   await page.locator(".cm-content").click();
@@ -55,9 +55,57 @@ test("Import 머신 — Inbox 저장 후 완료 파이프라인", async ({ page 
   await expect(page.getByText("완료", { exact: false }).first()).toBeVisible();
 });
 
+// 라이브 프리뷰 — 타이핑과 동시에 "#" 수에 따라 글자 크기가 커진다(기본 highlightStyle 은 굵기만 준다).
+test("에디터 라이브 프리뷰 — 헤딩이 타이핑 즉시 커진다", async ({ page }) => {
+  await page.getByRole("button", { name: "새 노트 작성" }).click();
+  await page.locator(".cm-content").click();
+  await page.keyboard.type("# 제목1\n## 제목2\n### 제목3\n본문");
+
+  // CM6 는 highlightStyle 클래스명을 자동 생성하므로(ͼ…) 텍스트로 찾아 실제 계산값을 잰다.
+  const sizeOf = (txt: string) =>
+    page.locator(".cm-content").evaluate((root, t) => {
+      const el = [...root.querySelectorAll("span")].find((s) => s.textContent?.includes(t));
+      return el ? parseFloat(getComputedStyle(el).fontSize) : 0;
+    }, txt);
+  const h1 = await sizeOf("제목1");
+  const h2 = await sizeOf("제목2");
+  const h3 = await sizeOf("제목3");
+  const base = await page.locator(".cm-content").evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+
+  expect(h1).toBeGreaterThan(h2);
+  expect(h2).toBeGreaterThan(h3);
+  expect(h3).toBeGreaterThan(base);
+});
+
+// Obsidian 라이브 프리뷰 — 커서가 떠난 줄의 "#" 는 화면에서 사라지고, 돌아가면 다시 보인다(문서는 불변).
+test("에디터 라이브 프리뷰 — 커서 떠난 줄의 # 기호가 사라진다", async ({ page }) => {
+  await page.getByRole("button", { name: "새 노트 작성" }).click();
+  await page.locator(".cm-content").click();
+  await page.keyboard.type("# 제목1\n본문");
+
+  const headingLine = page.locator(".cm-line").first();
+  // 커서는 "본문" 줄 → 헤딩 줄의 마크는 감춰진다
+  await expect(headingLine).toHaveText("제목1");
+
+  // 헤딩 줄로 커서를 옮기면 원문이 그대로 드러난다 — 감췄을 뿐 문서에는 "#" 가 남아 있다
+  await headingLine.click();
+  await expect(headingLine).toHaveText("# 제목1");
+});
+
+// 회귀 방지: 빈 새 노트에 이 공간의 아무 위키(제목 정렬 1등)·아무 원본이 딸려 열리던 버그.
+test("새 노트 — 보조 패널 닫힌 빈 화면으로 시작", async ({ page }) => {
+  await page.getByRole("button", { name: "새 노트 작성" }).click();
+  await expect(page.getByPlaceholder("새 페이지")).toBeVisible();
+  // 시드 위키(CPU 스케줄링)가 우측 패널에 자동으로 뜨지 않는다
+  await expect(page.getByText(/선점형/)).not.toBeVisible();
+  // 셀렉트는 "저장 위치" 하나뿐 — 원본/위키 셀렉트는 패널이 닫혀 있어 없다.
+  await expect(page.getByRole("combobox")).toHaveCount(1);
+  await expect(page.getByRole("combobox", { name: "저장 위치" })).toBeVisible();
+});
+
 test("Inbox 패널 — 노트 고정, PDF·위키 보조 패널 여닫기", async ({ page }) => {
   await page.getByRole("button", { name: "새 노트 작성" }).click();
-  // 기본: 노트 에디터만 (보조 패널 닫힘)
+  // 기본: 노트 에디터만 (보조 패널 닫힘 — 열림 상태를 저장하지 않는다)
   await expect(page.getByPlaceholder("새 페이지")).toBeVisible();
   await expect(page.getByText("PDF", { exact: true })).not.toBeVisible();
   // PDF 패널 열고 닫기
@@ -71,6 +119,27 @@ test("Inbox 패널 — 노트 고정, PDF·위키 보조 패널 여닫기", asyn
   await expect(page.getByPlaceholder("새 페이지")).toBeVisible();
   await page.getByRole("button", { name: "위키 패널" }).click();
   await expect(page.getByText("위키", { exact: true })).not.toBeVisible();
+});
+
+// 새 노트 = Inbox 재사용 + 초안 초기화. 작성 중 초안이 있으면 확인부터.
+test("새 노트 — 작성 중 초안은 확인 후에만 버려진다", async ({ page }) => {
+  await page.getByRole("button", { name: "새 노트 작성" }).click();
+  await page.getByPlaceholder("새 페이지").fill("버려질 초안");
+  await page.getByRole("button", { name: "새 노트 작성" }).click();
+  await expect(page.getByText("작성 중인 초안이 있어요")).toBeVisible();
+  await page.getByRole("button", { name: "새로 시작" }).click();
+  await expect(page.getByPlaceholder("새 페이지")).toHaveValue("");
+});
+
+// 위키 패널을 열어도 아무 위키가 자동 선택되지 않는다 — 고르기 전엔 빈 상태.
+test("Inbox 위키 패널 — 자동 선택 없음, 고른 뒤에만 본문 표시", async ({ page }) => {
+  await page.getByRole("button", { name: "새 노트 작성" }).click();
+  await page.getByRole("button", { name: "위키 패널" }).click();
+  await expect(page.getByText(/이 노트의 위키가 여기 나타나요/)).toBeVisible();
+  await expect(page.getByText(/선점형/)).not.toBeVisible();
+  // 셀렉트로 고르면 그제서야 본문이 뜬다
+  await page.getByRole("combobox").last().selectOption({ label: "CPU 스케줄링" });
+  await expect(page.getByText(/선점형/)).toBeVisible();
 });
 
 test("사이드바 리사이즈 — 핸들 드래그로 폭 변경", async ({ page }) => {

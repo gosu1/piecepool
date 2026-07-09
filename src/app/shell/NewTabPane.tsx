@@ -4,7 +4,7 @@ import { Icons } from "../../ds";
 
 // ══ 새 탭 런처 — 검색(문서 점프) · 고정됨 · 최근 문서 · 시작 액션 ══
 // 새 탭은 파일을 만들지 않는다(탐색 트리거에 생성 부작용 금지 — VS Code/Arc 관례).
-// 새 노트 작성은 Inbox(지연 생성: 저장 시에만 파일 생김)로 보낸다.
+// 새 노트 작성은 onNewNote 로 보낸다(지연 생성: 저장 시에만 파일 생김).
 
 export interface LauncherDoc {
   kind: "wiki" | "archive";

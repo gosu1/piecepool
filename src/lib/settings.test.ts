@@ -4,8 +4,6 @@ import {
   setChunkEnabled,
   setChunkPercentile,
   chunkOpts,
-  getInboxPanels,
-  setInboxPanel,
   getInboxPaneWidths,
   setInboxPaneWidth,
   clampPanePct,
@@ -61,15 +59,6 @@ describe("chunk settings", () => {
     setChunkEnabled(true);
     setChunkPercentile(0); // 0 이하 → 무효
     expect(getChunkSettings().percentile).toBe(10);
-  });
-
-  it("inbox 보조 패널 — 기본 모두 닫힘, 저장·복원", () => {
-    expect(getInboxPanels()).toEqual({ pdf: false, wiki: false });
-    setInboxPanel("pdf", true);
-    expect(getInboxPanels()).toEqual({ pdf: true, wiki: false });
-    setInboxPanel("wiki", true);
-    setInboxPanel("pdf", false);
-    expect(getInboxPanels()).toEqual({ pdf: false, wiki: true });
   });
 
   it("inbox 패널 폭 — 기본값, 저장·클램프(30~70), 무효 값 폴백", () => {
