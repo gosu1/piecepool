@@ -4,7 +4,7 @@ import { AIWritingBanner, Button, Card, SkeletonText, Icons, cn } from "../../ds
 import { Markdown } from "../../lib/markdown";
 import { SlashBlockEditor } from "../../lib/SlashBlockEditor";
 import { MiniRelationGraph, type MiniGroup } from "../../lib/MiniGraph";
-import { RELATION_LABEL, groupOf } from "../../lib/relationMeta";
+import { RELATION_LABEL, REVIEW_COLOR, groupOf } from "../../lib/relationMeta";
 import type { RelationType } from "../../lib/generated/RelationType";
 import type { RefConflict } from "../../lib/sourceRefConflicts";
 import type { GapQuestion, GapEngine } from "../../llm/gaps";
@@ -392,6 +392,48 @@ export function ConvertPanel({
             </Button>
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 노트 하단 플로팅 바 — 이 노트에서 나온 개념 중 사용자가 "아직 모르겠어요" 로 표시한 것.
+ *
+ * 사용자가 부르지 않았는데 노트를 열면 먼저 뜬다. 다만 과장하지 말 것:
+ * 이건 사용자가 스스로 남긴 표시를 되비추는 것이지, AI 가 새로 판단한 게 아니다.
+ * 표시를 붙이고 거두는 주체는 언제나 사용자다(relation-types.md §review_needed).
+ */
+export function ReviewBar({
+  concepts,
+  onOpen,
+}: {
+  concepts: { conceptId: string; title: string }[];
+  onOpen: (conceptId: string) => void;
+}) {
+  if (!concepts.length) return null;
+  return (
+    <div className="sticky bottom-0 z-10 -mx-1 mt-2">
+      <div
+        className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-dashed bg-surface/95 px-3 py-2 shadow-elevated backdrop-blur"
+        style={{ borderColor: REVIEW_COLOR }}
+      >
+        <span className="text-[13px] text-ink-2">
+          {concepts.length === 1 ? "이 노트의 개념 하나를" : `이 노트의 개념 ${concepts.length}개를`} 아직 모르겠다고 표시하셨어요
+        </span>
+        <div className="flex flex-wrap gap-1.5">
+          {concepts.map((c) => (
+            <button
+              key={c.conceptId}
+              type="button"
+              onClick={() => onOpen(c.conceptId)}
+              className="rounded-full border border-dashed px-2 py-0.5 text-[12px] transition-colors hover:bg-surface-soft"
+              style={{ borderColor: REVIEW_COLOR, color: REVIEW_COLOR }}
+            >
+              {c.title}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );

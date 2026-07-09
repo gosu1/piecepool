@@ -164,6 +164,23 @@ test("표시 → 해제 왕복 — 사용자가 붙이고 사용자가 거둔다
   await expect(page.getByText("아직 모르겠다고 표시한 개념")).toHaveCount(0);
 });
 
+test("노트 하단 플로팅 바 — 이 노트에서 나온 개념 중 표시된 것을 먼저 알린다", async ({ page }) => {
+  await openFeynman(page);
+  await page.getByLabel("개념 설명").fill("동시에 들어가면 안 되는 코드요");
+  await page.getByRole("button", { name: "설명 보내기" }).click();
+  await expect(page.getByText("왜 동시에 들어가면 안 되나요?")).toBeVisible();
+  await page.getByRole("button", { name: "아직 모르겠어요" }).click();
+  await expect(page.getByText(/복습 필요로 표시했어요/)).toBeVisible();
+
+  // 방금 저장된 원본 노트를 트리에서 연다 → 바가 먼저 말을 건다
+  await page.getByRole("complementary").getByRole("button", { name: "운영체제 3주차" }).click();
+  await expect(page.getByText(/이 노트의 개념 하나를 아직 모르겠다고 표시하셨어요/)).toBeVisible();
+  // 개념 칩을 누르면 그 위키가 열린다
+  const chip = page.getByRole("button", { name: "세마포어", exact: true }).last();
+  await chip.click();
+  await expect(page.getByRole("tab", { name: /세마포어/ })).toBeVisible();
+});
+
 test("[네, 이해했어요] → 표시하지 않는다 (판정은 사용자가 한다)", async ({ page }) => {
   await openFeynman(page);
   await page.getByLabel("개념 설명").fill("동시에 들어가면 안 되는 코드요");
