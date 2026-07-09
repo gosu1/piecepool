@@ -162,6 +162,33 @@ test("표시 → 해제 왕복 — 사용자가 붙이고 사용자가 거둔다
   // 관계가 사라졌으므로 복습 그룹 칩도 사라진다
   await expect(page.getByRole("button", { name: "복습" })).toHaveCount(0);
   await expect(page.getByText("아직 모르겠다고 표시한 개념")).toHaveCount(0);
+
+  // 해제 후 다시 표시할 수 있다 — 시연 촬영을 반복하려면 왕복이 성립해야 한다.
+  // 이유를 직접 쓰고, 그 말이 그대로 evidence 가 된다(graph.rs: evidence ≥ 1).
+  await page.getByRole("button", { name: "아직 모르겠다고 표시" }).click();
+  await page.getByPlaceholder(/왜 그렇게 되는지/).fill("왜 카운터가 필요한지 설명을 못 하겠어요");
+  await page.getByRole("button", { name: "표시", exact: true }).click();
+  await expect(page.getByText(/복습 필요로 표시했어요/)).toBeVisible({ timeout: 15000 });
+  await expect(page.getByRole("button", { name: "복습" })).toBeVisible();
+  await expect(page.getByText("아직 모르겠다고 표시한 개념")).toBeVisible();
+});
+
+test("되묻기를 거치지 않고도 그래프에서 바로 표시할 수 있다 (판단은 언제나 사용자)", async ({ page }) => {
+  // 시드 위키는 출처(sourceIds)를 갖는다 → 표시 버튼이 활성화된다
+  await page.getByRole("button", { name: "Graph" }).click();
+  await expect(page.getByText("타입 있는 개념 그래프")).toBeVisible();
+  const help = page.getByRole("button", { name: "도움말 닫기" });
+  if (await help.isVisible().catch(() => false)) await help.click();
+
+  const search = page.getByPlaceholder("개념 찾기…");
+  await search.fill("교착상태");
+  await search.locator("xpath=following-sibling::div").getByRole("button", { name: "교착상태", exact: true }).click();
+
+  await page.getByRole("button", { name: "아직 모르겠다고 표시" }).click();
+  await page.getByPlaceholder(/왜 그렇게 되는지/).fill("네 조건이 왜 동시에 필요한지 모르겠어요");
+  await page.getByRole("button", { name: "표시", exact: true }).click();
+  await expect(page.getByText(/"교착상태" 을\(를\) 복습 필요로 표시했어요/)).toBeVisible({ timeout: 15000 });
+  await expect(page.getByRole("button", { name: "복습" })).toBeVisible();
 });
 
 test("노트 하단 플로팅 바 — 이 노트에서 나온 개념 중 표시된 것을 먼저 알린다", async ({ page }) => {

@@ -692,6 +692,17 @@ export default function PiecePoolApp() {
       setNotice(`해제 실패: ${String(e)}`);
     }
   };
+  // 복습 표시 — reason 은 사용자가 직접 쓴 말이고, 그대로 evidence 가 된다(evidence ≥ 1).
+  // 되묻기 루프 밖에서도 표시할 수 있다: "이건 아직 모르겠다" 는 판단은 언제나 사용자 몫이다.
+  const markReview = async (space: string, conceptId: string, title: string, sourceId: string, reason: string) => {
+    try {
+      await ipc.markReviewNeeded(space, conceptId, sourceId, [reason]);
+      await refreshSpace(space);
+      setNotice(`"${title}" 을(를) 복습 필요로 표시했어요`);
+    } catch (e) {
+      setNotice(`표시 실패: ${String(e)}`);
+    }
+  };
   const userRelation = (space: string, part: Pick<Relation, "sourceNodeId" | "targetNodeId" | "relationType" | "evidence">): Relation => {
     const now = new Date().toISOString();
     return {
@@ -1178,6 +1189,7 @@ export default function PiecePoolApp() {
             onOpenWiki={openWiki}
             onOpenArchive={openArchive}
             onUnmarkReview={unmarkReview}
+            onMarkReview={markReview}
           />
         );
       case "inbox": {
