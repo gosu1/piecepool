@@ -3,7 +3,7 @@
 // 키 없거나 실패면 목차 없이("") 폴백 — 호출부(importPdf)는 목차 없이 진행한다.
 
 import { extractText } from "./ocr";
-import { GEMINI_OPENAI_ENDPOINT } from "./gemini";
+import { GEMINI_OPENAI_ENDPOINT, GEMINI_MODEL } from "./gemini";
 
 export interface OutlineResult {
   markdown: string; // 2단 헤딩 목차(## 대주제 / ### 소주제). 키없음/실패면 ""
@@ -23,7 +23,7 @@ const OUTLINE_INSTRUCTION =
   "- 헤딩 아래는 비워 둔다(사용자가 직접 필기).\n" +
   "예:\n## 대주제 1\n### 소주제 1\n### 소주제 2\n## 대주제 2";
 
-export function buildOutlineRequest(text: string, model = "gemini-2.5-flash") {
+export function buildOutlineRequest(text: string, model = GEMINI_MODEL) {
   const clipped =
     text.length > OUTLINE_MAX_CHARS ? `${text.slice(0, OUTLINE_MAX_CHARS)}\n\n(입력 상한 초과 — 이후 내용 잘림)` : text;
   return {

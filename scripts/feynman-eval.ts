@@ -15,7 +15,7 @@ import { readFileSync, writeFileSync, readdirSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { probeExplanation, type Probe, type Turn } from "../src/llm/feynman";
-import { extractChatJson, GEMINI_OPENAI_ENDPOINT } from "../src/llm/gemini";
+import { extractChatJson, GEMINI_OPENAI_ENDPOINT, GEMINI_MODEL } from "../src/llm/gemini";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const EVAL_DIR = join(ROOT, "docs/30-llm/evals/feynman");
@@ -101,7 +101,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 // judge 도 503 을 맞는다 — 판정 실패는 지표를 갉아먹으므로 probeExplanation 과 같은 규약으로 재시도.
 async function judgeProbe(concept: string, note: string, studentSaid: string, probe: string, apiKey: string): Promise<Verdict> {
   const body = JSON.stringify({
-    model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+    model: process.env.GEMINI_MODEL || GEMINI_MODEL,
     temperature: 0,
     messages: [
       { role: "system", content: JUDGE_SYSTEM },
@@ -242,7 +242,7 @@ async function main() {
 
   const probeCalls = fixtures.reduce((n, f) => n + f.studentSays.length, 0) * repeat;
   const judgeCalls = dry ? 0 : probeCalls;
-  console.log(`케이스 ${fixtures.length} × ${repeat}회 → probe ${probeCalls}콜 + judge ${judgeCalls}콜 (gemini-2.5-flash)\n`);
+  console.log(`케이스 ${fixtures.length} × ${repeat}회 → probe ${probeCalls}콜 + judge ${judgeCalls}콜 (${process.env.GEMINI_MODEL || GEMINI_MODEL})\n`);
 
   const results: CaseResult[] = [];
   for (let rep = 0; rep < repeat; rep++) {

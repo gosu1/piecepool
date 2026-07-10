@@ -4,6 +4,7 @@
 //  - 재시도는 첫 delta 이전 실패만 — 도중 실패는 부분 텍스트를 유지한 채 SynthesisStreamError.
 
 import { streamChatText } from "./stream";
+import { GEMINI_MODEL } from "./gemini";
 
 export interface SynthesisInput {
   sourceTitle: string;
@@ -44,7 +45,7 @@ const SYSTEM_PROMPT =
 // 첫 토큰 지연 최소화(reasoning 모델) + 출력 상한 — 튜너블 상수.
 const MAX_OUTPUT_TOKENS = 8192;
 
-export function buildSynthesisBody(input: SynthesisInput, model = "gemini-2.5-flash") {
+export function buildSynthesisBody(input: SynthesisInput, model = GEMINI_MODEL) {
   return {
     model,
     messages: [

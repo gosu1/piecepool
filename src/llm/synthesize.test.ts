@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { runSynthesis, heuristicSynthesis, buildSynthesisBody, SynthesisStreamError } from "./synthesize";
+import { GEMINI_MODEL } from "./gemini";
 
 function frame(obj: unknown): string {
   return `data: ${JSON.stringify(obj)}\n\n`;
@@ -24,7 +25,7 @@ const INPUT = {
 describe("buildSynthesisBody", () => {
   it("system 규칙 + 제목 지시 + 스트리밍 파라미터를 포함한다", () => {
     const b = buildSynthesisBody(INPUT);
-    expect(b.model).toBe("gemini-2.5-flash");
+    expect(b.model).toBe(GEMINI_MODEL); // 모델명 하드코딩 금지 — 단종 시 이 테스트가 거짓 실패한다
     expect(b.messages[0].content).toContain("모든 사실을 보존");
     expect(b.messages[1].content).toContain("# OS 3주차 정리");
     expect(b.max_tokens).toBeGreaterThan(0);

@@ -1,4 +1,4 @@
-import { extractChatJson, GEMINI_OPENAI_ENDPOINT } from "./gemini";
+import { extractChatJson, GEMINI_OPENAI_ENDPOINT, GEMINI_MODEL } from "./gemini";
 
 // 파인만식 되묻기 — 사용자가 개념을 자기 말로 설명하면, LLM 이 그 설명의 구멍을 짚어 되묻는다.
 // 설계: docs/superpowers/specs/2026-07-10-feynman-clarify-design.md
@@ -95,7 +95,7 @@ export async function probeExplanation(
   const backoffMs = deps?.backoffMs ?? 250;
 
   const body = JSON.stringify({
-    model: deps?.model ?? "gemini-2.5-flash",
+    model: deps?.model ?? GEMINI_MODEL,
     messages: [
       { role: "system", content: SYSTEM },
       {

@@ -1,5 +1,5 @@
 import { LinerClient, type LinerSource } from "./liner";
-import { extractChatJson, GEMINI_OPENAI_ENDPOINT } from "./gemini";
+import { extractChatJson, GEMINI_OPENAI_ENDPOINT, GEMINI_MODEL } from "./gemini";
 
 // 정보 간극 메우기 (README §LLM ③, feature 3). 정답(label)과 사용자 필기 사이 간극을
 // 소크라테스/하브루타식으로 되묻는다 — 정답을 주입하지 않고 1~3개 선택지 + "기타"로 가이드.
@@ -126,7 +126,7 @@ async function geminiGaps(title: string, text: string, apiKey: string, deps?: Bu
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
-      model: "gemini-2.5-flash",
+      model: GEMINI_MODEL,
       messages: [
         { role: "system", content: system },
         { role: "user", content: JSON.stringify({ title, note: text.slice(0, 6000) }) },
