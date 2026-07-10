@@ -1,6 +1,6 @@
 # LLM Output Schema (SSOT)
 
-PiecePool LLM 호출의 **provider 무관 출력 JSON Schema**. OpenAI 출력이 본 schema로 변환되어 저장된다.
+PiecePool LLM 호출의 **provider 무관 출력 JSON Schema**. Gemini 출력이 본 schema로 변환되어 저장된다.
 
 > **본 문서가 단일 출처**다. provider별 raw 응답은 본 schema로 정규화 후에만 다른 계층에 노출된다.
 > **계약 변경**: [README.md#변경-절차](README.md#변경-절차) 참조.
@@ -223,11 +223,11 @@ LlmEvidence      → Evidence
 
 ## 7. Provider 무관성 보장
 
-본 schema는 어떤 LLM provider를 사용하더라도 일정해야 한다. PiecePool은 **OpenAI**를 LLM provider로 사용한다(단일 tier). feature 3(정보 간극 메우기)의 **Liner API**는 출처 검색 전용이라 본 schema를 생성하지 않는다(§7.1).
+본 schema는 어떤 LLM provider를 사용하더라도 일정해야 한다. PiecePool은 **Google Gemini**를 LLM provider로 사용한다(단일 tier, [ADR-0009](../adr/0009-llm-provider-gemini.md)). feature 3(정보 간극 메우기)의 **Liner API**는 출처 검색 전용이라 본 schema를 생성하지 않는다(§7.1).
 
 | Provider | 역할 | 호출 방식 |
 |---|---|---|
-| **OpenAI (GPT)** | LlmWikiResult 생성 (Wiki · 관계) | Responses API + `response_format: { type: "json_schema", ... }` |
+| **Google Gemini** | LlmWikiResult 생성 (Wiki · 관계) | OpenAI 호환 Chat Completions + `response_format: { type: "json_schema", ... }` (`strict: false`) |
 
 향후 provider를 추가하더라도 동일 JSON Schema 통과를 강제한다.
 
@@ -236,7 +236,7 @@ LlmEvidence      → Evidence
 
 ### 7.1 되묻기 · fact-check 흐름 (schema 무변경)
 
-**되묻기**(OpenAI 보조)·**fact-check**(Liner API 출처 검색) 기능은 본 schema를 확장하지 않는다.
+**되묻기**(Gemini 보조)·**fact-check**(Liner API 출처 검색) 기능은 본 schema를 확장하지 않는다.
 
 - 되묻기는 Backend의 import-pipeline이 별도 round-trip으로 사용자에게 노출
 - Fact-check 결과는 `evidence[].reason`에 출처 URL 누적 ([entities.md#evidence](entities.md#evidence))
@@ -251,3 +251,4 @@ LlmEvidence      → Evidence
 - JSON Schema(§4) 전체 명세는 본 리팩토링에서 신규 작성했다.
 - Provider 무관성 보장(§7)은 본 리팩토링에서 신규 추가했다.
 - **2026-06-30**: LLM provider = **OpenAI 단일** 확정(§7 표). feature 3(정보 간극 메우기)은 **Liner API** 출처 검색으로 처리하며 본 schema를 생성하지 않는다. 되묻기·fact-check 흐름은 schema 무변경.
+- **2026-07-10**: LLM provider = **Google Gemini 단일**로 전환([ADR-0009](../adr/0009-llm-provider-gemini.md), ADR-0001 대체). 호출은 Gemini의 OpenAI 호환 Chat Completions(`response_format`, `strict: false`) — 구 Responses API 폐기. **JSON Schema(§4)는 무변경** — provider 교체가 계약을 건드리지 않는 것이 §7 provider 무관성의 목적이며, 이번 전환이 그 첫 검증 사례다. Liner 역할 불변.
