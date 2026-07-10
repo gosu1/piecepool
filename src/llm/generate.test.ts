@@ -1,7 +1,33 @@
 import { describe, it, expect } from "vitest";
-import { runWikiGeneration } from "./generate";
+import { runWikiGeneration, heuristicWiki } from "./generate";
 import type { LlmProvider, LlmWikiInput, LlmWikiResult, LlmConcept, LlmRelation } from "./provider";
 import type { EmbedFn } from "./chunk";
+
+// 회귀: 요약문 평탄화가 '-' 를 공백으로 바꿔 ![[1202-22-2.pdf]] → ![[1202 22 2.pdf]] 가 되고,
+// 존재하지 않는 원본을 가리켜 위키가 "원본을 불러오지 못했습니다" 로 깨졌다.
+describe("heuristicWiki summary — 임베드가 요약문을 오염시키지 않는다", () => {
+  const run = (sourceText: string) =>
+    heuristicWiki({ sourceTitle: "강의교안", sourceText, subjects: [], existingConcepts: [] }).concepts[0].summary;
+
+  it("임베드를 요약문에서 제거한다 (파일명 하이픈 훼손 금지)", () => {
+    const summary = run("![[1202-22-2.pdf]] 우리나라 최초 sns는 싸이월드이다.");
+    expect(summary).not.toContain("[[");
+    expect(summary).not.toContain("1202 22 2");
+    expect(summary).toBe("우리나라 최초 sns는 싸이월드이다.");
+  });
+
+  it("개념 링크는 표시 텍스트만 남긴다", () => {
+    expect(run("[[임계 구역]]은 중요하다.")).toBe("임계 구역은 중요하다.");
+    expect(run("[[critical-section|임계 구역]]은 중요하다.")).toBe("임계 구역은 중요하다.");
+  });
+
+  it("본문(explanation)의 임베드는 보존한다 — 원본 미리보기가 살아야 한다", () => {
+    const body = "![[1202-22-2.pdf]]\n\n## 소셜 네트워크";
+    expect(heuristicWiki({ sourceTitle: "강의교안", sourceText: body, subjects: [], existingConcepts: [] }).concepts[0].explanation).toContain(
+      "![[1202-22-2.pdf]]",
+    );
+  });
+});
 
 const c = (title: string): LlmConcept => ({
   title,
