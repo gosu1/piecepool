@@ -2,7 +2,7 @@
 // 정답 주입 금지 — 추출 텍스트에 있는 것만 정리한다. 키 없거나 실패면 원문 폴백(오프라인 전기능).
 
 import { extractText } from "./ocr";
-import { GEMINI_OPENAI_ENDPOINT } from "./gemini";
+import { GEMINI_OPENAI_ENDPOINT, GEMINI_MODEL } from "./gemini";
 
 export interface PdfDigestResult {
   markdown: string;
@@ -18,7 +18,7 @@ const DIGEST_INSTRUCTION =
   "## 정리\n(제목·목록으로 핵심 내용을 재구성 — 개념·정의·수식 포함)\n" +
   "## 요약\n(핵심 3줄 이내)";
 
-export function buildPdfDigestRequest(text: string, model = "gemini-2.5-flash") {
+export function buildPdfDigestRequest(text: string, model = GEMINI_MODEL) {
   const clipped = text.length > DIGEST_MAX_CHARS ? `${text.slice(0, DIGEST_MAX_CHARS)}\n\n(입력 상한 초과 — 이후 내용 잘림)` : text;
   return {
     model,

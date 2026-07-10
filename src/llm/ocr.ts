@@ -2,7 +2,7 @@
 // SSOT: docs/30-llm/provider-config.md. 정답 주입 금지 — 이미지에 있는 것만 옮긴다.
 // OCR 품질(실사진)은 사람 검증 대상. 요청 모양/오프라인 폴백/파싱은 자체검증.
 
-import { GEMINI_OPENAI_ENDPOINT, extractChatText } from "./gemini";
+import { GEMINI_OPENAI_ENDPOINT, GEMINI_MODEL, extractChatText } from "./gemini";
 
 export interface OcrResult {
   markdown: string;
@@ -15,7 +15,7 @@ const OCR_INSTRUCTION =
   "## 구조\n(제목·목록으로 재구성)\n" +
   "## 요약\n(핵심 3줄 이내)";
 
-export function buildOcrRequest(dataUrl: string, model = "gemini-2.5-flash") {
+export function buildOcrRequest(dataUrl: string, model = GEMINI_MODEL) {
   return {
     model,
     messages: [
