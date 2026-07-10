@@ -1,5 +1,5 @@
 // Gemini(OpenAI 호환 Chat Completions) 텍스트 스트리밍 수신 (SSE). SSOT: docs/30-llm/note-synthesis.md §3.
-// delta.content 를 누적하고 finish_reason(또는 `data: [DONE]`)으로 종결을 판단한다.
+// delta.content 를 누적하고 finish_reason 으로 종결을 판단한다(`data: [DONE]` 프레임은 건너뛴다).
 // 구조화 출력(단발 호출)은 gemini.ts 소관 — 본 모듈은 plain text 스트리밍 전용.
 
 import { GEMINI_OPENAI_ENDPOINT, extractChatText } from "./gemini";

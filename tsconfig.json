@@ -13,6 +13,10 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
+    // 앱은 브라우저(웹뷰)에서 돈다 — Node 전역(`process` 등)이 타입에 새어들면 안 된다.
+    // `src/llm/*.ts` 의 readEnv() 가 globalThis 를 통해 조심스럽게 접근하는 이유.
+    // CLI 스크립트는 tsconfig.scripts.json 이 따로 검사한다.
+    "types": [],
 
     /* Linting */
     "strict": true,

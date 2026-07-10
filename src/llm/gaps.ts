@@ -87,7 +87,7 @@ async function linerGaps(title: string, text: string, client: LinerClient): Prom
       failures++;
     }
   }
-  // 전부 실패했으면 Liner 미가용으로 판단 → 상위에서 OpenAI 폴백.
+  // 전부 실패했으면 Liner 미가용으로 판단 → 상위에서 Gemini 폴백.
   if (out.length === 0 && failures > 0) throw new Error("[provider=liner] all section queries failed");
   return out;
 }

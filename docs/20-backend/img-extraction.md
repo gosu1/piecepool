@@ -159,13 +159,13 @@ PDF와 이미지는 입력 형태가 비슷해 보이지만, 변환 메커니즘
 ## 7. Provider (참고)
 
 텍스트 단계와 동일한 provider를 vision에도 그대로 쓴다 — **새 환경변수 분기 없음**
-([`ocr-client.md §3`](../40-frontend/ocr-client.md)). 현재 구현은 **OpenAI 단일** provider다
+([`ocr-client.md §3`](../40-frontend/ocr-client.md)). 현재 구현은 **Gemini 단일** provider다
 (Free/Premium·로컬 모델 분기는 코드에 없다 — CLAUDE.md provider 규약과 일치).
 
 | 단계 | Provider |
 |---|---|
-| 1차 — 이미지 vision | OpenAI Responses API (`gpt-5-mini`, `input_image`) — `src/llm/ocr.ts` |
-| 2차 — 텍스트 요약/Concept 추출 | OpenAI GPT |
+| 1차 — 이미지 vision | Gemini Chat Completions (`gemini-2.5-flash`, `image_url`) — `src/llm/ocr.ts` |
+| 2차 — 텍스트 요약/Concept 추출 | Gemini |
 
 - API key 미설정 시 네트워크 호출 없이 오프라인 폴백 마크다운을 반환한다(`ocr.ts`).
 - provider 호출·게이팅은 TS `src/llm/`이 소유한다. 백엔드는 provider 분기에 관여하지 않는다.

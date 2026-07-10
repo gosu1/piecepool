@@ -35,7 +35,7 @@ docs/30-llm/evals/
     case-002-deadlock.expected.json
     ...
   results/                          # CI 산출물, gitignore
-    case-001-openai.json
+    case-001-gemini.json
     ...
 ```
 
@@ -111,7 +111,7 @@ docs/30-llm/evals/
 npm run eval -- --case case-001-self-attention
 ```
 
-결과 → `docs/30-llm/evals/results/case-001-openai.json`.
+결과 → `docs/30-llm/evals/results/case-001-gemini.json`.
 
 ### 4.2 전체 실행
 
@@ -128,7 +128,7 @@ npm run eval -- --report case-001-self-attention
 결과 표 출력:
 
 ```
-case-001-self-attention      openai
+case-001-self-attention      gemini
 must.schemaValid             ✅
 must.concepts                ✅ 1
 should.relations             2/2
@@ -162,7 +162,7 @@ must_not.confused            ✅
 - MVP: 로컬 수동 실행
 - 후속: GitHub Actions matrix (case)
 - API 비용 절감: weekly 또는 manual trigger
-- secrets: `OPENAI_API_KEY`는 GitHub Secrets
+- secrets: `GEMINI_API_KEY`는 GitHub Secrets
 
 ### 5.3 baseline 갱신
 
@@ -184,7 +184,7 @@ must_not.confused            ✅
 ### 6.2 fact-check
 
 - fixture에 의도적 사실 오류 포함 (예: "Transformer는 2010년 발표")
-- Liner API 출처 검색 호출했는지 (또는 대안 OpenAI web_search tool call 흔적)
+- Liner API 출처 검색을 호출했는지 (fact-check 경로는 Liner 단일 — LLM 웹 검색 도구 없음)
 - suggest 패널에 수정안 등장 (Frontend test와 연계)
 - `evidence[].reason`에 출처 URL 누적
 

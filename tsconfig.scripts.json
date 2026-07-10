@@ -1,0 +1,29 @@
+// CLI 스크립트(`scripts/`) 전용 타입체크 설정.
+//
+// 왜 분리하나: 앱(`tsconfig.json`)은 브라우저 웹뷰용이라 DOM 타입만 있어야 한다.
+// 스크립트는 tsx(Node)로 돌아 `process`·`node:fs` 가 필요하다. 한 설정에 섞으면
+// 앱 코드에서 Node 전역이 있는 것처럼 보인다.
+//
+// 이 파일이 없던 동안 `scripts/` 는 타입체크 밖에 있었고, 그래서
+// `chunk-preview.ts` 가 존재하지 않는 `createOpenAiEmbedder` 를 import 하고
+// `eval.ts` 가 `ProviderId = "gemini"` 인데 `["openai"]` 를 담은 채로 CI 초록이었다.
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": ["node"],
+
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["scripts"]
+}

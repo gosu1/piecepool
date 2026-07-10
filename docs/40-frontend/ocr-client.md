@@ -35,10 +35,10 @@ PiecePool의 이미지/필기/스크린샷 → 텍스트 변환 파이프라인.
 
 텍스트 단계와 동일한 provider를 vision에도 그대로 쓴다. 새 환경변수 분기 없음 ([`pricing-model.md`](../00-overview/pricing-model.md) §6 매트릭스 재사용).
 
-| 단계 | OpenAI |
+| 단계 | Gemini |
 |---|---|
-| 1차 — 이미지 vision | GPT vision |
-| 2차 — 텍스트 요약/Concept 추출 | GPT |
+| 1차 — 이미지 vision | Gemini vision |
+| 2차 — 텍스트 요약/Concept 추출 | Gemini |
 
 ---
 

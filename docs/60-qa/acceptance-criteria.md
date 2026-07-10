@@ -42,7 +42,7 @@ MVP 합격선. **모든 항목이 통과해야 MVP 완료**다.
 
 ---
 
-## 3. LLM 처리 (OpenAI)
+## 3. LLM 처리 (Gemini)
 
 ### 3.1 공통
 - [ ] 텍스트 source가 실제 LLM 호출을 발생시킨다
@@ -52,8 +52,8 @@ MVP 합격선. **모든 항목이 통과해야 MVP 완료**다.
 - [ ] Concept / WikiPage / Relation / Evidence / SourceRef가 LLM 출력에서 생성된다
 - [ ] LLM 생성 WikiPage가 사용자 친화 설명 + 구조화 메타데이터 동시 보유
 
-### 3.2 OpenAI
-- [ ] `OPENAI_API_KEY`로 OpenAI 호출 성공
+### 3.2 Gemini
+- [ ] Gemini 키(데스크톱 앱=설정 모달, CLI=`GEMINI_API_KEY`)로 Gemini 호출 성공
 - [ ] LLM 출력이 `LlmWikiResult` schema 통과 ([evals](../30-llm/) 입증)
 - [ ] 되묻기 round-trip 작동 (`PIECEPOOL_CLARIFY=true`)
 - [ ] Fact-check 기본 흐름 작동 (웹 검색 → `evidence[].reason`에 URL 누적)
@@ -143,3 +143,4 @@ MVP 합격선. **모든 항목이 통과해야 MVP 완료**다.
 
 - 본 문서는 `docs/archive/PRD-v1.md` §16에서 분리·정렬한 결과다.
 - §3 (OpenAI), §5 (OCR MVP), §7 첫 진입=Inbox, §8 (packaging), §10 CI 항목은 본 리팩토링 신규 결정사항이다.
+- 2026-07-10: LLM provider를 OpenAI → Google Gemini로 전환 ([ADR-0009](../adr/0009-llm-provider-gemini.md)). §3 제목·§3.2를 Gemini(OpenAI 호환 Chat Completions, 키=`GEMINI_API_KEY`)로 정정.

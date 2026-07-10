@@ -20,10 +20,10 @@
 | 항목 | 옵션 | 책임자 | 결정 기한 |
 |---|---|---|---|
 | Relation 메타데이터 저장 위치 | 단일 `relations.json`, wiki frontmatter 병행, 하이브리드 | Backend (#1) + LLM (#3) | Phase 4 `import-pipeline.md` |
-| **fact-check 도구** | Liner 출처 검색 API(feature 3 주 해결책) + OpenAI tool web_search(보조) 결정 ✅. 추가 외부 검색 API 도입 여부는 보류 | LLM (#3) + Backend (#1) | MVP+1 |
+| **fact-check 도구** | Liner 출처 검색 API(feature 3 주 해결책) + Gemini 소크라테스식 되묻기(보조) 결정 ✅. 추가 외부 검색 API 도입 여부는 보류 | LLM (#3) + Backend (#1) | MVP+1 |
 | **되묻기 트리거 임계값** | `confidence < 0.5` 기본 명시 ([output-validation §6.1](../30-llm/output-validation.md)). 입력 길이 / 일반성 기준은 Backend `prompt-design.md`에서 구체화 | Backend (#1) | Phase 4 `import-pipeline.md` / `prompt-design.md` |
 | **JSON Schema 검증 라이브러리** (신규) | `ajv` / `zod` / json-schema-to-zod | LLM (#3) | Phase 4 코드 작성 시 |
-| **similarity 측정 모델** (신규) | OpenAI text-embedding-3-small / Cohere | LLM (#3) | Concept 중복 판정 구현 시 |
+| **similarity 측정 모델** (신규) | Gemini `gemini-embedding-001` / Cohere | LLM (#3) | Concept 중복 판정 구현 시 |
 | **되묻기 timeout** (신규) | 5분 기본 가정. 실제 UX 검증 후 조정 | Backend (#1) + Design (#4) | Phase 4 `screens/import.md` |
 | **eval-baseline-change 라벨** (신규) | 골든 케이스 기대 결과 변경 PR에 부착할 라벨 신설 | @gosu1 | evals fixtures 실제 작성 PR 직전 |
 
@@ -84,6 +84,7 @@
 | Markdown 편집기 라이브러리 | CodeMirror 6 (`@uiw/react-codemirror`). 미리보기는 분리, wikilink-embed 커스텀 렌더링과 충돌하는 올인원/WYSIWYG 계열 제외 | 2026-06-25 | [40-frontend/screens/markdown-editor.md §2](../40-frontend/screens/markdown-editor.md) |
 | Graph 렌더링 라이브러리 | Cytoscape.js | 2026-07-01 | [ADR-0006](../adr/0006-graph-rendering-cytoscape.md) |
 | PDF 텍스트 추출 | `pdf-extract` 0.10.0 (Rust) | 2026-07-01 | [ADR-0005](../adr/0005-pdf-extract-crate.md) · [pdf-extraction.md](../20-backend/pdf-extraction.md) |
+| LLM provider 전환 | **Google Gemini 단일** (OpenAI 대체) — OpenAI 호환 Chat Completions(`response_format`, `strict:false`), Responses API·GPT vision 폐기 | 2026-07-10 | [ADR-0009](../adr/0009-llm-provider-gemini.md) |
 
 ---
 

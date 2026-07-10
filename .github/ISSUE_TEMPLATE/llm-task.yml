@@ -1,5 +1,5 @@
 name: LLM Task
-description: LLM 어댑터/프롬프트/검증 작업 (OpenAI)
+description: LLM 어댑터/프롬프트/검증 작업 (Gemini)
 title: "[LLM] "
 labels: ["role:llm"]
 body:
@@ -7,7 +7,7 @@ body:
     attributes:
       value: |
         LLM 작업 이슈. 시작 전 `docs/00-overview/`, `docs/10-contracts/`, `docs/30-llm/` 필독.
-        환경변수: `OPENAI_API_KEY`, `PIECEPOOL_LLM_MODEL`.
+        환경변수: `GEMINI_API_KEY`, `PIECEPOOL_LLM_MODEL`.
 
   - type: dropdown
     id: phase
@@ -26,7 +26,7 @@ body:
     attributes:
       label: 대상 Provider
       options:
-        - openai
+        - gemini
         - N/A
     validations:
       required: true
@@ -36,7 +36,7 @@ body:
     attributes:
       label: 목표
       description: 검증 가능한 성공 기준
-      placeholder: "예: OpenAI provider adapter 구현, LlmWikiResult 스키마 출력(strict) 통과"
+      placeholder: "예: Gemini provider adapter 구현, LlmWikiResult 스키마 출력(strict:false + 다운스트림 파싱) 통과"
     validations:
       required: true
 

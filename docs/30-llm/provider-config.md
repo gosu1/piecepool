@@ -1,6 +1,6 @@
 # Provider Config
 
-PiecePool 어댑터 인터페이스 / 환경변수 / fallback 정책. LLM은 **OpenAI 단일 provider**, feature 3 출처 검색·검증은 **Liner API**.
+PiecePool 어댑터 인터페이스 / 환경변수 / fallback 정책. LLM은 **Google Gemini 단일 provider**, feature 3 출처 검색·검증은 **Liner API**.
 
 > SSOT: [`../10-contracts/llm-output-schema.md`](../10-contracts/llm-output-schema.md). 본 문서는 어댑터 계층(provider별 호출)만 정의하며 출력 schema는 SSOT를 그대로 따른다.
 > 플랜 모델: [`../00-overview/pricing-model.md`](../00-overview/pricing-model.md).
@@ -13,7 +13,7 @@ provider 무관 호출 진입점. Backend (`20-backend/import-pipeline.md`)가 �
 
 ```ts
 interface LlmProvider {
-  id: "openai";
+  id: "gemini";
   generateWikiStructured(input: LlmWikiInput): Promise<LlmWikiResult>;
 }
 
@@ -41,7 +41,7 @@ interface LlmWikiInput {
 | 변수 | 기본값 | 설명 |
 |---|---|---|
 | `PIECEPOOL_LLM_MODEL` | 기본값 (§3) | 모델명 override |
-| `OPENAI_API_KEY` | (필수) | OpenAI 호출 키 (LLM) |
+| `GEMINI_API_KEY` | (CLI 필수) | Gemini 호출 키 (LLM). CLI/eval 스크립트 전용 — 데스크톱 앱은 설정 모달 → `localStorage["gemini-key"]` 사용, `.env` 안 읽음 |
 | `LINER_API_KEY` | (feature 3 필수) | Liner 출처 검색·검증 키 |
 | `LINER_API_ENDPOINT` | 기본 endpoint | Liner API endpoint override |
 | `PIECEPOOL_FACT_CHECK` | `true` | fact-check 토글 (유료 tier 아님 · 기본 on) |
@@ -51,8 +51,8 @@ interface LlmWikiInput {
 ### 2.1 키 검증 로직
 
 ```
-if OPENAI_API_KEY is empty
-  → 오류: "OpenAI requires OPENAI_API_KEY"
+if GEMINI_API_KEY / localStorage["gemini-key"] is empty
+  → 앱: 오프라인 휴리스틱 폴백(죽지 않음). provider 직접 호출 시: "[provider=gemini] auth: GEMINI_API_KEY missing"
 if feature 3 활성 && LINER_API_KEY is empty
   → 오류: "Liner requires LINER_API_KEY"
 ```
@@ -61,20 +61,20 @@ if feature 3 활성 && LINER_API_KEY is empty
 
 ## 3. Provider 구현 노트
 
-### 3.1 OpenAI
+### 3.1 Gemini
 
-- 기본 모델: `gpt-5-mini` (TBD)
-- 호출: **Responses API** (Chat Completions 아님)
-- structured output: `response_format: { type: "json_schema", json_schema: { strict: true, schema: ... } }`
-- schema strict=true로 SDK 차원에서 schema 위반 차단
+- 기본 모델: `gemini-2.5-flash` (생성) · `gemini-embedding-001` (임베딩)
+- 호출: **Chat Completions** — Gemini의 OpenAI 호환 엔드포인트(`https://generativelanguage.googleapis.com/v1beta/openai`)의 `/chat/completions`, 스트리밍은 `delta.content`
+- structured output: `response_format: { type: "json_schema", json_schema: { name: "LlmWikiResult", strict: false, schema: ... } }`
+- Gemini는 `strict: true`를 거부 → `strict: false` + 다운스트림 파싱(ajv)으로 schema 위반 차단
 - adapter 책임:
   - `response_format`에 `LlmWikiResult` JSON Schema 주입
-  - fact-check(대안): tool use로 `web_search` 등 호출 — 주 경로는 Liner 어댑터(§3.3)
+  - fact-check: **주 경로는 Liner 어댑터(§3.3)** — 현재 유일한 구현. LLM 자체 웹 검색 도구는 쓰지 않는다(Gemini OpenAI 호환 엔드포인트는 hosted search tool을 노출하지 않는다).
   - 되묻기: 1차 응답 분석 → confidence 임계값 미달 시 별도 round-trip (`output-validation.md` (작성 예정))
 
 ### 3.2 schema 정규화
 
-adapter는 OpenAI raw 응답을 SSOT `LlmWikiResult`로 정규화한다. 검증:
+adapter는 Gemini raw 응답을 SSOT `LlmWikiResult`로 정규화한다. 검증:
 - 응답이 `LlmWikiResult` JSON Schema 통과
 - 케이스 테스트는 `evals.md` (작성 예정)
 
@@ -86,7 +86,7 @@ adapter는 OpenAI raw 응답을 SSOT `LlmWikiResult`로 정규화한다. 검증:
 - adapter 책임:
   - 사용자 필기·label(교수 자료)을 질의로 출처 검색
   - 검증 결과(출처 URL·인용)를 `evidence[].reason`에 누적 (schema 무변경)
-  - Liner 미가용 시 OpenAI 되묻기(§6)로 대안 처리
+  - Liner 미가용 시 Gemini 되묻기(§6)로 대안 처리
 
 ---
 
@@ -106,10 +106,10 @@ adapter는 OpenAI raw 응답을 SSOT `LlmWikiResult`로 정규화한다. 검증:
 ### 4.2 오류 메시지 표준
 
 ```
-[provider=openai] <단계>: <원인>
+[provider=gemini] <단계>: <원인>
 예시:
-  [provider=openai] auth: OPENAI_API_KEY missing
-  [provider=openai] schema: response field 'concepts' missing
+  [provider=gemini] auth: GEMINI_API_KEY missing
+  [provider=gemini] schema: response field 'concepts' missing
 ```
 
 전 메시지는 Frontend가 사용자에게 표시 + ImportJob.errorMessage에 기록.
@@ -120,10 +120,10 @@ adapter는 OpenAI raw 응답을 SSOT `LlmWikiResult`로 정규화한다. 검증:
 
 ```
 Backend import-pipeline
-  → validate OPENAI_API_KEY (§2.1)
+  → validate GEMINI_API_KEY (§2.1)
   → create LlmProvider instance
   → generateWikiStructured(input)
-    → OpenAI HTTP call (§3)
+    → Gemini HTTP call (§3)
     → raw response → LlmWikiResult 변환
     → JSON Schema 검증 (SSOT)
     → schema 위반 시 재시도 (§4.1)
@@ -140,8 +140,8 @@ Backend import-pipeline
 
 | 기능 | 어댑터 동작 |
 |---|---|
-| **되묻기** | **주: Liner 출처 검증으로 간극 판정.** 대안(Liner 미가용): 1차 응답의 `relations[].confidence` 평균이 임계값(TBD, [open-questions](../00-overview/open-questions.md#2-llm--provider))보다 낮으면 OpenAI 별도 round-trip. 사용자 응답 받아 2차 호출 |
-| **fact-check** | **주: Liner API 출처 검색·검증.** 결과 URL을 `evidence[].reason`에 누적 (대안: OpenAI web_search tool) |
+| **되묻기** | **주: Liner 출처 검증으로 간극 판정.** 대안(Liner 미가용): 1차 응답의 `relations[].confidence` 평균이 임계값(TBD, [open-questions](../00-overview/open-questions.md#2-llm--provider))보다 낮으면 Gemini 별도 round-trip. 사용자 응답 받아 2차 호출 |
+| **fact-check** | **Liner API 출처 검색·검증(유일한 구현).** 결과 URL을 `evidence[].reason`에 누적 |
 | **suggest** | fact-check 결과 차이는 Frontend 패널에 표시 (어댑터는 변환만, UI 책임 X) |
 
 트리거 기준 (되묻기 임계값, fact-check 발동 조건)은 **Backend 책임** ([`../20-backend/prompt-design.md`](../20-backend/) 작성 예정). 어댑터는 Backend가 명시한 파라미터 그대로 따른다.
@@ -164,3 +164,4 @@ Backend import-pipeline
 - 본 문서는 신규 작성이다. 초안 = [Phase 4 tracking #3 (LLM)](https://github.com/gosu1/piecepool/issues/3) + [sub-issue #29](https://github.com/gosu1/piecepool/issues/29) 기반.
 - OpenAI 단일 LLM provider + Liner 출처 검색(feature 3) 결정을 반영.
 - SSOT `LlmWikiResult` 타입은 [llm-output-schema.md](../10-contracts/llm-output-schema.md)만 정의. 본 문서는 어댑터 interface만 정의 (SSOT 위반 아님).
+- 2026-07-10: LLM provider를 **Google Gemini 단일**로 전환 ([ADR-0009](../adr/0009-llm-provider-gemini.md), [ADR-0001](../adr/0001-llm-provider-openai.md) 대체). 호출은 Gemini의 OpenAI 호환 엔드포인트 Chat Completions(`/chat/completions`, `response_format`, `strict:false`) — 구 Responses API 폐기. 계약 무변경. Liner(feature 3) 역할 불변, 보조 되묻기만 Gemini로.
