@@ -215,7 +215,13 @@ function concept(title: string, body: string): LlmConcept {
 }
 
 function firstSentence(text: string): string {
-  const flat = text.replace(/[#*`>\-]/g, " ").replace(/\s+/g, " ").trim();
+  // 위키링크는 요약문에 들어갈 산문이 아니다. 게다가 아래 마크다운 평탄화가 '-' 를 공백으로
+  // 바꿔 ![[a-b.pdf]] → ![[a b.pdf]] 로 파일명을 깨뜨린다(존재하지 않는 원본 = 깨진 임베드).
+  // → 임베드는 통째로 버리고, 링크는 표시 텍스트만 남긴 뒤 평탄화한다.
+  const prose = text
+    .replace(/!\[\[[^\]]*\]\]/g, " ")
+    .replace(/\[\[([^\]|]*)(?:\|([^\]]*))?\]\]/g, (_, target, alias) => alias ?? target);
+  const flat = prose.replace(/[#*`>\-]/g, " ").replace(/\s+/g, " ").trim();
   const m = /^(.{0,140}?[.!?。])(\s|$)/.exec(flat);
   return (m ? m[1] : flat.slice(0, 140)).trim();
 }

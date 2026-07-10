@@ -75,7 +75,16 @@ export function FilePreview({ space, target }: { space: string; target: string }
     };
   }, [space, file]);
 
-  if (err) return <Box tone="danger">원본을 불러오지 못했습니다: {file}</Box>;
+  // 파일이 없거나 지워짐 — 큰 경고 박스는 글 흐름을 끊는다. 깨진 링크로만 조용히 표시.
+  if (err)
+    return (
+      <span
+        title={err}
+        className="inline-flex items-center gap-1 rounded border border-dashed border-hairline px-1.5 py-0.5 align-baseline text-[12px] text-ink-faint"
+      >
+        깨진 링크: {file}
+      </span>
+    );
   if (b64 === null) return <Box>불러오는 중… {file}</Box>;
   if (!b64) return <Box>원본 미리보기는 데스크톱(Tauri)에서 볼 수 있습니다: {file}</Box>;
 
