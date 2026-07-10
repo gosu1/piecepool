@@ -39,6 +39,28 @@ fn compat(s: NodeKind, t: NodeKind, rt: RelationType) -> bool {
     }
 }
 
+/// 대칭 관계 — (A,B) 와 (B,A) 는 같은 관계 하나다. 규약: relation-types.md §7.1.
+fn is_symmetric(rt: RelationType) -> bool {
+    use RelationType::*;
+    matches!(rt, Contrasts | ConfusedWith | RelatedTo)
+}
+
+/// 중복 판정 키. 대칭 타입은 (source,target) 을 정렬해 방향 차이를 지운다.
+/// 방향성 타입(part_of·prerequisite 등)은 정렬하면 계층축(DAG)이 무너지므로 그대로 둔다.
+fn dedup_key(r: &Relation) -> (String, String, RelationType) {
+    let (a, b) = (r.source_node_id.clone(), r.target_node_id.clone());
+    if is_symmetric(r.relation_type) && a > b {
+        (b, a, r.relation_type)
+    } else {
+        (a, b, r.relation_type)
+    }
+}
+
+/// self-loop 는 review_needed 에만 허용된다(relation-types.md §7.2). 나머지는 무의미.
+fn is_invalid_self_loop(r: &Relation) -> bool {
+    r.source_node_id == r.target_node_id && r.relation_type != RelationType::ReviewNeeded
+}
+
 /// 그래프 노드 DTO. 프론트 ConceptGraph 입력.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -63,11 +85,19 @@ pub(crate) fn read_relations(space: &str) -> Result<Vec<Relation>, String> {
     if !storage::exists(&path) {
         return Ok(vec![]);
     }
-    storage::read_json(&path).map_err(|e| e.to_string())
+    let rels: Vec<Relation> = storage::read_json(&path).map_err(|e| e.to_string())?;
+    // 저장 게이트를 우회해 들어온 과거 오염(대칭 중복·무효 self-loop)을 읽는 시점에 접는다.
+    // 비파괴적 — 다음 write 때 정리본이 디스크에 영속된다.
+    let mut seen = HashSet::new();
+    Ok(rels
+        .into_iter()
+        .filter(|r| !is_invalid_self_loop(r) && seen.insert(dedup_key(r)))
+        .collect())
 }
 
 /// wiki(노드) + relations(엣지) 를 합쳐 그래프 데이터 반환.
 /// node.kind: 들어오는 엣지만 있고 나가는 엣지가 없으면 "result"(결과 개념), 그 외 "core".
+/// 단 대칭 관계(§7.1)는 방향이 없으므로 "받기만 한다" 는 판정에서 제외한다.
 #[tauri::command]
 pub fn get_graph(space: String) -> Result<GraphData, String> {
     let sp = space_by_slug(&space)?;
@@ -77,9 +107,16 @@ pub fn get_graph(space: String) -> Result<GraphData, String> {
     let mut outdeg: HashMap<String, u32> = HashMap::new();
     let mut indeg: HashMap<String, u32> = HashMap::new();
     let mut edge_quality: HashMap<String, f32> = HashMap::new();
+    // 대칭 엣지가 닿은 노드. 대칭 관계는 한 방향만 저장되므로(§7.1) 차수만 보면
+    // 저장된 방향의 target 이 "받기만 하는" 노드로 오분류된다.
+    let mut symmetric_touched: HashSet<&str> = HashSet::new();
     for r in &relations {
         *outdeg.entry(r.source_node_id.clone()).or_default() += 1;
         *indeg.entry(r.target_node_id.clone()).or_default() += 1;
+        if is_symmetric(r.relation_type) {
+            symmetric_touched.insert(&r.source_node_id);
+            symmetric_touched.insert(&r.target_node_id);
+        }
         let w = r.strength * r.confidence;
         *edge_quality.entry(r.source_node_id.clone()).or_default() += w;
         *edge_quality.entry(r.target_node_id.clone()).or_default() += w;
@@ -99,7 +136,7 @@ pub fn get_graph(space: String) -> Result<GraphData, String> {
         let id = page.concept_id.clone();
         let out = *outdeg.get(&id).unwrap_or(&0);
         let inn = *indeg.get(&id).unwrap_or(&0);
-        let kind = if out == 0 && inn > 0 {
+        let kind = if out == 0 && inn > 0 && !symmetric_touched.contains(id.as_str()) {
             "result"
         } else {
             "core"
@@ -134,21 +171,14 @@ pub fn get_graph(space: String) -> Result<GraphData, String> {
 }
 
 /// LLM 결과 등으로 만들어진 relation 들을 검증 후 relations.json 에 병합(append).
-/// 검증: strength/confidence∈[0,1], node-compat 매트릭스, review_needed 자동 거부, evidence≥1, 동일 엣지 dedup.
+/// 검증: strength/confidence∈[0,1], node-compat 매트릭스, review_needed 자동 거부, evidence≥1,
+/// 동일 엣지 dedup(대칭 타입은 방향 무시), 무효 self-loop skip.
 /// 저장 후 related_to 비율 > 30% 이면 검토 플래그 로그(응답당 50% 경고와 별개 층).
 #[tauri::command]
 pub fn append_relations(space: String, relations: Vec<Relation>) -> Result<usize, String> {
     let mut existing = read_relations(&space)?;
-    let mut seen: HashSet<(String, String, RelationType)> = existing
-        .iter()
-        .map(|r| {
-            (
-                r.source_node_id.clone(),
-                r.target_node_id.clone(),
-                r.relation_type,
-            )
-        })
-        .collect();
+    let mut seen: HashSet<(String, String, RelationType)> =
+        existing.iter().map(dedup_key).collect();
 
     for r in relations {
         let edge = format!("{}→{}", r.source_node_id, r.target_node_id);
@@ -177,13 +207,12 @@ pub fn append_relations(space: String, relations: Vec<Relation>) -> Result<usize
                 "[relation_invalid] 모든 관계는 evidence ≥ 1: {edge}"
             ));
         }
-        let key = (
-            r.source_node_id.clone(),
-            r.target_node_id.clone(),
-            r.relation_type,
-        );
-        if seen.insert(key) {
-            existing.push(r); // 동일 엣지는 중복 저장 안 함
+        // 무효 self-loop 는 배치 전체를 실패시키지 않고 건너뛴다 — 지금까지 통과하던 임포트를 깨지 않는다.
+        if is_invalid_self_loop(&r) {
+            continue;
+        }
+        if seen.insert(dedup_key(&r)) {
+            existing.push(r); // 동일 엣지는 중복 저장 안 함 (대칭 타입은 방향 무시)
         }
     }
 

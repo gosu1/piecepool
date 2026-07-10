@@ -12,6 +12,7 @@ import type {
   SourceType,
 } from "./types";
 import { computePriorities } from "./priority";
+import { groupOf } from "./relationMeta";
 
 const NOW = "2026-07-01T00:00:00Z";
 let memNotes: Record<string, ArchiveNote[]> = {
@@ -207,6 +208,18 @@ const SUBJECTS: Record<string, Subject[]> = {
 
 const delay = <T>(v: T) => new Promise<T>((r) => setTimeout(() => r(v), 60));
 
+// graph.rs 의 dedup_key 미러. assoc 그룹(related_to·contrasts·confused_with)이 곧 대칭 관계이므로
+// (A,B) 와 (B,A) 를 같은 키로 접는다. 방향성 타입은 정렬하지 않는다 — 계층축(DAG)이 무너진다.
+const dedupKey = (r: Relation) => {
+  const { sourceNodeId: a, targetNodeId: b, relationType: t } = r;
+  const symmetric = groupOf(t).id === "assoc";
+  const [x, y] = symmetric && a > b ? [b, a] : [a, b];
+  return [x, y, t].join("|");
+};
+
+// self-loop 는 review_needed 에만 허용된다 (relation-types.md §7.2)
+const isInvalidSelfLoop = (r: Relation) => r.sourceNodeId === r.targetNodeId && r.relationType !== "review_needed";
+
 function graphOf(space: string): GraphData {
   const rels = RELATIONS[space] ?? [];
   const out: Record<string, number> = {};
@@ -355,8 +368,16 @@ export const mock = {
   appendRelations: (space: string, relations: Relation[]) => {
     if (relations.some((r) => r.relationType === "review_needed"))
       return Promise.reject(new Error("[relation_invalid] review_needed 는 사용자만 지정 가능(자동 부여 금지)"));
-    RELATIONS[space] = [...(RELATIONS[space] ?? []), ...relations];
-    return delay(RELATIONS[space].length);
+    const kept = [...(RELATIONS[space] ?? [])];
+    const seen = new Set(kept.map(dedupKey));
+    for (const r of relations) {
+      const k = dedupKey(r);
+      if (isInvalidSelfLoop(r) || seen.has(k)) continue;
+      seen.add(k);
+      kept.push(r);
+    }
+    RELATIONS[space] = kept;
+    return delay(kept.length);
   },
   markReviewNeeded: (space: string, conceptId: string, sourceId: string, quotes: string[]) => {
     if (!conceptId.startsWith("concept-"))
