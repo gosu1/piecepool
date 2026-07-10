@@ -72,7 +72,7 @@ PiecePool 용어 정의. **모든 역할 필독**. 협업 시 용어 표류 방�
 
 | 용어 | 정의 |
 |---|---|
-| **Provider** | LLM 호출 대상. `openai` (GPT) 단일 |
+| **Provider** | LLM 호출 대상. Google Gemini 단일. 어댑터는 Gemini의 OpenAI 호환 규격으로 호출(코드의 `openai` 식별자는 벤더 아닌 전송 규격) |
 | **Adapter** | provider raw 응답을 공통 `LlmWikiResult` schema로 변환하는 계층 |
 | **LlmWikiResult** | provider 무관 출력 JSON Schema ([llm-output-schema](../10-contracts/llm-output-schema.md)) |
 

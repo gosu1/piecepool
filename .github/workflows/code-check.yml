@@ -15,8 +15,11 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run check
+      - run: npm run check # 앱(tsconfig.json) + CLI 스크립트(tsconfig.scripts.json)
       - run: npm run build
+      # 타입만으론 못 잡는 배관(픽스처 경로·CLI 인자)을 키 없이 실제 실행해 확인한다.
+      - name: scripts smoke (offline, no API key)
+        run: npm run chunk -- --text "커널은 자원을 관리한다. 프로세스는 실행 중인 프로그램이다." --offline
       # 아래는 안정화 전까지 continue-on-error, green 확인 후 blocking 전환
       - name: npm test (vitest)
         continue-on-error: true

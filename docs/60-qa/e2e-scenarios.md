@@ -28,7 +28,7 @@ End-to-end 시나리오. 각 시나리오는 사용자 관점 1회 흐름이며,
 
 ## 시나리오 2: 텍스트 입력 → archive → wiki → graph
 
-**전제**: `OPENAI_API_KEY` 환경변수 설정.
+**전제**: 설정 모달에 Gemini 키 입력.
 
 **흐름**:
 1. Inbox에서 Subject 선택 (AI)
@@ -140,17 +140,17 @@ End-to-end 시나리오. 각 시나리오는 사용자 관점 1회 흐름이며,
 
 ---
 
-## 시나리오 8: OpenAI 호출 경로
+## 시나리오 8: Gemini 호출 경로
 
-**전제**: `OPENAI_API_KEY` 환경변수 설정.
+**전제**: 설정 모달에 Gemini 키 입력.
 
 **흐름**:
 1. 신규 텍스트 input 실행
-2. ImportJob이 OpenAI API 호출
+2. ImportJob이 Gemini API 호출
 
 **검증**:
-- 호출 로그에 OpenAI endpoint 확인
-- `OPENAI_API_KEY` 미설정 시 명확한 오류 메시지
+- 호출 로그에 Gemini endpoint(OpenAI 호환 `/chat/completions`) 확인
+- 키 미설정 시에도 앱이 죽지 않고 휴리스틱 폴백으로 동작
 - 생성된 WikiPage가 schema 통과
 
 **acceptance**: §3.3 LLM 호출, §7 화면
@@ -248,3 +248,4 @@ End-to-end 시나리오. 각 시나리오는 사용자 관점 1회 흐름이며,
 
 - 본 문서는 신규 작성이다. PRD-v1에는 시나리오 분해가 없었다.
 - 시나리오 4 (OCR), 8 (OpenAI 호출), 9~10 (되묻기·fact-check), 12 (cross-subject)는 본 리팩토링 결정사항 반영이다.
+- 2026-07-10: LLM provider를 OpenAI → Google Gemini로 전환 ([ADR-0009](../adr/0009-llm-provider-gemini.md)). 시나리오 2·8 전제/호출 경로를 Gemini(OpenAI 호환 Chat Completions, 키=`GEMINI_API_KEY`)로 정정.

@@ -59,7 +59,7 @@ job 필드 (구현 SSOT는 `src/store/convertStore.ts`):
 | `space` / `notePath` / `noteTitle` / `sourceId` | job 정체성 — 미리보기는 이 노트의 화면에서만 렌더 |
 | `status` | 위 전이도 6종 |
 | `text` | 스로틀된 스트리밍 텍스트 스냅샷 |
-| `engine` | `openai` 또는 `heuristic` (배지 표시) |
+| `engine` | `gemini` 또는 `heuristic` (배지 표시) |
 | `warning` / `error` | 부분 생성·폴백 사유 / 실패 사유 |
 | `wikiPath` | done 시 "열기" 대상 |
 

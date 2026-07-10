@@ -90,7 +90,7 @@ PDF 드롭(Inbox)
 | 리스크 | 대응 |
 |---|---|
 | ts-rs export 경로 버그(진행중 작업) | 곪기 전 fix. 타입 seam 먼저 잠금 |
-| LLM 키/비용 | OpenAI + seed 결정적 입력으로 데모 안정화 |
+| LLM 키/비용 | Gemini + seed 결정적 입력으로 데모 안정화 |
 | `.dmg` 공증(Apple notarization) | 미서명 + 실행 안내로 회피, 여력 되면 서명 |
 | 팀 코디네이션 | §7 산출물별 오너 지정 |
 

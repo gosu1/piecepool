@@ -1,8 +1,10 @@
 # ADR-0001: LLM provider — OpenAI 단일
 
-- 상태: 채택 (Accepted)
+- 상태: **대체됨 (Superseded by [ADR-0009](0009-llm-provider-gemini.md), 2026-07-10)**
 - 일자: 2026-06-30
 - 관련: [pricing-model](../00-overview/pricing-model.md) · [provider-config](../30-llm/provider-config.md) · [ADR-0002](0002-single-tier-pricing.md)
+
+> 아래 본문은 2026-06-30 당시의 결정 기록이다. provider는 [ADR-0009](0009-llm-provider-gemini.md)에서 Google Gemini로 교체됐다. 역사이므로 본문은 수정하지 않는다.
 
 ## 배경
 

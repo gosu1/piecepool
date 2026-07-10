@@ -26,11 +26,11 @@ LLM 호출 결과를 저장 전에 검증 / 재시도 / 부분 실패 처리하�
 
 ## 2. 변환 단계
 
-OpenAI raw JSON → `LlmWikiResult` 정규화.
+Gemini raw JSON → `LlmWikiResult` 정규화.
 
 | Provider | raw 형식 | 정규화 단계 |
 |---|---|---|
-| OpenAI | `{output_parsed: {...}}` 또는 Responses API output text | `output_parsed` 우선, 없으면 text parse |
+| Gemini | `{choices: [{message: {content: "..."}}]}` (OpenAI 호환 Chat Completions, `response_format`) | `choices[0].message.content` JSON 파싱 |
 
 ### 2.1 정규화 실패 처리
 
@@ -121,7 +121,7 @@ JSON Schema 위반으로 재시도 시 system prompt에 다음 추가:
 JSON Schema를 엄격히 따르세요.
 ```
 
-OpenAI strict mode(`json_schema`)에서는 schema 위반이 거의 발생하지 않지만, 발생 시 위반 정보 주입으로 재시도한다.
+Gemini는 structured output에서 `strict: true`를 거부하므로 `strict: false` + 다운스트림 파싱으로 받는다 — schema 위반이 발생할 수 있고, 발생 시 위반 정보 주입으로 재시도한다.
 
 ---
 
@@ -159,13 +159,13 @@ LLM 응답에 유효한 부분과 무효한 부분이 섞여 있으면 **유효 
 
 ## 6. 되묻기 round-trip
 
-되묻기(기본 기능, 유료 tier 아님)를 어댑터가 구현. **주 경로는 Liner 출처 검증**으로 간극을 판정하고, Liner 미가용 시 OpenAI round-trip(§6.1 대안 트리거)으로 대안 처리한다.
+되묻기(기본 기능, 유료 tier 아님)를 어댑터가 구현. **주 경로는 Liner 출처 검증**으로 간극을 판정하고, Liner 미가용 시 Gemini round-trip(§6.1 대안 트리거)으로 대안 처리한다.
 
 ### 6.1 트리거 조건
 
 **주 경로 — Liner 출처 검증:** Liner API가 label(권위 출처)과 사용자 필기를 대조해 간극(오기·오해·누락)을 검출하면 round-trip 진입. 출처 기반이라 판정 근거가 명확하다.
 
-**대안 경로 — OpenAI (Liner 미가용):** 1차 응답이 다음 중 1개 이상 만족 시 round-trip 진입:
+**대안 경로 — Gemini (Liner 미가용):** 1차 응답이 다음 중 1개 이상 만족 시 round-trip 진입:
 
 | 조건 | 임계값 (기본) |
 |---|---|

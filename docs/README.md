@@ -12,7 +12,7 @@ PiecePool 프로젝트의 단일 문서 허브. 번호 순서대로 읽으면 �
 | [`10-contracts/`](10-contracts/) | **SSOT** — 엔티티, RelationType, 워크스페이스 layout, frontmatter, wikilink/embed, LLM 출력 schema |
 | [`adr/`](adr/) | 아키텍처 결정 기록(ADR) — 확정된 기술 결정과 근거 |
 | [`20-backend/`](20-backend/) | Tauri + Rust — 저장 I/O, PDF 추출, import 파이프라인, IPC, 오류 처리 |
-| [`30-llm/`](30-llm/) | OpenAI 어댑터, 프롬프트, 출력 검증, eval |
+| [`30-llm/`](30-llm/) | Gemini 어댑터, 프롬프트, 출력 검증, eval |
 | [`40-frontend/`](40-frontend/) | React/TS — 화면, 컴포넌트, OCR 클라이언트, 패키징 |
 | [`50-design/`](50-design/) | Figma 기반 UI/UX 디자인 |
 | [`60-qa/`](60-qa/) | 인수 기준 · E2E 시나리오 |

@@ -20,7 +20,7 @@ const DEFAULT_DIRS: Dirs = {
   expectedDir: join(EVALS_DIR, "expected"),
   resultsDir: join(EVALS_DIR, "results"),
 };
-const PROVIDERS: ProviderId[] = ["openai"];
+const PROVIDERS: ProviderId[] = ["gemini"];
 
 // fixtures/*.json, expected/*.expected.json 스키마: docs/30-llm/evals.md §2.2, §2.3.
 type Fixture = { id: string; title: string; input: LlmWikiInput; tags?: string[] };
@@ -209,9 +209,9 @@ async function main(): Promise<void> {
     return;
   }
 
-  const provider = (get("--provider") ?? "openai") as ProviderId;
+  const provider = (get("--provider") ?? "gemini") as ProviderId;
   const allProviders = has("--all-providers");
-  if (!allProviders && !PROVIDERS.includes(provider)) return fail(`알 수 없는 provider: ${provider}. openai`);
+  if (!allProviders && !PROVIDERS.includes(provider)) return fail(`알 수 없는 provider: ${provider}. ${PROVIDERS.join(" | ")}`);
 
   let caseIds: string[];
   if (has("--all")) {

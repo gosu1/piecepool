@@ -13,7 +13,7 @@ import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { semanticChunk, splitSentences, percentile, type EmbedFn } from "../src/llm/chunk";
-import { createOpenAiEmbedder } from "../src/llm/embeddings";
+import { createGeminiEmbedder } from "../src/llm/embeddings";
 import { classify } from "../src/llm/classify";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -36,12 +36,14 @@ async function main(): Promise<void> {
     .filter((n) => Number.isFinite(n));
   const minSentences = Number(get("--min") ?? "1") || 1;
 
-  const offline = has("--offline") || !readEnv().OPENAI_API_KEY;
-  const embed = offline ? offlineLexicalEmbed : cache(createOpenAiEmbedder());
+  // 키는 env 에서 읽는다(CLI 규약). 앱은 설정 모달의 localStorage 를 쓴다 — 둘은 별개다.
+  const offline = has("--offline") || !readEnv().GEMINI_API_KEY;
+  const embed = offline ? offlineLexicalEmbed : cache(createGeminiEmbedder());
 
   const sentences = splitSentences(text);
+  const model = readEnv().PIECEPOOL_EMBED_MODEL || "gemini-embedding-001";
   console.log(`\n=== Semantic Chunk Preview ===`);
-  console.log(`문장: ${sentences.length}개 | 임베딩: ${offline ? "offline lexical(비의미, 스모크용)" : "text-embedding-3-small"}`);
+  console.log(`문장: ${sentences.length}개 | 임베딩: ${offline ? "offline lexical(비의미, 스모크용)" : model}`);
   if (sentences.length <= 1) return void console.log("문장이 1개 이하 — 청킹 불가.");
 
   // 유사도 신호는 percentile과 무관하므로 1회 계산해 분포를 먼저 보여준다.

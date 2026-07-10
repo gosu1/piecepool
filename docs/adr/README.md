@@ -6,7 +6,7 @@
 
 | ADR | 결정 | 상태 |
 |---|---|---|
-| [0001](0001-llm-provider-openai.md) | LLM provider = OpenAI 단일 (feature 3 출처검색 = Liner API) | 채택 |
+| [0001](0001-llm-provider-openai.md) | LLM provider = OpenAI 단일 (feature 3 출처검색 = Liner API) | 대체됨 → [0009](0009-llm-provider-gemini.md) |
 | [0002](0002-single-tier-pricing.md) | 단일 tier (freemium 폐기) | 채택 |
 | [0003](0003-ocr-vision-llm.md) | OCR = vision LLM (별도 엔진 없음) | 채택 |
 | [0004](0004-markdown-editor-codemirror6.md) | Markdown 편집기 = CodeMirror 6 | 채택 |
@@ -14,6 +14,7 @@
 | [0006](0006-graph-rendering-cytoscape.md) | Graph 렌더링 = Cytoscape.js | 채택 |
 | [0007](0007-importjob-orchestration-ts.md) | ImportJob 오케스트레이션 = TS 주도 | 채택 |
 | [0008](0008-note-synthesis-streaming.md) | 파편 노트 정리 글 합성 = 스트리밍 + WikiPage 재사용 | 채택 |
+| [0009](0009-llm-provider-gemini.md) | LLM provider = Google Gemini 단일 (OpenAI 호환 엔드포인트) | 채택 |
 
 ## 새 ADR 작성
 

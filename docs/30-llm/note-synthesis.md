@@ -27,7 +27,7 @@ archive 노트 화면(Source reader)의 **"정리 글 변환"** 버튼 1개. 저
 ```
 [정리 글 변환]
      │
-     ├─ A. 합성: runSynthesis ── streamResponsesText (SSE)
+     ├─ A. 합성: runSynthesis ── streamChatText (SSE)
      │        onDelta → 미리보기 실시간 렌더
      │        완료 → synthesisPage() → save_wiki
      │
@@ -43,17 +43,16 @@ archive 노트 화면(Source reader)의 **"정리 글 변환"** 버튼 1개. 저
 
 ## 3. 스트리밍 프로토콜
 
-OpenAI Responses API `POST /responses` + `stream: true`. Chat Completions와 달리 `data: [DONE]` 센티널이 **없고**, 타입 있는 이벤트가 온다.
+Gemini(OpenAI 호환) Chat Completions `POST /chat/completions` + `stream: true`. 각 SSE 프레임의 `choices[0].delta.content`를 누적하고, **종결은 `finish_reason`으로만 판단한다** (`data: [DONE]` 프레임은 건너뛴다 — `stream.ts:27`).
 
-| 이벤트 `type` | 처리 |
+| SSE 프레임 | 처리 |
 |---|---|
-| `response.created` | 스트림 시작 표시 (스켈레톤 해제) |
-| `response.output_text.delta` | `delta` 누적 + onDelta 콜백 |
-| `response.output_text.done` | 무시 (누적 버퍼 우선) |
-| `response.completed` | 전체 텍스트로 resolve |
-| `response.incomplete` | 부분 텍스트 + 사유(`max_output_tokens` 등)로 resolve — 성공 취급, 경고 표시 |
-| `response.failed` / `error` | reject |
-| 그 외 (`response.in_progress`, `response.output_item.*`, `response.content_part.*`, 미지 타입) | 무시 (전방 호환) |
+| `choices[0].delta.content` (문자열) | 누적 버퍼에 이어붙임 + onDelta 콜백 |
+| `choices[0].finish_reason` = `stop` 등 | 누적 텍스트로 resolve |
+| `choices[0].finish_reason` = `length` | 부분 텍스트 + 사유(`length` = `max_tokens` 도달)로 resolve — 성공 취급, 경고 표시 |
+| `{ error: { message } }` | reject |
+| `data: [DONE]` 센티널 | 무시 (종결은 `finish_reason`으로 판단) |
+| 그 외 (부분 프레임·비JSON·미지 타입) | 무시 (전방 호환) |
 
 파서 규칙:
 
@@ -91,9 +90,9 @@ OpenAI Responses API `POST /responses` + `stream: true`. Chat Completions와 달
 |---|---|---|
 | API 키 없음 | 결정적 휴리스틱 재배열 즉시 표시 (가짜 스트리밍 없음) | 휴리스틱 |
 | 스트림 시작 전 실패 (재시도 소진) | 휴리스틱 폴백 + 실패 사유 경고 | 휴리스틱 |
-| 스트림 도중 실패 | 부분 텍스트 유지 + "저장 안 됨" + 수동 재시도 | GPT (부분) |
-| `response.incomplete` | 부분 텍스트 저장 + "일부만 생성됨" 경고 | GPT |
-| 스트리밍 미지원 webview | `stream: false` 버퍼링 폴백 (한 번에 표시) | GPT |
+| 스트림 도중 실패 | 부분 텍스트 유지 + "저장 안 됨" + 수동 재시도 | Gemini (부분) |
+| `finish_reason: length` | 부분 텍스트 저장 + "일부만 생성됨" 경고 | Gemini |
+| 스트리밍 미지원 webview | `stream: false` 버퍼링 폴백 (한 번에 표시) | Gemini |
 
 휴리스틱 합성: 결정적 재배열만 한다 — `# {제목} 정리` 헤더, 기존 헤딩 유지, 빈 줄로 나뉜 파편을 문단/불릿로 정리, 문장 생성·사실 창작 없음.
 
