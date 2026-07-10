@@ -271,6 +271,173 @@ mod tests {
             // (LLM 경로가 review_needed 를 거부하는지는 블록 7 에서 이미 검증한다)
         }
 
+        // 7-2) 대칭 관계 dedup + 무효 self-loop skip.
+        //      contrasts/confused_with/related_to 는 (A,B) ≡ (B,A) — relation-types.md §대칭성.
+        //      LLM 이 양방향 두 건을 뱉어도 엣지는 하나여야 한다.
+        {
+            use crate::models::{Evidence, Relation, RelationType};
+            let sp = || "operating-systems".to_string();
+            // 이 블록은 관계를 여럿 넣는다. 뒤 블록들(특히 15번 delete_wiki)이 관계 개수를 세므로
+            // 끝에서 relations.json 을 원상복구한다.
+            let path =
+                storage::space_subdir("operating-systems", "relations").join("relations.json");
+            let snapshot: Vec<Relation> = storage::read_json(&path).unwrap();
+            let mk = |id: &str, s: &str, t: &str, rt: RelationType| Relation {
+                id: id.into(),
+                space_id: "space-os".into(),
+                source_node_id: s.into(),
+                target_node_id: t.into(),
+                relation_type: rt,
+                strength: 0.8,
+                confidence: 0.9,
+                explanation: "why".into(),
+                evidence: vec![Evidence {
+                    source_id: "source-os-overview".into(),
+                    source_ref_id: None,
+                    archive_path: Some("archive/x.md".into()),
+                    original_file_path: None,
+                    page: None,
+                    quote: None,
+                    location: None,
+                    reason: "테스트".into(),
+                }],
+                created_at: "2026-07-01T00:00:00Z".into(),
+                updated_at: "2026-07-01T00:00:00Z".into(),
+            };
+            // 디스크의 relations.json 을 그대로 읽는다. get_graph 를 거치면 read_relations 가
+            // 같은 dedup 을 다시 걸어서, append_relations 게이트가 망가져도 초록으로 숨는다.
+            let raw = || -> Vec<Relation> { storage::read_json(&path).unwrap() };
+            // 방향 무시하고 두 노드 사이 특정 타입의 엣지 수를 센다 (디스크 기준)
+            let count = |s: &str, t: &str, rt: RelationType| -> usize {
+                raw()
+                    .iter()
+                    .filter(|r| {
+                        r.relation_type == rt
+                            && ((r.source_node_id == s && r.target_node_id == t)
+                                || (r.source_node_id == t && r.target_node_id == s))
+                    })
+                    .count()
+            };
+
+            // 대칭 — 양방향으로 넣어도 하나로 접힌다 (교감↔부교감 contrasts 선 2개 버그)
+            assert!(commands::graph::append_relations(
+                sp(),
+                vec![mk(
+                    "rel-sym-1",
+                    "concept-symp",
+                    "concept-parasymp",
+                    RelationType::Contrasts
+                )]
+            )
+            .is_ok());
+            assert!(commands::graph::append_relations(
+                sp(),
+                vec![mk(
+                    "rel-sym-2",
+                    "concept-parasymp",
+                    "concept-symp",
+                    RelationType::Contrasts
+                )]
+            )
+            .is_ok());
+            assert_eq!(
+                count("concept-symp", "concept-parasymp", RelationType::Contrasts),
+                1,
+                "대칭 관계는 방향이 달라도 하나로 접힌다"
+            );
+
+            // 방향성 — part_of 는 접으면 계층축(DAG)이 무너진다. 블록 7 이 concept-a→concept-b 를 이미 넣었다.
+            assert!(commands::graph::append_relations(
+                sp(),
+                vec![mk(
+                    "rel-dir-1",
+                    "concept-b",
+                    "concept-a",
+                    RelationType::PartOf
+                )]
+            )
+            .is_ok());
+            assert_eq!(
+                count("concept-a", "concept-b", RelationType::PartOf),
+                2,
+                "방향성 관계는 역방향도 별개 엣지로 남는다"
+            );
+
+            // 무효 self-loop 는 배치를 실패시키지 않고 건너뛴다 (기존에 통과하던 임포트를 깨지 않기 위해)
+            let before = raw().len();
+            assert!(commands::graph::append_relations(
+                sp(),
+                vec![
+                    mk("rel-loop", "concept-t", "concept-t", RelationType::UsedIn),
+                    mk("rel-ok", "concept-c", "concept-d", RelationType::Causes),
+                ]
+            )
+            .is_ok());
+            let after = raw();
+            assert!(
+                !after.iter().any(|r| r.source_node_id == r.target_node_id
+                    && r.relation_type != RelationType::ReviewNeeded),
+                "review_needed 외 self-loop 는 디스크에 저장되지 않는다"
+            );
+            assert!(
+                after.iter().any(|r| r.id == "rel-ok"),
+                "self-loop 하나 때문에 배치 전체가 버려지면 안 된다"
+            );
+            assert_eq!(after.len(), before + 1, "정상 관계 1개만 늘어난다");
+
+            // 읽기 시점 정리 — 저장 게이트를 우회해 이미 오염된 relations.json 도 접힌다.
+            // (지금 사용자 워크스페이스에 쌓여 있는 중복이 앱 재시작만으로 사라지는 근거)
+            let mut dirty: Vec<Relation> = storage::read_json(&path).unwrap();
+            dirty.push(mk(
+                "rel-dirty-1",
+                "concept-x",
+                "concept-y",
+                RelationType::ConfusedWith,
+            ));
+            dirty.push(mk(
+                "rel-dirty-2",
+                "concept-y",
+                "concept-x",
+                RelationType::ConfusedWith,
+            ));
+            storage::write_json(&path, &dirty).unwrap();
+            assert_eq!(
+                count("concept-x", "concept-y", RelationType::ConfusedWith),
+                2,
+                "디스크는 아직 오염 상태"
+            );
+            let repaired = commands::graph::get_graph(sp())
+                .unwrap()
+                .relations
+                .iter()
+                .filter(|r| {
+                    r.relation_type == RelationType::ConfusedWith
+                        && (r.source_node_id == "concept-x" || r.target_node_id == "concept-x")
+                })
+                .count();
+            assert_eq!(
+                repaired, 1,
+                "저장을 우회해 들어온 대칭 중복도 읽기 시점에 접힌다"
+            );
+
+            storage::write_json(&path, &snapshot).unwrap(); // 원상복구
+        }
+
+        // 7-3) 대칭 엣지는 한 방향만 저장되므로, 차수만 보는 kind 판정이 상대편을
+        //      "결과 개념"(흐린 회색)으로 오분류하면 안 된다. 시드: 교감신경 --contrasts--> 부교감신경.
+        {
+            let g = commands::graph::get_graph("physiology".into()).expect("graph");
+            let para = g
+                .nodes
+                .iter()
+                .find(|n| n.id == "concept-parasympathetic-nerve")
+                .expect("부교감신경 노드");
+            assert_eq!(
+                para.kind, "core",
+                "대칭 관계만 가진 개념은 결과 개념이 아니다"
+            );
+        }
+
         // 8) PDF 추출: 비-PDF 파일 → pdf_extract 오류, 원본은 보존
         {
             let src_dir = storage::space_subdir("operating-systems", "sources/original-files");
