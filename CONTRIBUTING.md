@@ -21,6 +21,12 @@ npm install
 npm run tauri dev      # Tauri + Vite 동시 실행
 ```
 
+> `tauri.conf.json`의 `beforeDevCommand`는 `npm run dev`가 아니라 **`node node_modules/vite/bin/vite.js`**다.
+> `npm run dev`로 두면 프로세스 사슬이 `tauri → npm → vite` 3단이 되는데, Tauri 가 자식(`npm`)을 SIGKILL 할 때
+> 손자(`vite`)는 살아남아 포트 1420을 계속 물고 `Port 1420 is already in use`로 다음 실행을 막는다.
+> vite 를 직접 실행하면 Tauri 의 자식이 곧 vite 라 항상 함께 종료된다. **되돌리지 말 것.**
+> (그래도 포트가 막히면: `lsof -ti:1420 | xargs kill -9`)
+
 환경변수 ([`.env.example`](.env.example)):
 
 | 변수 | 필수 | 설명 |
