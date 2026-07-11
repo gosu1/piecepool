@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Button, Card, cn } from "../../ds";
+import { Button, Card, Icons, cn } from "../../ds";
 import type { GraphData, WikiPage as WikiPageT, Subject, KnowledgeSpace } from "../../lib/types";
 import * as ipc from "../../lib/ipc";
 import { CytoscapeGraph, GraphCtl } from "../../lib/CytoscapeGraph";
@@ -22,6 +22,9 @@ const SPACE_PALETTE = ["#0075de", "#dd5b00", "#2a9d99", "#7048e8", "#e64980", "#
 
 // "그래프 읽는 법" 오버레이 — 첫 방문 자동 펼침, 닫으면 기억
 const HELP_SEEN_KEY = "piecepool.graph-help-seen";
+
+// 과목 선택기: 이 개수까지는 칩(1클릭 전환), 넘으면 드롭다운(줄바꿈으로 그래프가 밀리지 않게)
+const CHIP_MAX = 5;
 
 // ══ Graph 섹션 (Cytoscape 인터랙티브) ══
 // 과목 선택: 아무 과목(단일 space) ↔ 전체 과목(전 space 병합). 셸/사이드바 무관, 그래프 뷰 국소.
@@ -228,23 +231,42 @@ export function GraphSection({
         {/* 과목 선택(과목별 ↔ 전체)·레이아웃(계층↔자유) 토글 */}
         {(spaces.length > 1 || (view && hasHier)) && (
           <div className="flex flex-wrap items-center gap-2">
-            {spaces.length > 1 && (
-              <div className="flex w-fit flex-wrap gap-0.5 rounded-lg border border-hairline p-0.5">
-                {[...spaces.map((s) => ({ slug: s.slug, name: s.name })), { slug: "", name: "전체 과목" }].map((o) => (
-                  <button
-                    key={o.slug || "all"}
-                    type="button"
-                    onClick={() => pickView(o.slug)}
-                    className={cn(
-                      "rounded-md px-2.5 py-1 text-[12px] transition-colors",
-                      view === o.slug ? "bg-surface-soft font-semibold text-ink shadow-soft" : "text-ink-2 hover:text-ink",
-                    )}
+            {/* 과목이 많으면 칩이 줄바꿈돼 그래프를 밀어낸다 → CHIP_MAX 초과 시 드롭다운으로 */}
+            {spaces.length > 1 &&
+              (spaces.length > CHIP_MAX ? (
+                <span className="inline-flex items-center gap-1.5 rounded-lg border border-hairline px-2.5 py-1 text-[12px] text-ink-muted">
+                  <Icons.FolderIcon size={13} className="text-ink-faint" />
+                  <select
+                    value={view}
+                    onChange={(e) => pickView(e.target.value)}
+                    aria-label="과목 선택"
+                    className="max-w-[160px] truncate bg-transparent text-[12px] font-medium text-ink outline-none"
                   >
-                    {o.name}
-                  </button>
-                ))}
-              </div>
-            )}
+                    {spaces.map((s) => (
+                      <option key={s.slug} value={s.slug}>
+                        {s.name}
+                      </option>
+                    ))}
+                    <option value="">전체 과목</option>
+                  </select>
+                </span>
+              ) : (
+                <div className="flex w-fit gap-0.5 rounded-lg border border-hairline p-0.5">
+                  {[...spaces.map((s) => ({ slug: s.slug, name: s.name })), { slug: "", name: "전체 과목" }].map((o) => (
+                    <button
+                      key={o.slug || "all"}
+                      type="button"
+                      onClick={() => pickView(o.slug)}
+                      className={cn(
+                        "rounded-md px-2.5 py-1 text-[12px] transition-colors",
+                        view === o.slug ? "bg-surface-soft font-semibold text-ink shadow-soft" : "text-ink-2 hover:text-ink",
+                      )}
+                    >
+                      {o.name}
+                    </button>
+                  ))}
+                </div>
+              ))}
             {/* 계층 보기 ↔ 자유 배치 — 단일 과목 + 계층 관계 있을 때만 (병합 뷰는 항상 자유 배치) */}
             {view && hasHier && (
               <div className="flex w-fit gap-0.5 rounded-lg border border-hairline p-0.5">
