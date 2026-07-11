@@ -111,12 +111,29 @@ export function GraphSection({
     return m;
   }, [spaces]);
 
-  // subject 필터로 선택 노드가 화면에서 사라지면 상세 패널도 비운다(데스ync 방지).
+  // 복습 필터 — 켜면 "아직 모르겠어요"로 표시한 개념만 남긴다. self-loop 라 관계 필터만으로는 노드가 안 걸러진다.
+  const reviewOnly = groupFilter.includes("review");
+  const reviewedIds = useMemo(
+    () =>
+      new Set(
+        (graph?.relations ?? [])
+          .filter((r) => r.relationType === "review_needed" && r.sourceNodeId === r.targetNodeId)
+          .map((r) => r.sourceNodeId),
+      ),
+    [graph],
+  );
+
+  // subject·복습 필터로 선택 노드가 화면에서 사라지면 상세 패널도 비운다(데스ync 방지).
   useEffect(() => {
-    if (!selNode || subjectFilter.length === 0) return;
+    if (!selNode) return;
+    if (reviewOnly && !reviewedIds.has(selNode)) {
+      setSelNode(null);
+      return;
+    }
+    if (subjectFilter.length === 0) return;
     const visible = graph?.nodes.some((n) => n.id === selNode && n.subjectIds.some((s) => subjectFilter.includes(s)));
     if (!visible) setSelNode(null);
-  }, [subjectFilter, graph, selNode]);
+  }, [subjectFilter, reviewOnly, reviewedIds, graph, selNode]);
 
   const node = graph?.nodes.find((n) => n.id === selNode) ?? null;
   const nodeSpace = node?.space ?? space; // 병합 뷰에서 노드가 어느 space 소속인지 → 올바른 파일 열기
@@ -169,8 +186,15 @@ export function GraphSection({
   // 전체 뷰 범례용: 병합 그래프에 실제 등장하는 space 들
   const spacesPresent = view ? [] : (Array.from(new Set(merged.nodes.map((n) => n.space).filter(Boolean))) as string[]);
 
-  const toggleGroup = (id: RelationGroupId) => setGroupFilter((f) => (f.includes(id) ? f.filter((x) => x !== id) : [...f, id]));
-  const toggleSubject = (id: string) => setSubjectFilter((f) => (f.includes(id) ? f.filter((x) => x !== id) : [...f, id]));
+  // 필터를 바꾸면 검색 포커스(확대·이동)는 푼다 — 남아 있으면 새로 그린 그래프가 엉뚱한 자리에 확대된 채 걸린다.
+  const toggleGroup = (id: RelationGroupId) => {
+    setFocus(null);
+    setGroupFilter((f) => (f.includes(id) ? f.filter((x) => x !== id) : [...f, id]));
+  };
+  const toggleSubject = (id: string) => {
+    setFocus(null);
+    setSubjectFilter((f) => (f.includes(id) ? f.filter((x) => x !== id) : [...f, id]));
+  };
 
   // 과목 전환 시 선택·필터 초기화 (다른 space 잔여 선택 방지)
   const pickView = (slug: string) => {
@@ -356,6 +380,7 @@ export function GraphSection({
                 data={graph}
                 typeFilter={typeFilter}
                 subjectFilter={subjectFilter}
+                reviewOnly={reviewOnly}
                 spaceColors={view ? undefined : spaceColors}
                 selectedId={selNode}
                 focus={focus}
@@ -374,6 +399,12 @@ export function GraphSection({
                   setFocus(null);
                 }}
               />
+              {/* 복습 필터를 켰는데 표시한 개념이 없으면 빈 캔버스만 남는다 — 왜 비었는지 말해준다. */}
+              {reviewOnly && reviewedIds.size === 0 && (
+                <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-[13px] text-ink-muted">
+                  복습으로 표시한 개념이 없어요
+                </p>
+              )}
               {/* 그래프 읽는 법(첫 방문 자동 펼침, 이후 ? 재호출) + 관계 품질 미터
                   래퍼는 pointer-events-none — items-end 로 커진 투명 영역이 그래프 클릭·팬을 먹지 않게. */}
               <div className="pointer-events-none absolute bottom-2 left-2 z-10 flex flex-wrap items-end gap-1.5">

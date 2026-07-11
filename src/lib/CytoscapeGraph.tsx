@@ -147,6 +147,8 @@ export interface CytoscapeGraphProps {
   onClear?: () => void;
   subjectFilter?: string[]; // 비면 전체
   typeFilter?: string[]; // 비면 전체
+  /** 복습 필터 — 켜면 "아직 모르겠어요"로 표시한 개념만 남기고 나머지 노드는 감춘다. */
+  reviewOnly?: boolean;
   /** 선택된 노드 id — 필터 변경으로 요소를 다시 그려도 선택 링을 유지한다. */
   selectedId?: string | null;
   /** 지정 시 해당 노드로 애니메이션 포커스. n(논스)으로 같은 노드 재검색도 다시 발화. */
@@ -172,7 +174,7 @@ function readTokens() {
   };
 }
 
-export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, typeFilter, selectedId, focus, spaceColors, layout = "force", className }: CytoscapeGraphProps) {
+export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, typeFilter, reviewOnly, selectedId, focus, spaceColors, layout = "force", className }: CytoscapeGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<Core | null>(null);
   const simRef = useRef<Simulation<SimNode, SimLink> | null>(null);
@@ -208,9 +210,6 @@ export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, t
 
   // ── 필터 적용된 요소 계산 ──
   const elements = useMemo<ElementDefinition[]>(() => {
-    const nodes = data.nodes.filter((n) => !subjectFilter?.length || n.subjectIds.some((s) => subjectFilter.includes(s)));
-    const nodeIds = new Set(nodes.map((n) => n.id));
-
     // 사용자가 "아직 모르겠어요" 로 표시한 개념 (review_needed self-loop).
     // 엣지로 그리면 노드 위 작은 고리가 되어 읽히지 않는다 → 노드 테두리로 표현하고 엣지는 감춘다.
     // 채움(선택/중심)·크기(우선도)와 직교하는 채널이라 서로 덮어쓰지 않는다.
@@ -219,6 +218,12 @@ export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, t
         .filter((r) => r.relationType === "review_needed" && r.sourceNodeId === r.targetNodeId)
         .map((r) => r.sourceNodeId),
     );
+
+    const nodes = data.nodes
+      .filter((n) => !subjectFilter?.length || n.subjectIds.some((s) => subjectFilter.includes(s)))
+      // 복습 필터 — self-loop 는 엣지로 안 그리므로 관계 필터만으로는 노드가 걸러지지 않는다. 여기서 노드를 좁힌다.
+      .filter((n) => !reviewOnly || reviewed.has(n.id));
+    const nodeIds = new Set(nodes.map((n) => n.id));
 
     const rels = data.relations
       .filter((r) => r.sourceNodeId !== r.targetNodeId) // self-loop 는 테두리로 표현
@@ -251,7 +256,7 @@ export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, t
       },
     }));
     return [...nodeEls, ...edgeEls];
-  }, [data, subjectFilter, typeFilter, spaceColors]);
+  }, [data, subjectFilter, typeFilter, reviewOnly, spaceColors]);
 
   // ── cy 생성(1회) + 이벤트 바인딩 ──
   useEffect(() => {
@@ -411,6 +416,18 @@ export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, t
     rebuild();
   }, [elements]);
 
+  // ── 필터 변경 → 뷰포트 초기화 ──
+  // 요소가 바뀌면 시뮬이 다시 배치하지만 화면 맞춤은 시뮬이 정착한 뒤(수 초)에야 온다. 그동안 이전 줌·팬이
+  // 남아 있으면 새 노드가 화면 밖/구석에 걸린다(예: 복습 필터로 노드 1개만 남을 때). 줌 1·원점으로 되돌린다.
+  const firstViewport = useRef(true);
+  useEffect(() => {
+    if (firstViewport.current) {
+      firstViewport.current = false;
+      return;
+    }
+    cyRef.current?.reset();
+  }, [subjectFilter, typeFilter, reviewOnly]);
+
   // ── 레이아웃 모드 전환 → 요소는 그대로 두고 시뮬만 재구성 (마운트 직후는 elements effect 가 담당) ──
   const firstLayout = useRef(true);
   useEffect(() => {
@@ -446,7 +463,8 @@ export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, t
 
   return (
     <div className={`relative h-full w-full ${className ?? ""}`}>
-      <div ref={containerRef} className="h-full w-full" />
+      {/* 캔버스라 그려진 노드를 DOM 으로 셀 수 없다 — 필터 회귀를 잡을 유일한 관측점 */}
+      <div ref={containerRef} data-node-count={elements.filter((e) => !e.data.source).length} className="h-full w-full" />
       {/* 그래프 컨트롤 */}
       <div className="absolute right-2 top-2 flex flex-col gap-1">
         <GraphCtl label="확대" onClick={() => zoom(1.3)}>
