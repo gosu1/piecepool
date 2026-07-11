@@ -1,8 +1,9 @@
 import { cn } from "../../ds";
 import { useImportStore } from "../../store/importStore";
 import { useConvertStore } from "../../store/convertStore";
+import { useInboxDraftStore } from "../../store/inboxDraftStore";
 
-// ══ 하단 상태바 — ImportJob 진행 점(importStore) + 정리 글 변환(convertStore) + 현재 경로 ══
+// ══ 하단 상태바 — ImportJob 진행 점(importStore) + 정리 글 변환(convertStore) + PDF 요약(inboxDraftStore) + 현재 경로 ══
 const RUNNING = ["parsing", "archiving", "llm_processing", "clarify_pending", "writing"];
 const STATUS_LABEL: Record<string, string> = {
   idle: "대기",
@@ -22,10 +23,25 @@ const CONVERT_LABEL: Record<string, string> = {
   cancelled: "정리 글 중단",
   failed: "정리 글 실패",
 };
+const SUMMARY_LABEL: Record<string, string> = {
+  streaming: "PDF 요약 생성",
+  done: "PDF 요약 완료",
+  cancelled: "PDF 요약 중단",
+  failed: "PDF 요약 실패",
+};
 
 export function StatusBar({ pathLabel, notice }: { pathLabel?: string; notice?: string }) {
   const job = useImportStore((s) => s.job);
   const convert = useConvertStore((s) => s.job);
+  const summary = useInboxDraftStore((s) => s.job);
+  const summaryDot =
+    summary?.status === "failed"
+      ? "bg-danger"
+      : summary?.status === "done"
+        ? "bg-success"
+        : summary?.status === "streaming"
+          ? "bg-warning"
+          : "bg-ink-faint";
   const dot =
     job?.status === "failed"
       ? "bg-danger"
@@ -57,6 +73,13 @@ export function StatusBar({ pathLabel, notice }: { pathLabel?: string; notice?: 
           <span className={cn("h-1.5 w-1.5 rounded-full", convertDot)} />
           {CONVERT_LABEL[convert.status] ?? convert.status}
           {convert.status === "streaming" && convert.text.length > 0 && ` · ${convert.text.length.toLocaleString()}자`}
+        </span>
+      )}
+      {summary && (
+        <span className="flex items-center gap-1.5">
+          <span className={cn("h-1.5 w-1.5 rounded-full", summaryDot)} />
+          {SUMMARY_LABEL[summary.status] ?? summary.status}
+          {summary.status === "streaming" && summary.text.length > 0 && ` · ${summary.text.length.toLocaleString()}자`}
         </span>
       )}
       {notice && <span className="truncate text-ink-2">{notice}</span>}

@@ -35,6 +35,7 @@ import { ContextMenu, ConfirmDialog, PromptDialog } from "./shell/Dialogs";
 import { useWorkspaceStore, SIDEBAR_DEFAULT } from "../store/workspaceStore";
 import type { TabKind } from "../store/workspaceStore";
 import { useConvertStore } from "../store/convertStore";
+import { useInboxDraftStore } from "../store/inboxDraftStore";
 
 const KIND_LABEL: Record<TabKind, string> = { wiki: "Wiki", archive: "Source", inbox: "Inbox", graph: "Graph", home: "Home", empty: "새 탭" };
 
@@ -325,6 +326,8 @@ export default function PiecePoolApp() {
   const discardAndClose = (tabId: string) => {
     const tab = openTabs.find((t) => t.id === tabId);
     if (tab?.space && tab.file) clearDocState(docKey(tab.space, tab.file));
+    // Inbox 초안은 스토어 소유라 탭 언마운트로 안 지워진다 — 명시적으로 버린다(진행 중 요약도 중단).
+    if (tab?.space && tabId === `inbox:${tab.space}`) useInboxDraftStore.getState().clearDraft(tab.space);
     closeTab(tabId);
   };
 
@@ -1379,6 +1382,7 @@ export default function PiecePoolApp() {
           confirmLabel="새로 시작"
           danger
           onConfirm={() => {
+            useInboxDraftStore.getState().clearDraft(dialog.space); // 스토어 초안 폐기(remount 만으론 안 지워짐)
             bumpDraftEpoch(dialog.space);
             setDialog(null);
           }}

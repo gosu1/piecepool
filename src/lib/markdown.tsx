@@ -1,7 +1,11 @@
 import ReactMarkdown, { defaultUrlTransform, type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
 import { memo, useMemo, type ReactNode } from "react";
 import { remarkWikilink, parseEmbedTarget } from "./wikilink";
+import { remarkCallout } from "./callout";
 import { FilePreview } from "./FilePreview";
 
 // react-markdown + remark-gfm(테이블/코드) + 자체 remark 위키링크 플러그인(wikilink.ts).
@@ -35,7 +39,9 @@ function Embed({ target, space }: { target: string; space?: string }) {
 }
 
 // 매 렌더 새 배열/함수를 주면 react-markdown 이 파이프라인을 재실행한다 — 모듈 스코프로 고정.
-const REMARK_PLUGINS = [remarkGfm, remarkWikilink as never];
+// remarkMath: $...$/$$...$$ → math 노드, rehypeKatex 가 hast 에서 KaTeX 로. remarkCallout: > [!easy] → details.
+const REMARK_PLUGINS = [remarkGfm, remarkMath, remarkWikilink as never, remarkCallout as never];
+const REHYPE_PLUGINS = [rehypeKatex];
 // 커스텀 스킴(wiki:/embed:) 은 기본 sanitizer 가 제거하므로 보존 — 나머지는 기본 정화.
 const urlTransform = (url: string) => (url.startsWith("wiki:") || url.startsWith("embed:") ? url : defaultUrlTransform(url));
 
@@ -102,13 +108,20 @@ export const Markdown = memo(function Markdown({ source, className, onLink, link
           ),
         th: ({ children }) => <th className="border border-hairline bg-surface-soft px-3 py-1.5 text-left font-semibold text-ink">{children}</th>,
         td: ({ children }) => <td className="border border-hairline px-3 py-1.5 text-ink-2">{children}</td>,
+        // 콜아웃(remarkCallout) — [!easy]→details(기본 접힘), [!note]→div. className 으로 easy/note 구분.
+        details: ({ children, className: cls }) => (
+          <details className={`my-2 rounded-md border border-hairline bg-surface-soft px-3 py-2 ${cls ?? ""}`}>{children}</details>
+        ),
+        summary: ({ children }) => (
+          <summary className="cursor-pointer select-none text-[14px] font-semibold text-ink marker:text-ink-faint">{children}</summary>
+        ),
       }),
     [onLink, linkExists, embedSpace],
   );
 
   return (
     <div className={`ds-md space-y-3 ${className ?? ""}`}>
-      <ReactMarkdown remarkPlugins={REMARK_PLUGINS} urlTransform={urlTransform} components={components}>
+      <ReactMarkdown remarkPlugins={REMARK_PLUGINS} rehypePlugins={REHYPE_PLUGINS} urlTransform={urlTransform} components={components}>
         {source}
       </ReactMarkdown>
     </div>

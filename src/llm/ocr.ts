@@ -31,7 +31,7 @@ export function buildOcrRequest(dataUrl: string, model = GEMINI_MODEL) {
   };
 }
 
-// Chat Completions 응답 → 평문 텍스트. pdfdigest.ts 도 재사용.
+// Chat Completions 응답 → 평문 텍스트.
 export const extractText = extractChatText;
 
 const OFFLINE_FALLBACK =

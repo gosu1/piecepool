@@ -92,6 +92,32 @@ test("에디터 라이브 프리뷰 — 커서 떠난 줄의 # 기호가 사라�
   await expect(headingLine).toHaveText("# 제목1");
 });
 
+// 수식 라이브 프리뷰 — 커서 떠난 $...$ 는 KaTeX 로 렌더, 커서가 닿으면 원문 노출(cmMath).
+test("에디터 수식 — 커서 떠난 $...$ 가 KaTeX 로 렌더된다", async ({ page }) => {
+  await page.getByRole("button", { name: "새 노트 작성" }).click();
+  await page.locator(".cm-content").click();
+  await page.keyboard.type("앞 $a^2$ 뒤\n다음 줄"); // 커서는 2번째 줄 → 1번째 줄 수식은 렌더
+  await expect(page.locator(".cm-content .katex").first()).toBeVisible();
+  // 렌더된 수식 클릭 → 커서가 닿아 원문 $a^2$ 가 다시 드러난다(노션식, 문서 불변).
+  // CM6 는 버블링으로 mousedown 을 받아 커서를 놓는다 — Playwright 히트테스트는 force 로 우회.
+  await page.locator(".cm-content .katex").first().click({ force: true });
+  await expect(page.locator(".cm-line").first()).toContainText("$a^2$");
+});
+
+// 쉬운 설명 콜아웃 — > [!easy] 블록이 색 배경 + 접기 셰브론으로, 클릭하면 접힌다(cmCallout).
+test("에디터 콜아웃 — [!easy] 블록이 스타일링되고 접힌다", async ({ page }) => {
+  await page.getByRole("button", { name: "새 노트 작성" }).click();
+  await page.locator(".cm-content").click();
+  await page.keyboard.type("> [!easy] 쉬운 설명\n비유로 설명\n"); // Enter 가 `> ` 이어붙임
+  // 콜아웃 라인 스타일 + 접기 셰브론이 나타난다(여러 줄 블록)
+  await expect(page.locator(".pp-callout-line").first()).toBeVisible();
+  const chevron = page.locator(".pp-callout-chevron").first();
+  await expect(chevron).toBeVisible();
+  // 셰브론 클릭 → 접힘(fold placeholder 등장)
+  await chevron.click();
+  await expect(page.locator(".cm-foldPlaceholder")).toBeVisible();
+});
+
 // 회귀 방지: 빈 새 노트에 이 공간의 아무 위키(제목 정렬 1등)·아무 원본이 딸려 열리던 버그.
 test("새 노트 — 보조 패널 닫힌 빈 화면으로 시작", async ({ page }) => {
   await page.getByRole("button", { name: "새 노트 작성" }).click();

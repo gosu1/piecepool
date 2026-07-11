@@ -141,7 +141,7 @@ export function extractChatJson(resp: unknown): unknown {
   return JSON.parse(text);
 }
 
-// Chat Completions 응답 → 평문 텍스트(choices[0].message.content). ocr/pdfdigest 도 재사용.
+// Chat Completions 응답 → 평문 텍스트(choices[0].message.content). ocr 도 재사용.
 export function extractChatText(resp: unknown): string {
   const r = (resp ?? {}) as ChatResponse;
   return r.choices?.[0]?.message?.content ?? "";

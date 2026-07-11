@@ -3,8 +3,8 @@ import { Button, FileDropzone, Icons, cn } from "../../ds";
 import type { KnowledgeSpace, WikiPage as WikiPageT } from "../../lib/types";
 import * as ipc from "../../lib/ipc";
 import { useImportStore } from "../../store/importStore";
+import { useInboxDraftStore, type PdfSummaryJob } from "../../store/inboxDraftStore";
 import { runImageOcr } from "../../llm/ocr";
-import { runOutline } from "../../llm/outline";
 import { SlashBlockEditor } from "../../lib/SlashBlockEditor";
 import { ConfirmDialog } from "../shell/Dialogs";
 import { Markdown } from "../../lib/markdown";
@@ -87,9 +87,23 @@ export function InboxSection({
     setPanels((p) => ({ ...p, [key]: open ?? !p[key] }));
   };
 
-  // ── 작성(새 페이지) 상태 ──
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
+  // ── 작성(새 페이지) 상태 — 스토어 소유(탭 전환 언마운트에도 초안·스트림 생존) ──
+  const inboxDraft = useInboxDraftStore((s) => s.drafts[space]);
+  const summaryJob = useInboxDraftStore((s) => s.job);
+  const title = inboxDraft?.title ?? "";
+  const body = inboxDraft?.body ?? "";
+  const ds = useInboxDraftStore;
+  const setTitle = (v: string) => ds.getState().setTitle(space, v);
+  const setBody = (v: string) => ds.getState().setBody(space, v);
+  const appendBody = (v: string) => ds.getState().appendBody(space, v);
+  const setTitleIfEmpty = (v: string) => {
+    if (!ds.getState().drafts[space]?.title) setTitle(v);
+  };
+  // 이 공간에서 요약 스트리밍 중이면 편집 잠금 + body 뒤에 미확정 텍스트를 파생 렌더.
+  const summarizing = summaryJob?.space === space && summaryJob.status === "streaming";
+  const editorValue = summarizing && summaryJob.text ? (body ? `${body}\n\n${summaryJob.text}` : summaryJob.text) : body;
+  // 요약 완료 시 [!easy] 콜아웃 일괄 접기 트리거(done 이면 non-zero 로 바뀌어 1회 발화).
+  const foldEasyKey = summaryJob?.space === space && summaryJob.status === "done" ? summaryJob.text.length : 0;
   const [withLlm, setWithLlm] = useState(true);
   const [clarify, setClarify] = useState(false);
   const [draft, setDraft] = useState(""); // 지금 쓰고 있는 설명
@@ -180,8 +194,8 @@ export function InboxSection({
     if (panels.pdf) void loadSources();
   }, [panels.pdf, loadSources]);
 
-  // PDF → sources/original-files 저장 + 패널 열람 + 출처 임베드 + LLM 목차(뼈대) 삽입.
-  // 본문 내용은 붓지 않는다 — 노트는 사용자 파편 캔버스. 목차(헤딩만)로 구조를 잡아 주고 필기는 사용자가 채운다.
+  // PDF → sources/original-files 저장 + 패널 열람 + 출처 임베드 + 한국어 번역·요약 스트리밍.
+  // 요약은 스토어가 소유(fire-and-forget) — 탭을 떠나도 계속 흐르고 종결 시 본문에 병합된다.
   const importPdf = async (f: File) => {
     setPdfJobs((n) => n + 1);
     try {
@@ -190,18 +204,27 @@ export function InboxSection({
       setRefSource(stored);
       // 올린 PDF 를 바로 볼 수 있게 PDF 패널 자동 열림
       togglePanel("pdf", true);
-      setTitle((t) => t || f.name.replace(/\.[^.]+$/, ""));
+      setTitleIfEmpty(f.name.replace(/\.[^.]+$/, ""));
       // 출처 연결용 임베드만 삽입(현재 출처 연결이 본문 ![[...]] 파싱에 의존 — 2단계에서 메타데이터로 이관 예정)
-      setBody((b) => (b ? b + "\n\n" : "") + `![[${stored}]]`);
-      // PDF 내용 → LLM 목차 생성 → 노트 뼈대로 삽입. 추출/키없음/실패면 목차 없이 진행(embed 는 이미 들어감).
+      appendBody(`![[${stored}]]`);
+      // PDF 내용 → 한국어 요약 스트리밍. 추출/키없음/타 요약 진행 중이면 embed 만 남기고 안내.
       try {
         const ext = await ipc.extractPdfText(space, stored);
         const text = ext.pages.map((p) => p.text).join("\n\n").trim();
+        if (!text) return;
         const apiKey = (typeof localStorage !== "undefined" && localStorage.getItem("gemini-key")) || "";
-        const { markdown } = await runOutline(text, apiKey);
-        if (markdown.trim()) setBody((b) => (b ? b + "\n\n" : "") + markdown.trim());
+        if (!apiKey) {
+          onNotice?.("AI 요약 키가 없어요 — 설정에서 Gemini 키를 넣으면 PDF를 한국어로 요약해요");
+          return;
+        }
+        if (ds.getState().job?.status === "streaming") {
+          onNotice?.("다른 PDF 요약이 진행 중이에요 — 끝난 뒤 다시 올려주세요");
+          return;
+        }
+        const noteTitle = ds.getState().drafts[space]?.title || f.name.replace(/\.[^.]+$/, "");
+        void ds.getState().runSummary({ space, file: stored, title: noteTitle, text });
       } catch {
-        // 목차 생성 실패 — 사용자가 직접 필기하면 됨
+        // 추출 실패 — 사용자가 직접 필기하면 됨(embed 는 이미 들어감)
       }
     } catch (e) {
       onNotice?.(`${f.name} 저장 실패: ${String(e)}`);
@@ -217,8 +240,8 @@ export function InboxSection({
       const reader = new FileReader();
       reader.onload = () => {
         const text = String(reader.result ?? "").trim();
-        setBody((b) => (b ? b + "\n\n" : "") + text);
-        setTitle((t) => t || stem);
+        appendBody(text);
+        setTitleIfEmpty(stem);
       };
       reader.readAsText(f);
     } else if (f.type.startsWith("image")) {
@@ -226,7 +249,7 @@ export function InboxSection({
       const reader = new FileReader();
       reader.onload = async () => {
         const dataUrl = String(reader.result ?? "");
-        setTitle((t) => t || stem);
+        setTitleIfEmpty(stem);
         // 원본 이미지를 sources/original-files 에 저장하고 embed 로 연결 — OCR 실패/키 없음이어도 이미지는 남는다.
         let embed = "";
         try {
@@ -239,30 +262,29 @@ export function InboxSection({
         const apiKey = (typeof localStorage !== "undefined" && localStorage.getItem("gemini-key")) || "";
         try {
           const { markdown } = await runImageOcr(dataUrl, apiKey);
-          setBody((b) => (b ? b + "\n\n" : "") + embed + markdown);
+          appendBody(embed + markdown);
         } catch {
-          setBody((b) => b + `\n\n${embed}> ${f.name} OCR 실패 — 텍스트를 직접 입력하세요.`);
+          appendBody(`${embed}> ${f.name} OCR 실패 — 텍스트를 직접 입력하세요.`);
         }
       };
       reader.readAsDataURL(f);
     } else if (/\.pdf$/i.test(f.name) || f.type === "application/pdf") {
       void importPdf(f);
     } else {
-      setBody((b) => b + `\n\n> ${f.name} — 지원하지 않는 형식이에요 (md/txt/pdf/이미지).`);
+      appendBody(`> ${f.name} — 지원하지 않는 형식이에요 (md/txt/pdf/이미지).`);
     }
   };
   const onFiles = (files: FileList) => Array.from(files).forEach(addFile);
 
   const run = async () => {
-    // pdfBusy 게이트: digest 완료 전 저장하면 아카이브에 PDF 내용이 빠진 채 저장되고
-    // 뒤늦은 digest 가 비워진 에디터에 고아로 삽입된다.
-    if (!title.trim() || busy || pdfBusy) return;
+    // pdfBusy/summarizing 게이트: 요약 완료 전 저장하면 아카이브에 PDF 요약이 빠진 채 저장되고
+    // 뒤늦은 요약이 비워진 에디터에 고아로 삽입된다.
+    if (!title.trim() || busy || pdfBusy || summarizing) return;
     setDraft("");
     const t = resolveTarget(targetSpace);
     const res = await runImport({ space: targetSpace, spaceId: t.spaceId, title: title.trim(), markdown: body, subjectIds: t.subjectIds, withLlm, clarify, existing: t.existing });
     if (res.status === "completed") {
-      setTitle("");
-      setBody("");
+      ds.getState().clearDraft(space);
       await onRefresh(targetSpace);
       if (res.clarifySkipped) onNotice?.("AI 정리 키가 없어 되묻기를 건너뛰었어요 — 설정에서 키를 넣어주세요");
       // 방금 만든 위키가 있을 때만 위키 패널을 연다 (대상=현재 공간일 때만 — 참조 패널은 현재 공간 기준)
@@ -287,8 +309,7 @@ export function InboxSection({
   const finishClarify = async (understood: boolean) => {
     const res = await finishFeynman(understood);
     if (res.status === "completed") {
-      setTitle("");
-      setBody("");
+      ds.getState().clearDraft(space);
       setDraft("");
       await onRefresh(targetSpace);
       if (res.reviewMarked) onNotice?.(`"${res.reviewMarked}" 을(를) 복습 필요로 표시했어요`);
@@ -378,24 +399,27 @@ export function InboxSection({
         <div className="flex min-h-0 flex-1 flex-col p-4">
           <div className="min-h-[160px] flex-1 pt-1">
           <SlashBlockEditor
-            value={body}
+            value={editorValue}
             onChange={setBody}
             onSubmit={run}
+            readOnly={summarizing}
+            foldEasyKey={foldEasyKey}
             placeholder="'/' 로 블록 삽입 · 마크다운으로 작성 · ⌘Enter 로 저장"
             height="100%"
             className="h-full"
             frameless
           />
         </div>
+        {summaryJob?.space === space && <SummaryStrip job={summaryJob} onCancel={() => ds.getState().cancelSummary()} onClose={() => ds.getState().clearJob()} />}
         <div className="flex shrink-0 items-center justify-between pt-3">
           <span className="text-[12px] text-ink-faint">⌘Enter 로 저장</span>
           <Button
             variant="primary"
             onClick={run}
-            disabled={busy || pdfBusy || !title.trim()}
+            disabled={busy || pdfBusy || summarizing || !title.trim()}
             leftIcon={<Icons.SparkleIcon size={16} />}
           >
-            {busy ? `${IMPORT_STATUS_LABEL[job!.status]}…` : pdfBusy ? "PDF 처리 중…" : withLlm ? "저장 + AI 정리" : "원본으로 저장"}
+            {busy ? `${IMPORT_STATUS_LABEL[job!.status]}…` : pdfBusy ? "PDF 처리 중…" : summarizing ? "AI 요약 중…" : withLlm ? "저장 + AI 정리" : "원본으로 저장"}
           </Button>
         </div>
 
@@ -682,6 +706,41 @@ function PaneSelect({
 }
 
 // 속성 토글 pill (AI 생성 · 되묻기) — 기존 checkbox 대체. 켜지면 primary 계열, 상태가 한눈에. 저장위치는 select pill 로 별도.
+// PDF 한국어 요약 진행/종결 스트립 — 스트리밍 중엔 파형+중단, 종결 후엔 결과+닫기.
+function SummaryStrip({ job, onCancel, onClose }: { job: PdfSummaryJob; onCancel: () => void; onClose: () => void }) {
+  const streaming = job.status === "streaming";
+  const label =
+    job.status === "streaming"
+      ? `AI가 PDF를 한국어로 요약하고 있어요 · ${job.text.length}자`
+      : job.status === "failed"
+        ? `요약 실패: ${job.error ?? "알 수 없는 오류"}`
+        : job.status === "cancelled"
+          ? "요약을 중단했어요 — 이어진 부분은 직접 고칠 수 있어요"
+          : `요약 완료${job.truncated ? " · 원문이 길어 일부만" : ""}${job.warning ? ` · ${job.warning}` : ""}`;
+  return (
+    <div
+      className={cn(
+        "mt-2 flex shrink-0 items-center justify-between gap-3 rounded-md border px-3 py-2 text-[13px]",
+        streaming ? "border-primary/40 bg-primary/[0.05] text-ink" : job.status === "failed" ? "border-warning/40 bg-warning/[0.06] text-ink" : "border-hairline bg-surface-soft text-ink-muted",
+      )}
+    >
+      <span className="flex min-w-0 items-center gap-2">
+        {streaming && <Icons.SparkleIcon size={14} className="shrink-0 text-primary" />}
+        <span className="truncate">{label}</span>
+      </span>
+      {streaming ? (
+        <button type="button" onClick={onCancel} className="shrink-0 rounded border border-hairline px-2 py-0.5 text-[12px] font-medium text-ink-muted hover:bg-surface hover:text-ink">
+          중단
+        </button>
+      ) : (
+        <button type="button" onClick={onClose} className="shrink-0 rounded px-2 py-0.5 text-[12px] font-medium text-ink-muted hover:text-ink">
+          닫기
+        </button>
+      )}
+    </div>
+  );
+}
+
 function PropertyPill({ active, disabled, onClick, icon, children }: { active?: boolean; disabled?: boolean; onClick: () => void; icon: React.ReactNode; children: React.ReactNode }) {
   return (
     <button
