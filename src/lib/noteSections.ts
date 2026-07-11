@@ -101,6 +101,19 @@ function toTopic(h: Heading, to: number, md: string): SectionTopic {
 const isTopic = (h: Heading) => (h.level === 2 || h.level === 3) && !!h.title;
 
 /**
+ * 노트 전체를 파인만 대상으로 삼는다 — "이 글 전체를 설명해보겠다" 버튼용.
+ * 헤딩이 없는 노트(막 쓴 메모)면 글 전체가 주제 하나다.
+ */
+export function wholeNoteTopics(md: string, noteTitle: string): SectionTopic[] {
+  const ts = topicsForSelection(md, 0, md.length);
+  if (ts.length) return ts;
+  if (!md.trim()) return [];
+  const title = noteTitle.trim() || "이 노트";
+  const slug = normalizeTitle(title);
+  return [{ level: 2, title, slug, key: slug, from: 0, to: md.length, text: md }];
+}
+
+/**
  * 선택 범위 [from, to] 가 걸친 파인만 주제 목록. 문서 순서.
  *
  * - `###` 하나가 선택 전체를 품으면 → 그 소주제 하나만.

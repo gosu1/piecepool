@@ -34,7 +34,9 @@ const fake = new FakeStorage() as unknown as Storage;
 g.localStorage = fake;
 g.window = { localStorage: fake }; // zustand persist 기본 storage 는 window.localStorage 를 본다
 
-const { useFeynmanStore, getSectionStatus, sectionKey } = await import("./feynmanStore");
+const { useFeynmanStore, getSectionStatus, sectionKey, draftNoteId } = await import("./feynmanStore");
+
+const NOT_YET = { title: "", answered: false, understood: false, explanations: [], updatedAt: "" };
 
 const topic = (title: string, text = `## ${title}\n본문`, key = title.toLowerCase()): SectionTopic => ({
   level: 2,
@@ -141,11 +143,7 @@ describe("feynmanStore", () => {
   });
 
   it("상태가 없으면 '아직 안 함' — 게이트는 fail-closed 로 읽는다", () => {
-    expect(getSectionStatus("모르는-노트", "모르는-주제")).toEqual({
-      answered: false,
-      understood: false,
-      updatedAt: "",
-    });
+    expect(getSectionStatus("모르는-노트", "모르는-주제")).toEqual(NOT_YET);
   });
 
   it("판정 결과만 영속한다 — 진행 중 대화는 복원하지 않는다", () => {
@@ -174,9 +172,24 @@ describe("feynmanStore", () => {
 
   it("손상된 statuses 로도 게이트가 죽지 않는다 — 읽을 수 없으면 '아직 안 함'", () => {
     useFeynmanStore.setState({ statuses: { [sectionKey(NOTE, "a")]: "쓰레기" } as never });
-    expect(getSectionStatus(NOTE, "a")).toEqual({ answered: false, understood: false, updatedAt: "" });
+    expect(getSectionStatus(NOTE, "a")).toEqual(NOT_YET);
     useFeynmanStore.setState({ statuses: null as never });
-    expect(getSectionStatus(NOTE, "a")).toEqual({ answered: false, understood: false, updatedAt: "" });
+    expect(getSectionStatus(NOTE, "a")).toEqual(NOT_YET);
+  });
+
+  it("초안에서 한 파인만은 저장된 노트로 옮겨진다 — 설명이 고아가 되지 않는다", () => {
+    const DRAFT = draftNoteId("os");
+    useFeynmanStore.getState().start(DRAFT, "os", [topic("a"), topic("b")]);
+    useFeynmanStore.setState((s) => ({ session: { ...s.session!, history: [{ role: "user", text: "내 설명" }] } }));
+    useFeynmanStore.getState().finishTopic(true);
+
+    const moved = useFeynmanStore.getState().adopt(DRAFT, "source-real");
+    expect(moved).toHaveLength(1);
+    expect(moved[0]).toMatchObject({ title: "a", explanations: ["내 설명"], understood: true });
+
+    // 초안 키는 사라지고 진짜 노트 키로 옮겨졌다
+    expect(getSectionStatus(DRAFT, "a")).toEqual(NOT_YET);
+    expect(getSectionStatus("source-real", "a")).toMatchObject({ answered: true, understood: true });
   });
 
   it("되묻는 중에는 판정·전환을 막는다 (늦은 응답이 판정을 뒤엎지 못하게)", async () => {

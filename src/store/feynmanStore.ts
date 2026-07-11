@@ -13,12 +13,22 @@ import type { SectionTopic } from "../lib/noteSections";
 // 학습 보조 신호이지 보안 경계가 아니다 — devtools 로 위조할 수 있다는 뜻이고, 그래도 된다.
 
 export interface SectionStatus {
+  /** 주제 제목 — 저장 시 위키 생성 재료로 되살릴 때 필요하다 */
+  title: string;
   /** 이 주제에 설명을 한 번 이상 남겼다 */
   answered: boolean;
   /** 사용자가 [네, 이해했어요] 를 눌렀다. 판정은 오직 사용자 — LLM 은 채점하지 않는다. */
   understood: boolean;
+  /**
+   * 사용자가 자기 말로 쓴 설명. LLM 의 되물음은 담지 않는다.
+   * 이건 사용자 소유의 글이고, 저장할 때 위키의 재료가 된다 — 그러라고 쓰게 한 것이다.
+   */
+  explanations: string[];
   updatedAt: string;
 }
+
+/** 아직 저장되지 않은 인박스 초안의 노트 id. 저장되면 adopt() 로 진짜 sourceId 에 옮겨진다. */
+export const draftNoteId = (space: string) => `inbox:${space}`;
 
 interface Session {
   /** 세션마다 새로 매기는 번호. 늦게 온 응답이 어느 세션의 것인지 가리는 유일한 근거다. */
@@ -47,6 +57,12 @@ interface FeynmanState {
   /** 판정 없이 다음 주제로 — 아무것도 기록하지 않는다 */
   skipTopic: () => void;
   cancel: () => void;
+  /**
+   * 초안(inbox:<space>)에서 한 파인만을 방금 저장된 노트에 옮긴다.
+   * 옮기지 않으면 저장하는 순간 사용자가 한 설명이 아무 노트에도 속하지 않게 된다.
+   * 옮겨간 판정을 돌려준다 — 호출부가 그 설명을 위키 생성 재료로 쓴다.
+   */
+  adopt: (fromNoteId: string, toNoteId: string) => SectionStatus[];
 }
 
 /** @param key SectionTopic.key (slug 아님 — 같은 제목이 여럿일 수 있다) */
@@ -117,8 +133,10 @@ export const useFeynmanStore = create<FeynmanState>()(
           // answered 는 사실 그대로 기록한다 — 설명 없이 [이해했어요] 를 눌렀다면 answered=false.
           // 게이트가 무엇을 요구할지는 게이트가 정한다. 스토어는 사실만 남긴다.
           const status: SectionStatus = {
+            title: topic.title,
             answered: explanations.length > 0,
             understood,
+            explanations,
             updatedAt: new Date().toISOString(),
           };
           const last = s.idx >= s.topics.length - 1;
@@ -137,6 +155,22 @@ export const useFeynmanStore = create<FeynmanState>()(
         },
 
         cancel: () => set({ session: null }),
+
+        adopt: (fromNoteId, toNoteId) => {
+          const prefix = `${fromNoteId}::`;
+          const moved: SectionStatus[] = [];
+          const next: Record<string, SectionStatus> = {};
+          for (const [k, v] of Object.entries(get().statuses)) {
+            if (!k.startsWith(prefix)) {
+              next[k] = v;
+              continue;
+            }
+            next[`${toNoteId}::${k.slice(prefix.length)}`] = v;
+            moved.push(v);
+          }
+          if (moved.length) set({ statuses: next });
+          return moved;
+        },
       };
     },
     {
@@ -149,7 +183,7 @@ export const useFeynmanStore = create<FeynmanState>()(
   ),
 );
 
-const NOT_YET: SectionStatus = { answered: false, understood: false, updatedAt: "" };
+const NOT_YET: SectionStatus = { title: "", answered: false, understood: false, explanations: [], updatedAt: "" };
 
 /**
  * 게이트가 조회하는 공개 인터페이스 — 상태가 없으면 "아직 안 함"이다(fail-closed).
@@ -162,5 +196,11 @@ export function getSectionStatus(noteId: string, key: string): SectionStatus {
   const st = useFeynmanStore.getState().statuses;
   const v = st && typeof st === "object" ? st[sectionKey(noteId, key)] : undefined;
   if (!v || typeof v !== "object") return NOT_YET;
-  return { answered: v.answered === true, understood: v.understood === true, updatedAt: v.updatedAt ?? "" };
+  return {
+    title: typeof v.title === "string" ? v.title : "",
+    answered: v.answered === true,
+    understood: v.understood === true,
+    explanations: Array.isArray(v.explanations) ? v.explanations.filter((e) => typeof e === "string") : [],
+    updatedAt: typeof v.updatedAt === "string" ? v.updatedAt : "",
+  };
 }

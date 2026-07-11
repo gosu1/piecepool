@@ -3,6 +3,8 @@ import { Button, FileDropzone, Icons, cn } from "../../ds";
 import type { KnowledgeSpace, WikiPage as WikiPageT } from "../../lib/types";
 import * as ipc from "../../lib/ipc";
 import { useImportStore } from "../../store/importStore";
+import { draftNoteId } from "../../store/feynmanStore";
+import { useFeynmanEditor } from "./useFeynmanEditor";
 import { useInboxDraftStore, type PdfSummaryJob } from "../../store/inboxDraftStore";
 import { runImageOcr } from "../../llm/ocr";
 import { SlashBlockEditor } from "../../lib/SlashBlockEditor";
@@ -110,9 +112,9 @@ export function InboxSection({
   // 요약 완료 시 [!easy] 콜아웃 일괄 접기 트리거(done 이면 non-zero 로 바뀌어 1회 발화).
   const foldEasyKey = summaryJob?.space === space && summaryJob.status === "done" ? summaryJob.text.length : 0;
   const [withLlm, setWithLlm] = useState(true);
-  const [clarify, setClarify] = useState(false);
-  const [draft, setDraft] = useState(""); // 지금 쓰고 있는 설명
-  const { job, feynman, runImport, explain, retryProbe, switchConcept, finishFeynman } = useImportStore();
+  const { job, runImport } = useImportStore();
+  // 파인만 — 저장 전 초안이라 노트 id 가 없다. 저장되면 importStore 가 진짜 sourceId 로 옮긴다(adopt).
+  const fy = useFeynmanEditor({ noteId: draftNoteId(space), space, markdown: body, noteTitle: title });
   const busy = !!job && !["completed", "failed"].includes(job.status);
 
   // ── 참조 패널 상태 ──
@@ -285,13 +287,12 @@ export function InboxSection({
     // pdfBusy/summarizing 게이트: 요약 완료 전 저장하면 아카이브에 PDF 요약이 빠진 채 저장되고
     // 뒤늦은 요약이 비워진 에디터에 고아로 삽입된다.
     if (!title.trim() || busy || pdfBusy || summarizing) return;
-    setDraft("");
     const t = resolveTarget(targetSpace);
-    const res = await runImport({ space: targetSpace, spaceId: t.spaceId, title: title.trim(), markdown: body, subjectIds: t.subjectIds, withLlm, clarify, existing: t.existing });
+    const res = await runImport({ space: targetSpace, spaceId: t.spaceId, title: title.trim(), markdown: body, subjectIds: t.subjectIds, withLlm, existing: t.existing, feynmanNoteId: draftNoteId(space) });
     if (res.status === "completed") {
       ds.getState().clearDraft(space);
       await onRefresh(targetSpace);
-      if (res.clarifySkipped) onNotice?.("AI 정리 키가 없어 파인만을 건너뛰었어요 — 설정에서 키를 넣어주세요");
+      if (res.feynmanUsed) onNotice?.("파인만에서 쓴 설명을 위키 정리에 함께 넣었어요");
       // 방금 만든 위키가 있을 때만 위키 패널을 연다 (대상=현재 공간일 때만 — 참조 패널은 현재 공간 기준)
       if (withLlm && targetSpace === space && res.firstWikiPath) {
         setRefWikiPath(res.firstWikiPath);
@@ -302,33 +303,6 @@ export function InboxSection({
     }
   };
 
-  // 설명 제출 → LLM 이 구멍 하나를 짚어 되묻는다. 디스크는 안 바뀐다.
-  const submitExplanation = async () => {
-    const said = draft.trim();
-    if (!said || feynman.probing) return;
-    setDraft("");
-    await explain(said);
-  };
-
-  // [그만] — 이해 여부는 사용자가 선언한다. LLM 이 채점하지 않는다.
-  const finishClarify = async (understood: boolean) => {
-    const res = await finishFeynman(understood);
-    if (res.status === "completed") {
-      ds.getState().clearDraft(space);
-      setDraft("");
-      await onRefresh(targetSpace);
-      if (res.reviewMarked) onNotice?.(`"${res.reviewMarked}" 을(를) 복습 필요로 표시했어요`);
-      else if (res.reviewNoEvidence) onNotice?.("설명을 한 번도 쓰지 않아 복습 표시를 하지 않았어요");
-      else if (res.reviewMissed) onNotice?.("복습 표시를 못 했어요 — 정리 결과에 그 개념이 없습니다");
-      if (res.regenDowngraded) onNotice?.("AI 재생성에 실패해 첫 정리 결과를 그대로 저장했어요");
-      if (targetSpace === space && res.firstWikiPath) {
-        setRefWikiPath(res.firstWikiPath);
-        togglePanel("wiki", true);
-      }
-    } else if (res.status === "failed") {
-      onNotice?.(`저장 실패: ${res.errorMessage ?? "알 수 없는 오류"}`);
-    }
-  };
 
 
   // 작성 중 초안 여부를 탭에 알린다 — 저장하면 title/body 가 비워지므로 자동으로 clean 이 된다.
@@ -395,7 +369,9 @@ export function InboxSection({
               AI 생성
               {withLlm && <Icons.CheckIcon size={12} className="ml-0.5" />}
             </PropertyPill>
-            <PropertyPill active={clarify} disabled={!withLlm} onClick={() => setClarify(!clarify)} icon={<Icons.HelpCircleIcon size={13} />}>
+            {/* 파인만 — 토글이 아니라 액션이다. 누르면 지금 이 글 전체를 자기 말로 설명하게 한다.
+                (섹션 하나만 하려면 그 부분을 드래그하면 선택 위에 버튼이 뜬다) */}
+            <PropertyPill disabled={!fy.canStart} onClick={fy.startWhole} icon={<Icons.HelpCircleIcon size={13} />}>
               파인만
             </PropertyPill>
             {/* 퀵메모 — 창 열림/닫힘을 그대로 반영하는 토글. AI 생성 여부와 무관하게 항상 쓸 수 있다. */}
@@ -411,6 +387,7 @@ export function InboxSection({
             value={editorValue}
             onChange={setBody}
             onSubmit={run}
+            onSelect={fy.onSelect}
             readOnly={summarizing}
             foldEasyKey={foldEasyKey}
             placeholder="'/' 로 블록 삽입 · 마크다운으로 작성 · ⌘Enter 로 저장"
@@ -432,85 +409,7 @@ export function InboxSection({
           </Button>
         </div>
 
-        {job?.status === "clarify_pending" && feynman.concept && (
-          <div className="mt-3 shrink-0 space-y-3 rounded-md border border-primary/40 bg-primary/[0.04] p-3">
-            {/* 파인만: 고르게 하지 않는다. 자기 말로 설명하게 한다. */}
-            <div className="flex items-baseline justify-between gap-2">
-              <p className="text-[14px] font-semibold text-ink">
-                <span className="text-primary">{feynman.concept}</span> — 처음 배우는 사람에게 설명해보세요
-              </p>
-              {feynman.candidates.length > 1 && (
-                <select
-                  value={feynman.concept}
-                  onChange={(e) => switchConcept(e.target.value)}
-                  disabled={feynman.probing}
-                  aria-label="다른 개념으로"
-                  className="rounded border border-hairline bg-surface px-1.5 py-0.5 text-[12px] text-ink-2 outline-none disabled:opacity-50"
-                >
-                  {feynman.candidates.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              )}
-            </div>
-
-            {feynman.history.length > 0 && (
-              <div className="max-h-44 space-y-1.5 overflow-y-auto">
-                {feynman.history.map((t, i) => (
-                  <p
-                    key={i}
-                    className={cn(
-                      "text-[13px] leading-relaxed",
-                      t.role === "user" ? "text-ink-2" : "font-medium text-ink",
-                    )}
-                  >
-                    {t.role === "user" ? "나: " : "↳ "}
-                    {t.text}
-                  </p>
-                ))}
-              </div>
-            )}
-
-            {feynman.probing && <p className="text-[13px] text-ink-faint">읽는 중…</p>}
-            {feynman.error && (
-              // 설명은 history 에 남아 있다 — 다시 타이핑하지 않고 그대로 재시도한다.
-              <div className="flex items-center gap-2">
-                <p className="text-[12px] text-danger">파인만 질문을 못 만들었어요. 설명은 그대로 있어요.</p>
-                <Button size="sm" variant="utility" onClick={retryProbe}>
-                  다시 시도
-                </Button>
-              </div>
-            )}
-
-            <textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void submitExplanation();
-              }}
-              disabled={feynman.probing}
-              rows={3}
-              placeholder={feynman.history.length ? "이어서 설명해보세요… (⌘Enter 로 보내기)" : "예: 여러 스레드가 동시에 들어가면 안 되는 코드 부분이요 (⌘Enter 로 보내기)"}
-              aria-label="개념 설명"
-              className="w-full resize-none rounded border border-hairline bg-surface px-2 py-1.5 text-[13px] text-ink outline-none focus-visible:shadow-soft disabled:opacity-60"
-            />
-
-            <div className="flex items-center justify-between gap-2">
-              <Button size="sm" variant="solid" disabled={!draft.trim() || feynman.probing} onClick={submitExplanation}>
-                {feynman.history.length ? "다시 설명" : "설명 보내기"}
-              </Button>
-              {/* 이해 판정은 오직 사용자. LLM 은 채점하지 않는다(relation-types.md §review_needed). */}
-              <div className="flex gap-2">
-                <Button size="sm" variant="utility" disabled={feynman.probing} onClick={() => finishClarify(false)}>
-                  아직 모르겠어요
-                </Button>
-                <Button size="sm" variant="utility" disabled={feynman.probing} onClick={() => finishClarify(true)}>
-                  네, 이해했어요
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
+        {fy.overlay}
         </div>
 
       </div>

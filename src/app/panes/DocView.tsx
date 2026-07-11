@@ -2,10 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { AIWritingBanner, Button, Card, SkeletonText, Icons, cn } from "../../ds";
 import { Markdown } from "../../lib/markdown";
-import { SlashBlockEditor, type EditorSelection } from "../../lib/SlashBlockEditor";
-import { FeynmanPanel, type FeynmanHandlers } from "./FeynmanPanel";
-import { topicsForSelection } from "../../lib/noteSections";
-import { useFeynmanStore, hasGeminiKey } from "../../store/feynmanStore";
+import { SlashBlockEditor } from "../../lib/SlashBlockEditor";
+import type { FeynmanHandlers } from "./FeynmanPanel";
+import { useFeynmanEditor } from "./useFeynmanEditor";
 import { MiniRelationGraph, type MiniGroup } from "../../lib/MiniGraph";
 import { RELATION_LABEL, REVIEW_COLOR, groupOf } from "../../lib/relationMeta";
 import type { RelationType } from "../../lib/generated/RelationType";
@@ -73,11 +72,13 @@ export function DocView({
   feynman?: { noteId: string; space: string; handlers?: FeynmanHandlers };
 }) {
   const hasConceptPanel = !!(sources?.length || relationGroups?.length || confused?.length);
-  const [sel, setSel] = useState<EditorSelection | null>(null);
-  const startFeynman = useFeynmanStore((s) => s.start);
-  // 드래그한 범위가 걸친 ##/### 주제. 헤딩을 안 건드린 선택이면 빈 배열 → 버튼을 띄우지 않는다.
-  // 오프셋의 기준은 반드시 에디터가 준 sel.doc — draft 로 자르면 CRLF 노트에서 어긋난다.
-  const selTopics = feynman && sel ? topicsForSelection(sel.doc, sel.from, sel.to) : [];
+  const fy = useFeynmanEditor({
+    noteId: feynman?.noteId ?? "",
+    space: feynman?.space ?? "",
+    markdown: draft,
+    noteTitle: title,
+    handlers: feynman?.handlers,
+  });
   // 읽기 모드 본문 — Notion 처럼 카드 없이 페이지에 바로. 빈 페이지는 클릭해서 작성 시작.
   const readBody = savedMd.trim() ? (
     <div className="px-1">
@@ -117,7 +118,7 @@ export function DocView({
             value={draft}
             onChange={onChangeDraft}
             onSubmit={onSave}
-            onSelect={feynman && setSel}
+            onSelect={feynman && fy.onSelect}
             height="480px"
             placeholder="'/' 로 블록 · ⌘Enter 로 저장"
           />
@@ -221,64 +222,9 @@ export function DocView({
       )}
 
       {/* 섹션 파인만 — 편집/읽기 토글 밖이라 모드를 바꿔도 대화가 살아 있다 */}
-      {feynman && <FeynmanPanel noteId={feynman.noteId} handlers={feynman.handlers} />}
-
-      {/* 드래그로 ##/### 을 잡으면 선택 위에 뜬다 — 우클릭을 찾아 헤매지 않는다 */}
-      {feynman && sel && selTopics.length > 0 && (
-        <FeynmanSelectionButton
-          x={sel.x}
-          y={sel.y}
-          topics={selTopics}
-          onStart={() => {
-            startFeynman(feynman.noteId, feynman.space, selTopics);
-            setSel(null);
-          }}
-        />
-      )}
+      {feynman && fy.overlay}
 
       {bottomSlot}
-    </div>
-  );
-}
-
-// 선택 위에 떠서 "이 주제로 파인만" 을 권하는 버튼. 키가 없으면 이유를 적은 채 비활성 —
-// 감춰버리면 사용자는 기능이 없는 줄 안다.
-function FeynmanSelectionButton({
-  x,
-  y,
-  topics,
-  onStart,
-}: {
-  x: number;
-  y: number;
-  topics: { title: string }[];
-  onStart: () => void;
-}) {
-  const keyed = hasGeminiKey();
-  const label = !keyed
-    ? "파인만 — API 키 필요"
-    : topics.length > 1
-      ? `파인만 (주제 ${topics.length}개)`
-      : `파인만 — ${topics[0].title}`;
-  return (
-    <div
-      style={{ left: Math.max(8, Math.min(x, window.innerWidth - 240)), top: Math.max(8, y - 42) }}
-      className="fixed z-50"
-      // 클릭 전에 mousedown 으로 에디터가 포커스를 되찾아 선택이 풀리는 것을 막는다.
-      onMouseDown={(e) => e.preventDefault()}
-    >
-      <button
-        type="button"
-        disabled={!keyed}
-        onClick={onStart}
-        className={cn(
-          "flex items-center gap-1.5 rounded-lg border border-hairline bg-surface px-2.5 py-1.5 text-[13px] font-medium shadow-elevated transition-colors",
-          keyed ? "text-ink-2 hover:bg-surface-soft hover:text-ink" : "cursor-default text-ink-faint",
-        )}
-      >
-        <Icons.HelpCircleIcon size={13} />
-        {label}
-      </button>
     </div>
   );
 }

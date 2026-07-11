@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { probeExplanation, pickWeakestConcept, type Turn } from "./feynman";
+import { probeExplanation, type Turn } from "./feynman";
 
 const NOTE = "# 운영체제 3주차\n\n임계 구역에는 락을 건다. 프로세스는 실행 중인 프로그램이다.\n프로세스란 코드·데이터·스택으로 구성된다. 예를 들어 크롬 탭 하나가 프로세스다.";
 
@@ -129,27 +129,5 @@ describe("probeExplanation", () => {
         fetchFn: geminiOk({ targetGap: "why" }) as unknown as typeof fetch,
       }),
     ).rejects.toThrow(/no structured output/);
-  });
-});
-
-describe("pickWeakestConcept", () => {
-  it("노트에서 가장 얕게 다뤄진 개념을 고른다", () => {
-    // "프로세스" 는 정의문(프로세스란 …)과 예시가 있고 3회 언급 → 덜 취약.
-    // "임계 구역" 은 1회 언급, 정의 없음 → 가장 취약.
-    expect(pickWeakestConcept(["프로세스", "임계 구역"], NOTE)).toBe("임계 구역");
-  });
-
-  it("노트에 아예 없는 개념이 가장 취약하다", () => {
-    expect(pickWeakestConcept(["프로세스", "세마포어"], NOTE)).toBe("세마포어");
-  });
-
-  it("개념이 없으면 null", () => {
-    expect(pickWeakestConcept([], NOTE)).toBeNull();
-  });
-
-  it("동점이면 결정적으로 고른다 — 데모가 흔들리면 안 된다", () => {
-    const a = pickWeakestConcept(["뮤텍스", "세마포어"], NOTE);
-    const b = pickWeakestConcept(["세마포어", "뮤텍스"], NOTE);
-    expect(a).toBe(b);
   });
 });

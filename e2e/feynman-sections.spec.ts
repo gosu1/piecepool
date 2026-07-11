@@ -97,6 +97,61 @@ test("헤딩을 건드리지 않은 선택에는 버튼이 뜨지 않는다", as
   await expect(editor).toBeVisible();
 });
 
+test("되물음이 실패해도 설명은 보존된다 — 재타이핑 없이 [다시 시도]", async ({ page }) => {
+  await page.unroute("**generativelanguage.googleapis.com**");
+  let fail = true;
+  await page.route("**generativelanguage.googleapis.com**", (route) =>
+    fail ? route.fulfill({ status: 503, body: "" }) : route.fulfill(chat({ probe: "왜 그런가요?", targetGap: "why" })),
+  );
+
+  await openNote(page);
+  await dragLine(page, "attention");
+  await page.getByRole("button", { name: /파인만/ }).click();
+  await page.getByLabel("주제 설명").fill("애써 쓴 내 설명");
+  await page.getByRole("button", { name: "설명 보내기" }).click();
+
+  await expect(page.getByText(/파인만 질문을 못 만들었어요/)).toBeVisible({ timeout: 20000 });
+  await expect(page.getByText("나: 애써 쓴 내 설명")).toBeVisible(); // 설명은 그대로 있다
+
+  fail = false;
+  await page.getByRole("button", { name: "다시 시도" }).click();
+  await expect(page.getByText(/왜 그런가요/)).toBeVisible({ timeout: 20000 });
+});
+
+test("인박스: [파인만] 은 토글이 아니라 글 전체를 대상으로 하는 액션이다", async ({ page }) => {
+  await page.getByRole("button", { name: "새 노트 작성" }).click();
+  await page.getByPlaceholder("새 페이지").fill("트랜스포머 정리");
+  await page.locator(".cm-content").first().click();
+  await page.keyboard.type(NOTE);
+
+  await page.getByRole("button", { name: "파인만", exact: true }).click();
+
+  // 헤딩이 있는 글이므로 모든 섹션이 순차 주제가 된다
+  await expect(page.getByText("주제 1/4")).toBeVisible();
+  await expect(page.getByText(/attention.*처음 배우는 사람에게/)).toBeVisible();
+});
+
+test("인박스에서 한 파인만의 설명은 저장 시 위키 재료가 된다", async ({ page }) => {
+  await page.getByRole("button", { name: "새 노트 작성" }).click();
+  await page.getByPlaceholder("새 페이지").fill("트랜스포머 정리");
+  await page.locator(".cm-content").first().click();
+  await page.keyboard.type(NOTE);
+
+  await page.getByRole("button", { name: "파인만", exact: true }).click();
+  await page.getByLabel("주제 설명").fill("유사도로 가중치를 만들어 값을 섞어요");
+  await page.getByRole("button", { name: "설명 보내기" }).click();
+  await expect(page.getByText(/유사도가 크면/)).toBeVisible({ timeout: 20000 });
+  await page.getByRole("button", { name: "네, 이해했어요" }).click();
+
+  // 저장 → 초안(inbox:*) 판정이 진짜 노트로 옮겨지고, 설명이 위키 생성 재료로 들어간다
+  await page.getByRole("button", { name: /저장 \+ AI 정리/ }).click();
+  await expect(page.getByText(/파인만에서 쓴 설명을 위키 정리에 함께 넣었어요/)).toBeVisible({ timeout: 30000 });
+
+  const saved = await page.evaluate(() => localStorage.getItem("pp-feynman-sections"));
+  expect(saved).not.toContain("inbox:"); // 초안 키는 남지 않는다
+  expect(saved).toContain("attention");
+});
+
 test("판정은 localStorage 에 남고, 노트 본문은 변하지 않는다", async ({ page }) => {
   await openNote(page);
   await dragLine(page, "토큰을 벡터로");

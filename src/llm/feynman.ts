@@ -139,31 +139,3 @@ export async function probeExplanation(
   const targetGap = kinds.includes(parsed!.targetGap as GapKind) ? (parsed!.targetGap as GapKind) : "why";
   return { probe, targetGap };
 }
-
-/**
- * 파인만을 시작할 개념 하나를 고른다 — 노트 안에서 가장 얕게 서술된 개념.
- * LLM 을 부르지 않는다: 1차 위키 생성이 이미 개념 목록을 줬으므로, 노트 본문에서
- * 각 개념이 얼마나 다뤄졌는지만 재면 된다. (정의문·예시가 없을수록 취약하다)
- *
- * 사용자가 고르지 않았는데 에이전트가 골랐다 — 이 함수가 그 "능동성" 의 전부다.
- * 과장하지 말 것.
- */
-export function pickWeakestConcept(concepts: string[], noteText: string): string | null {
-  if (!concepts.length) return null;
-  const text = noteText.toLowerCase();
-  const scored = concepts.map((title) => {
-    const t = title.toLowerCase();
-    const mentions = t ? text.split(t).length - 1 : 0;
-    // 정의문("X는/X란 ...")이 있으면 사용자가 이미 자기 말로 규정한 것 → 덜 취약
-    const defined = new RegExp(`${escapeRe(t)}\\s*(는|은|란|이란)`).test(text);
-    // 예시("예를 들어", "예:")가 개념 근처에 있으면 덜 취약
-    const exemplified = /예를 들어|예시|예:/.test(text);
-    return { title, score: mentions * 2 + (defined ? 3 : 0) + (exemplified ? 1 : 0) };
-  });
-  scored.sort((a, b) => a.score - b.score || a.title.localeCompare(b.title));
-  return scored[0].title;
-}
-
-function escapeRe(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
