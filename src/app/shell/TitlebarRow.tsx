@@ -4,7 +4,11 @@ import { macOverlayChrome } from "../../lib/platform";
 import { TabStrip, TabIcon } from "./TabStrip";
 import type { WorkspaceTab } from "../../store/workspaceStore";
 
-// ══ 타이틀바 행 (Obsidian식 최상단 크롬) — 신호등 인셋 + 퀵 액션 + 탭 + 탭 목록 ══
+// ══ 타이틀바 행 (Obsidian식 최상단 크롬) — 신호등 인셋 + 퀵 액션 + 탭 + 탭 컨트롤 + 탭 목록 ══
+//
+// right 슬롯 = 활성 탭이 제공하는 컨트롤(Inbox 의 PDF·위키 패널 토글). 패널을 열고 닫아도
+// 이 자리는 움직이지 않는다 — 노트 패널 안에 두면 폭이 줄며 버튼이 딸려 움직여, 방금 누른
+// 버튼이 도망가 다시 눌러 닫기가 어려웠다.
 // 드래그 영역은 정확히 3곳(bare data-tauri-drag-region): 헤더 루트 · 인셋 스페이서 · TabStrip 루트.
 // 탭(role=tab)·버튼은 Tauri drag.js 가 자동 차단하므로 클릭/리오더와 충돌하지 않는다.
 // 좌측 리본 폭(Ribbon.tsx w-[56px]) — 탭 정렬 기준
@@ -21,6 +25,7 @@ export function TitlebarRow({
   filesOpen,
   sidebarWidth,
   onSearch,
+  right,
 }: {
   tabs: WorkspaceTab[];
   activeId: string | null;
@@ -32,6 +37,8 @@ export function TitlebarRow({
   filesOpen: boolean;
   sidebarWidth: number;
   onSearch: () => void;
+  /** 활성 탭이 제공하는 컨트롤. 탭 종류마다 다르다(Inbox = 패널 토글). */
+  right?: React.ReactNode;
 }) {
   const [listOpen, setListOpen] = useState(false);
   // 좌측 퀵 액션 — 파일 트리 미닫이(자주 쓰는 기능이라 primary 컬러 강조·크게) + 검색
@@ -80,6 +87,11 @@ export function TitlebarRow({
       {/* 탭 뒤 여백 — 우측 컨트롤을 오른쪽으로 민다(창 드래그 영역) */}
       <div data-tauri-drag-region="" className="min-w-2 flex-1 self-stretch" />
 
+      {/* 활성 탭이 제공하는 컨트롤 (Inbox = PDF·위키 패널 토글).
+          여기 두는 이유: 패널을 열어도 이 자리는 움직이지 않는다 — 방금 누른 버튼이 도망가지 않는다. */}
+      {right}
+      {right && <span className="mx-0.5 h-4 w-px shrink-0 bg-hairline" />}
+
       {/* 열린 탭 목록 */}
       <div className="relative">
         {listOpen && (
@@ -114,11 +126,6 @@ export function TitlebarRow({
           <Icons.ChevronDownIcon size={16} className="text-ink-muted" />
         </IconButton>
       </div>
-
-      {/* 우측 사이드바 토글 — rightRail 미배선(이연), 시각 패리티용 */}
-      <IconButton size="sm" aria-label="우측 사이드바 (준비 중)" disabled>
-        <Icons.PanelRightIcon size={19} className="text-ink-faint" />
-      </IconButton>
     </header>
   );
 }

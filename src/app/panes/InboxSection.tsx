@@ -363,30 +363,11 @@ export function InboxSection({
   useEffect(() => onTitleChangeRef.current?.(title), [title]);
 
   // ── 노트 패널 (중심 고정) — 새 원본(archive) 작성 ──
-  // PDF·위키 보조 패널 토글 — 노트 헤더 우측 슬롯에 배치(독립 헤더 줄 제거 → 3줄→2줄)
-  // note variant 는 토글이 없다: 패널은 PDF 업로드·AI 정리로만 등장하고, 각 패널 헤더의 ×로 닫는다.
-  const panelToggles = (
-    <div className="flex shrink-0 items-center gap-0.5 rounded-md border border-hairline p-0.5">
-      {(["pdf", "wiki"] as const).map((k) => (
-        <button
-          key={k}
-          type="button"
-          aria-pressed={panels[k]}
-          onClick={() => togglePanel(k)}
-          className={cn(
-            "rounded px-2.5 py-1 text-[12px] font-medium transition-colors",
-            panels[k] ? "bg-surface-soft text-ink" : "text-ink-muted hover:text-ink",
-          )}
-        >
-          {k === "pdf" ? "PDF 패널" : "위키 패널"}
-        </button>
-      ))}
-    </div>
-  );
-
+  // 패널 토글 버튼은 여기 없다. 타이틀바(InboxPanelToggles)가 그린다 — 노트 패널 안에 두면
+  // 패널이 열릴 때 노트 폭이 줄며 버튼이 딸려 움직여, 방금 누른 버튼이 도망가 다시 눌러 닫기가
+  // 어려웠다. 패널에 자체 닫기 버튼도 없어 그 토글이 닫는 유일한 방법이었다.
   const notePane = (
     <section style={{ minWidth: NOTE_MIN_PX }} className="flex min-w-0 flex-1 flex-col">
-      <PaneHeader right={panelToggles} />
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         {/* 수집 캔버스 헤더 밴드 — 제목 · 한 줄 안내 · 속성 pill. 구분선으로만 몸통과 분리(틴트 없음) */}
         <div className="shrink-0 border-b border-hairline px-5 pb-4 pt-5">
@@ -672,6 +653,37 @@ export function InboxSection({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ══ 보조 패널(PDF·위키) 토글 — 타이틀바에 얹힌다 ══
+// 노트 패널 안에 두면 패널이 열릴 때 노트 폭이 줄며 버튼이 딸려 움직인다. 방금 누른 버튼이
+// 도망가니 다시 눌러 닫기가 어려웠다(패널에 자체 닫기 버튼이 없어 이게 유일한 방법이다).
+// 타이틀바는 패널 개폐와 무관하게 고정이라 버튼이 제자리에 있다.
+// 상태는 inboxDraftStore 의 노트별 draft(panels) — InboxSection 과 같은 진실을 본다.
+export function InboxPanelToggles({ draftKey }: { draftKey: string }) {
+  const panels = useInboxDraftStore((s) => s.drafts[draftKey]?.panels ?? EMPTY_DRAFT.panels);
+  const write = useInboxDraftStore((s) => s.write);
+  return (
+    <div className="flex shrink-0 items-center gap-0.5 rounded-md border border-hairline p-0.5">
+      {(["pdf", "wiki"] as const).map((k, i) => (
+        <span key={k} className="flex items-center gap-0.5">
+          {/* 두 토글은 각각 독립이다(둘 다 켜질 수 있다) — 구분선으로 하나의 세그먼트가 아님을 알린다 */}
+          {i > 0 && <span className="h-3.5 w-px bg-hairline" />}
+          <button
+            type="button"
+            aria-pressed={panels[k]}
+            onClick={() => write(draftKey, { panels: { ...panels, [k]: !panels[k] } })}
+            className={cn(
+              "rounded px-2.5 py-1 text-[12px] font-medium transition-colors",
+              panels[k] ? "bg-surface-soft text-ink" : "text-ink-muted hover:text-ink",
+            )}
+          >
+            {k === "pdf" ? "PDF 패널" : "위키 패널"}
+          </button>
+        </span>
+      ))}
     </div>
   );
 }
