@@ -24,14 +24,13 @@ const SPACE_PALETTE = ["#0075de", "#dd5b00", "#2a9d99", "#7048e8", "#e64980", "#
 const HELP_SEEN_KEY = "piecepool.graph-help-seen";
 
 // ══ Graph 섹션 (Cytoscape 인터랙티브) ══
-// 스코프 토글: 현재 과목(단일 space) ↔ 전체 과목(전 space 병합). 셸/사이드바 무관, 그래프 뷰 국소.
+// 과목 선택: 아무 과목(단일 space) ↔ 전체 과목(전 space 병합). 셸/사이드바 무관, 그래프 뷰 국소.
 // 노드→위키 · 엣지→관계 상세 · RelationType/Subject 필터 · 노드 검색(수용기준 §6).
 export function GraphSection({
   spaces,
   graphBySlug,
   wikiBySlug,
   space,
-  spaceName,
   onOpenWiki,
   onOpenArchive,
   onUnmarkReview,
@@ -41,7 +40,6 @@ export function GraphSection({
   graphBySlug: Record<string, GraphData>;
   wikiBySlug: Record<string, WikiPageT[]>;
   space: string;
-  spaceName: string;
   onOpenWiki: (space: string, file: string) => void;
   onOpenArchive: (space: string, file: string) => void;
   /** 복습 표시 해제 — 붙일 때처럼 거둘 때도 사용자만 한다(relation-types.md §review_needed). */
@@ -49,7 +47,8 @@ export function GraphSection({
   /** 복습 표시 — reason 이 곧 evidence 다(evidence ≥ 1). AI 는 이 표시를 못 만든다. */
   onMarkReview: (space: string, conceptId: string, title: string, sourceId: string, reason: string) => Promise<void>;
 }) {
-  const [scope, setScope] = useState<"space" | "all">("space");
+  // 보고 있는 과목 — 빈 문자열이면 전체 과목(전 space 병합). 탭이 열린 과목으로 시작.
+  const [view, setView] = useState<string>(space);
   const [selNode, setSelNode] = useState<string | null>(null);
   const [selEdge, setSelEdge] = useState<string | null>(null);
   const [groupFilter, setGroupFilter] = useState<RelationGroupId[]>([]);
@@ -76,10 +75,10 @@ export function GraphSection({
 
   useEffect(() => {
     ipc
-      .listSubjects(space)
+      .listSubjects(view || space)
       .then(setSubjects)
       .catch(() => setSubjects([]));
-  }, [space]);
+  }, [view, space]);
 
   // 노드에 소속 space 태깅 — 위키 파일명(concept-slug.md)이 space 간 충돌하므로 문서 열기 정합성에 필수.
   // space별 색·군집 배치도 이 태그로 한다.
@@ -100,7 +99,8 @@ export function GraphSection({
     [taggedBySlug],
   );
 
-  const graph = scope === "all" ? merged : taggedBySlug[space];
+  const graph = view ? taggedBySlug[view] : merged;
+  const viewName = view ? spaces.find((s) => s.slug === view)?.name ?? view : "전체 과목";
 
   const spaceColors = useMemo(() => {
     const m: Record<string, string> = {};
@@ -164,17 +164,18 @@ export function GraphSection({
   const subjectName = (id: string) => subjects.find((s) => s.id === id)?.name ?? id;
 
   // 전체 뷰 범례용: 병합 그래프에 실제 등장하는 space 들
-  const spacesPresent = scope === "all" ? (Array.from(new Set(merged.nodes.map((n) => n.space).filter(Boolean))) as string[]) : [];
+  const spacesPresent = view ? [] : (Array.from(new Set(merged.nodes.map((n) => n.space).filter(Boolean))) as string[]);
 
   const toggleGroup = (id: RelationGroupId) => setGroupFilter((f) => (f.includes(id) ? f.filter((x) => x !== id) : [...f, id]));
   const toggleSubject = (id: string) => setSubjectFilter((f) => (f.includes(id) ? f.filter((x) => x !== id) : [...f, id]));
 
-  // 스코프 전환 시 선택·필터 초기화 (다른 space 잔여 선택 방지)
-  const pickScope = (s: "space" | "all") => {
-    setScope(s);
+  // 과목 전환 시 선택·필터 초기화 (다른 space 잔여 선택 방지)
+  const pickView = (slug: string) => {
+    setView(slug);
     setSelNode(null);
     setSelEdge(null);
     setFocus(null);
+    setQuery(""); // 이전 과목의 검색어·후보가 남지 않게
     setSubjectFilter([]);
     setGroupFilter([]);
   };
@@ -196,9 +197,7 @@ export function GraphSection({
         <div className="flex items-end justify-between gap-3">
           <div>
             <h1 className="text-[18px] font-bold text-ink">Graph</h1>
-            <p className="text-[13px] text-ink-muted">
-              {scope === "all" ? "전체 과목" : spaceName} · 타입 있는 개념 그래프 (노드=위키, 엣지=관계)
-            </p>
+            <p className="text-[13px] text-ink-muted">{viewName} · 타입 있는 개념 그래프 (노드=위키, 엣지=관계)</p>
           </div>
           {/* 노드 검색 */}
           <div className="relative w-56 shrink-0">
@@ -226,28 +225,28 @@ export function GraphSection({
           </div>
         </div>
 
-        {/* 스코프(현재↔전체)·레이아웃(계층↔자유) 토글 */}
-        {(spaces.length > 1 || (scope === "space" && hasHier)) && (
+        {/* 과목 선택(과목별 ↔ 전체)·레이아웃(계층↔자유) 토글 */}
+        {(spaces.length > 1 || (view && hasHier)) && (
           <div className="flex flex-wrap items-center gap-2">
             {spaces.length > 1 && (
-              <div className="flex w-fit gap-0.5 rounded-lg border border-hairline p-0.5">
-                {(["space", "all"] as const).map((s) => (
+              <div className="flex w-fit flex-wrap gap-0.5 rounded-lg border border-hairline p-0.5">
+                {[...spaces.map((s) => ({ slug: s.slug, name: s.name })), { slug: "", name: "전체 과목" }].map((o) => (
                   <button
-                    key={s}
+                    key={o.slug || "all"}
                     type="button"
-                    onClick={() => pickScope(s)}
+                    onClick={() => pickView(o.slug)}
                     className={cn(
                       "rounded-md px-2.5 py-1 text-[12px] transition-colors",
-                      scope === s ? "bg-surface-soft font-semibold text-ink shadow-soft" : "text-ink-2 hover:text-ink",
+                      view === o.slug ? "bg-surface-soft font-semibold text-ink shadow-soft" : "text-ink-2 hover:text-ink",
                     )}
                   >
-                    {s === "space" ? spaceName || "현재 과목" : "전체 과목"}
+                    {o.name}
                   </button>
                 ))}
               </div>
             )}
-            {/* 계층 보기 ↔ 자유 배치 — 단일 뷰 + 계층 관계 있을 때만 (병합 뷰는 항상 자유 배치) */}
-            {scope === "space" && hasHier && (
+            {/* 계층 보기 ↔ 자유 배치 — 단일 과목 + 계층 관계 있을 때만 (병합 뷰는 항상 자유 배치) */}
+            {view && hasHier && (
               <div className="flex w-fit gap-0.5 rounded-lg border border-hairline p-0.5">
                 {(["hier", "force"] as const).map((m) => (
                   <button
@@ -268,7 +267,7 @@ export function GraphSection({
         )}
 
         {/* 전체 뷰 범례: 색 → 공간 */}
-        {scope === "all" && spacesPresent.length > 0 && (
+        {!view && spacesPresent.length > 0 && (
           <div className="flex flex-wrap gap-x-3 gap-y-1">
             {spacesPresent.map((slug) => (
               <span key={slug} className="flex items-center gap-1.5 text-[12px] text-ink-2">
@@ -307,8 +306,8 @@ export function GraphSection({
           </div>
         )}
 
-        {/* Subject 필터 (현재 과목 뷰에서 subject 2개 이상일 때만. 전체 뷰는 space 축이라 숨김) */}
-        {scope === "space" && subjectIds.length > 1 && (
+        {/* Subject 필터 (단일 과목 뷰에서 subject 2개 이상일 때만. 전체 뷰는 space 축이라 숨김) */}
+        {view && subjectIds.length > 1 && (
           <div className="flex flex-wrap gap-1.5">
             {subjectIds.map((id) => (
               <button
@@ -335,10 +334,10 @@ export function GraphSection({
                 data={graph}
                 typeFilter={typeFilter}
                 subjectFilter={subjectFilter}
-                spaceColors={scope === "all" ? spaceColors : undefined}
+                spaceColors={view ? undefined : spaceColors}
                 selectedId={selNode}
                 focus={focus}
-                layout={scope === "all" || !hasHier ? "force" : layoutMode}
+                layout={!view || !hasHier ? "force" : layoutMode}
                 onNode={(id) => {
                   setSelNode(id);
                   setSelEdge(null);

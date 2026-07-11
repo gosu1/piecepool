@@ -10,17 +10,19 @@ const SHORTCUTS: [string, string][] = [
   ["⌘Enter", "저장 / 임포트"],
 ];
 
-// ══ 좌측 리본 (Obsidian식 세로 아이콘 네비) — 홈 · 그래프 · 도움말 · 설정 ══
+// ══ 좌측 리본 (Obsidian식 세로 아이콘 네비) — 홈 · 인박스 · 그래프 · 도움말 · 설정 ══
 // 파일트리 토글(미닫이)·검색은 상단 타이틀바가 담당(중복 제거).
 // Wiki/Source 는 파일 트리로 접근(리본에서 제거). 활성 표시는 현재 탭 kind 기준.
 export function Ribbon({
   activeKind,
   onHome,
+  onInbox,
   onGraph,
   onSettings,
 }: {
   activeKind?: string;
   onHome: () => void;
+  onInbox: () => void;
   onGraph: () => void;
   onSettings: () => void;
 }) {
@@ -33,7 +35,12 @@ export function Ribbon({
 
       <Divider />
 
-      {/* 그래프 (새 노트는 사이드바 헤더 연필 아이콘이 담당 → 중복 "+" 제거) */}
+      {/* 인박스 — 현재 과목의 수집 화면(초안 유지). 새 노트는 사이드바 헤더 연필이 담당 */}
+      <RibbonButton label="Inbox" active={activeKind === "inbox"} onClick={onInbox}>
+        <Icons.InboxIcon size={21} />
+      </RibbonButton>
+
+      {/* 그래프 */}
       <RibbonButton label="Graph" active={activeKind === "graph"} onClick={onGraph}>
         <Icons.GraphIcon size={21} />
       </RibbonButton>
