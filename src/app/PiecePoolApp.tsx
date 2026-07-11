@@ -20,10 +20,9 @@ import { PageHeader } from "./panes/PageHeader";
 import type { LinkedItem } from "./panes/PageHeader";
 import { RelationQuality } from "./panes/RelationQuality";
 import { GraphSection } from "./panes/GraphSection";
-import { InboxSection } from "./panes/InboxSection";
+import { InboxSection, InboxPanelToggles } from "./panes/InboxSection";
 import { StudyHome } from "./panes/StudyHome";
 import { Ribbon } from "./shell/Ribbon";
-import { PaneHeader } from "./shell/PaneHeader";
 import { NewTabPane } from "./shell/NewTabPane";
 import type { LauncherDoc } from "./shell/NewTabPane";
 import { StatusBar } from "./shell/StatusBar";
@@ -84,7 +83,6 @@ export default function PiecePoolApp() {
 
   // 셸 오버레이 — 트리 컨텍스트 메뉴 · 페인 "…" 메뉴 · 확인/입력 다이얼로그 · 상태바 알림
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
-  const [paneMenu, setPaneMenu] = useState<{ x: number; y: number } | null>(null);
   const [dialog, setDialog] = useState<ShellDialog | null>(null);
   const [notice, setNotice] = useState("");
 
@@ -100,10 +98,6 @@ export default function PiecePoolApp() {
   const setTabDirty = useWorkspaceStore((s) => s.setTabDirty);
   const renameTab = useWorkspaceStore((s) => s.renameTab);
   const reorderTab = useWorkspaceStore((s) => s.reorderTab);
-  const navBack = useWorkspaceStore((s) => s.navBack);
-  const navForward = useWorkspaceStore((s) => s.navForward);
-  const goBack = useWorkspaceStore((s) => s.goBack);
-  const goForward = useWorkspaceStore((s) => s.goForward);
   const leftCollapsed = useWorkspaceStore((s) => s.leftCollapsed);
   const toggleLeftPane = useWorkspaceStore((s) => s.toggleLeftPane);
   const sidebarWidth = useWorkspaceStore((s) => s.sidebarWidth);
@@ -1249,72 +1243,23 @@ export default function PiecePoolApp() {
   const fullBleed = !!activeTab && (activeTab.kind === "inbox" || activeTab.kind === "graph");
 
   // 상태바 경로 라벨
-  const pathLabel = !activeTab
-    ? currentSpace || ""
-    : activeTab.kind === "home"
-      ? "Study Home"
-      : activeTab.kind === "empty"
-        ? "새 탭"
-        : activeTab.kind === "wiki"
-          ? `${activeTab.space} / wiki / ${activeTab.file}`
-          : activeTab.kind === "archive"
-            ? `${activeTab.space} / archive / ${activeTab.file}`
-            : activeTab.kind === "inbox"
-              ? `${activeTab.space ?? currentSpace} / Inbox`
-              : `${activeTab.space ?? currentSpace} / ${activeTab.kind}`;
-
-  // 페인 헤더 breadcrumb
-  const crumbs = ["PiecePool"];
-  if (activeTab?.kind === "home") {
-    crumbs.push("Study Home");
-  } else if (activeTab?.kind === "empty") {
-    crumbs.push("새 탭");
-  } else if (activeTab) {
-    // Inbox 도 공간 크럼을 보여준다 — "새 노트"가 어디에 저장될지가 핵심 정보다.
-    // (기본 저장 위치 = 이 공간. 노트 헤더 드롭다운으로 다른 공간을 고를 수 있다.)
-    if (spaceName || currentSpace) crumbs.push(spaceName || currentSpace);
-    crumbs.push(KIND_LABEL[activeTab.kind]);
-    if (activeTab.kind === "wiki" || activeTab.kind === "archive") crumbs.push(activeTab.title);
-  } else if (spaceName || currentSpace) {
-    crumbs.push(spaceName || currentSpace);
+  // 현재 위치 경로 — 하단 상태바 우측에 표시한다.
+  // 본문 위 별도 행(PaneHeader)에 크게 그리던 것을 여기로 내렸다: 경로는 "지금 어디인가"를 알려주는
+  // 상태 정보이지 조작이 아니다. 조작이 아닌 것에 화면 한 줄을 내줄 이유가 없다.
+  //  Home  ·  Home > 컴퓨터개론 > Inbox  ·  Home > 컴퓨터개론 > Wiki > 어텐션
+  const pathParts: string[] = ["Home"];
+  if (activeTab && activeTab.kind !== "home") {
+    if (activeTab.kind === "empty") {
+      pathParts.push("새 탭");
+    } else {
+      if (spaceName || currentSpace) pathParts.push(spaceName || currentSpace);
+      pathParts.push(KIND_LABEL[activeTab.kind]);
+      if (activeTab.kind === "wiki" || activeTab.kind === "archive") pathParts.push(activeTab.title);
+    }
+  } else if (!activeTab && (spaceName || currentSpace)) {
+    pathParts.push(spaceName || currentSpace);
   }
-  const cleanCrumbs = crumbs.filter(Boolean) as string[];
-
-  // 뒤로/앞으로 활성 여부 — 스택에 "지금 열려 있는" 다른 탭이 남아 있을 때만
-  const canBack = navBack.some((id) => id !== activeTabId && openTabs.some((t) => t.id === id));
-  const canForward = navForward.some((id) => id !== activeTabId && openTabs.some((t) => t.id === id));
-
-  // 페인 "…" 메뉴 — 활성 탭 기준(닫기 + wiki/archive 는 파일 액션)
-  const paneMenuItems = activeTab
-    ? [
-        { label: "탭 닫기", onClick: () => requestCloseTab(activeTab.id) },
-        ...(activeTab.kind === "wiki" || activeTab.kind === "archive"
-          ? [
-              {
-                label: "이름 변경…",
-                onClick: () =>
-                  setDialog({
-                    kind: activeTab.kind === "wiki" ? ("rename-wiki" as const) : ("rename-note" as const),
-                    space: activeTab.space ?? "",
-                    file: activeTab.file ?? "",
-                    title: activeTab.title,
-                  }),
-              },
-              {
-                label: "삭제…",
-                danger: true,
-                onClick: () =>
-                  setDialog({
-                    kind: activeTab.kind === "wiki" ? ("delete-wiki" as const) : ("delete-note" as const),
-                    space: activeTab.space ?? "",
-                    file: activeTab.file ?? "",
-                    title: activeTab.title,
-                  }),
-              },
-            ]
-          : []),
-      ]
-    : [];
+  const pathLabel = pathParts.join(" › ");
 
   return (
     <div className="h-screen">
@@ -1331,6 +1276,9 @@ export default function PiecePoolApp() {
             filesOpen={!leftCollapsed}
             sidebarWidth={sidebarWidth}
             onSearch={() => setPaletteOpen(true)}
+            // Inbox 탭일 때만 패널 토글을 띄운다 — 다른 탭엔 보조 패널이 없다.
+            // 노트 = 탭이므로 draftKey 는 탭 id 그대로(InboxSection 에 넘기는 것과 같은 값).
+            right={activeTab?.kind === "inbox" ? <InboxPanelToggles draftKey={activeTab.id} /> : undefined}
           />
         }
         leftRibbon={
@@ -1380,15 +1328,6 @@ export default function PiecePoolApp() {
           </Card>
         )}
 
-        {/* 페인 헤더 — 뒤로/앞으로 · 위치 경로 · "…" 메뉴 */}
-        <PaneHeader
-          crumbs={cleanCrumbs}
-          canBack={canBack}
-          canForward={canForward}
-          onBack={goBack}
-          onForward={goForward}
-          onMenu={activeTab ? (x, y) => setPaneMenu({ x, y }) : undefined}
-        />
 
         <div className={fullBleed ? "min-h-0 flex-1 overflow-hidden" : "min-h-0 flex-1 overflow-y-auto p-6"}>
           {booting ? <p className="p-6 text-[15px] text-ink-muted">불러오는 중…</p> : renderActiveTab()}
@@ -1400,7 +1339,6 @@ export default function PiecePoolApp() {
       {memoOpen && <QuickMemo onClose={() => setMemoOpen(false)} />}
 
       {menu && menuItems.length > 0 && <ContextMenu x={menu.x} y={menu.y} items={menuItems} onClose={() => setMenu(null)} />}
-      {paneMenu && paneMenuItems.length > 0 && <ContextMenu x={paneMenu.x} y={paneMenu.y} items={paneMenuItems} onClose={() => setPaneMenu(null)} />}
 
       {dialog?.kind === "close-dirty" && (
         <ConfirmDialog
