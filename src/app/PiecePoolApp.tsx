@@ -249,6 +249,14 @@ export default function PiecePoolApp() {
   const openNewNoteRef = useRef(openNewNote);
   openNewNoteRef.current = openNewNote;
 
+  // 리본 Inbox — 노트 하나 = 탭 하나이므로 "인박스 탭"은 없다. 쓰던 노트가 있으면 그 탭으로,
+  // 없으면 새 노트를 연다(초안은 draft store 가 보존하므로 되돌아와도 그대로다).
+  const openInbox = () => {
+    const note = [...openTabs].reverse().find((t) => t.kind === "inbox");
+    if (note) setActiveTab(note.id);
+    else openNewNote(currentSpaceRef.current);
+  };
+
   // 새 지식 공간(폴더) 생성 — 백엔드 create_space → 목록/집계 갱신 후 새 공간으로 이동.
   // 만든 slug 를 돌려준다 — 인박스가 저장 위치를 방금 만든 과목으로 바로 옮길 수 있게.
   const createNewSpace = async (name: string): Promise<string | null> => {
@@ -1329,7 +1337,7 @@ export default function PiecePoolApp() {
           <Ribbon
             activeKind={activeTab?.kind}
             onHome={openHome}
-            onInbox={() => openInbox(currentSpace)}
+            onInbox={openInbox}
             onGraph={() => openGraph(currentSpace)}
             onSettings={openSettings}
           />
