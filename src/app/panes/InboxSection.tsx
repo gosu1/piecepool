@@ -71,7 +71,7 @@ export function InboxSection({
   // 저장 대상 폴더 선택용 — 전체 지식 공간 목록과 공간별 위키(대상 폴더의 dedup 기준)
   spaces: KnowledgeSpace[];
   wikiBySlug: Record<string, WikiPageT[]>;
-  onOpenWiki: (file: string) => void;
+  onOpenWiki: (space: string, file: string) => void;
   onRefresh: (space: string) => Promise<void> | void;
   // 저장 실패 등 사용자 알림(상태바 토스트). 성공은 노트 초기화·위키 패널로 암시.
   onNotice?: (msg: string) => void;
@@ -83,8 +83,9 @@ export function InboxSection({
   quickMemoOpen: boolean;
   onToggleQuickMemo: () => void;
 }) {
-  // ── 저장 대상 폴더(지식 공간) — 기본은 현재 공간, 저장 버튼 옆 드롭다운으로 변경 ──
-  // 참조 패널(PDF·위키)은 현재 공간 그대로 두고, 저장 목적지만 바꾼다(작성 중 드래프트 유지).
+  // ── 저장 대상 폴더(지식 공간) — 기본은 현재 공간, 노트 헤더 드롭다운으로 변경 ──
+  // 위키 참조 패널은 저장 대상 공간을 따라간다(그 공간 위키를 보며 쓰게). PDF 패널은 원본 파일이
+  // 실제로 현재 공간의 sources/ 에 있으므로 따라가지 않는다.
   const [targetSpace, setTargetSpace] = useState(space);
   useEffect(() => setTargetSpace(space), [space]);
   const resolveTarget = (slug: string) => ({
@@ -184,8 +185,12 @@ export function InboxSection({
     return () => window.removeEventListener("keydown", onKey);
   }, [uploadOpen]);
 
+  // 참조 후보 = 저장 대상 공간의 위키. 대상이 바뀌면 이전 공간에서 고른 참조는 버린다(파일명이 공간 간 충돌한다).
+  const refCandidates = resolveTarget(targetSpace).existing;
+  const targetName = spaces.find((s) => s.slug === targetSpace)?.name ?? targetSpace;
+  useEffect(() => setRefWikiPath(""), [targetSpace]);
   // 고른 게 없으면 없는 것 — `?? existing[0]` 폴백은 빈 노트에 공간의 첫 위키(제목 정렬 1등)를 띄웠다.
-  const refWiki = existing.find((w) => w.path === refWikiPath) ?? null;
+  const refWiki = refCandidates.find((w) => w.path === refWikiPath) ?? null;
 
   const loadSources = useCallback(async () => {
     try {
@@ -301,8 +306,8 @@ export function InboxSection({
       await onRefresh(targetSpace);
       if (res.clarifySkipped) onNotice?.("AI 정리 키가 없어 되묻기를 건너뛰었어요 — 설정에서 키를 넣어주세요");
       else onNotice?.(withLlm ? "위키에 반영됐어요 ✓ — 이어서 필기하세요" : "저장됐어요 ✓ — 이어서 필기하세요");
-      // 방금 만든 위키가 있을 때만 위키 패널을 연다 (대상=현재 공간일 때만 — 참조 패널은 현재 공간 기준)
-      if (withLlm && targetSpace === space && res.firstWikiPath) {
+      // 방금 만든 위키가 있을 때만 위키 패널을 연다 (참조 패널은 저장 대상 공간을 따르므로 다른 공간에 저장해도 뜬다)
+      if (withLlm && res.firstWikiPath) {
         setRefWikiPath(res.firstWikiPath);
         togglePanel("wiki", true);
       }
@@ -333,7 +338,7 @@ export function InboxSection({
       else if (res.reviewMissed) onNotice?.("복습 표시를 못 했어요 — 정리 결과에 그 개념이 없습니다");
       else onNotice?.("위키에 반영됐어요 ✓ — 이어서 필기하세요");
       if (res.regenDowngraded) onNotice?.("AI 재생성에 실패해 첫 정리 결과를 그대로 저장했어요");
-      if (targetSpace === space && res.firstWikiPath) {
+      if (res.firstWikiPath) {
         setRefWikiPath(res.firstWikiPath);
         togglePanel("wiki", true);
       }
@@ -590,19 +595,19 @@ export function InboxSection({
     <section style={{ width: `${paneW.wiki}%`, minWidth: 280 }} className="flex min-w-0 shrink-0 flex-col border-l border-hairline">
       <PaneHeader
         label="위키"
-        hint={existing.length > 0 ? `이 공간의 위키 ${existing.length}개` : "위키 없음"}
+        hint={refCandidates.length > 0 ? `${targetName}의 위키 ${refCandidates.length}개` : "위키 없음"}
         right={
           <div className="flex min-w-0 items-center gap-1.5">
-            {existing.length > 0 && (
+            {refCandidates.length > 0 && (
               <PaneSelect
                 value={refWiki?.path ?? ""}
                 onChange={setRefWikiPath}
-                options={existing.map((w) => ({ value: w.path, label: w.title }))}
+                options={refCandidates.map((w) => ({ value: w.path, label: w.title }))}
                 placeholder="위키 고르기…"
               />
             )}
             {refWiki && (
-              <Button size="sm" variant="utility" className="shrink-0 whitespace-nowrap" onClick={() => onOpenWiki(refWiki.path)}>
+              <Button size="sm" variant="utility" className="shrink-0 whitespace-nowrap" onClick={() => onOpenWiki(targetSpace, refWiki.path)}>
                 열기
               </Button>
             )}
@@ -613,7 +618,7 @@ export function InboxSection({
         {refWiki ? (
           <>
             <h2 className="mb-3 text-[17px] font-bold text-ink">{refWiki.title}</h2>
-            <Markdown source={refWiki.markdown} embedSpace={space} />
+            <Markdown source={refWiki.markdown} embedSpace={targetSpace} />
           </>
         ) : (
           <p className="pt-8 text-center text-[14px] text-ink-muted">

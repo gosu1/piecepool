@@ -1210,7 +1210,7 @@ export default function PiecePoolApp() {
             existing={wikiBySlug[sp] ?? []}
             spaces={spaces}
             wikiBySlug={wikiBySlug}
-            onOpenWiki={(file) => openWiki(sp, file)}
+            onOpenWiki={openWiki}
             onRefresh={(s) => refreshSpace(s)}
             onNotice={setNotice}
             quickMemoOpen={memoOpen}
