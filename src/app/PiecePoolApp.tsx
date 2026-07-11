@@ -28,7 +28,7 @@ import { NewTabPane } from "./shell/NewTabPane";
 import type { LauncherDoc } from "./shell/NewTabPane";
 import { StatusBar } from "./shell/StatusBar";
 import { TitlebarRow } from "./shell/TitlebarRow";
-import { SidebarHeader, SidebarShortcuts, SidebarFooter } from "./shell/SidebarChrome";
+import { SidebarHeader, SidebarShortcuts } from "./shell/SidebarChrome";
 import { SearchPalette } from "./shell/SearchPalette";
 import { SettingsModal } from "./shell/SettingsModal";
 import { QuickMemo } from "./panes/QuickMemo";
@@ -209,7 +209,7 @@ export default function PiecePoolApp() {
     };
   }, []);
 
-  // 활성 탭 → 현재 공간 컨텍스트(브레드크럼·트리·VaultSwitcher가 따라감)
+  // 활성 탭 → 현재 공간 컨텍스트(브레드크럼·트리가 따라감)
   const activeTab = openTabs.find((t) => t.id === activeTabId) ?? null;
   const currentSpace = activeTab?.space || currentSpaceSlug || spaces[0]?.slug || "";
   useEffect(() => {
@@ -1355,7 +1355,6 @@ export default function PiecePoolApp() {
                   onUnpin={togglePinned}
                 />
               }
-              footer={<SidebarFooter spaces={spaces} currentSpace={currentSpace} onSpace={selectSpace} />}
             />
           )
         }

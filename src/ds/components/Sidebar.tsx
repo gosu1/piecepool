@@ -24,7 +24,6 @@ export interface SidebarProps
   nodes: TreeNode[];
   onAddFile?: () => void;
   onLogout?: () => void;
-  footer?: ReactNode;
   /** 상단 헤더 대체 슬롯(Obsidian식 타이틀+액션). 미지정 시 로고+새 노트. */
   headerSlot?: ReactNode;
   /** 헤더 아래 숏컷 행(홈·새 노트 등). */
@@ -50,7 +49,6 @@ export function Sidebar({
   onContextMenu,
   onAddFile,
   onLogout,
-  footer,
   headerSlot,
   shortcutsSlot,
   width,
@@ -113,23 +111,22 @@ export function Sidebar({
         />
       </nav>
 
-      {/* 하단: 로그아웃 / 커스텀 푸터 */}
-      <div className="border-t border-hairline p-2">
-        {footer ??
-          (onLogout ? (
-            <button
-              type="button"
-              onClick={onLogout}
-              className={cn(
-                "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-[15px] text-ink-muted",
-                "transition-colors hover:bg-surface-soft hover:text-ink",
-              )}
-            >
-              <LogoutIcon size={16} />
-              Logout
-            </button>
-          ) : null)}
-      </div>
+      {/* 하단: 로그아웃(옵션). 없으면 구분선 띠도 렌더하지 않는다 — 트리가 바닥까지 */}
+      {onLogout && (
+        <div className="border-t border-hairline p-2">
+          <button
+            type="button"
+            onClick={onLogout}
+            className={cn(
+              "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-[15px] text-ink-muted",
+              "transition-colors hover:bg-surface-soft hover:text-ink",
+            )}
+          >
+            <LogoutIcon size={16} />
+            Logout
+          </button>
+        </div>
+      )}
 
       {/* 리사이즈 핸들 (우측 엣지) */}
       {onResize && width !== undefined && (
