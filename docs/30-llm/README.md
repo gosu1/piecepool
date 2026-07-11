@@ -17,7 +17,8 @@ LLM 호출 계층. LLM은 **Google Gemini 단일 provider**([ADR-0009](../adr/00
 - 최대 **1~3개** 선택지로 _"이렇게 생각하신 게 맞나요?"_ 가이드 제공
 - **기타** 칸 1개 추가 — 사용자가 직접 서술 (소크라테스식 · 하브루타식 학습법, Claude Plan 스킬과 동형)
 
-> 주 구현은 Liner 출처 검증. Liner 미가용 시 아래 **되묻기**(clarify) round-trip(Gemini)로 대안. `LlmWikiResult` JSON Schema는 무변경.
+> 주 구현은 Liner 출처 검증. Liner 미가용 시 Gemini 소크라테스식 되묻기로 대안. `LlmWikiResult` JSON Schema는 무변경.
+> 사용자가 개념을 자기 말로 설명하는 **파인만**(clarify) round-trip은 별도 기능이다 — [`output-validation.md`](output-validation.md) §6.
 
 ## 포함 문서 (작성 예정)
 
@@ -25,7 +26,7 @@ LLM 호출 계층. LLM은 **Google Gemini 단일 provider**([ADR-0009](../adr/00
 |---|---|---|
 | `provider-config.md` | Gemini + Liner Adapter 인터페이스, 환경변수, fallback 정책 | LLM (@gosu1) |
 | `prompt-templates.md` | system/user 프롬프트 (한국어 학습 컨텍스트) | **Backend 주도** (@ChangSik88, @O6west) + LLM 구조화 |
-| `output-validation.md` | 구조화 출력 schema 검증 + 재시도 + 부분 실패 + 되묻기 round-trip | LLM (@gosu1) |
+| `output-validation.md` | 구조화 출력 schema 검증 + 재시도 + 부분 실패 + 파인만 round-trip | LLM (@gosu1) |
 | `evals.md` | 골든 케이스, 회귀 방지 | LLM (@gosu1) |
 | `wiki-qa-agent.md` | 질의 계층 에이전트 + grounding guard + 에이전트 eval (**post-MVP 제안**) | LLM (@gosu1) |
 | `qa-review-agent.md` | 저장 전 의미 검증: 환각/추측/경로 (**post-MVP 제안**) | LLM (@gosu1) |
@@ -35,7 +36,7 @@ LLM 호출 계층. LLM은 **Google Gemini 단일 provider**([ADR-0009](../adr/00
 ## 소유권 분리 (중요)
 
 - **Adapter / 호출 메커니즘 / schema 검증**: LLM (@gosu1)
-- **프롬프트 설계 (도메인 지식, 한국어 학습 맥락, 되묻기 트리거 문구)**: **Backend** (@ChangSik88, @O6west). 인간이 직접 고민
+- **프롬프트 설계 (도메인 지식, 한국어 학습 맥락, 파인만 되물음 문구)**: **Backend** (@ChangSik88, @O6west). 인간이 직접 고민
 - 두 영역이 만나는 지점은 `prompt-templates.md` — CODEOWNERS에서 공동 owner
 
 ## 환경변수 매트릭스
@@ -58,16 +59,17 @@ PIECEPOOL_FACT_CHECK=true|false
 
 ## 부가 흐름 (schema 무변경)
 
-- **되묻기**: 주 경로는 Liner 출처 검증. Backend가 import-pipeline에서 간극 판정 → 불확실 시 사용자에게 재질의 (Liner 미가용 시 Gemini 1차 응답 분석으로 대안)
+- **파인만**(clarify): 사용자가 파인만 토글을 켜면 개념 하나를 자기 말로 설명하고, Gemini가 그 설명의 구멍 하나를 되묻는다. 사용자 설명이 2차 호출의 재료가 된다. 자동 트리거·timeout 없음(진입은 사용자 토글, 종료는 사용자) — [`output-validation.md`](output-validation.md) §6
+- **간극 점검**(정보 간극 메우기): 주 경로는 Liner 출처 검증. Backend가 import-pipeline에서 label↔user 간극 판정 → 불확실 시 사용자에게 재질의 (Liner 미가용 시 Gemini 소크라테스식 되묻기로 대안)
 - **Fact-check**: Liner API가 출처 검색·검증 → `evidence[].reason`에 출처 URL 누적
-- 둘 다 `LlmWikiResult` JSON Schema는 그대로 ([`../10-contracts/llm-output-schema.md`](../10-contracts/llm-output-schema.md))
+- 셋 다 `LlmWikiResult` JSON Schema는 그대로 ([`../10-contracts/llm-output-schema.md`](../10-contracts/llm-output-schema.md))
 
 ## 의존
 
 - [`../10-contracts/llm-output-schema.md`](../10-contracts/) — provider 무관 출력 JSON Schema (SSOT)
 - [`../10-contracts/entities.md`](../10-contracts/) — Concept/WikiPage/Relation 엔티티
 - [`../00-overview/pricing-model.md`](../00-overview/) — 플랜·기능 매트릭스
-- [`../20-backend/import-pipeline.md`](../20-backend/) (작성 예정) — 호출 흐름 / 되묻기 트리거
+- [`../20-backend/import-pipeline.md`](../20-backend/) (작성 예정) — 호출 흐름 / 파인만 round-trip
 
 ## 작성 일정
 

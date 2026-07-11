@@ -1,4 +1,4 @@
-// 파인만 되묻기(probe) 행동 품질 eval 러너. 실행: `npm run eval:feynman -- --all`
+// 파인만(probe) 행동 품질 eval 러너. 실행: `npm run eval:feynman -- --all`
 //   npm run eval:feynman -- --case trap-wrong-fact
 //   npm run eval:feynman -- --all --dry          # LLM judge 생략(cheap check 만)
 //   npm run eval:feynman -- --all --repeat 3     # 케이스당 3회 반복(비결정성 표본)
@@ -228,7 +228,7 @@ async function main() {
 
   const apiKey = process.env.GEMINI_API_KEY || "";
   if (!apiKey) {
-    console.error("GEMINI_API_KEY 필요 — 되묻기는 실제 모델 행동이 테스트 대상이다.");
+    console.error("GEMINI_API_KEY 필요 — 파인만은 실제 모델 행동이 테스트 대상이다.");
     process.exit(2);
   }
 

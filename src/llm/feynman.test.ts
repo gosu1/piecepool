@@ -59,7 +59,7 @@ describe("probeExplanation", () => {
     expect(sent).toContain("NEVER write the word '학생'"); // 3인칭 호칭 금지
   });
 
-  it("키가 없으면 던진다 — 되묻기는 휴리스틱으로 만들 수 없다", async () => {
+  it("키가 없으면 던진다 — 파인만은 휴리스틱으로 만들 수 없다", async () => {
     await expect(probeExplanation("임계 구역", NOTE, askedOnce, "  ")).rejects.toThrow(/API key/);
   });
 

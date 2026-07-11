@@ -1,4 +1,4 @@
-# 파인만 되묻기 eval
+# 파인만 eval
 
 되물음(probe)의 **행동 품질**을 실제 모델 호출로 측정한다. 러너: [`scripts/feynman-eval.ts`](../../../../scripts/feynman-eval.ts)
 

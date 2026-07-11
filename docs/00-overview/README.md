@@ -8,8 +8,8 @@ PiecePool 전체 비전·범위·용어·플랜·결정 보류. **모든 역할 
 |---|---|---|
 | [`vision.md`](vision.md) | 제품 정의, 핵심 사용자, 장기 사용 시나리오 | ✅ |
 | [`scope-mvp.md`](scope-mvp.md) | MVP 포함/제외, 완료 기준, 기존 PRD 대비 변경 사항 | ✅ |
-| [`glossary.md`](glossary.md) | 용어 정의 (Workspace, KnowledgeSpace, Subject, Concept, WikiPage, Relation, Evidence, 되묻기, fact-check 등) | ✅ |
-| [`pricing-model.md`](pricing-model.md) | provider·tier·환경변수, 되묻기/fact-check 흐름 | ✅ |
+| [`glossary.md`](glossary.md) | 용어 정의 (Workspace, KnowledgeSpace, Subject, Concept, WikiPage, Relation, Evidence, 파인만, fact-check 등) | ✅ |
+| [`pricing-model.md`](pricing-model.md) | provider·tier·환경변수, 파인만/fact-check 흐름 | ✅ |
 | [`open-questions.md`](open-questions.md) | 결정 보류 항목 (라이브러리, LLM, UX, 인프라, 데이터) | ✅ |
 | [`competition-plan.md`](competition-plan.md) | SW부문 대회 제출물·마감·역산 실행 계획 | ✅ |
 | [`journey.md`](journey.md) | 여정 기록 — 큰 사건·피벗·아이디어 발전 과정 (보고서·사업·PPT 원재료) | ✅ |

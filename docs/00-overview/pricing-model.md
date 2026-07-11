@@ -15,7 +15,7 @@ PiecePool은 **Google Gemini**를 LLM provider로, **Liner API**를 출처 기�
 | **LLM** | Google Gemini (`GEMINI_API_KEY` 필요) |
 | **출처 검색** | Liner API (`LINER_API_KEY` 필요) — feature 3(정보 간극 메우기·fact-check) 출처 기반 검색 |
 | **핵심 기능** | Workspace, archive, wiki 생성, Graph View |
-| **LLM 강화 기능** | 되묻기 + fact-check + 웹 검색 기반 비교 + Wiki 강화 |
+| **LLM 강화 기능** | 파인만 + fact-check + 웹 검색 기반 비교 + Wiki 강화 |
 | **한도** | Gemini·Liner API 비용·rate에 따름 |
 
 API 키는 사용자 본인이 발급/관리한다. (PiecePool 구독 제공은 **경진대회 이후 BM 계획** — §7 참조.)
@@ -39,18 +39,17 @@ API 키는 사용자 본인이 발급/관리한다. (PiecePool 구독 제공은 
 | 기능 | 설명 |
 |---|---|
 | **정밀 정리** | Gemini가 풍부한 explanation, 예시, 구조 생성 |
-| **되묻기 (Claude식)** | 입력이 불확실/모호하면 사용자에게 재확인 질문. "이 개념을 X로 해석했는데 맞나요?" |
+| **파인만** | 사용자가 개념을 자기 말로 설명하면, LLM이 정답을 주지 않고 그 설명의 구멍 하나만 짚어 되묻는다. 이해 판정은 오직 사용자가 한다 |
 | **Fact-check** | Liner 출처 검색으로 사용자 데이터 vs 실제 출처 비교 (feature 3) |
 | **Suggest** | Fact-check 결과 차이가 있으면 수정안 제안 (자동 적용 X, 사용자 승인 필요) |
 | **LLM Wiki 강화** | 위 메커니즘 종합으로 Wiki 정확도/완결성 향상 |
 
-### 3.1 되묻기 트리거 기준 (Backend 설계 책임)
-- 입력 텍스트가 너무 짧음/불명확
-- 추출된 Concept이 너무 일반적 (예: "그것", "이론")
-- Relation의 `confidence` < 임계값
-- Source 간 모순 감지
+### 3.1 파인만 진입 조건
+- 자동 임계값 트리거는 **없다**. 사용자가 파인만 토글을 켤 때만 진입한다(기본 off).
+- 1차 생성이 Gemini 로 성공하고 개념이 1개 이상일 때만 뜬다 — 키가 없으면 만들 수 없으므로 건너뛰고 알린다.
+- 이해 여부는 **오직 사용자가** 판정한다. LLM 은 채점하지 않는다.
 
-자세한 기준: `../20-backend/import-pipeline.md` (작성 예정)
+자세한 흐름: [output-validation.md §6](../30-llm/output-validation.md)
 
 ### 3.2 Fact-check 흐름
 ```text
@@ -75,9 +74,9 @@ API 키는 사용자 본인이 발급/관리한다. (PiecePool 구독 제공은 
 |---|---|
 | Inbox → archive | 원문 저장 |
 | 1차 Concept/Wiki 생성 | Gemini |
-| 되묻기 | clarify 활성 시 |
+| 파인만 | clarify 활성 시 |
 | Fact-check | Liner, 활성 시 |
-| Wiki 저장 | 되묻기/fact-check 반영 결과 |
+| Wiki 저장 | 파인만/fact-check 반영 결과 |
 
 ---
 
@@ -100,7 +99,7 @@ PIECEPOOL_LLM_MODEL=...                        # 모델명 override (provider-co
 
 # LLM 기능 토글 (유료 tier 아님 — 레거시 이름의 기본 on 토글)
 PIECEPOOL_FACT_CHECK=true|false        # fact-check, 기본 true
-PIECEPOOL_CLARIFY=true|false           # 되묻기, 기본 true
+PIECEPOOL_CLARIFY=true|false           # 파인만, 기본 true
 ```
 
 > ⚠️ 위 env 값은 **CLI 스크립트**(`npm run eval:feynman`, `chunk` 등)가 읽는다. 데스크톱 앱은 `.env`를 읽지 않고 설정 모달(→ `localStorage["gemini-key"]`)로 Gemini 키를 받는다 ([ADR-0009](../adr/0009-llm-provider-gemini.md)).
@@ -116,7 +115,7 @@ PIECEPOOL_CLARIFY=true|false           # 되묻기, 기본 true
 | Gemini LLM 호출 | ✅ | — |
 | Liner 출처 검색 호출 | ✅ | — |
 | 정밀 정리 | ✅ | — |
-| **되묻기** | ✅ | — |
+| **파인만** | ✅ | — |
 | **Fact-check** | ⏸ 기본 흐름만, 정밀화는 후속 | 정밀화 |
 | 결제/구독 시스템 | ⛔ | ✅ |
 | API 키 관리 UI | 환경변수만 | 키 보관 UI |
@@ -131,7 +130,7 @@ PIECEPOOL_CLARIFY=true|false           # 되묻기, 기본 true
 |---|---|
 | Gemini adapter | LLM (@gosu1) |
 | 프롬프트 설계 | Backend (주도) + LLM (구조화) |
-| 되묻기 트리거 로직 | Backend |
+| 파인만 트리거 로직 | Backend |
 | Fact-check 통합 | Backend (호출) + LLM (도구 호출 schema) |
 | 결제 UI (MVP+1) | Frontend + Backend |
 

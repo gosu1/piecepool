@@ -36,13 +36,13 @@ npm run tauri dev      # Tauri + Vite 동시 실행
 | 데스크톱 앱 (`npm run tauri dev`) | `localStorage` | 앱 좌하단 계정 → **설정** → `Gemini API Key` |
 | CLI 스크립트 (`npm run eval:feynman`, `chunk`, `eval` …) | `.env` | `cp .env.example .env` 후 `GEMINI_API_KEY=` 채우기 |
 
-키가 없어도 앱은 죽지 않는다 — 휴리스틱 폴백(문서 헤딩 분해)으로 내려간다. **되묻기 패널이 안 뜨면 키부터 의심할 것.**
+키가 없어도 앱은 죽지 않는다 — 휴리스틱 폴백(문서 헤딩 분해)으로 내려간다. **파인만 패널이 안 뜨면 키부터 의심할 것.**
 
 환경변수 ([`.env.example`](.env.example)) — CLI 전용:
 
 | 변수 | 필수 | 설명 |
 |---|---|---|
-| `GEMINI_API_KEY` | ✅ | Gemini API 키 — Wiki 생성 · 파인만식 되묻기 · 임베딩 |
+| `GEMINI_API_KEY` | ✅ | Gemini API 키 — Wiki 생성 · 파인만 · 임베딩 |
 | `LINER_API_KEY` | | Liner API 키 — 정보 간극 메우기(label↔user) 출처 검색 · fact-check |
 | `PIECEPOOL_LLM_MODEL` | | 모델명 override (기본 `gemini-2.5-flash`) |
 | `PIECEPOOL_EMBED_MODEL` | | 임베딩 모델 override (기본 `gemini-embedding-001`) |

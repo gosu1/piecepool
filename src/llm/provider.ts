@@ -13,7 +13,7 @@ export type LlmWikiInput = {
   subjects: Array<{ id: string; name: string }>;
   existingConcepts: Array<{ id: string; title: string; normalizedTitle: string }>;
   features?: {
-    clarify: boolean; // 되묻기 활성
+    clarify: boolean; // 파인만 활성
     factCheck: boolean; // fact-check 활성
   };
 };

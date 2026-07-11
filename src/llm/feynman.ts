@@ -1,6 +1,6 @@
 import { extractChatJson, GEMINI_OPENAI_ENDPOINT, GEMINI_MODEL } from "./gemini";
 
-// 파인만식 되묻기 — 사용자가 개념을 자기 말로 설명하면, LLM 이 그 설명의 구멍을 짚어 되묻는다.
+// 파인만 — 사용자가 개념을 자기 말로 설명하면, LLM 이 그 설명의 구멍을 짚어 되묻는다.
 // 설계: docs/superpowers/specs/2026-07-10-feynman-clarify-design.md
 //
 // 왜 선택지가 아니라 자유 설명인가:
@@ -13,7 +13,7 @@ import { extractChatJson, GEMINI_OPENAI_ENDPOINT, GEMINI_MODEL } from "./gemini"
 //   3. 판정하지 않는다 — "충분/부족" 을 말하지 않는다. 판정은 사용자 몫이다.
 //   4. 한국어 한 문장으로 되묻는다.
 
-/** 되묻기가 겨냥하는 구멍의 종류. UI 가 아이콘/톤을 바꾸는 데 쓸 수 있다. */
+/** 파인만 질문이 겨냥하는 구멍의 종류. UI 가 아이콘/톤을 바꾸는 데 쓸 수 있다. */
 export type GapKind = "why" | "term" | "example" | "contradiction";
 
 export interface Probe {
@@ -83,10 +83,10 @@ export async function probeExplanation(
   deps?: FeynmanDeps,
 ): Promise<Probe> {
   const key = apiKey?.trim();
-  if (!key) throw new Error("[provider=gemini] feynman: API key 필요 — 되묻기는 휴리스틱으로 만들 수 없다");
+  if (!key) throw new Error("[provider=gemini] feynman: API key 필요 — 파인만은 휴리스틱으로 만들 수 없다");
   const last = history[history.length - 1];
   if (!last || last.role !== "user" || !last.text.trim()) {
-    throw new Error("[feynman] 되묻기는 사용자의 설명 뒤에만 온다");
+    throw new Error("[feynman] 파인만 질문은 사용자의 설명 뒤에만 온다");
   }
 
   const fetchFn = deps?.fetchFn ?? globalThis.fetch.bind(globalThis);
@@ -141,7 +141,7 @@ export async function probeExplanation(
 }
 
 /**
- * 되묻기를 시작할 개념 하나를 고른다 — 노트 안에서 가장 얕게 서술된 개념.
+ * 파인만을 시작할 개념 하나를 고른다 — 노트 안에서 가장 얕게 서술된 개념.
  * LLM 을 부르지 않는다: 1차 위키 생성이 이미 개념 목록을 줬으므로, 노트 본문에서
  * 각 개념이 얼마나 다뤄졌는지만 재면 된다. (정의문·예시가 없을수록 취약하다)
  *

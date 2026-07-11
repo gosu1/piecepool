@@ -183,7 +183,7 @@ PDF와 이미지는 입력 형태가 비슷해 보이지만, 변환 메커니즘
 | 원본 이미지 embed/미리보기 bytes 제공 (`read_file_bytes`) | **`storage/` (BE)** |
 | wiki/relations persist (`save_wiki`·`append_relations`) | **`storage/` (BE)** |
 | `ImportJob` 상태 전이 추적 | `import/` (BE) — LLM 호출은 TS 위임 |
-| 변환 품질·되묻기(clarify) 판정 | TS `src/llm/` |
+| 변환 품질·파인만(clarify) 판정 | TS `src/llm/` |
 
 ---
 

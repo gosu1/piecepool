@@ -7,7 +7,7 @@ QA / 검증 기준. MVP 합격 라인 정의.
 | 파일 | 내용 | 상태 |
 |---|---|---|
 | [`acceptance-criteria.md`](acceptance-criteria.md) | 11 카테고리 합격 기준 (Workspace/Markdown/LLM/PDF/OCR/Graph/화면/배포/Seed/테스트) | ✅ |
-| [`e2e-scenarios.md`](e2e-scenarios.md) | 12 시나리오 (첫 실행→Seed, 텍스트/PDF/OCR import, 편집·재실행, Graph 클릭, 되묻기·fact-check, .dmg 빌드, cross-subject) | ✅ |
+| [`e2e-scenarios.md`](e2e-scenarios.md) | 12 시나리오 (첫 실행→Seed, 텍스트/PDF/OCR import, 편집·재실행, Graph 클릭, 파인만·fact-check, .dmg 빌드, cross-subject) | ✅ |
 
 ## Owner
 

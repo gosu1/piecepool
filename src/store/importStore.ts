@@ -12,7 +12,7 @@ import { chunkOpts } from "../lib/settings";
 // 커맨드(create_note/save_wiki/append_relations) + LLM 어댑터 호출을 조율한다.
 // 전이: parsing → archiving → llm_processing → [clarify_pending → llm_processing(2차)] → writing → completed | failed.
 //
-// clarify(되묻기) = 파인만식. 1차 생성이 개념 목록을 주면 가장 취약한 개념 하나를 골라
+// clarify(파인만) = 자기 말로 설명하기. 1차 생성이 개념 목록을 주면 가장 취약한 개념 하나를 골라
 // 사용자에게 "자기 말로 설명해보세요" 라고 청한다. 사용자가 쓰면 LLM 이 구멍 하나를 짚어
 // 되묻고, 이 루프는 사용자가 [그만] 을 누를 때까지 돈다. 루프 중에는 디스크를 쓰지 않는다.
 // 종료 시 사용자가 직접 선언한다: [네, 이해했어요] / [아직 모르겠어요].
@@ -36,17 +36,17 @@ export interface ImportJobView {
   reviewMarked?: string; // 사용자가 "아직 모르겠어요" 로 표시한 개념 제목
   reviewMissed?: boolean; // 표시하려 했으나 2차 생성 결과에 그 개념이 없어 건너뜀(경고용)
   reviewNoEvidence?: boolean; // 설명을 한 번도 안 써서 표시할 근거가 없음(evidence ≥ 1 계약)
-  clarifySkipped?: boolean; // 되묻기를 켰으나 키가 없어 건너뜀 — 조용히 넘기지 않는다
+  clarifySkipped?: boolean; // 파인만을 켰으나 키가 없어 건너뜀 — 조용히 넘기지 않는다
   regenDowngraded?: boolean; // 2차 생성이 실패해 휴리스틱으로 떨어짐 → 1차 결과를 지켰다
 }
 
-/** 파인만 되묻기 루프의 상태. 디스크에 쓰지 않는 메모리 전용. */
+/** 파인만 루프의 상태. 디스크에 쓰지 않는 메모리 전용. */
 export interface FeynmanState {
   concept: string | null; // 지금 설명 중인 개념
   candidates: string[]; // [다른 개념으로] 후보
   history: Turn[]; // 설명 ↔ 되물음
   probing: boolean; // LLM 되묻는 중
-  error?: string; // 되묻기 실패(재시도 가능) — 대화는 보존한다
+  error?: string; // 파인만 실패(재시도 가능) — 대화는 보존한다
 }
 
 const EMPTY_FEYNMAN: FeynmanState = { concept: null, candidates: [], history: [], probing: false };
@@ -77,7 +77,7 @@ interface ImportState {
   runImport: (p: RunImportParams) => Promise<ImportJobView>;
   /** 사용자가 설명을 제출 → LLM 이 구멍 하나를 짚어 되묻는다. 디스크 안 씀. */
   explain: (text: string) => Promise<void>;
-  /** 되묻기 실패 후 재시도 — 설명은 history 에 이미 있으므로 다시 타이핑하지 않는다. */
+  /** 파인만 실패 후 재시도 — 설명은 history 에 이미 있으므로 다시 타이핑하지 않는다. */
   retryProbe: () => Promise<void>;
   /** 대상 개념을 갈아탄다. 대화는 개념마다 새로 시작한다. */
   switchConcept: (title: string) => void;
@@ -167,7 +167,7 @@ export const useImportStore = create<ImportState>((set, get) => {
     return { job: done, pages: applied.pages };
   };
 
-  // 되묻기 1회. explain/retryProbe 공통.
+  // 파인만 되물음 1회. explain/retryProbe 공통.
   // 응답이 늦게 도착했을 때(개념 전환·[그만] 이후) stale 대화를 되살리면 안 된다 → concept 대조.
   const runProbe = async (concept: string, note: string, history: Turn[]) => {
     const fresh = () => get().feynman.concept === concept;
@@ -204,8 +204,8 @@ export const useImportStore = create<ImportState>((set, get) => {
         const input = buildInput(note, p.existing);
         const { result, engine } = await runWikiGeneration(input, apiKey(), { chunk: chunkOpts() });
 
-        // 파인만 되묻기 분기 — 저장 전에 사용자가 개념을 자기 말로 설명하게 한다.
-        // 키가 없으면(engine==="heuristic") 되묻기를 만들 수 없다. 있는 척하지 않고 건너뛴다.
+        // 파인만 분기 — 저장 전에 사용자가 개념을 자기 말로 설명하게 한다.
+        // 키가 없으면(engine==="heuristic") 파인만 질문을 만들 수 없다. 있는 척하지 않고 건너뛴다.
         const candidates = result.concepts.map((c) => c.title);
         if (p.clarify && engine === "gemini" && candidates.length > 0) {
           const concept = pickWeakestConcept(candidates, note.markdown);
@@ -217,7 +217,7 @@ export const useImportStore = create<ImportState>((set, get) => {
             return commit({ ...job, status: "clarify_pending", engine });
           }
         }
-        // 되묻기를 켰는데 못 띄웠다면 조용히 넘기지 않는다 — 사용자는 켰다고 믿는다.
+        // 파인만을 켰는데 못 띄웠다면 조용히 넘기지 않는다 — 사용자는 켰다고 믿는다.
         const clarifySkipped = p.clarify && engine !== "gemini";
         return (await writeAndComplete(job, result, engine, note, p, clarifySkipped ? { clarifySkipped } : undefined)).job;
       } catch (e) {

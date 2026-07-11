@@ -21,10 +21,10 @@
 |---|---|---|---|
 | Relation 메타데이터 저장 위치 | 단일 `relations.json`, wiki frontmatter 병행, 하이브리드 | Backend (#1) + LLM (#3) | Phase 4 `import-pipeline.md` |
 | **fact-check 도구** | Liner 출처 검색 API(feature 3 주 해결책) + Gemini 소크라테스식 되묻기(보조) 결정 ✅. 추가 외부 검색 API 도입 여부는 보류 | LLM (#3) + Backend (#1) | MVP+1 |
-| **되묻기 트리거 임계값** | `confidence < 0.5` 기본 명시 ([output-validation §6.1](../30-llm/output-validation.md)). 입력 길이 / 일반성 기준은 Backend `prompt-design.md`에서 구체화 | Backend (#1) | Phase 4 `import-pipeline.md` / `prompt-design.md` |
+| **파인만 트리거 임계값** | 자동 임계값 트리거 **폐기** ✅ (2026-07). 파인만은 사용자 토글로만 진입한다 ([output-validation §6.1](../30-llm/output-validation.md)) | Backend (#1) | 해소됨 |
 | **JSON Schema 검증 라이브러리** (신규) | `ajv` / `zod` / json-schema-to-zod | LLM (#3) | Phase 4 코드 작성 시 |
 | **similarity 측정 모델** (신규) | Gemini `gemini-embedding-001` / Cohere | LLM (#3) | Concept 중복 판정 구현 시 |
-| **되묻기 timeout** (신규) | 5분 기본 가정. 실제 UX 검증 후 조정 | Backend (#1) + Design (#4) | Phase 4 `screens/import.md` |
+| **파인만 timeout** (신규) | timeout **없음** ✅ (2026-07). 종료는 오직 사용자([네, 이해했어요] / [아직 모르겠어요])이며, 대화는 메모리 전용이라 앱을 나가면 사라진다 | Backend (#1) + Design (#4) | 해소됨 |
 | **eval-baseline-change 라벨** (신규) | 골든 케이스 기대 결과 변경 PR에 부착할 라벨 신설 | @gosu1 | evals fixtures 실제 작성 PR 직전 |
 
 ---
@@ -34,7 +34,7 @@
 | 항목 | 옵션 | 책임자 | 결정 기한 |
 |---|---|---|---|
 | 첫 진입 INBOX UI | 빈 상태 / 시드 데모 / 튜토리얼 | Design (#4) + Frontend (#2) | Phase 4 `screens/inbox.md` |
-| 되묻기 UI 모달 vs 인라인 | Source 단위 / Concept 단위 / batch | Design (#4) + Frontend (#2) | Phase 4 `component-states.md` |
+| 파인만 UI 모달 vs 인라인 | Source 단위 / Concept 단위 / batch | Design (#4) + Frontend (#2) | Phase 4 `component-states.md` |
 | Fact-check 결과 표시 | suggest 패널 / inline diff / 별도 화면 | Design (#4) + Frontend (#2) | Phase 4 `screens/wiki-view.md` |
 | Subject 즉시 생성 위치 | Import 화면 inline / 모달 / 사이드바 dropdown | Design (#4) + Frontend (#2) | Phase 4 |
 
@@ -103,4 +103,4 @@ SSOT 관련 결정(`10-contracts/` 영향)은 `contracts-change` 라벨 + 4역�
 
 - 본 문서는 `docs/archive/PRD-v1.md` §18 (line 1142-1152)을 분리·확장한 결과다.
 - 라이브러리/도구 선택(§1), LLM/Provider(§2), UX(§3), 인프라/운영(§4), 데이터/모델(§5)로 구조화는 본 리팩토링에서 신규 정리했다.
-- "신규" 표시 항목은 PRD-v1에 없던 보류 사항이다 (OCR, 되묻기, fact-check, Branch protection, CI 등).
+- "신규" 표시 항목은 PRD-v1에 없던 보류 사항이다 (OCR, 파인만, fact-check, Branch protection, CI 등).

@@ -291,7 +291,7 @@ export function InboxSection({
     if (res.status === "completed") {
       ds.getState().clearDraft(space);
       await onRefresh(targetSpace);
-      if (res.clarifySkipped) onNotice?.("AI 정리 키가 없어 되묻기를 건너뛰었어요 — 설정에서 키를 넣어주세요");
+      if (res.clarifySkipped) onNotice?.("AI 정리 키가 없어 파인만을 건너뛰었어요 — 설정에서 키를 넣어주세요");
       // 방금 만든 위키가 있을 때만 위키 패널을 연다 (대상=현재 공간일 때만 — 참조 패널은 현재 공간 기준)
       if (withLlm && targetSpace === space && res.firstWikiPath) {
         setRefWikiPath(res.firstWikiPath);
@@ -396,7 +396,7 @@ export function InboxSection({
               {withLlm && <Icons.CheckIcon size={12} className="ml-0.5" />}
             </PropertyPill>
             <PropertyPill active={clarify} disabled={!withLlm} onClick={() => setClarify(!clarify)} icon={<Icons.HelpCircleIcon size={13} />}>
-              되묻기
+              파인만
             </PropertyPill>
             {/* 퀵메모 — 창 열림/닫힘을 그대로 반영하는 토글. AI 생성 여부와 무관하게 항상 쓸 수 있다. */}
             <PropertyPill active={quickMemoOpen} onClick={onToggleQuickMemo} icon={<Icons.EditIcon size={13} />}>
@@ -475,7 +475,7 @@ export function InboxSection({
             {feynman.error && (
               // 설명은 history 에 남아 있다 — 다시 타이핑하지 않고 그대로 재시도한다.
               <div className="flex items-center gap-2">
-                <p className="text-[12px] text-danger">되묻기에 실패했어요. 설명은 그대로 있어요.</p>
+                <p className="text-[12px] text-danger">파인만 질문을 못 만들었어요. 설명은 그대로 있어요.</p>
                 <Button size="sm" variant="utility" onClick={retryProbe}>
                   다시 시도
                 </Button>
@@ -714,7 +714,7 @@ function PaneSelect({
   );
 }
 
-// 속성 토글 pill (AI 생성 · 되묻기) — 기존 checkbox 대체. 켜지면 primary 계열, 상태가 한눈에. 저장위치는 select pill 로 별도.
+// 속성 토글 pill (AI 생성 · 파인만) — 기존 checkbox 대체. 켜지면 primary 계열, 상태가 한눈에. 저장위치는 select pill 로 별도.
 // PDF 한국어 요약 진행/종결 스트립 — 스트리밍 중엔 파형+중단, 종결 후엔 결과+닫기.
 function SummaryStrip({ job, onCancel, onClose }: { job: PdfSummaryJob; onCancel: () => void; onClose: () => void }) {
   const streaming = job.status === "streaming";

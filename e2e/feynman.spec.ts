@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
-// 파인만식 되묻기 — 설명 생산 루프. 설계: docs/superpowers/specs/2026-07-10-feynman-clarify-design.md
-// LLM 은 라우트로 가로챈다. 위키 생성 요청과 되묻기 요청은 시스템 프롬프트로 구분한다.
+// 파인만 — 설명 생산 루프. 설계: docs/superpowers/specs/2026-07-10-feynman-clarify-design.md
+// LLM 은 라우트로 가로챈다. 위키 생성 요청과 파인만 요청은 시스템 프롬프트로 구분한다.
 
 const chat = (payload: unknown) => ({
   status: 200,
@@ -24,7 +24,7 @@ let probeCalls = 0;
 
 test.beforeEach(async ({ page }) => {
   probeCalls = 0;
-  // 키가 없으면 engine=heuristic 이라 되묻기가 뜨지 않는다(설계상 의도: 없는 걸 있는 척하지 않는다).
+  // 키가 없으면 engine=heuristic 이라 파인만이 뜨지 않는다(설계상 의도: 없는 걸 있는 척하지 않는다).
   await page.addInitScript(() => localStorage.setItem("gemini-key", "test-key"));
   await page.route("**generativelanguage.googleapis.com**", async (route) => {
     const body = route.request().postData() ?? "";
@@ -44,12 +44,12 @@ async function openFeynman(page: import("@playwright/test").Page) {
   await page.getByPlaceholder("새 페이지").fill("운영체제 3주차");
   await page.locator(".cm-content").click();
   await page.keyboard.type("임계 구역에는 락을 건다. 세마포어도 배웠다.");
-  await page.getByRole("button", { name: /되묻기/ }).click();
+  await page.getByRole("button", { name: /파인만/ }).click();
   await page.getByRole("button", { name: /AI 정리/ }).click();
   await expect(page.getByLabel("개념 설명")).toBeVisible();
 }
 
-test("되묻기는 선택지가 아니라 빈 칸을 준다 — 사용자가 설명을 생산한다", async ({ page }) => {
+test("파인만은 선택지가 아니라 빈 칸을 준다 — 사용자가 설명을 생산한다", async ({ page }) => {
   await openFeynman(page);
   await expect(page.getByText(/처음 배우는 사람에게 설명해보세요/)).toBeVisible();
   // 옛 선택지형 clarify 의 잔재가 없어야 한다
@@ -94,7 +94,7 @@ test("설명 0회 + [아직 모르겠어요] → 조용히 넘기지 않고 알�
   await expect(page.getByText(/설명을 한 번도 쓰지 않아 복습 표시를 하지 않았어요/)).toBeVisible();
 });
 
-test("되묻기 실패 → 설명을 보존하고 [다시 시도] 로 재타이핑 없이 복구한다", async ({ page }) => {
+test("파인만 실패 → 설명을 보존하고 [다시 시도] 로 재타이핑 없이 복구한다", async ({ page }) => {
   await openFeynman(page);
   // 다음 probe 만 503 으로 떨어뜨린다 (재시도 소진되도록 계속 503)
   let failProbe = true;
@@ -110,7 +110,7 @@ test("되묻기 실패 → 설명을 보존하고 [다시 시도] 로 재타이�
 
   await page.getByLabel("개념 설명").fill("동시에 못 들어가게 막는 거요");
   await page.getByRole("button", { name: "설명 보내기" }).click();
-  await expect(page.getByText(/되묻기에 실패했어요/)).toBeVisible({ timeout: 20000 });
+  await expect(page.getByText(/파인만 질문을 못 만들었어요/)).toBeVisible({ timeout: 20000 });
   // 사용자가 쓴 설명은 대화에 남아 있다
   await expect(page.getByText(/나: 동시에 못 들어가게 막는 거요/)).toBeVisible();
 
@@ -173,7 +173,7 @@ test("표시 → 해제 왕복 — 사용자가 붙이고 사용자가 거둔다
   await expect(page.getByText("아직 모르겠다고 표시한 개념")).toBeVisible();
 });
 
-test("되묻기를 거치지 않고도 그래프에서 바로 표시할 수 있다 (판단은 언제나 사용자)", async ({ page }) => {
+test("파인만을 거치지 않고도 그래프에서 바로 표시할 수 있다 (판단은 언제나 사용자)", async ({ page }) => {
   // 시드 위키는 출처(sourceIds)를 갖는다 → 표시 버튼이 활성화된다
   await page.getByRole("button", { name: "Graph" }).click();
   await expect(page.getByText("타입 있는 개념 그래프")).toBeVisible();
