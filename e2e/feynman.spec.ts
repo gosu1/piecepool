@@ -191,6 +191,35 @@ test("되묻기를 거치지 않고도 그래프에서 바로 표시할 수 있�
   await expect(page.getByRole("button", { name: "복습" })).toBeVisible();
 });
 
+// 복습 칩 = 상태 필터. review_needed 는 self-loop 라 관계 필터만으로는 노드가 안 걸러진다 → 노드까지 좁힌다.
+test("복습 칩 — 표시한 개념만 남고 나머지 노드는 사라진다", async ({ page }) => {
+  await page.getByRole("button", { name: "Graph" }).click();
+  await expect(page.getByText("타입 있는 개념 그래프")).toBeVisible();
+  const help = page.getByRole("button", { name: "도움말 닫기" });
+  if (await help.isVisible().catch(() => false)) await help.click();
+
+  const canvas = page.locator("[data-node-count]");
+  const before = Number(await canvas.getAttribute("data-node-count"));
+  expect(before).toBeGreaterThan(1);
+
+  // 교착상태 하나만 복습 표시
+  const search = page.getByPlaceholder("개념 찾기…");
+  await search.fill("교착상태");
+  await search.locator("xpath=following-sibling::div").getByRole("button", { name: "교착상태", exact: true }).click();
+  await page.getByRole("button", { name: "아직 모르겠다고 표시" }).click();
+  await page.getByPlaceholder(/왜 그렇게 되는지/).fill("네 조건이 왜 동시에 필요한지 모르겠어요");
+  await page.getByRole("button", { name: "표시", exact: true }).click();
+  await expect(page.getByText(/복습 필요로 표시했어요/)).toBeVisible({ timeout: 15000 });
+
+  // 복습 칩 → 표시한 1개만 남는다
+  await page.getByRole("button", { name: "복습" }).click();
+  await expect(canvas).toHaveAttribute("data-node-count", "1");
+
+  // 다시 끄면 전부 복귀
+  await page.getByRole("button", { name: "복습" }).click();
+  await expect(canvas).toHaveAttribute("data-node-count", String(before));
+});
+
 test("노트 하단 플로팅 바 — 이 노트에서 나온 개념 중 표시된 것을 먼저 알린다", async ({ page }) => {
   await openFeynman(page);
   await page.getByLabel("개념 설명").fill("동시에 들어가면 안 되는 코드요");

@@ -53,6 +53,7 @@ export function InboxSection({
   existing,
   spaces,
   wikiBySlug,
+  onCreateSpace,
   onOpenWiki,
   onRefresh,
   onNotice,
@@ -71,7 +72,9 @@ export function InboxSection({
   // 저장 대상 폴더 선택용 — 전체 지식 공간 목록과 공간별 위키(대상 폴더의 dedup 기준)
   spaces: KnowledgeSpace[];
   wikiBySlug: Record<string, WikiPageT[]>;
-  onOpenWiki: (file: string) => void;
+  // 저장 위치 드롭다운에서 바로 새 과목 폴더 만들기 — 만든 slug 를 돌려주면 그 과목으로 대상이 옮겨간다.
+  onCreateSpace: (name: string) => Promise<string | null>;
+  onOpenWiki: (space: string, file: string) => void;
   onRefresh: (space: string) => Promise<void> | void;
   // 저장 실패 등 사용자 알림(상태바 토스트). 성공은 노트 초기화·위키 패널로 암시.
   onNotice?: (msg: string) => void;
@@ -83,8 +86,9 @@ export function InboxSection({
   quickMemoOpen: boolean;
   onToggleQuickMemo: () => void;
 }) {
-  // ── 저장 대상 폴더(지식 공간) — 기본은 현재 공간, 저장 버튼 옆 드롭다운으로 변경 ──
-  // 참조 패널(PDF·위키)은 현재 공간 그대로 두고, 저장 목적지만 바꾼다(작성 중 드래프트 유지).
+  // ── 저장 대상 폴더(지식 공간) — 기본은 현재 공간, 노트 헤더 드롭다운으로 변경 ──
+  // 위키 참조 패널은 저장 대상 공간을 따라간다(그 공간 위키를 보며 쓰게). PDF 패널은 원본 파일이
+  // 실제로 현재 공간의 sources/ 에 있으므로 따라가지 않는다.
   const [targetSpace, setTargetSpace] = useState(space);
   useEffect(() => setTargetSpace(space), [space]);
   const resolveTarget = (slug: string) => ({
@@ -184,8 +188,12 @@ export function InboxSection({
     return () => window.removeEventListener("keydown", onKey);
   }, [uploadOpen]);
 
+  // 참조 후보 = 저장 대상 공간의 위키. 대상이 바뀌면 이전 공간에서 고른 참조는 버린다(파일명이 공간 간 충돌한다).
+  const refCandidates = resolveTarget(targetSpace).existing;
+  const targetName = spaces.find((s) => s.slug === targetSpace)?.name ?? targetSpace;
+  useEffect(() => setRefWikiPath(""), [targetSpace]);
   // 고른 게 없으면 없는 것 — `?? existing[0]` 폴백은 빈 노트에 공간의 첫 위키(제목 정렬 1등)를 띄웠다.
-  const refWiki = existing.find((w) => w.path === refWikiPath) ?? null;
+  const refWiki = refCandidates.find((w) => w.path === refWikiPath) ?? null;
 
   const loadSources = useCallback(async () => {
     try {
@@ -301,8 +309,8 @@ export function InboxSection({
       await onRefresh(targetSpace);
       if (res.clarifySkipped) onNotice?.("AI 정리 키가 없어 되묻기를 건너뛰었어요 — 설정에서 키를 넣어주세요");
       else onNotice?.(withLlm ? "위키에 반영됐어요 ✓ — 이어서 필기하세요" : "저장됐어요 ✓ — 이어서 필기하세요");
-      // 방금 만든 위키가 있을 때만 위키 패널을 연다 (대상=현재 공간일 때만 — 참조 패널은 현재 공간 기준)
-      if (withLlm && targetSpace === space && res.firstWikiPath) {
+      // 방금 만든 위키가 있을 때만 위키 패널을 연다 (참조 패널은 저장 대상 공간을 따르므로 다른 공간에 저장해도 뜬다)
+      if (withLlm && res.firstWikiPath) {
         setRefWikiPath(res.firstWikiPath);
         togglePanel("wiki", true);
       }
@@ -333,7 +341,7 @@ export function InboxSection({
       else if (res.reviewMissed) onNotice?.("복습 표시를 못 했어요 — 정리 결과에 그 개념이 없습니다");
       else onNotice?.("위키에 반영됐어요 ✓ — 이어서 필기하세요");
       if (res.regenDowngraded) onNotice?.("AI 재생성에 실패해 첫 정리 결과를 그대로 저장했어요");
-      if (targetSpace === space && res.firstWikiPath) {
+      if (res.firstWikiPath) {
         setRefWikiPath(res.firstWikiPath);
         togglePanel("wiki", true);
       }
@@ -390,23 +398,15 @@ export function InboxSection({
           />
           <p className="mt-1.5 text-[13px] text-ink-muted">생각의 파편을 담아보세요 — 저장하면 AI가 위키로 정리해요.</p>
           <div className="mt-3 flex flex-wrap items-center gap-1.5">
-            {spaces.length > 1 && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-hairline px-3 py-1 text-[12px] text-ink-muted">
-                <Icons.FolderIcon size={13} className="text-ink-faint" />
-                <select
-                  value={targetSpace}
-                  onChange={(e) => setTargetSpace(e.target.value)}
-                  aria-label="저장 위치"
-                  className="max-w-[150px] truncate bg-transparent text-[12px] text-ink outline-none"
-                >
-                  {spaces.map((s) => (
-                    <option key={s.slug} value={s.slug}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-              </span>
-            )}
+            <SpacePicker
+              spaces={spaces}
+              value={targetSpace}
+              onChange={setTargetSpace}
+              onCreate={async (name) => {
+                const slug = await onCreateSpace(name);
+                if (slug) setTargetSpace(slug);
+              }}
+            />
             <PropertyPill active={withLlm} onClick={() => setWithLlm(!withLlm)} icon={<Icons.SparkleIcon size={13} />}>
               AI 생성
               {withLlm && <Icons.CheckIcon size={12} className="ml-0.5" />}
@@ -590,19 +590,19 @@ export function InboxSection({
     <section style={{ width: `${paneW.wiki}%`, minWidth: 280 }} className="flex min-w-0 shrink-0 flex-col border-l border-hairline">
       <PaneHeader
         label="위키"
-        hint={existing.length > 0 ? `이 공간의 위키 ${existing.length}개` : "위키 없음"}
+        hint={refCandidates.length > 0 ? `${targetName}의 위키 ${refCandidates.length}개` : "위키 없음"}
         right={
           <div className="flex min-w-0 items-center gap-1.5">
-            {existing.length > 0 && (
+            {refCandidates.length > 0 && (
               <PaneSelect
                 value={refWiki?.path ?? ""}
                 onChange={setRefWikiPath}
-                options={existing.map((w) => ({ value: w.path, label: w.title }))}
+                options={refCandidates.map((w) => ({ value: w.path, label: w.title }))}
                 placeholder="위키 고르기…"
               />
             )}
             {refWiki && (
-              <Button size="sm" variant="utility" className="shrink-0 whitespace-nowrap" onClick={() => onOpenWiki(refWiki.path)}>
+              <Button size="sm" variant="utility" className="shrink-0 whitespace-nowrap" onClick={() => onOpenWiki(targetSpace, refWiki.path)}>
                 열기
               </Button>
             )}
@@ -613,7 +613,7 @@ export function InboxSection({
         {refWiki ? (
           <>
             <h2 className="mb-3 text-[17px] font-bold text-ink">{refWiki.title}</h2>
-            <Markdown source={refWiki.markdown} embedSpace={space} />
+            <Markdown source={refWiki.markdown} embedSpace={targetSpace} />
           </>
         ) : (
           <p className="pt-8 text-center text-[14px] text-ink-muted">
@@ -673,6 +673,117 @@ export function InboxSection({
         </div>
       )}
     </div>
+  );
+}
+
+// 저장 위치(과목) 선택 — 네이티브 select 는 팝업이 OS 스타일이라 테마를 안 따른다.
+// 사이드바 정렬 드롭다운과 같은 팝오버 패턴(백드롭 + bg-surface 패널 + 체크 표시).
+// 목록 끝의 "새 과목 폴더"로 여기서 바로 폴더를 만들고 그 과목으로 옮겨간다.
+function SpacePicker({
+  spaces,
+  value,
+  onChange,
+  onCreate,
+}: {
+  spaces: KnowledgeSpace[];
+  value: string;
+  onChange: (slug: string) => void;
+  onCreate: (name: string) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [newName, setNewName] = useState<string | null>(null); // null = 생성 행 접힘
+  const [creating, setCreating] = useState(false);
+  const current = spaces.find((s) => s.slug === value);
+
+  const close = () => {
+    setOpen(false);
+    setNewName(null);
+  };
+  const create = async () => {
+    const name = (newName ?? "").trim();
+    if (!name || creating) return;
+    setCreating(true);
+    await onCreate(name);
+    setCreating(false);
+    close();
+  };
+
+  return (
+    <span className="relative inline-flex">
+      <button
+        type="button"
+        aria-label="저장 위치"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => (open ? close() : setOpen(true))}
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-full border border-hairline px-3 py-1 text-[12px] text-ink-muted transition-colors hover:bg-fill-subtle hover:text-ink",
+          open && "bg-fill-subtle text-ink",
+        )}
+      >
+        <Icons.FolderIcon size={13} className="text-ink-faint" />
+        <span className="max-w-[150px] truncate font-medium text-ink">{current?.name ?? "저장 위치"}</span>
+        <Icons.ChevronsUpDownIcon size={12} className="shrink-0 text-ink-faint" />
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-20" onClick={close} />
+          <div role="listbox" className="absolute left-0 top-full z-30 mt-1 max-h-72 w-56 overflow-y-auto rounded-lg border border-hairline bg-surface p-1 shadow-elevated">
+            {spaces.map((s) => (
+              <button
+                key={s.slug}
+                type="button"
+                role="option"
+                aria-selected={s.slug === value}
+                onClick={() => {
+                  onChange(s.slug);
+                  close();
+                }}
+                className={cn(
+                  "flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left text-[13px] transition-colors",
+                  s.slug === value ? "bg-fill-subtle font-medium text-ink" : "text-ink-2 hover:bg-surface-soft hover:text-ink",
+                )}
+              >
+                <span className="truncate">{s.name}</span>
+                {s.slug === value && <Icons.CheckIcon size={14} className="shrink-0 text-primary" />}
+              </button>
+            ))}
+
+            <div className="my-1 h-px bg-hairline" />
+
+            {newName === null ? (
+              <button
+                type="button"
+                onClick={() => setNewName("")}
+                className="flex w-full items-center gap-1.5 rounded-md px-2.5 py-1.5 text-left text-[13px] text-ink-2 transition-colors hover:bg-surface-soft hover:text-ink"
+              >
+                <Icons.FolderPlusIcon size={14} className="shrink-0 text-ink-faint" />
+                <span>새 과목 폴더</span>
+              </button>
+            ) : (
+              <div className="flex items-center gap-1 px-1 py-1">
+                <input
+                  autoFocus
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") void create();
+                    if (e.key === "Escape") setNewName(null);
+                  }}
+                  placeholder="과목 이름"
+                  aria-label="새 과목 이름"
+                  className="min-w-0 flex-1 rounded-md border border-hairline bg-surface px-2 py-1 text-[13px] text-ink outline-none focus:border-primary"
+                />
+                <Button size="sm" variant="utility" disabled={!newName.trim() || creating} onClick={() => void create()}>
+                  만들기
+                </Button>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </span>
   );
 }
 

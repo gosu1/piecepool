@@ -28,7 +28,7 @@ import { NewTabPane } from "./shell/NewTabPane";
 import type { LauncherDoc } from "./shell/NewTabPane";
 import { StatusBar } from "./shell/StatusBar";
 import { TitlebarRow } from "./shell/TitlebarRow";
-import { SidebarHeader, SidebarShortcuts, SidebarFooter } from "./shell/SidebarChrome";
+import { SidebarHeader, SidebarShortcuts } from "./shell/SidebarChrome";
 import { SearchPalette } from "./shell/SearchPalette";
 import { SettingsModal } from "./shell/SettingsModal";
 import { QuickMemo } from "./panes/QuickMemo";
@@ -168,8 +168,12 @@ export default function PiecePoolApp() {
 
   // 활성 탭 → 현재 공간(아래에서 계산)을 keydown 핸들러([] deps)에서 참조하기 위한 ref
   const currentSpaceRef = useRef("");
+  // ⌘W(탭 닫기)도 같은 이유로 ref 경유 — 핸들러는 마운트 시 1회만 등록한다.
+  const activeTabIdRef = useRef<string | null>(null);
+  activeTabIdRef.current = activeTabId;
+  const requestCloseTabRef = useRef<(id: string) => void>(() => {});
 
-  // ⌘K/⌘O → 검색 팔레트 · ⌘N → 새 노트 · ⌘M → 퀵메모
+  // ⌘K/⌘O → 검색 팔레트 · ⌘N → 새 노트 · ⌘M → 퀵메모 · ⌘W → 탭 닫기
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey)) return;
@@ -180,6 +184,11 @@ export default function PiecePoolApp() {
       } else if (k === "n") {
         e.preventDefault();
         openNewNoteRef.current(currentSpaceRef.current);
+      } else if (k === "w") {
+        // 탭 닫기. 미저장 초안이 있으면 requestCloseTab 이 확인부터 받는다.
+        e.preventDefault();
+        const id = activeTabIdRef.current;
+        if (id) requestCloseTabRef.current(id);
       } else if (k === "m") {
         // 강의 중 급하게 부르는 키다 — 어느 화면에 있든, 메모장에 포커스가 있어도 여닫힌다.
         e.preventDefault();
@@ -209,7 +218,7 @@ export default function PiecePoolApp() {
     };
   }, []);
 
-  // 활성 탭 → 현재 공간 컨텍스트(브레드크럼·트리·VaultSwitcher가 따라감)
+  // 활성 탭 → 현재 공간 컨텍스트(브레드크럼·트리가 따라감)
   const activeTab = openTabs.find((t) => t.id === activeTabId) ?? null;
   const currentSpace = activeTab?.space || currentSpaceSlug || spaces[0]?.slug || "";
   useEffect(() => {
@@ -240,8 +249,17 @@ export default function PiecePoolApp() {
   const openNewNoteRef = useRef(openNewNote);
   openNewNoteRef.current = openNewNote;
 
-  // 새 지식 공간(폴더) 생성 — 백엔드 create_space → 목록/집계 갱신 후 새 공간으로 이동
-  const createNewSpace = async (name: string) => {
+  // 리본 Inbox — 노트 하나 = 탭 하나이므로 "인박스 탭"은 없다. 쓰던 노트가 있으면 그 탭으로,
+  // 없으면 새 노트를 연다(초안은 draft store 가 보존하므로 되돌아와도 그대로다).
+  const openInbox = () => {
+    const note = [...openTabs].reverse().find((t) => t.kind === "inbox");
+    if (note) setActiveTab(note.id);
+    else openNewNote(currentSpaceRef.current);
+  };
+
+  // 새 지식 공간(폴더) 생성 — 백엔드 create_space → 목록/집계 갱신 후 새 공간으로 이동.
+  // 만든 slug 를 돌려준다 — 인박스가 저장 위치를 방금 만든 과목으로 바로 옮길 수 있게.
+  const createNewSpace = async (name: string): Promise<string | null> => {
     try {
       const sp = await ipc.createSpace(name);
       const spaceList = await ipc.listSpaces();
@@ -252,8 +270,10 @@ export default function PiecePoolApp() {
       setSubjectsBySlug((m) => ({ ...m, [sp.slug]: [] }));
       setCurrentSpaceSlug(sp.slug);
       setNotice(`새 공간 "${sp.name}"을(를) 만들었어요`);
+      return sp.slug;
     } catch (e) {
       setNotice(`공간 만들기 실패: ${String(e)}`);
+      return null;
     }
   };
 
@@ -295,13 +315,6 @@ export default function PiecePoolApp() {
   // "+" 새 탭 — 파일을 만들지 않는 런처 탭(검색·최근·고정·시작 액션).
   // 이전의 즉시 createNote("제목 없음")는 클릭마다 빈 파일을 쌓았다 — 생성은 저장 시점으로 일원화.
   const openEmptyTab = () => openTab({ id: `empty:${Date.now().toString(36)}`, kind: "empty", title: "새 탭" });
-  // 볼트 전환 = 맥락 전환. 랜덤 첫 위키를 열지 않고 그 공간의 Study Home 으로 착지한다.
-  // Home 탭은 space 가 없어 currentSpace 가 currentSpaceSlug 를 따르므로 내용이 새 공간으로 바뀐다.
-  const selectSpace = (slug: string) => {
-    setCurrentSpaceSlug(slug);
-    openHome();
-  };
-
   // 노트 탭을 닫으면 그 초안도 스토어에서 지운다(닫기 = 명시적 폐기, 진행 중 요약도 중단). 저장된 archive 파일은 남는다.
   const closeTabClean = (id: string) => {
     if (id.startsWith("inbox:")) useInboxDraftStore.getState().clear(id);
@@ -316,6 +329,7 @@ export default function PiecePoolApp() {
     if (tab?.dirty || inboxDirty) setDialog({ kind: "close-dirty", tabId: id });
     else closeTabClean(id);
   };
+  requestCloseTabRef.current = requestCloseTab;
   // 문서별 세션 상태(드래프트·편집·간극) 일괄 정리 — 저장/이동/삭제/닫기 후 stale 부활 방지.
   const clearDocState = (key: string) => {
     setDrafts((d) => {
@@ -1172,14 +1186,12 @@ export default function PiecePoolApp() {
           onNewNote={() => openNewNote(currentSpace)}
           onNewFolder={() => setDialog({ kind: "new-space" })}
           onOpenGraph={openGraph}
-          onSelectSpace={selectSpace}
         />
       );
     }
     // ?? 가 아니라 || — 빈 문자열("") space 도 유효 공간(currentSpace)으로 폴백해야 한다.
     // (Inbox 탭이 space:"" 로 열리면 saveSourceFile("") 가 "unknown space:" 로 실패)
     const sp = activeTab.space || currentSpace;
-    const spName = spaces.find((s) => s.slug === sp)?.name ?? "";
     switch (activeTab.kind) {
       case "wiki": {
         const page = (wikiBySlug[sp] ?? []).find((w) => w.path === activeTab.file);
@@ -1197,7 +1209,6 @@ export default function PiecePoolApp() {
             graphBySlug={graphBySlug}
             wikiBySlug={wikiBySlug}
             space={sp}
-            spaceName={spName}
             onOpenWiki={openWiki}
             onOpenArchive={openArchive}
             onUnmarkReview={unmarkReview}
@@ -1220,7 +1231,8 @@ export default function PiecePoolApp() {
             existing={wikiBySlug[sp] ?? []}
             spaces={spaces}
             wikiBySlug={wikiBySlug}
-            onOpenWiki={(file) => openWiki(sp, file)}
+            onCreateSpace={createNewSpace}
+            onOpenWiki={openWiki}
             onRefresh={(s) => refreshSpace(s)}
             onNotice={setNotice}
             quickMemoOpen={memoOpen}
@@ -1325,6 +1337,7 @@ export default function PiecePoolApp() {
           <Ribbon
             activeKind={activeTab?.kind}
             onHome={openHome}
+            onInbox={openInbox}
             onGraph={() => openGraph(currentSpace)}
             onSettings={openSettings}
           />
@@ -1355,7 +1368,6 @@ export default function PiecePoolApp() {
                   onUnpin={togglePinned}
                 />
               }
-              footer={<SidebarFooter spaces={spaces} currentSpace={currentSpace} onSpace={selectSpace} />}
             />
           )
         }

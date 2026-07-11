@@ -32,7 +32,6 @@ export function StudyHome({
   onNewNote,
   onNewFolder,
   onOpenGraph,
-  onSelectSpace,
 }: {
   spaces: KnowledgeSpace[];
   wikiBySlug: Record<string, WikiPageT[]>;
@@ -44,7 +43,6 @@ export function StudyHome({
   // 폴더(지식 공간) 0개일 때 첫 행동 — 노트가 아니라 폴더부터 만들게 유도한다.
   onNewFolder: () => void;
   onOpenGraph: (space: string) => void;
-  onSelectSpace?: (slug: string) => void;
 }) {
   const nameOf = (slug: string) => spaces.find((s) => s.slug === slug)?.name ?? slug;
 
@@ -170,21 +168,6 @@ export function StudyHome({
         </section>
       )}
 
-      {/* 공간 — 조용한 footer. 클릭하면 그 공간으로 이동 */}
-      <div className="mt-12 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-[13px] text-ink-muted">
-        {spaces.map((s, i) => (
-          <span key={s.slug} className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => onSelectSpace?.(s.slug)}
-              className={cn("transition-colors hover:text-primary", s.slug === currentSpace && "font-semibold text-ink")}
-            >
-              {s.name}
-            </button>
-            {i < spaces.length - 1 && <span className="text-ink-faint">·</span>}
-          </span>
-        ))}
-      </div>
     </div>
   );
 }
