@@ -21,7 +21,7 @@
 |---|---|---|---|
 | Relation 메타데이터 저장 위치 | 단일 `relations.json`, wiki frontmatter 병행, 하이브리드 | Backend (#1) + LLM (#3) | Phase 4 `import-pipeline.md` |
 | **fact-check 도구** | Liner 출처 검색 API(feature 3 주 해결책) + Gemini 소크라테스식 되묻기(보조) 결정 ✅. 추가 외부 검색 API 도입 여부는 보류 | LLM (#3) + Backend (#1) | MVP+1 |
-| **파인만 트리거 임계값** | 자동 임계값 트리거 **폐기** ✅ (2026-07). 파인만은 사용자 토글로만 진입한다 ([output-validation §6.1](../30-llm/output-validation.md)) | Backend (#1) | 해소됨 |
+| **파인만 트리거 임계값** | 자동 임계값 트리거 **폐기** ✅ (2026-07). 파인만은 토글도 파이프라인 분기도 아니다 — 사용자가 노트 에디터에서 직접 연다(제목 줄 호버 버튼 · 드래그 선택 · 인박스 `파인만` pill, [output-validation §6.1](../30-llm/output-validation.md)) | Backend (#1) | 해소됨 |
 | **JSON Schema 검증 라이브러리** (신규) | `ajv` / `zod` / json-schema-to-zod | LLM (#3) | Phase 4 코드 작성 시 |
 | **similarity 측정 모델** (신규) | Gemini `gemini-embedding-001` / Cohere | LLM (#3) | Concept 중복 판정 구현 시 |
 | **파인만 timeout** (신규) | timeout **없음** ✅ (2026-07). 종료는 오직 사용자([네, 이해했어요] / [아직 모르겠어요])이며, 대화는 메모리 전용이라 앱을 나가면 사라진다 | Backend (#1) + Design (#4) | 해소됨 |
@@ -34,7 +34,6 @@
 | 항목 | 옵션 | 책임자 | 결정 기한 |
 |---|---|---|---|
 | 첫 진입 INBOX UI | 빈 상태 / 시드 데모 / 튜토리얼 | Design (#4) + Frontend (#2) | Phase 4 `screens/inbox.md` |
-| 파인만 UI 모달 vs 인라인 | Source 단위 / Concept 단위 / batch | Design (#4) + Frontend (#2) | Phase 4 `component-states.md` |
 | Fact-check 결과 표시 | suggest 패널 / inline diff / 별도 화면 | Design (#4) + Frontend (#2) | Phase 4 `screens/wiki-view.md` |
 | Subject 즉시 생성 위치 | Import 화면 inline / 모달 / 사이드바 dropdown | Design (#4) + Frontend (#2) | Phase 4 |
 
@@ -85,6 +84,7 @@
 | Graph 렌더링 라이브러리 | Cytoscape.js | 2026-07-01 | [ADR-0006](../adr/0006-graph-rendering-cytoscape.md) |
 | PDF 텍스트 추출 | `pdf-extract` 0.10.0 (Rust) | 2026-07-01 | [ADR-0005](../adr/0005-pdf-extract-crate.md) · [pdf-extraction.md](../20-backend/pdf-extraction.md) |
 | LLM provider 전환 | **Google Gemini 단일** (OpenAI 대체) — OpenAI 호환 Chat Completions(`response_format`, `strict:false`), Responses API·GPT vision 폐기 | 2026-07-10 | [ADR-0009](../adr/0009-llm-provider-gemini.md) |
+| 파인만 UI 모달 vs 인라인 | **노트 본문 아래 인라인 패널**(`FeynmanPanel`) — 모달 아님(원문을 보면서 설명해야 한다). 단위는 Source/Concept 이 아니라 **노트 섹션**(`##`/`###`): 제목 줄 호버 버튼 · 드래그 선택 · 인박스 `파인만` pill(글 전체) | 2026-07-11 | [30-llm/output-validation §6](../30-llm/output-validation.md) · [40-frontend/screens/inbox §6](../40-frontend/screens/inbox.md) |
 
 ---
 

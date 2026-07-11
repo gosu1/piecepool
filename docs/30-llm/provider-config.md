@@ -33,6 +33,7 @@ interface LlmWikiInput {
 - `LlmWikiResult` 타입 정의는 [`llm-output-schema.md`](../10-contracts/llm-output-schema.md) SSOT 참조 (본 문서는 복붙 X)
 - adapter는 raw 응답 → `LlmWikiResult` 변환 + JSON Schema 검증까지 책임 (`output-validation.md` (작성 예정) 작성 예정)
 - feature 3(정보 간극 메우기)·fact-check의 출처 검색은 별도 **Liner 어댑터**가 담당(§3.3). LLM 어댑터와 분리한다.
+- ⚠️ `features` 는 초기 설계가 남긴 레거시 필드다(`src/llm/provider.ts` 에 타입만 존재, 아무도 넣지 않고 아무도 읽지 않는다). 특히 **`features.clarify` 는 더 이상 어댑터 토글이 아니다** — 파인만은 위키 생성 호출에 켜고 끄는 옵션이 아니라 사용자가 노트 에디터에서 여는 **별도 도구**이며 자기 호출(`probeExplanation`)을 쓴다(§3.1, [`output-validation.md`](output-validation.md) §6).
 
 ---
 
@@ -70,7 +71,8 @@ if feature 3 활성 && LINER_API_KEY is empty
 - adapter 책임:
   - `response_format`에 `LlmWikiResult` JSON Schema 주입
   - fact-check: **주 경로는 Liner 어댑터(§3.3)** — 현재 유일한 구현. LLM 자체 웹 검색 도구는 쓰지 않는다(Gemini OpenAI 호환 엔드포인트는 hosted search tool을 노출하지 않는다).
-  - 파인만: 사용자가 토글을 켜면 1차 생성 개념 중 하나를 자기 말로 설명하게 하고, 그 설명을 재료로 2차 round-trip. 자동 임계값 트리거 없음 (`output-validation.md` §6)
+  - 파인만: 위키 생성 호출과 **별개의 Gemini 호출**이다(`probeExplanation`, `src/llm/feynman.ts`). 사용자가 에디터에서 고른 섹션을 자기 말로 설명하면 정답을 주지 않은 채 구멍 하나만 짚어 되묻는다. 자동 임계값 트리거 없음 (`output-validation.md` §6)
+  - 핵심 주제 판별: 역시 별개 호출이다(`classifyCoreSections`, `src/llm/coretopics.ts`). 노트의 `##` 섹션 중 "핵심 주제"를 골라 게이트에 넘긴다 — 사용자를 막는 힘을 가지므로 호출 실패·응답 파싱 실패는 **핵심 아님**으로 처리한다(fail-open, `output-validation.md` §6.3)
 
 ### 3.2 schema 정규화
 
@@ -140,12 +142,13 @@ Backend import-pipeline
 
 | 기능 | 어댑터 동작 |
 |---|---|
-| **파인만** (`clarify`) | 사용자가 개념을 자기 말로 설명 → Gemini가 그 설명의 구멍 하나를 되묻는다 → 설명을 재료로 2차 호출. 자동 트리거·timeout 없음(사용자 토글로 진입, 사용자가 종료) |
+| **파인만** (에디터 도구) | 사용자가 고른 노트 섹션을 자기 말로 설명 → Gemini가 정답 대신 그 설명의 구멍 하나를 되묻는다(`probeExplanation`, 위키 생성과 별개 호출). 자동 트리거·timeout 없음(사용자가 에디터에서 열고, 사용자가 끝낸다) |
+| **핵심 주제 판별** | 노트의 `##` 섹션 중 핵심 주제를 Gemini가 고른다(`classifyCoreSections`). 게이트가 그 결과를 쓴다 — 실패 시 fail-open |
 | **간극 점검** (정보 간극 메우기) | **주: Liner 출처 검증으로 label↔user 간극 판정.** Liner 미가용 시 Gemini 소크라테스식 되묻기로 대안 |
 | **fact-check** | **Liner API 출처 검색·검증(유일한 구현).** 결과 URL을 `evidence[].reason`에 누적 |
 | **suggest** | fact-check 결과 차이는 Frontend 패널에 표시 (어댑터는 변환만, UI 책임 X) |
 
-파인만 진입은 임계값이 아니라 **사용자 토글**이다([`output-validation.md`](output-validation.md) §6.1). 나머지 발동 조건(간극 점검·fact-check)은 **Backend 책임** ([`../20-backend/prompt-design.md`](../20-backend/) 작성 예정). 어댑터는 Backend가 명시한 파라미터 그대로 따른다.
+파인만 진입은 임계값도 토글도 아니다 — **사용자가 에디터에서 직접 연다**(제목 줄 호버 버튼 · 드래그 선택 · 인박스 `파인만` pill, [`output-validation.md`](output-validation.md) §6.1). 나머지 발동 조건(간극 점검·fact-check)은 **Backend 책임** ([`../20-backend/prompt-design.md`](../20-backend/) 작성 예정). 어댑터는 Backend가 명시한 파라미터 그대로 따른다.
 
 ---
 
@@ -165,4 +168,5 @@ Backend import-pipeline
 - 본 문서는 신규 작성이다. 초안 = [Phase 4 tracking #3 (LLM)](https://github.com/gosu1/piecepool/issues/3) + [sub-issue #29](https://github.com/gosu1/piecepool/issues/29) 기반.
 - OpenAI 단일 LLM provider + Liner 출처 검색(feature 3) 결정을 반영.
 - SSOT `LlmWikiResult` 타입은 [llm-output-schema.md](../10-contracts/llm-output-schema.md)만 정의. 본 문서는 어댑터 interface만 정의 (SSOT 위반 아님).
+- 2026-07-11: 파인만이 파이프라인의 clarify 분기에서 **에디터 도구**로 바뀌었다 — `LlmWikiInput.features.clarify` 어댑터 토글 서술을 §1·§3.1·§6에서 걷어내고, 파인만(`probeExplanation`)·핵심 주제 판별(`classifyCoreSections`)을 위키 생성과 별개 호출로 기록. `features` 필드 자체는 코드(`src/llm/provider.ts`)에 레거시로 남아 있으나 아무도 읽지 않는다.
 - 2026-07-10: LLM provider를 **Google Gemini 단일**로 전환 ([ADR-0009](../adr/0009-llm-provider-gemini.md), [ADR-0001](../adr/0001-llm-provider-openai.md) 대체). 호출은 Gemini의 OpenAI 호환 엔드포인트 Chat Completions(`/chat/completions`, `response_format`, `strict:false`) — 구 Responses API 폐기. 계약 무변경. Liner(feature 3) 역할 불변, 보조 되묻기만 Gemini로.

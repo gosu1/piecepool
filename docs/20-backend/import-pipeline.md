@@ -43,10 +43,8 @@ Inbox 자료 한 건이 **archive → LLM 재구성 → wiki/relations 영속화
 
 ```
 idle → parsing → archiving → llm_processing → writing → completed
-                                   │ (파인만 on)
-                                   ▼
-                            clarify_pending ── 사용자 응답 ─► llm_processing(2차) → writing → completed
-                                   │           사용자 무시 ─► writing(1차 결과 저장) → completed
+                      │
+                      └─ AI 생성 off · 핵심 주제 게이트 차단 ─► writing(노트만) → completed
                             (어느 단계든) 치명적 오류 ─► failed
 ```
 
@@ -72,12 +70,16 @@ LLM/검증/저장 단계의 **비치명적** 결과는 실패가 아니다. `?`�
 
 ---
 
-## 5. 파인만 (clarify) round-trip
+## 5. 파인만 · 핵심 주제 게이트
 
-1차 `LlmWikiResult`가 불확실 임계치를 넘으면 `clarify_pending`으로 사용자에게 재질의한다. 트리거 조건·흐름·1회 제한은 [output-validation §6](../30-llm/output-validation.md) SSOT.
+파인만은 **파이프라인 단계가 아니라 에디터 도구**다 — 사용자가 노트에서 언제든 연다(제목 줄 호버 버튼 · 드래그 선택 · 인박스 `파인만` pill). 그래서 이 파이프라인이 사용자 응답을 기다리는 단계는 없다. 상세는 [output-validation §6](../30-llm/output-validation.md) SSOT.
 
-- **파인만 토글 off면 파인만 없음** — `llm_processing` → 바로 `writing` (단일 tier, [ADR-0002](../adr/0002-single-tier-pricing.md)).
-- `clarify_pending`은 [`entities.md`](../10-contracts/entities.md) `ImportJobStatus` enum에 **정의됨**(2026-05-29 `contracts-change` 추가). 전이는 [`import-job-states.md`](import-job-states.md) 참조.
+파이프라인이 파인만과 만나는 지점은 두 곳뿐이다:
+
+- **핵심 주제 게이트** — `archiving` 다음, `llm_processing` 앞. Gemini가 판별한 핵심 주제(`##` 섹션)를 사용자가 파인만에 답하고 "이해했다"고 선언해야 위키로 간다. 차단되면 `llm_processing`을 건너뛰고 `writing`(노트만) → `completed`. **`archive/` 노트는 언제나 저장된다 — 막는 것은 wiki뿐이다.** 키가 없거나 판별에 실패하면 걸지 않는다(fail-open).
+- **설명 이관** — 저장 전 초안(inbox)에서 한 파인만은 저장 시 진짜 노트로 옮겨지고, 사용자가 자기 말로 쓴 설명이 `llm_processing` 입력에 함께 들어간다. 원문(`archive/`)에는 쓰지 않는다.
+
+`clarify_pending`은 [`entities.md`](../10-contracts/entities.md) `ImportJobStatus` enum에 **그대로 남아 있으나**(계약 유지) **코드에서 도달하지 않는다.** 전이는 [`import-job-states.md`](import-job-states.md) 참조.
 
 ---
 
@@ -100,7 +102,7 @@ LLM/검증/저장 단계의 **비치명적** 결과는 실패가 아니다. `?`�
 
 | 문서 | 내용 |
 |---|---|
-| [`import-job-states.md`](import-job-states.md) | `ImportJobStatus` 전이 다이어그램 (파인만 round-trip) |
+| [`import-job-states.md`](import-job-states.md) | `ImportJobStatus` 전이 다이어그램 (핵심 주제 게이트 포함) |
 | `prioritization.md`(작성 예정) | 인박스 중요도/우선도 |
 | [`pdf-extraction.md`](pdf-extraction.md) · [`storage-io.md`](storage-io.md) | parsing·저장 단계가 호출하는 모듈 |
 | [`error-handling.md`](error-handling.md) | `Outcome` 모델 · 오류 `kind` |
@@ -114,4 +116,5 @@ LLM/검증/저장 단계의 **비치명적** 결과는 실패가 아니다. `?`�
 - 신규 작성 (@O6west). storage-io·pdf-extraction 인터페이스에 맞춰 단계별 호출을 정의.
 - 2026-07-03 @O6west — IPC 커맨드명을 실제 코드(`src/lib/ipc.ts`)에 동기화: `save_source`→`save_source_file`+`create_note`, `save_wiki_page`→`save_wiki`, `save_relations`→`append_relations`.
 - §2 오케스트레이션 주도 = **TS 주도(option A) 결정** ([ADR-0007](../adr/0007-importjob-orchestration-ts.md), [`import-job-states.md`](import-job-states.md)).
-- `clarify_pending`은 enum 미존재 — `contracts-change` 선행 필요.
+- `clarify_pending`은 enum 미존재 — `contracts-change` 선행 필요. → 이후 `contracts-change`로 [`entities.md`](../10-contracts/entities.md)에 추가됨(2026-05-29).
+- 2026-07-11 — 파인만이 파이프라인 단계에서 **에디터 도구**로 바뀌었다: `clarify_pending` 분기를 §3·§5에서 제거하고 **핵심 주제 게이트**(Gemini 판별 → 사용자 파인만 판정)를 §5에 기록. `clarify_pending` enum 값은 계약에 그대로 두되 코드에서 도달하지 않는다.

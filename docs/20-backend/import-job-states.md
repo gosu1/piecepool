@@ -12,10 +12,8 @@ stateDiagram-v2
     idle --> parsing
     parsing --> archiving
     archiving --> llm_processing
+    archiving --> writing: AI 생성 off · 핵심 주제 게이트 차단 (위키 생략)
     llm_processing --> writing
-    llm_processing --> clarify_pending: 파인만 on (사용자 토글)
-    clarify_pending --> llm_processing: 사용자 응답 (2차 호출)
-    clarify_pending --> writing: 무시 / timeout(5분) → 1차 결과
     writing --> completed
     parsing --> failed: 치명적 오류
     archiving --> failed
@@ -32,18 +30,23 @@ stateDiagram-v2
 | `idle` | 대기 | — |
 | `parsing` | 입력 해석·PDF 텍스트 추출 | `pdf/` `extract_pdf_text` |
 | `archiving` | 원문 archive 보존 (덮어쓰기 금지) | `storage/` `save_source_file` + `create_note` |
-| `llm_processing` | 요약·개념추출·관계생성 (1차/2차) | TS `src/llm/` → `LlmWikiResult` |
-| `clarify_pending` | 파인만: 사용자 응답 대기 (파인만 on일 때만) | TS UI (Inbox) |
+| `llm_processing` | 요약·개념추출·관계생성 | TS `src/llm/` → `LlmWikiResult` |
+| `clarify_pending` | **코드에서 도달하지 않는다.** [entities.md](../10-contracts/entities.md) enum 값으로만 남아 있다(계약 유지) | — |
 | `writing` | wiki + relations 영속화 | `storage/` `save_wiki`·`append_relations` |
 | `completed` | 종료 (warn/partial 동봉 가능) | — |
 | `failed` | 치명적 오류 + `errorMessage` | — |
 
-## 파인만 (clarify) 분기
+## 파인만은 파이프라인 단계가 아니다
 
-- `llm_processing`(1차) 결과가 불확실 임계(예: 평균 relation confidence < 0.5)를 넘으면 `clarify_pending`으로 전이. 트리거·1회 제한은 [output-validation](../30-llm/output-validation.md) §6 SSOT.
-- 사용자 응답 → `llm_processing`(2차, 입력 = 원본 + 응답) → `writing`.
-- 무시/timeout → `writing`(1차 결과 저장).
-- `clarify_pending`은 [entities.md](../10-contracts/entities.md) enum에 정의됨(2026-05-29 추가). 파인만 토글 off면 이 분기 없이 `llm_processing` → `writing`([ADR-0002](../adr/0002-single-tier-pricing.md)).
+- 파인만은 사용자가 **노트 에디터에서 언제든 여는 도구**다(제목 줄 호버 버튼 · 드래그 선택 · 인박스 `파인만` pill). 임포트 흐름이 사용자를 붙잡아 세우지 않는다. 상세는 [output-validation §6](../30-llm/output-validation.md).
+- 그래서 `llm_processing`에서 사용자 응답을 기다리는 분기는 없다 — 1차 생성 결과가 곧바로 `writing`으로 간다.
+- `clarify_pending`은 [entities.md](../10-contracts/entities.md) `ImportJobStatus` enum에 **그대로 남아 있지만**(계약 유지, 2026-05-29 추가) **어떤 코드 경로도 이 상태로 전이하지 않는다.**
+
+## 핵심 주제 게이트
+
+- `archiving` 직후, 위키로 가기 전에 **핵심 주제 게이트**가 한 번 걸린다: Gemini가 노트의 `##` 섹션 중 핵심 주제를 판별하고, 사용자가 파인만에 답하고(answered) "이해했다"고 선언한(understood) 것만 통과시킨다 ([output-validation §6](../30-llm/output-validation.md)).
+- 차단되면 `llm_processing`을 건너뛰고 `archiving` → `writing` → `completed`로 끝난다. **노트(`archive/`)는 이미 저장돼 있다 — 막는 것은 위키뿐이다.** 어느 주제가 막는지는 사용자에게 알린다.
+- 키가 없거나 판별에 실패하면 게이트를 걸지 않는다(fail-open). AI 생성을 끈 저장도 같은 경로(`archiving` → `writing`)로 끝난다.
 
 ## 비치명 vs 치명
 
@@ -56,5 +59,5 @@ stateDiagram-v2
 |---|---|
 | [import-pipeline.md](import-pipeline.md) | 단계별 호출·경계 |
 | [entities.md](../10-contracts/entities.md) | `ImportJobStatus` enum (SSOT) |
-| [output-validation.md](../30-llm/output-validation.md) | 파인만 트리거·검증 |
+| [output-validation.md](../30-llm/output-validation.md) | 파인만(에디터 도구)·핵심 주제 게이트·검증 |
 | [ADR-0007](../adr/0007-importjob-orchestration-ts.md) | 오케스트레이션 주도 결정 |

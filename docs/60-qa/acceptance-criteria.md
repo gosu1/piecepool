@@ -55,7 +55,8 @@ MVP 합격선. **모든 항목이 통과해야 MVP 완료**다.
 ### 3.2 Gemini
 - [ ] Gemini 키(데스크톱 앱=설정 모달, CLI=`GEMINI_API_KEY`)로 Gemini 호출 성공
 - [ ] LLM 출력이 `LlmWikiResult` schema 통과 ([evals](../30-llm/) 입증)
-- [ ] 파인만 round-trip 작동 (`PIECEPOOL_CLARIFY=true`)
+- [ ] 파인만: 제목 줄 호버 → `파인만` 버튼 → 설명 → 되물음 → `[네, 이해했어요]` 시 그 섹션 위키 갱신
+- [ ] 핵심 주제 게이트: 핵심 주제를 설명하지 않으면 위키 변환이 막히고, 어느 주제가 막는지 알려준다 (노트는 저장됨)
 - [ ] Fact-check 기본 흐름 작동 (웹 검색 → `evidence[].reason`에 URL 누적)
 
 ### 3.3 검증 규칙

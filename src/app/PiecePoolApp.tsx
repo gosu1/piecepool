@@ -6,7 +6,12 @@ import * as ipc from "../lib/ipc";
 import { startFileDragOut } from "../lib/dragOut";
 import { runWikiGeneration } from "../llm/generate";
 import type { LlmWikiInput } from "../llm/provider";
-import { applyLlmResult, embedSourceFiles, isSynthesisPage, synthesisConceptId } from "../lib/llmApply";
+import { applyLlmResult, embedSourceFiles, isSynthesisPage, synthesisConceptId, normalizeTitle } from "../lib/llmApply";
+import { checkCoreGate, gateMessage } from "../lib/coreGate";
+import { regenerateSectionWiki } from "../lib/sectionRegen";
+import type { SectionTopic } from "../lib/noteSections";
+import type { Turn } from "../llm/feynman";
+import { feynmanTranscript } from "../store/feynmanStore";
 import { buildGaps } from "../llm/gaps";
 import type { GapReport } from "../llm/gaps";
 import { maybeFactCheck } from "../lib/factCheck";
@@ -737,6 +742,73 @@ export default function PiecePoolApp() {
     };
   };
 
+  const geminiKey = () => (typeof localStorage !== "undefined" && localStorage.getItem("gemini-key")) || "";
+
+  // ── 핵심 주제 게이트 ──
+  // 핵심 주제(Gemini 판별)를 설명하지 못했으면 위키로 만들지 않는다. 설명 못 한 개념이
+  // 위키가 되면 그건 "내가 아는 것" 이 아니라 "AI 가 아는 것" 이다.
+  // 통과 조건은 사용자가 답했고(answered) 스스로 이해했다고 선언한 것(understood).
+  const coreGateOpen = async (space: string, note: ArchiveNote): Promise<boolean> => {
+    const key = docKey(space, note.path);
+    const v = await checkCoreGate(note, geminiKey());
+    if (!v.blocked) return true;
+    const msg = gateMessage(v.missing);
+    setNotice(msg);
+    setAiStatus((s) => ({ ...s, [key]: msg })); // notice 는 4초 뒤 사라진다 — 상태줄엔 남긴다
+    return false;
+  };
+
+  // ── 파인만 판정 → 위키 ──
+  // [네, 이해했어요] — 그 섹션의 위키를 사용자의 설명으로 다시 쓴다. 노트 원문은 안 바뀐다.
+  const sectionUnderstood = async (space: string, note: ArchiveNote, topic: SectionTopic, history: Turn[]) => {
+    const explanations = history.filter((t) => t.role === "user").map((t) => t.text);
+    if (!explanations.length) return; // 설명 없이는 판정 버튼이 비활성이라 도달하지 않는다
+    const j = useConvertStore.getState().job;
+    if (aiBusy || (j && (j.status === "streaming" || j.status === "saving"))) {
+      // 판정은 이미 기록됐고 설명도 남아 있다 — 다음 위키 생성 때 재료로 들어간다.
+      // "다시 눌러주세요" 라고 하면 안 된다: 주제는 이미 넘어가 그 버튼이 없다.
+      setNotice("AI 작업 중이라 지금 위키에 반영하진 못했어요 — 설명은 저장됐고 [AI 위키 생성] 때 반영돼요");
+      return;
+    }
+    const key = docKey(space, note.path);
+    setAiBusy(key);
+    try {
+      const r = await regenerateSectionWiki({
+        space,
+        spaceId: spaces.find((s) => s.slug === space)?.id ?? "",
+        note,
+        topic,
+        explanations,
+        existing: wikiBySlug[space] ?? [],
+        apiKey: geminiKey(),
+      });
+      if (r.downgraded || !r.applied) {
+        setNotice("AI 재생성에 실패해 기존 위키를 그대로 뒀어요");
+        return;
+      }
+      await refreshSpace(space);
+      setNotice(`"${topic.title}" 이해를 위키에 반영했어요 (${r.applied.pages.length}개 갱신)`);
+    } catch (e) {
+      setNotice(`위키 반영 실패: ${String(e)}`);
+    } finally {
+      setAiBusy("");
+    }
+  };
+
+  // [아직 모르겠어요] — 그 개념에 복습 표시. 사용자가 쓴 설명이 그대로 근거(evidence)가 된다.
+  const sectionStillConfused = async (space: string, note: ArchiveNote, topic: SectionTopic, explanations: string[]) => {
+    if (!explanations.length) return;
+    const page = (wikiBySlug[space] ?? []).find((w) => !isSynthesisPage(w) && normalizeTitle(w.title) === topic.slug);
+    if (!page) {
+      // 복습 표시(review_needed)는 개념(위키)에 붙는 관계다. 아직 위키가 없으면 붙일 곳이 없다 —
+      // 그리고 핵심 주제라면 게이트가 바로 그 이유로 위키를 막고 있다. "위키를 만든 뒤 표시하라"는
+      // 불가능한 안내다. 판정 자체는 기록됐으니 사실만 말한다.
+      setNotice(`"${topic.title}" 을(를) 아직 모르겠다고 기록했어요 — 이해하면 위키로 만들 수 있어요`);
+      return;
+    }
+    await markReview(space, page.conceptId, page.title, note.sourceId, explanations.join("\n"));
+  };
+
   // ── LLM: 위키 생성 / 간극 점검 / 정리 글 변환 (Source 의 원본 노트에서) ──
   // 추출 코어 — 상태줄만 반환. busy/리로드/탭 열기는 호출자 몫(genWiki 단독 · convertNote 병렬 공용).
   const extractForNote = async (space: string, note: ArchiveNote): Promise<{ status: string; firstWikiPath?: string }> => {
@@ -752,7 +824,10 @@ export default function PiecePoolApp() {
         .filter((w) => !isSynthesisPage(w))
         .map((w) => ({ id: w.conceptId, title: w.title, normalizedTitle: w.title.toLowerCase() })),
     };
-    const apiKey = (typeof localStorage !== "undefined" && localStorage.getItem("gemini-key")) || "";
+    // 사용자가 파인만으로 쓴 설명은 언제나 위키의 재료가 된다 — 원문(archive)은 건드리지 않는다.
+    const transcript = feynmanTranscript(note.sourceId);
+    if (transcript) input.sourceText = `${input.sourceText}\n\n${transcript}`;
+    const apiKey = geminiKey();
     const { result, engine, warning, promotion, nodeTypes } = await runWikiGeneration(input, apiKey, { chunk: chunkOpts() });
     // feature 3: Liner fact-check — 관계 근거에 권위 출처 URL 누적(설정 게이트, advisory).
     const fc = await maybeFactCheck(result);
@@ -786,9 +861,17 @@ export default function PiecePoolApp() {
   };
 
   const genWiki = async (space: string, note: ArchiveNote) => {
+    // 저장하지 않은 편집이 있으면 막는다 — 게이트와 추출은 저장본을 보는데 파인만은 에디터의
+    // 지금 글로 판정을 남긴다. 제목을 고친 채 위키를 만들면 "방금 설명한 주제를 또 설명하라"고 말한다.
+    if (openTabs.find((t) => t.id === `archive:${space}:${note.path}`)?.dirty) {
+      setNotice("미저장 편집이 있어요 — 저장 후 위키를 만들어주세요");
+      return;
+    }
     const key = docKey(space, note.path);
+    if (aiBusy) return;
     setAiBusy(key);
     try {
+      if (!(await coreGateOpen(space, note))) return;
       const r = await extractForNote(space, note);
       await refreshSpace(space);
       setAiStatus((s) => ({ ...s, [key]: r.status }));
@@ -805,6 +888,9 @@ export default function PiecePoolApp() {
     const key = docKey(space, note.path);
     setAiBusy(key);
     try {
+      // 위키를 쓰기 직전의 단일 병목 — ConvertPanel 의 [다시 시도] 도 여기로 들어온다.
+      // convertNote 에서 이미 통과했으면 캐시로 즉답이라 공짜다.
+      if (!(await coreGateOpen(space, note))) return;
       const [, extract] = await Promise.allSettled([
         useConvertStore.getState().runConvert({
           space,
@@ -825,7 +911,8 @@ export default function PiecePoolApp() {
     }
   };
 
-  const convertNote = (space: string, note: ArchiveNote) => {
+  const convertNote = async (space: string, note: ArchiveNote) => {
+    if (aiBusy) return; // 게이트 왕복(네트워크) 동안 다시 눌러 파이프라인이 두 번 돌지 않게
     const j = useConvertStore.getState().job;
     if (j && (j.status === "streaming" || j.status === "saving")) {
       setNotice("이미 변환 중이에요");
@@ -840,6 +927,8 @@ export default function PiecePoolApp() {
       setNotice("내용이 부족해요 — 파편을 먼저 적어주세요");
       return;
     }
+    // 정리 글도 위키다 — 게이트는 wiki/ 로 가는 모든 경로에 건다. 토큰 쓰기 전에 막는다.
+    if (!(await coreGateOpen(space, note))) return;
     // 기존 정리본 존재 → 변환(토큰 소비) 전에 덮어쓰기 확인.
     if ((wikiBySlug[space] ?? []).some((w) => w.conceptId === synthesisConceptId(note.sourceId))) {
       setDialog({ kind: "overwrite-syn", space, file: note.path, title: note.title });
@@ -1110,7 +1199,14 @@ export default function PiecePoolApp() {
         linkExists={linkExistsIn(space)}
         embedSpace={space}
         // 파인만은 원본 노트에서만 — 위키는 LLM 이 쓴 글이라 "자기 말로 설명"의 대상이 아니다.
-        feynman={{ noteId: note.sourceId, space }}
+        feynman={{
+          noteId: note.sourceId,
+          space,
+          handlers: {
+            onUnderstood: (topic, history) => void sectionUnderstood(space, note, topic, history),
+            onStillConfused: (topic, explanations) => void sectionStillConfused(space, note, topic, explanations),
+          },
+        }}
         topSlot={
           <AiBar
             busy={aiBusy === key}

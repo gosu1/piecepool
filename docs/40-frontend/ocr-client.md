@@ -81,7 +81,7 @@ vision 호출 결과 + 사용자 입력을 세 블록으로 명확히 구분한�
 
 `image`도 결국 `text`/`pdf`와 같은 2차 진입점(archive에 저장된 텍스트)으로 합류한다. 이미지 전용 분기는 1차 vision 호출 한 단계뿐이다. 단, 2차 호출에서 1차 그림 설명을 다시 다듬어 wiki용으로 더 자세하거나 정확한 설명을 생성한다 — archive의 1차 설명은 원문으로 그대로 보존, wiki는 정제본이라는 점에서 일반 텍스트의 2차 처리(Concept 추출)와 다르다.
 
-저신뢰·모호 판정 시: 파인만 on이면 기존 `clarify_pending` 흐름을 그대로 재사용한다 (신규 상태 추가 없음). off면 트리거 안 함.
+저신뢰·모호 판정으로 파이프라인이 사용자 응답을 기다리는 분기는 **없다**. `clarify_pending`은 [`entities.md`](../10-contracts/entities.md) enum 값으로만 남아 있고 코드에서 도달하지 않는다 ([`import-job-states.md`](../20-backend/import-job-states.md)). 이미지에서 뽑은 텍스트도 결국 노트의 한 섹션이므로, 사용자가 원하면 에디터에서 **파인만**으로 그 섹션을 짚어 자기 말로 설명하면 되고, 위키로 갈 때는 다른 노트와 똑같이 **핵심 주제 게이트**를 지난다 ([`output-validation.md`](../30-llm/output-validation.md) §6).
 
 ---
 

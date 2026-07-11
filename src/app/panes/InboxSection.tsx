@@ -4,6 +4,7 @@ import type { KnowledgeSpace, WikiPage as WikiPageT } from "../../lib/types";
 import * as ipc from "../../lib/ipc";
 import { useImportStore } from "../../store/importStore";
 import { draftNoteId } from "../../store/feynmanStore";
+import { gateMessage } from "../../lib/coreGate";
 import { useFeynmanEditor } from "./useFeynmanEditor";
 import { useInboxDraftStore, EMPTY_DRAFT, type InboxDraft, type PdfSummaryJob } from "../../store/inboxDraftStore";
 import { runImageOcr } from "../../llm/ocr";
@@ -320,11 +321,13 @@ export function InboxSection({
       write({ savedSnapshot: `${title.trim()} ${body}` });
       await onRefresh(targetSpace);
       onNotice?.(
-        res.feynmanUsed
-          ? "파인만에서 쓴 설명까지 위키에 반영됐어요 ✓ — 이어서 필기하세요"
-          : withLlm
-            ? "위키에 반영됐어요 ✓ — 이어서 필기하세요"
-            : "저장됐어요 ✓ — 이어서 필기하세요",
+        res.coreGateMissing?.length
+          ? gateMessage(res.coreGateMissing) // 노트는 저장됐다 — 위키만 아직이다
+          : res.feynmanUsed
+            ? "파인만에서 쓴 설명까지 위키에 반영됐어요 ✓ — 이어서 필기하세요"
+            : withLlm
+              ? "위키에 반영됐어요 ✓ — 이어서 필기하세요"
+              : "저장됐어요 ✓ — 이어서 필기하세요",
       );
       // 방금 만든 위키가 있을 때만 위키 패널을 연다 (참조 패널은 저장 대상 공간을 따르므로 다른 공간에 저장해도 뜬다)
       if (withLlm && res.firstWikiPath) {

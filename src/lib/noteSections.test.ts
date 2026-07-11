@@ -108,11 +108,28 @@ describe("topicsForSelection", () => {
     const md = ["## A", "본문", "### 예시", "a 예시", "## B", "본문", "### 예시", "b 예시"].join("\n");
     const ts = topicsForSelection(md, 0, md.length);
     expect(titles(ts)).toEqual(["A", "예시", "B", "예시"]);
-    expect(ts.map((t) => t.key)).toEqual(["a", "예시", "b", "예시~1"]);
-    expect(new Set(ts.map((t) => t.key)).size).toBe(4);
+    expect(new Set(ts.map((t) => t.key)).size).toBe(4); // 넷 다 다른 키
+    expect(ts[0].key).toBe("a"); // 제목이 유일하면 키는 slug 그대로 — 본문을 고쳐도 판정이 살아있다
     // slug 는 제목 그대로 남는다 — 위키 개념 제목과 맞대볼 때 쓴다
     expect(ts[1].slug).toBe("예시");
     expect(ts[3].slug).toBe("예시");
+  });
+
+  it("같은 제목의 섹션은 순번이 아니라 내용으로 갈린다 — 남의 판정을 물려받지 않는다", () => {
+    const before = ["## 예시", "사과 이야기.", "## 다른 것", "본문", "## 예시", "배 이야기."].join("\n");
+    const [ex1, , ex2] = topicsForSelection(before, 0, before.length).filter((t) => t.level === 2);
+    expect(ex1.key).not.toBe(ex2.key);
+    expect(ex1.key).toContain("예시~"); // 겹치므로 내용 해시로 갈린다
+
+    // 앞의 "예시" 를 통째로 지운다. 순번 키(`예시`, `예시~1`)였다면 뒤의 것이 `예시` 로 승격되어
+    // 설명한 적도 없이 앞 섹션의 "이해함" 을 물려받는다 — 게이트가 헛되이 열린다.
+    const after = ["## 다른 것", "본문", "## 예시", "배 이야기."].join("\n");
+    const survived = topicsForSelection(after, 0, after.length).find((t) => t.title === "예시")!;
+    expect(survived.key).not.toBe(ex1.key); // 지워진 섹션의 판정을 물려받지 않는다
+
+    // 살아남은 섹션은 이제 유일하므로 키가 slug 로 돌아온다 → 자기 판정도 잃는다.
+    // 잃는 쪽(다시 설명하게 함)이 물려받는 쪽(설명 안 하고 통과)보다 안전하다 — fail-closed.
+    expect(survived.key).toBe("예시");
   });
 
   it("제목의 밑줄은 지우지 않는다 — max_pooling 이 maxpooling 이 되면 안 된다", () => {

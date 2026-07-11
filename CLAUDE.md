@@ -103,16 +103,13 @@ The TS service layer (`useImportStore`) owns the `ImportJob` state-machine seque
 
 ```
 idle → parsing → archiving → llm_processing → writing → completed
-                                    │
-                          (clarify enabled)
-                                    ↓
-                             clarify_pending  ← waiting for user response
-                                    │
-                          user responds ──► llm_processing (2nd call) → writing → completed
-                          user ignores ──► writing (save 1st-call result) → completed
+                     │
+                     └─ AI 생성 off · 핵심 주제 게이트 차단 ──► writing (note only) → completed
 ```
 
 - On any unrecoverable error, transition to `failed` and populate `errorMessage`.
+- **핵심 주제 게이트** (`src/lib/coreGate.ts`): Gemini가 판별한 핵심 주제(`##` 섹션)를 사용자가 파인만에 답하고(answered) "이해했다"고 선언해야(understood) 위키로 간다. 차단되면 `llm_processing`을 건너뛴다 — **`archive/` 노트는 언제나 저장된다. 막는 것은 wiki뿐이다.** 키 없음·판별 실패 시 fail-open.
+- 파인만은 파이프라인 단계가 아니라 **에디터 도구**다(제목 줄 호버 · 드래그 선택 · 인박스 `파인만` pill). `clarify_pending`은 `entities.md` enum에 계약으로 남아 있으나 **코드에서 도달하지 않는다** — 새로 이 상태로 전이시키지 말 것.
 
 ---
 
@@ -140,7 +137,7 @@ src-tauri/src/
 
 - **Never use `unwrap()` or `panic!()` in production code.** Always propagate errors via `AppError` with `?`.
 - `models/` structs use `#[serde(rename_all = "camelCase")]` — Rust identifiers stay `snake_case`, JSON output is `camelCase`.
-- `ImportJobStatus::ClarifyPending` is **not yet in the code** (only in `entities.md`). Add it before implementing the clarify flow.
+- `ImportJobStatus::ClarifyPending` exists only as a contract value in `entities.md` — **no code path reaches it** (파인만은 에디터 도구, 파이프라인 분기가 아니다). Keep the enum value; do not add new transitions into it.
 - LLM orchestration is handled by the TypeScript layer (`src/llm/`), not Rust. The `import/` module coordinates with it but does not own LLM logic.
 
 ---
@@ -149,16 +146,17 @@ src-tauri/src/
 
 Google Gemini is the only LLM provider (ADR-0009 supersedes ADR-0001). Liner is an additional source-search API used by feature 3 (label ↔ user gap filling).
 
-| Provider | Env var          | Role                                                |
-| -------- | ---------------- | --------------------------------------------------- |
-| Gemini   | `GEMINI_API_KEY` | Wiki 생성 · 파인만 · 타입 Graph · 임베딩             |
-| Liner    | `LINER_API_KEY`  | 정보 간극 메우기(label↔user) 출처 검색 · fact-check  |
+| Provider | Env var          | Role                                                            |
+| -------- | ---------------- | --------------------------------------------------------------- |
+| Gemini   | `GEMINI_API_KEY` | Wiki 생성 · 파인만 · **핵심 주제 판별** · 타입 Graph · 임베딩     |
+| Liner    | `LINER_API_KEY`  | 정보 간극 메우기(label↔user) 출처 검색 · fact-check              |
 
 - Gemini is called through its **OpenAI-compatible** endpoint (`generativelanguage.googleapis.com/v1beta/openai`), so `openai` appearing in `src/llm/*.ts` refers to the wire format, not the vendor. Default models: `gemini-2.5-flash`, `gemini-embedding-001`.
 - **키는 두 곳에서 읽힌다.** 앱은 설정 모달 → `localStorage["gemini-key"]`이고 **`.env`를 읽지 않는다.** CLI 스크립트(`npm run eval:feynman`, `chunk` …)는 `.env`/환경변수의 `GEMINI_API_KEY`를 읽는다. 둘을 혼동하지 말 것.
 - The Gemini provider must produce output conforming to `LlmWikiResult` (see above).
 - 정보 간극 메우기(feature 3)의 주 해결책은 Liner API — 권위 있는 출처를 검색해 정답 기준(label)을 세우고 사용자 필기의 간극을 검증·보강한다. Liner 미가용 시 Gemini가 보조로 소크라테스식 되묻기 질문을 생성한다.
-- 파인만(`src/llm/feynman.ts`)과 clarify는 Gemini, fact-check · web-search compare(출처 provenance)는 Liner API를 TypeScript adapter (`src/llm/`)로 호출한다. 기능의 사용자 노출 명칭은 **"파인만"** — "되묻기"는 동사(되묻는다)로만 쓰고, 소크라테스식 되묻기(`gaps.ts`, 정보 간극 메우기)와 혼동하지 말 것.
+- 파인만(`src/llm/feynman.ts`)과 핵심 주제 판별(`src/llm/coretopics.ts`)은 Gemini, fact-check · web-search compare(출처 provenance)는 Liner API를 TypeScript adapter (`src/llm/`)로 호출한다. 기능의 사용자 노출 명칭은 **"파인만"** — "되묻기"는 동사(되묻는다)로만 쓰고, 소크라테스식 되묻기(`gaps.ts`, 정보 간극 메우기)와 혼동하지 말 것.
+- 핵심 주제 판별은 사용자를 막는 힘을 갖는다 → **fail-open**: 키 없음·호출 실패·응답 파싱 실패면 게이트를 걸지 않는다. 판정은 노트 내용 해시로 캐시한다(`localStorage["core-topics:<sourceId>"]`).
 
 ---
 

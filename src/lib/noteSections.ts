@@ -52,10 +52,16 @@ function cleanTitle(raw: string): string {
     .trim();
 }
 
+/** djb2 — 같은 제목이 여럿일 때 그 섹션을 위치가 아니라 내용으로 가린다. */
+function hash8(s: string): string {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
+
 /** 문서의 모든 ATX 헤딩. 코드 펜스 안의 `#` 는 헤딩이 아니다. Setext(`===`)는 비지원. */
 function scanHeadings(md: string): Heading[] {
   const out: Heading[] = [];
-  const seen = new Map<string, number>(); // slug → 지금까지 몇 번 나왔나
   let offset = 0;
   let fenced = false;
   for (const line of md.split("\n")) {
@@ -66,13 +72,22 @@ function scanHeadings(md: string): Heading[] {
       const m = ATX.exec(text);
       if (m) {
         const title = cleanTitle(m[2] ?? "");
-        const slug = normalizeTitle(title);
-        const n = seen.get(slug) ?? 0;
-        seen.set(slug, n + 1);
-        out.push({ level: m[1].length, title, key: n ? `${slug}~${n}` : slug, from: offset });
+        out.push({ level: m[1].length, title, key: normalizeTitle(title), from: offset });
       }
     }
     offset += line.length + 1; // +1 = "\n" — 오프셋은 원본 기준(\r 포함)
+  }
+
+  // 제목이 겹치는 섹션은 slug 만으로 가릴 수 없다("예시", "정리"). 순번(`slug~0,1,2`)을 붙이면
+  // 앞의 것을 지우거나 같은 제목을 끼워 넣을 때 번호가 밀려, 설명한 적 없는 섹션이 남의 판정을
+  // 물려받거나(게이트가 헛되이 열린다) 이해했던 섹션이 판정을 잃는다.
+  // → 겹칠 때만 그 섹션의 **내용**으로 가린다. 위치가 바뀌어도 흔들리지 않는다.
+  const dup = new Map<string, number>();
+  for (const h of out) dup.set(h.key, (dup.get(h.key) ?? 0) + 1);
+  for (let i = 0; i < out.length; i++) {
+    if ((dup.get(out[i].key) ?? 0) < 2) continue;
+    const end = sectionEnd(out, i, md.length);
+    out[i] = { ...out[i], key: `${out[i].key}~${hash8(md.slice(out[i].from, end))}` };
   }
   return out;
 }

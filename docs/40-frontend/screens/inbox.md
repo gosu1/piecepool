@@ -76,10 +76,10 @@ Inbox 작성 (제목 + project 선택 + 해시태그(tags) + Markdown 본문 [+ 
             ↓
         status: archiving — Source + ArchiveNote 저장 (archive/*.md, frontmatter 검증)
             ↓
+        [핵심 주제 게이트] 설명 안 한 핵심 주제가 있으면 → llm_processing 건너뜀 (노트는 저장됨)
+            ↓
         status: llm_processing — Concept/WikiPage/Relation 추출 (2차 LLM 호출)
-            │
-      (파인만 on) status: clarify_pending — 사용자 응답 대기
-            │
+            ↓
         status: writing — wiki/*.md + relations.json 저장
             ↓
         status: completed
@@ -89,12 +89,20 @@ Inbox 작성 (제목 + project 선택 + 해시태그(tags) + Markdown 본문 [+ 
 
 ---
 
-## 6. 파인만 토글 차이
+## 6. 파인만 pill + 핵심 주제 게이트
 
-- 파인만 off: `clarify_pending` 발생 안 함, `parsing`→`archiving`→`llm_processing`→`writing`→`completed`로 직행
-- 파인만 on(기본): 저신뢰·모호 판정 시 `clarify_pending` 경유 가능
+**`파인만` pill은 토글이 아니라 액션이다.** 누르면 지금 쓰고 있는 글 전체를 자기 말로 설명하게 하는 파인만 패널이 열린다(저장을 기다리지 않는다). 섹션 하나만 하려면 에디터에서 그 부분을 드래그하거나 `##`/`###` 제목 줄에 마우스를 올려 제목 끝의 `파인만` 버튼을 누른다. 판정은 오직 사용자가 하고, 설명을 한 번도 쓰지 않으면 `[네, 이해했어요]`를 누를 수 없다.
 
-파인만을 Inbox 화면 안에서 모달로 보여줄지, 별도 알림으로 보여줄지는 아직 미결 — [`open-questions.md`](../../00-overview/open-questions.md) §3 "파인만 UI 모달 vs 인라인" (Design #4 + Frontend #2, 결정 기한: `component-states.md` 작성 시). 본 문서는 저장 직후 화면 전환만 다루고, 파인만 UI 자체는 범위에서 제외한다.
+- 저장 전 초안에서 한 파인만은 **저장 시 방금 만들어진 노트로 이관**되고, 사용자가 쓴 설명이 위키 생성 입력에 함께 들어간다.
+- 대화는 메모리 전용. 판정 결과(answered/understood + 사용자가 쓴 설명)만 `localStorage`(`pp-feynman-sections`)에 남는다.
+
+**`저장 + AI 정리`(AI 생성 on)에는 핵심 주제 게이트가 걸린다.** Gemini가 노트의 `##` 섹션 중 핵심 주제를 판별하고, 그 주제를 파인만에 답하고 "이해했다"고 선언하지 않았으면 위키를 만들지 않는다.
+
+- **노트(`archive/`)는 언제나 저장된다** — 막는 것은 wiki뿐이다. 차단 시 어느 주제가 막는지 하단 토스트로 알려준다.
+- 키가 없거나 판별에 실패하면 게이트를 걸지 않는다(fail-open).
+- `AI 생성` pill을 끄면 위키 없이 원본만 저장한다(게이트도 무의미).
+
+흐름·상태 전이는 [`../../20-backend/import-job-states.md`](../../20-backend/import-job-states.md), 판정 규칙은 [`../../30-llm/output-validation.md`](../../30-llm/output-validation.md) §6.
 
 ---
 
@@ -108,7 +116,8 @@ Inbox 작성 (제목 + project 선택 + 해시태그(tags) + Markdown 본문 [+ 
 | Markdown 본문 + 이미지 인라인 첨부 | ✅ (`markdown-editor.md` 컴포넌트 재사용) | — |
 | 고정하기 | ⛔ | post-MVP, `entities.md` 변경(`contracts-change`) 필요 |
 | 연결된 node 표시 | ⛔ (Inbox 단계엔 근거 데이터 없음) | `wiki-view.md`/`graph-view.md`에서 구현 |
-| 파인만 UI 표시 방식 | ⏸ Open Question | [`open-questions.md`](../../00-overview/open-questions.md) §3 결정 후 |
+| 파인만 UI 표시 방식 | ✅ 인라인 패널(`FeynmanPanel`) — `파인만` pill(액션) · 제목 줄 호버 버튼 · 드래그 선택 | — |
+| 핵심 주제 게이트 (`저장 + AI 정리`) | ✅ (§6) | — |
 
 ---
 
@@ -118,7 +127,7 @@ Inbox 작성 (제목 + project 선택 + 해시태그(tags) + Markdown 본문 [+ 
 - [`../../10-contracts/workspace-layout.md`](../../10-contracts/workspace-layout.md) — `<space>/inbox/`, `<space>/archive/`
 - [`../../10-contracts/markdown-frontmatter.md`](../../10-contracts/markdown-frontmatter.md) — ArchiveNote frontmatter 검증
 - [`../../00-overview/scope-mvp.md`](../../00-overview/scope-mvp.md) §2.3 — 화면 모델 SSOT
-- [`../../00-overview/open-questions.md`](../../00-overview/open-questions.md) §3 — 파인만 UI 미결 항목
+- [`../../30-llm/output-validation.md`](../../30-llm/output-validation.md) §6 — 파인만(에디터 도구) · 핵심 주제 게이트 규칙
 - [이슈 #64](https://github.com/gosu1/piecepool/issues/64) — `Source.tags` 신규 필드 제안 (resource 매핑, `contracts-change` 머지 대기)
 - `../ocr-client.md` — 이미지 첨부 파이프라인 (PR #55, 병합 대기 — 머지 후 링크로 교체)
 - `markdown-editor.md` ([#21](https://github.com/gosu1/piecepool/issues/21)) — 본문 편집 컴포넌트 재사용

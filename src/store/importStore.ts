@@ -6,7 +6,8 @@ import type { LlmWikiInput, LlmWikiResult } from "../llm/provider";
 import { applyLlmResult, embedSourceFiles, isSynthesisPage } from "../lib/llmApply";
 import { maybeFactCheck } from "../lib/factCheck";
 import { chunkOpts } from "../lib/settings";
-import { useFeynmanStore, type SectionStatus } from "./feynmanStore";
+import { useFeynmanStore, feynmanTranscript } from "./feynmanStore";
+import { checkCoreGate } from "../lib/coreGate";
 
 // ImportJob 상태머신 소유 = TS 오케스트레이터(결정 A). useImportStore 가 상태 전이 + Rust atomic-step
 // 커맨드(create_note/save_wiki/append_relations) + LLM 어댑터 호출을 조율한다.
@@ -33,6 +34,7 @@ export interface ImportJobView {
   firstWikiPath?: string; // 이번 임포트로 생성/갱신된 첫 위키 경로 — 위키 패널이 방금 만든 위키를 열도록
   noteFile?: string; // 생성/갱신된 archive 노트 파일명 — Inbox 가 바인딩해 이어서 편집(살아있는 노트)
   feynmanUsed?: boolean; // 초안에서 한 파인만의 설명을 위키 생성 재료로 함께 넣었다
+  coreGateMissing?: string[]; // 핵심 주제를 아직 설명하지 않아 위키 생성을 하지 않았다(노트는 저장됨)
 }
 
 export interface RunImportParams {
@@ -55,14 +57,6 @@ interface ImportState {
   clear: () => void;
 }
 
-/** 파인만에서 사용자가 쓴 설명을 위키 생성 입력에 덧댈 블록으로 만든다. 없으면 null. */
-function feynmanTranscript(statuses: SectionStatus[]): string | null {
-  const said = statuses.filter((s) => s.explanations.length > 0);
-  if (!said.length) return null;
-  return said
-    .map((s) => `[내가 "${s.title}" 을(를) 설명해 본 기록]\n${s.explanations.map((e) => `나: ${e}`).join("\n")}`)
-    .join("\n\n");
-}
 
 const KEY = "piecepool-last-import";
 function save(j: ImportJobView): ImportJobView {
@@ -159,19 +153,25 @@ export const useImportStore = create<ImportState>((set) => {
 
         // 초안에서 한 파인만을 방금 생긴 노트로 옮긴다. 저장 여부와 무관하게 사용자의 판정은
         // 그 글에 대한 것이었으므로, LLM 을 켰든 껐든 옮긴다.
-        const adopted = p.feynmanNoteId
-          ? useFeynmanStore.getState().adopt(p.feynmanNoteId, note.sourceId)
-          : [];
+        if (p.feynmanNoteId) useFeynmanStore.getState().adopt(p.feynmanNoteId, note.sourceId);
 
         if (!p.withLlm) {
           commit({ ...job, status: "writing" });
           return commit({ ...job, status: "completed" });
         }
 
+        // 핵심 주제 게이트 — 노트(archive)는 이미 저장됐다. 막는 것은 위키뿐이다:
+        // 설명하지 못한 개념이 위키가 되면 그건 "내가 아는 것" 이 아니라 "AI 가 아는 것" 이다.
+        const gate = await checkCoreGate(note, apiKey());
+        if (gate.blocked) {
+          // "위키 저장" 을 거쳐가지 않는다 — 저장한 적 없는 것을 저장했다고 말하지 않는다.
+          return commit({ ...job, status: "completed", coreGateMissing: gate.missing });
+        }
+
         job = commit({ ...job, status: "llm_processing" });
         const input = buildInput(note, p.existing);
         // 사용자가 자기 말로 쓴 설명을 위키의 재료로 넣는다 — 원문(archive)은 건드리지 않는다.
-        const transcript = feynmanTranscript(adopted);
+        const transcript = feynmanTranscript(note.sourceId);
         if (transcript) input.sourceText = `${input.sourceText}\n\n${transcript}`;
 
         const { result, engine } = await runWikiGeneration(input, apiKey(), { chunk: chunkOpts() });

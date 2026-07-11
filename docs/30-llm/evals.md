@@ -15,7 +15,7 @@ LLM 호출 골든 케이스 + 회귀 방지.
 |---|---|
 | **회귀 방지** | 모델/프롬프트 변경 시 기존 기대 결과 유지 |
 | **품질 baseline** | 출력 품질 정량화 |
-| **부가 흐름 검증** | 파인만 / fact-check round-trip 작동 입증 |
+| **부가 흐름 검증** | 파인만 되묻기 행동(정답 유출 0) / fact-check round-trip 작동 입증 |
 
 ---
 
@@ -95,7 +95,7 @@ docs/30-llm/evals/
 | `case-002-deadlock` | Deadlock OS 강의 한 단락 | `causes` relation (Deadlock → System Hang) |
 | `case-003-graph-vs-gnn` | 자료구조 Graph + AI GNN 누적 | cross-subject `related_to` / `used_in` |
 | `case-004-confusing-pair` | Process vs Thread 대조 | `confused_with` relation |
-| `case-005-empty-source` | 짧은 모호한 텍스트 ("그것") | 빈 결과 (`concepts=0`) — 개념이 0개면 파인만 진입 불가 |
+| `case-005-empty-source` | 짧은 모호한 텍스트 ("그것") | 빈 결과 (`concepts=0`) |
 | `case-006-pdf-multi-concept` | Transformer 1장 (5개 Concept) | 다중 Concept 추출 + 관계 매핑 |
 | `case-007-related-to-abuse` | `related_to` 과다 응답 입력 | 50% 초과 시 경고 로그 |
 
@@ -173,13 +173,14 @@ must_not.confused            ✅
 
 ## 6. 부가 흐름 평가
 
-### 6.1 파인만 round-trip
+### 6.1 파인만 되묻기 (`npm run eval:feynman`)
 
-개념이 1개 이상 추출되는 case(예: `case-001-self-attention`) 활용:
-- 파인만 토글 on + 1차 호출이 Gemini로 성공 (진입 조건 [`output-validation.md`](output-validation.md) §6.1)
-- 시뮬레이션 사용자 설명 주입 (fixture에 명시)
-- 2차 호출 결과가 `must` 통과
-- ImportJob status가 `clarify_pending` → `llm_processing` → `completed`로 전이
+파인만은 파이프라인 단계가 아니라 **에디터 도구**이므로(진입점 [`output-validation.md`](output-validation.md) §6.1) import 상태 전이로는 검증할 것이 없다. 검증 대상은 **모델의 행동**이다 — 되묻는 질문이 정답을 흘리지 않는가.
+
+- 전용 러너: `npm run eval:feynman`(`scripts/feynman-eval.ts`) — `probeExplanation`(`src/llm/feynman.ts`) 직호출, fixture 는 사용자 설명(오개념·부분 이해·함정 포함)
+- 통과 조건: 정답·정의를 알려주지 않고 **구멍 하나만** 짚어 되묻는다. 채점(이해했다/못했다 판정)을 하지 않는다 — 판정은 오직 사용자
+- 정답 유출은 스펙트럼(정의 제공 → 답이 박힌 유도 질문 → 핵심 어휘 힌트)이라 `expect()` 로 못 잡는다 → 실호출 N회 비율로 회귀를 본다
+- ImportJob 상태 전이 검증은 없다. `clarify_pending` 은 계약 enum 값으로만 남아 있고 **코드에서 도달하지 않는다**
 
 ### 6.2 fact-check
 
@@ -214,3 +215,4 @@ must_not.confused            ✅
 - 본 문서는 신규 작성이다. 초안 = [Phase 4 tracking #3 (LLM)](https://github.com/gosu1/piecepool/issues/3) + [sub-issue #32](https://github.com/gosu1/piecepool/issues/32) 기반.
 - 골든 케이스 7건은 MVP scope. `fixtures/*.json`과 `expected/*.json` 실제 작성은 별도 PR.
 - §5.2 CI 통합 / §5.3 baseline 갱신 / §8 도구 선택 → 결정 보류, [`open-questions.md`](../00-overview/open-questions.md) 추가 예정.
+- 2026-07-11 — §6.1 재작성. 파인만이 에디터 도구가 되면서 `clarify_pending` 전이 검증이 사라지고, 전용 행동 eval(`npm run eval:feynman`)로 대체됐다.

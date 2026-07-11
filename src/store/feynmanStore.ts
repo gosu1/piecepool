@@ -186,6 +186,22 @@ export const useFeynmanStore = create<FeynmanState>()(
 const NOT_YET: SectionStatus = { title: "", answered: false, understood: false, explanations: [], updatedAt: "" };
 
 /**
+ * 이 노트에서 사용자가 파인만으로 쓴 설명들 → 위키 생성 입력에 덧댈 블록. 없으면 null.
+ * 위키를 만들 때마다 함께 넣는다 — 사용자가 자기 말로 쓴 글이 위키의 재료가 되라고 쓰게 한 것이다.
+ * (원문 archive/ 는 건드리지 않는다. LLM 입력에만 덧댄다.)
+ */
+export function feynmanTranscript(noteId: string): string | null {
+  const prefix = `${noteId}::`;
+  const said = Object.entries(useFeynmanStore.getState().statuses ?? {})
+    .filter(([k, v]) => k.startsWith(prefix) && v?.explanations?.length)
+    .map(([, v]) => v);
+  if (!said.length) return null;
+  return said
+    .map((s) => `[내가 "${s.title}" 을(를) 설명해 본 기록]\n${s.explanations.map((e) => `나: ${e}`).join("\n")}`)
+    .join("\n\n");
+}
+
+/**
  * 게이트가 조회하는 공개 인터페이스 — 상태가 없으면 "아직 안 함"이다(fail-closed).
  * @param key SectionTopic.key
  *

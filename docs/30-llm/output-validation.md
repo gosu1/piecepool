@@ -19,7 +19,7 @@ LLM 호출 결과를 저장 전에 검증 / 재시도 / 부분 실패 처리하�
 | JSON Schema 검증 | 본 문서 §3 |
 | 재시도 정책 | 본 문서 §4 (provider-config §4.1 확장) |
 | 부분 실패 처리 | 본 문서 §5 |
-| 파인만 round-trip | 본 문서 §6 |
+| 파인만(에디터 도구) · 핵심 주제 게이트 | 본 문서 §6 |
 | ImportJob 상태 전이 | `../20-backend/import-job-states.md` (작성 예정) |
 
 ---
@@ -157,53 +157,51 @@ LLM 응답에 유효한 부분과 무효한 부분이 섞여 있으면 **유효 
 
 ---
 
-## 6. 파인만 round-trip
+## 6. 파인만(에디터 도구) · 핵심 주제 게이트
 
-파인만(기본 기능, 유료 tier 아님)을 어댑터가 구현. 1차 생성이 개념 목록을 주면 그중 하나를 사용자가 **자기 말로 설명**하게 하고, LLM 은 정답을 주지 않은 채 그 설명의 구멍 하나만 짚어 되묻는다. 사용자의 설명이 2차 생성의 재료가 된다.
+파인만은 **파이프라인 단계가 아니라 노트 에디터의 도구**다. 사용자가 언제든 열어, 고른 섹션을 **자기 말로 설명**한다. LLM 은 정답을 주지 않은 채 그 설명의 구멍 하나만 짚어 되묻는다(`probeExplanation`, `src/llm/feynman.ts`). 사용자가 쓴 설명은 그대로 위키의 재료가 된다.
 
 > Liner 출처 검증으로 label↔user 간극을 판정하는 경로는 **파인만이 아니라 별도 기능**이다 — 정보 간극 메우기(`src/llm/gaps.ts`, feature 3). 초기 설계에서 한 절에 뭉쳐 있었으나 두 기능으로 분리됐다.
 
-### 6.1 진입 조건
+### 6.1 진입점 (세 가지)
 
-자동 임계값 트리거는 **없다**(초기 설계에서 폐기). 다음을 모두 만족할 때만 진입한다:
+자동 임계값 트리거는 **없다**(초기 설계에서 폐기). 사용자가 연다:
 
-- 사용자가 파인만 토글을 켰다 (기본 off — 사용자가 명시적으로 켠다)
-- 1차 생성이 `engine === "gemini"` 로 성공했고 개념이 1개 이상이다
-  (키가 없어 휴리스틱으로 내려갔으면 파인만 질문을 만들 수 없다 — 있는 척하지 않고 건너뛰며 사용자에게 알린다)
+- `##`/`###` **제목 줄에 마우스를 올리면** 제목 끝에 `파인만` 버튼 → 클릭 한 번으로 그 섹션 시작 (`src/lib/cmHeadingAction.ts`)
+- 텍스트를 **드래그**하면 선택 위에 버튼 → 선택에 걸친 여러 섹션을 한 번에
+- 인박스 **`파인만` pill**(토글 아님, 액션) → 글 전체
 
-대상 개념은 노트에서 **가장 얕게 서술된** 하나를 고른다(`pickWeakestConcept`, `src/llm/feynman.ts`). 사용자는 패널에서 다른 개념으로 바꿀 수 있다.
+`##` 을 고르면 자신 + 하위 `###` 소주제까지 순차로 묻는다. `###` 만 고르면 그 하나만. 섹션 판별은 `src/lib/noteSections.ts`, 세션·판정은 `src/store/feynmanStore.ts`, UI 는 `src/app/panes/FeynmanPanel.tsx`.
 
-### 6.2 round-trip 흐름
+키가 없어 휴리스틱으로 내려갔으면 되묻는 질문을 만들 수 없다 — 있는 척하지 않고 건너뛰며 사용자에게 알린다.
 
-```
-1차 호출 → LlmWikiResult₁
-  → 파인만 off / 키 없음 / 개념 0개: §3 검증 → 저장
-  → 파인만 on:
-      → 개념 하나 선택 → 사용자가 자기 말로 설명
-      → LLM 이 설명의 구멍 하나를 짚어 되묻는다 (설명↔되물음 반복, 횟수 제한 없음)
-      → 사용자가 [네, 이해했어요] / [아직 모르겠어요] 로 종료
-      → 2차 호출 (input = 원본 + 설명 기록)
-        → LlmWikiResult₂
-        → §3 검증 → 저장
-```
+### 6.2 판정은 오직 사용자
 
-### 6.3 round-trip 제한
+- 설명↔되물음 왕복 횟수에 상한은 없다. **종료는 오직 사용자가** 결정한다 — LLM 은 채점하지 않는다.
+- 설명을 **한 번도 쓰지 않으면 `[네, 이해했어요]` 를 누를 수 없다**(근거 없는 판정 금지).
+- 대화는 메모리 전용. 판정 결과(answered / understood / 사용자가 쓴 설명)만 `localStorage`(`pp-feynman-sections`)에 남는다.
+- `[네, 이해했어요]` → 사용자의 설명을 재료로 **그 섹션 스코프만** 다시 생성해 기존 위키에 병합한다(`src/lib/sectionRegen.ts`). 노트 원문(`archive/`)은 바뀌지 않는다. 재생성이 Gemini 가 아니라 휴리스틱으로 떨어지면 **적용하지 않는다**(멀쩡한 위키를 헤딩 분해물로 덮지 않는다).
+- `[아직 모르겠어요]` + 설명이 있으면 해당 개념에 `review_needed` self-loop 를 붙인다([relation-types.md](../10-contracts/relation-types.md)). 사용자가 쓴 설명이 그대로 evidence 가 된다.
+- 인박스 초안에서 한 파인만은 저장 시 진짜 노트로 이관되고, 그 설명이 위키 생성 입력에 함께 들어간다.
 
-- 설명↔되물음 왕복 횟수에 상한은 없다. **종료는 오직 사용자가** 결정한다(LLM 은 충분/부족을 판정하지 않는다).
-- timeout 없음 — 사용자가 답하지 않고 나가면 아무것도 저장되지 않는다(대화는 메모리 전용).
-- 2차 생성이 휴리스틱으로 강등되면 채택하지 않고 **1차 Gemini 결과를 지킨다**(멀쩡한 위키를 헤딩 분해물로 덮지 않는다).
-- [아직 모르겠어요] + 설명이 있으면 해당 개념에 `review_needed` self-loop 를 붙인다([relation-types.md](../10-contracts/relation-types.md)).
+### 6.3 핵심 주제 게이트
+
+**Gemini 가 노트의 `##` 섹션 중 "핵심 주제"를 판별한다**(`classifyCoreSections`, `src/llm/coretopics.ts`). 핵심 주제는 사용자가 파인만에 **답하고(answered) "이해했다"고 선언해야(understood)** 위키로 변환할 수 있다 (`src/lib/coreGate.ts`).
+
+- 게이트는 **wiki/ 로 가는 모든 경로**에 걸린다: DocView `AI 위키 생성`, DocView `정리 글 변환`(합성 + 개념 추출), 인박스 `저장 + AI 정리`.
+- **노트(`archive/`)는 언제나 저장된다** — 막는 것은 위키뿐이다. 사용자의 원문은 사용자 것이다.
+- 판정은 **노트 내용의 해시로 캐시한다**(`localStorage["core-topics:<sourceId>"]`) — 같은 글에 모델이 오늘내일 다르게 답하면 게이트가 변덕스러워진다. 노트를 고치면 해시가 바뀌어 다시 판별한다.
+- **키가 없거나 판별에 실패하면 게이트를 걸지 않는다(fail-open)** — 사람을 못 막는 것보다 잘못 막는 것이 나쁘다. 응답에서 못 알아들은 섹션(없는 id·형식 위반)도 핵심이 아닌 것으로 본다.
+- 차단 시 어느 주제가 막는지 알려준다(하단 토스트 + AI 상태줄).
 
 ### 6.4 ImportJob 상태
 
-`ImportJobStatus` 확장 (`../10-contracts/entities.md`의 enum과 정렬 필요 — Backend tracking #1과 조율):
+파인만이 파이프라인을 멈춰 세우지 않으므로 사용자 응답을 기다리는 상태는 없다:
 
-- `llm_processing` (1차 호출 중)
-- `clarify_pending` (사용자 응답 대기, 신규)
-- `llm_processing` (2차 호출 중)
-- `writing` → `completed`
+- `llm_processing` → `writing` → `completed`
+- 핵심 주제 게이트에 걸리면 `llm_processing` 을 건너뛴다 → `writing`(노트만) → `completed`
 
-⚠️ 신규 `clarify_pending` 상태는 SSOT 변경 (entities.md) → `contracts-change` 라벨 + 4역할 review 필요.
+`clarify_pending` 은 [`entities.md`](../10-contracts/entities.md) `ImportJobStatus` enum 에 **그대로 남아 있으나**(계약 유지) **코드에서 도달하지 않는다.** 전이는 [`../20-backend/import-job-states.md`](../20-backend/import-job-states.md).
 
 ---
 
@@ -225,4 +223,5 @@ LLM 응답에 유효한 부분과 무효한 부분이 섞여 있으면 **유효 
 ## 8. 변경 이력 노트
 
 - 본 문서는 신규 작성이다. 초안 = [Phase 4 tracking #3 (LLM)](https://github.com/gosu1/piecepool/issues/3) + [sub-issue #30](https://github.com/gosu1/piecepool/issues/30) 기반.
-- §6.4에 `clarify_pending` 상태 신규 제안 — SSOT 변경 필요 ([entities.md ImportJobStatus](../10-contracts/entities.md#importjob)). 후속 `contracts-change` 이슈 분리 예정.
+- §6.4에 `clarify_pending` 상태 신규 제안 — SSOT 변경 필요 ([entities.md ImportJobStatus](../10-contracts/entities.md#importjob)). 후속 `contracts-change` 이슈 분리 예정. → `contracts-change`로 enum 에 추가됨(2026-05-29).
+- 2026-07-11 — §6 재작성. 파인만이 파이프라인의 clarify 분기에서 **에디터 도구**로 바뀌었다(진입점 3개 · 섹션 단위 · 판정은 사용자). **핵심 주제 게이트**(§6.3, Gemini 판별 + 사용자 파인만 판정) 신설. `clarify_pending` enum 값은 계약에 유지하되 코드에서 도달하지 않는다.

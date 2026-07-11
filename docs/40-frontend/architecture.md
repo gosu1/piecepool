@@ -118,9 +118,13 @@ src/lib/types.ts                   # re-export 배럴
 
 ---
 
-## 5. 기능 토글 (clarify / fact-check)
+## 5. 파인만 · 핵심 주제 게이트 · 기능 토글
 
-단일 tier이며 플랜 전환 UI는 없다. 파인만(clarify)·fact-check는 유료 플랜이 아니라 **기본 on, env 토글**로 동작한다 ([`../00-overview/pricing-model.md`](../00-overview/pricing-model.md) §6).
+단일 tier이며 플랜 전환 UI는 없다. fact-check는 유료 플랜이 아니라 **기본 on, env 토글**로 동작한다 ([`../00-overview/pricing-model.md`](../00-overview/pricing-model.md) §6).
+
+**파인만은 토글이 아니다.** 노트 에디터의 도구이며 사용자가 직접 연다 — `##`/`###` 제목 줄 호버 버튼(`src/lib/cmHeadingAction.ts`) · 드래그 선택 · 인박스 `파인만` pill(액션). UI는 노트 본문 아래 **인라인 패널**(`src/app/panes/FeynmanPanel.tsx`, 모달 아님), 세션·판정은 `src/store/feynmanStore.ts`. 대화는 메모리 전용이고 판정만 `localStorage`(`pp-feynman-sections`)에 남는다. 이해 판정은 오직 사용자가 한다.
+
+**핵심 주제 게이트**(`src/lib/coreGate.ts`)는 위키로 가는 모든 경로(`AI 위키 생성` · `정리 글 변환` · 인박스 `저장 + AI 정리`)에 걸린다. Gemini가 판별한 핵심 주제(`src/llm/coretopics.ts`)를 사용자가 파인만에 답하고 "이해했다"고 선언해야 위키가 만들어진다. **노트(`archive/`)는 언제나 저장된다 — 막는 것은 위키뿐이다.** 키가 없거나 판별에 실패하면 걸지 않는다(fail-open). 규칙 SSOT: [`../30-llm/output-validation.md`](../30-llm/output-validation.md) §6.
 
 ---
 
