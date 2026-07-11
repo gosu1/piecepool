@@ -168,8 +168,12 @@ export default function PiecePoolApp() {
 
   // 활성 탭 → 현재 공간(아래에서 계산)을 keydown 핸들러([] deps)에서 참조하기 위한 ref
   const currentSpaceRef = useRef("");
+  // ⌘W(탭 닫기)도 같은 이유로 ref 경유 — 핸들러는 마운트 시 1회만 등록한다.
+  const activeTabIdRef = useRef<string | null>(null);
+  activeTabIdRef.current = activeTabId;
+  const requestCloseTabRef = useRef<(id: string) => void>(() => {});
 
-  // ⌘K/⌘O → 검색 팔레트 · ⌘N → 새 노트 · ⌘M → 퀵메모
+  // ⌘K/⌘O → 검색 팔레트 · ⌘N → 새 노트 · ⌘M → 퀵메모 · ⌘W → 탭 닫기
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey)) return;
@@ -180,6 +184,11 @@ export default function PiecePoolApp() {
       } else if (k === "n") {
         e.preventDefault();
         openNewNoteRef.current(currentSpaceRef.current);
+      } else if (k === "w") {
+        // 탭 닫기. 미저장 초안이 있으면 requestCloseTab 이 확인부터 받는다.
+        e.preventDefault();
+        const id = activeTabIdRef.current;
+        if (id) requestCloseTabRef.current(id);
       } else if (k === "m") {
         // 강의 중 급하게 부르는 키다 — 어느 화면에 있든, 메모장에 포커스가 있어도 여닫힌다.
         e.preventDefault();
@@ -312,6 +321,7 @@ export default function PiecePoolApp() {
     if (tab?.dirty || inboxDirty) setDialog({ kind: "close-dirty", tabId: id });
     else closeTabClean(id);
   };
+  requestCloseTabRef.current = requestCloseTab;
   // 문서별 세션 상태(드래프트·편집·간극) 일괄 정리 — 저장/이동/삭제/닫기 후 stale 부활 방지.
   const clearDocState = (key: string) => {
     setDrafts((d) => {

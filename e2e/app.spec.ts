@@ -193,6 +193,15 @@ test("Inbox 저장 위치 — 새 과목 폴더 만들기", async ({ page }) => 
   await expect(page.locator("aside").getByRole("button", { name: "화학", exact: true })).toBeVisible();
 });
 
+// ⌘/Ctrl+W — 활성 탭 닫기. 미저장 초안이 있으면 확인 다이얼로그를 거친다(requestCloseTab).
+test("⌘W — 활성 탭이 닫힌다", async ({ page }) => {
+  await page.getByRole("button", { name: "프로세스", exact: true }).click();
+  await expect(page.getByText("실행 중인 프로그램의 인스턴스").first()).toBeVisible();
+  await page.keyboard.press("Control+w");
+  await expect(page.getByText("실행 중인 프로그램의 인스턴스")).toHaveCount(0);
+  await expect(page.locator('[role="tab"]')).toHaveCount(1); // Study Home 만 남는다
+});
+
 test("사이드바 리사이즈 — 핸들 드래그로 폭 변경", async ({ page }) => {
   const aside = page.locator("aside");
   const before = (await aside.boundingBox())!.width;
