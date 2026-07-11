@@ -167,11 +167,22 @@ export default function PiecePoolApp() {
   activeTabIdRef.current = activeTabId;
   const requestCloseTabRef = useRef<(id: string) => void>(() => {});
 
-  // ⌘K/⌘O → 검색 팔레트 · ⌘N → 새 노트 · ⌘M → 퀵메모 · ⌘W → 탭 닫기
+  // ⌘K/⌘O → 검색 팔레트 · ⌘N → 새 노트 · ⌘M → 퀵메모 · ⌘W → 탭 닫기 · ⌘Tab → 탭 이동
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey)) return;
       const k = e.key.toLowerCase();
+      // ⌘Tab / ⌘⇧Tab — 보이는 탭 순서대로 다음/이전. 끝에서 넘어가면 순환한다.
+      // 최근 사용순(MRU)이 아니라 순서대로다: 눈에 보이는 순서와 일치해야 예측할 수 있다.
+      if (e.key === "Tab") {
+        e.preventDefault();
+        const tabs = useWorkspaceStore.getState().openTabs;
+        if (tabs.length < 2) return;
+        const i = tabs.findIndex((t) => t.id === activeTabIdRef.current);
+        const next = (i + (e.shiftKey ? -1 : 1) + tabs.length) % tabs.length;
+        setActiveTab(tabs[next].id);
+        return;
+      }
       if (k === "k" || k === "o") {
         e.preventDefault();
         setPaletteOpen((o) => !o);
@@ -242,6 +253,16 @@ export default function PiecePoolApp() {
   };
   const openNewNoteRef = useRef(openNewNote);
   openNewNoteRef.current = openNewNote;
+
+  // 마지막 탭을 닫으면 빈 화면 대신 Study Home 을 연다 — 탭이 0개인 순간이 없다(옵시디언과 같다).
+  // "+" 는 언제나 마지막 탭 옆에 붙어야 뜻이 읽힌다("탭 하나 더"). 탭이 없으면 붙을 데가 없어
+  // 좌측 크롬 옆으로 밀려나 자리를 잃었다. 탭을 0개로 두지 않으면 그 상황 자체가 생기지 않는다.
+  // 부팅 시 복원 탭이 없을 때와 같은 착지점이다 — "탭이 없다" 는 상황의 답이 하나여야 한다.
+  useEffect(() => {
+    if (booting || openTabs.length > 0) return;
+    openTab({ id: "home", kind: "home", title: "Study Home" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [booting, openTabs.length]);
 
   // 리본 Inbox — 노트 하나 = 탭 하나이므로 "인박스 탭"은 없다. 쓰던 노트가 있으면 그 탭으로,
   // 없으면 새 노트를 연다(초안은 draft store 가 보존하므로 되돌아와도 그대로다).

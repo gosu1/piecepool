@@ -11,6 +11,7 @@ import { cn } from "../ds";
 import { mathPreview } from "./cmMath";
 import { calloutPreview, foldEasyCallouts } from "./cmCallout";
 import { headingAction as headingActionExt, type HeadingAction } from "./cmHeadingAction";
+import { toggleMark } from "./cmFormat";
 
 // Notion식 CM6 캡처 에디터: "/" 슬래시 메뉴 + 마크다운 리스트 자동 이어짐 + ⌘Enter 제출.
 // 테마는 DS 토큰 참조(라이트/다크 자동). 한글-first라 슬래시는 ASCII "/"에서만 트리거(IME 안전).
@@ -61,7 +62,7 @@ const theme = EditorView.theme({
 // ── 라이브 프리뷰 ──
 // CM6 기본 highlightStyle 은 heading 에 굵기만 준다(크기 없음) → "# 제목"을 쳐도 글자가 안 커진다.
 // 마크다운 태그별로 실제 타이포를 입혀 타이핑과 동시에 문서처럼 보이게 한다.
-// 마크업 기호는 커서가 그 줄을 벗어나면 감춘다(아래 hideHeaderMarks) — 편집 중인 줄에서는 항상 보이므로
+// 마크업 기호는 커서가 닿지 않으면 감춘다(아래 hideMarkupMarks) — 편집하러 들어가면 다시 보이므로
 // 원문(=저장물 archive)을 잃지 않는다.
 const liveMarkdown = HighlightStyle.define([
   { tag: tags.heading1, fontSize: "1.75em", fontWeight: "700", lineHeight: "1.35", color: "var(--ds-ink)" },
@@ -76,58 +77,73 @@ const liveMarkdown = HighlightStyle.define([
   { tag: tags.url, color: "var(--ds-ink-muted)" },
   { tag: tags.monospace, fontFamily: "var(--font-mono, ui-monospace, monospace)", fontSize: "0.92em", color: "var(--ds-ink)" },
   { tag: tags.contentSeparator, color: "var(--ds-ink-faint)" },
-  // 마크업 기호 — 커서가 있는 줄에서만 보이며, 크기는 주변 헤딩을 따라가고 색만 흐리다.
+  // 마크업 기호 — 커서가 닿았을 때만 보이며, 크기는 주변 헤딩을 따라가고 색만 흐리다.
   { tag: tags.processingInstruction, color: "var(--ds-ink-faint)", fontWeight: "400" },
 ]);
 
-// ── 헤딩 마크(`# `) 감추기 — Obsidian 라이브 프리뷰 ──
-// 커서가 그 줄에 없을 때만 "#"와 뒤따르는 공백 한 칸을 화면에서 지운다. 문서는 그대로다(Decoration.replace 는
-// 표시만 바꾼다). 편집하러 줄에 들어가면 다시 나타나므로 무엇이 저장되는지 언제든 확인·수정할 수 있다.
+// ── 마크업 기호(`# `, `**`, `*`) 감추기 — Obsidian/Notion 라이브 프리뷰 ──
+// 커서가 닿지 않으면 기호를 화면에서 지운다. 문서는 그대로다(Decoration.replace 는 표시만 바꾼다).
+// 편집하러 들어가면 다시 나타나므로 무엇이 저장되는지(archive 원문) 언제든 확인·수정할 수 있다.
+//
+// 헤딩은 줄 단위로 판단한다 — 한 줄에 하나뿐이고 줄 맨 앞이라 "그 줄에 있으면 보인다"가 자연스럽다.
+// 볼드·기울임은 구간 단위다 — 한 줄에 여러 개라 줄 단위로 하면 관계없는 것까지 다 드러난다.
+// 수식(cmMath)이 이미 구간 단위이고, 같은 감각이어야 한다.
 const hiddenMark = Decoration.replace({});
 
-function headerMarkDecorations(view: EditorView): DecorationSet {
+function markupDecorations(view: EditorView): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
   const doc = view.state.doc;
+  const sel = view.state.selection.ranges;
 
-  // 커서/선택이 걸친 줄은 원문 그대로 보여준다.
+  // 커서/선택이 걸친 줄 (헤딩 판단용)
   const activeLines = new Set<number>();
-  for (const r of view.state.selection.ranges) {
+  for (const r of sel) {
     const first = doc.lineAt(r.from).number;
     const last = doc.lineAt(r.to).number;
     for (let n = first; n <= last; n++) activeLines.add(n);
   }
+  // 커서/선택이 구간에 닿는가 — 양끝 인접 포함(cmMath 와 같은 규칙)
+  const touches = (from: number, to: number) => sel.some((r) => r.from <= to && r.to >= from);
 
   for (const { from, to } of view.visibleRanges) {
     syntaxTree(view.state).iterate({
       from,
       to,
       enter: (node) => {
-        if (node.name !== "HeaderMark") return;
-        // Setext 헤딩(밑줄 `===`)의 마크는 줄 전체다 — 지우면 빈 줄만 남으므로 ATX("#")만 다룬다.
-        if (doc.sliceString(node.from, node.from + 1) !== "#") return;
-        if (activeLines.has(doc.lineAt(node.from).number)) return;
-        // "# " 의 공백까지 함께 감춰야 제목이 왼쪽 끝에서 시작한다.
-        const end = doc.sliceString(node.to, node.to + 1) === " " ? node.to + 1 : node.to;
-        builder.add(node.from, end, hiddenMark);
+        if (node.name === "HeaderMark") {
+          // Setext 헤딩(밑줄 `===`)의 마크는 줄 전체다 — 지우면 빈 줄만 남으므로 ATX("#")만 다룬다.
+          if (doc.sliceString(node.from, node.from + 1) !== "#") return;
+          if (activeLines.has(doc.lineAt(node.from).number)) return;
+          // "# " 의 공백까지 함께 감춰야 제목이 왼쪽 끝에서 시작한다.
+          const end = doc.sliceString(node.to, node.to + 1) === " " ? node.to + 1 : node.to;
+          builder.add(node.from, end, hiddenMark);
+          return;
+        }
+        // 볼드(**)·기울임(*)·취소선(~~) 의 여는/닫는 기호. 부모(Strong/Emphasis)가 통째로 커서에
+        // 닿을 때만 드러내야 한다 — 기호 자체만 보면 여는 쪽과 닫는 쪽이 따로 놀아 한쪽만 나타난다.
+        if (node.name !== "EmphasisMark" && node.name !== "StrikethroughMark") return;
+        const parent = node.node.parent;
+        if (!parent || touches(parent.from, parent.to)) return;
+        builder.add(node.from, node.to, hiddenMark);
       },
     });
   }
   return builder.finish();
 }
 
-const hideHeaderMarks = ViewPlugin.fromClass(
+const hideMarkupMarks = ViewPlugin.fromClass(
   class {
     decorations: DecorationSet;
     constructor(view: EditorView) {
-      this.decorations = headerMarkDecorations(view);
+      this.decorations = markupDecorations(view);
     }
     update(u: ViewUpdate) {
-      if (u.docChanged || u.selectionSet || u.viewportChanged) this.decorations = headerMarkDecorations(u.view);
+      if (u.docChanged || u.selectionSet || u.viewportChanged) this.decorations = markupDecorations(u.view);
     }
   },
   {
     decorations: (v) => v.decorations,
-    // 감춘 구간을 원자 단위로 — 좌우 화살표·backspace 가 보이지 않는 "#" 안에 갇히지 않는다.
+    // 감춘 구간을 원자 단위로 — 좌우 화살표·backspace 가 보이지 않는 기호 안에 갇히지 않는다.
     provide: (plugin) => EditorView.atomicRanges.of((view) => view.plugin(plugin)?.decorations ?? Decoration.none),
   },
 );
@@ -267,7 +283,7 @@ export function SlashBlockEditor({
     () => [
       markdown(),
       syntaxHighlighting(liveMarkdown),
-      hideHeaderMarks,
+      hideMarkupMarks,
       headingActionExt(() => headingRef.current),
       mathPreview,
       calloutPreview,
@@ -279,6 +295,9 @@ export function SlashBlockEditor({
           { key: "Enter", run: insertNewlineContinueMarkup },
           { key: "Backspace", run: deleteMarkupBackward },
           { key: "Mod-Enter", run: () => (submitRef.current?.(), true) },
+          // 인라인 서식 — 다시 누르면 벗겨진다(토글).
+          { key: "Mod-b", run: toggleMark("**") },
+          { key: "Mod-i", run: toggleMark("*") },
         ]),
       ),
       slashTrigger,
