@@ -124,9 +124,9 @@ test("새 노트 — 보조 패널 닫힌 빈 화면으로 시작", async ({ pag
   await expect(page.getByPlaceholder("새 페이지")).toBeVisible();
   // 시드 위키(CPU 스케줄링)가 우측 패널에 자동으로 뜨지 않는다
   await expect(page.getByText(/선점형/)).not.toBeVisible();
-  // 셀렉트는 "저장 위치" 하나뿐 — 원본/위키 셀렉트는 패널이 닫혀 있어 없다.
-  await expect(page.getByRole("combobox")).toHaveCount(1);
-  await expect(page.getByRole("combobox", { name: "저장 위치" })).toBeVisible();
+  // 원본/위키 셀렉트는 패널이 닫혀 있어 없다. 저장 위치는 커스텀 드롭다운(버튼)이라 combobox 가 아니다.
+  await expect(page.getByRole("combobox")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "저장 위치" })).toBeVisible();
 });
 
 test("Inbox 패널 — 노트 고정, PDF·위키 보조 패널 여닫기", async ({ page }) => {
@@ -147,14 +147,15 @@ test("Inbox 패널 — 노트 고정, PDF·위키 보조 패널 여닫기", asyn
   await expect(page.getByText("위키", { exact: true })).not.toBeVisible();
 });
 
-// 새 노트 = Inbox 재사용 + 초안 초기화. 작성 중 초안이 있으면 확인부터.
-test("새 노트 — 작성 중 초안은 확인 후에만 버려진다", async ({ page }) => {
+// 노트 = 탭 하나(웹 탭 모델). "새 노트"는 새 탭을 열 뿐, 옛 노트를 덮어쓰지 않는다(확인 다이얼로그 없음).
+test("새 노트 — 노트마다 새 탭, 옛 노트는 탭으로 유지된다", async ({ page }) => {
   await page.getByRole("button", { name: "새 노트 작성" }).click();
-  await page.getByPlaceholder("새 페이지").fill("버려질 초안");
+  await page.getByPlaceholder("새 페이지").fill("첫 노트");
   await page.getByRole("button", { name: "새 노트 작성" }).click();
-  await expect(page.getByText("작성 중인 초안이 있어요")).toBeVisible();
-  await page.getByRole("button", { name: "새로 시작" }).click();
+  // 새 노트는 빈 탭으로 열린다 — 확인 없이, 옛 노트를 덮어쓰지 않는다.
   await expect(page.getByPlaceholder("새 페이지")).toHaveValue("");
+  // 옛 노트는 자기 탭으로 그대로 남아 있다 (탭 라벨 = 제목).
+  await expect(page.getByRole("tab", { name: /첫 노트/ })).toBeVisible();
 });
 
 // 위키 패널을 열어도 아무 위키가 자동 선택되지 않는다 — 고르기 전엔 빈 상태.
@@ -166,6 +167,39 @@ test("Inbox 위키 패널 — 자동 선택 없음, 고른 뒤에만 본문 표�
   // 셀렉트로 고르면 그제서야 본문이 뜬다
   await page.getByRole("combobox").last().selectOption({ label: "CPU 스케줄링" });
   await expect(page.getByText(/선점형/)).toBeVisible();
+});
+
+// 저장 위치 = 노트가 속할 과목. 바꾸면 위키 참조 패널도 그 과목을 따라간다.
+test("Inbox 저장 위치 — 과목 전환 시 위키 참조 후보도 바뀐다", async ({ page }) => {
+  await page.getByRole("button", { name: "새 노트 작성" }).click();
+  await page.getByRole("button", { name: "위키 패널" }).click();
+  await page.getByRole("button", { name: "저장 위치" }).click();
+  await page.getByRole("option", { name: "AI 딥러닝" }).click();
+  // 후보가 AI 딥러닝 위키로 교체된다 (운영체제 위키는 사라진다)
+  const wikiSel = page.getByRole("combobox").last();
+  await expect(wikiSel.locator("option", { hasText: "트랜스포머" })).toHaveCount(1);
+  await expect(wikiSel.locator("option", { hasText: "CPU 스케줄링" })).toHaveCount(0);
+});
+
+// 과목 폴더를 인박스에서 바로 만든다 — 만들면 저장 위치가 그 과목으로 옮겨간다.
+test("Inbox 저장 위치 — 새 과목 폴더 만들기", async ({ page }) => {
+  await page.getByRole("button", { name: "새 노트 작성" }).click();
+  await page.getByRole("button", { name: "저장 위치" }).click();
+  await page.getByRole("button", { name: "새 과목 폴더" }).click();
+  await page.getByLabel("새 과목 이름").fill("화학");
+  await page.getByRole("button", { name: "만들기" }).click();
+  // 저장 위치 = 방금 만든 과목 · 사이드바 트리에도 폴더가 생겼다
+  await expect(page.getByRole("button", { name: "저장 위치" })).toContainText("화학");
+  await expect(page.locator("aside").getByRole("button", { name: "화학", exact: true })).toBeVisible();
+});
+
+// ⌘/Ctrl+W — 활성 탭 닫기. 미저장 초안이 있으면 확인 다이얼로그를 거친다(requestCloseTab).
+test("⌘W — 활성 탭이 닫힌다", async ({ page }) => {
+  await page.getByRole("button", { name: "프로세스", exact: true }).click();
+  await expect(page.getByText("실행 중인 프로그램의 인스턴스").first()).toBeVisible();
+  await page.keyboard.press("Control+w");
+  await expect(page.getByText("실행 중인 프로그램의 인스턴스")).toHaveCount(0);
+  await expect(page.locator('[role="tab"]')).toHaveCount(1); // Study Home 만 남는다
 });
 
 test("사이드바 리사이즈 — 핸들 드래그로 폭 변경", async ({ page }) => {

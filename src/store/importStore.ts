@@ -31,6 +31,7 @@ export interface ImportJobView {
   mergedCount?: number;
   factChecked?: number; // Liner fact-check 로 출처가 붙은 관계 수
   firstWikiPath?: string; // 이번 임포트로 생성/갱신된 첫 위키 경로 — 위키 패널이 방금 만든 위키를 열도록
+  noteFile?: string; // 생성/갱신된 archive 노트 파일명 — Inbox 가 바인딩해 이어서 편집(살아있는 노트)
   feynmanUsed?: boolean; // 초안에서 한 파인만의 설명을 위키 생성 재료로 함께 넣었다
 }
 
@@ -42,6 +43,8 @@ export interface RunImportParams {
   subjectIds: string[];
   withLlm: boolean;
   existing: WikiPage[];
+  /** 살아있는 노트 — 이미 저장된 노트의 파일명. 있으면 새로 만들지 않고 그 노트를 갱신한다(재저장 중복 방지). */
+  noteFile?: string;
   /** 저장 전 초안에서 한 파인만의 노트 id (inbox:<space>) — 저장되면 진짜 sourceId 로 옮긴다 */
   feynmanNoteId?: string;
 }
@@ -147,7 +150,12 @@ export const useImportStore = create<ImportState>((set) => {
       commit(job);
       try {
         job = commit({ ...job, status: "archiving" });
-        const note = await ipc.createNote(p.space, p.title, p.markdown, p.subjectIds);
+        // 살아있는 노트 — noteFile 이 있으면 새로 만들지 않고 그 노트를 갱신한다(재저장 시 archive 중복 방지).
+        const note = p.noteFile
+          ? await ipc.saveNote(p.space, p.noteFile, p.markdown, p.title)
+          : await ipc.createNote(p.space, p.title, p.markdown, p.subjectIds);
+        // 생성/갱신된 노트 파일명을 job 에 실어 Inbox 가 바인딩하게 한다(이후 모든 return 에 전파).
+        job = { ...job, noteFile: note.path };
 
         // 초안에서 한 파인만을 방금 생긴 노트로 옮긴다. 저장 여부와 무관하게 사용자의 판정은
         // 그 글에 대한 것이었으므로, LLM 을 켰든 껐든 옮긴다.

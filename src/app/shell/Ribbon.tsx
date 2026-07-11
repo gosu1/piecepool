@@ -1,17 +1,29 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { cn, Icons } from "../../ds";
 
-// ══ 좌측 리본 (Obsidian식 세로 아이콘 네비) — 홈 · 그래프 · 설정 ══
+const SHORTCUTS: [string, string][] = [
+  ["⌘K", "검색"],
+  ["⌘N", "새 파일 생성"],
+  ["⌘O", "파일로 이동"],
+  ["⌘M", "퀵메모 열기 / 닫기"],
+  ["⌘E", "퀵메모 정리"],
+  ["⌘W", "탭 닫기"],
+  ["⌘Enter", "저장 / 임포트"],
+];
+
+// ══ 좌측 리본 (Obsidian식 세로 아이콘 네비) — 홈 · 인박스 · 그래프 · 도움말 · 설정 ══
 // 파일트리 토글(미닫이)·검색은 상단 타이틀바가 담당(중복 제거).
 // Wiki/Source 는 파일 트리로 접근(리본에서 제거). 활성 표시는 현재 탭 kind 기준.
 export function Ribbon({
   activeKind,
   onHome,
+  onInbox,
   onGraph,
   onSettings,
 }: {
   activeKind?: string;
   onHome: () => void;
+  onInbox: () => void;
   onGraph: () => void;
   onSettings: () => void;
 }) {
@@ -24,18 +36,51 @@ export function Ribbon({
 
       <Divider />
 
-      {/* 그래프 (새 노트는 사이드바 헤더 연필 아이콘이 담당 → 중복 "+" 제거) */}
+      {/* 인박스 — 현재 과목의 수집 화면(초안 유지). 새 노트는 사이드바 헤더 연필이 담당 */}
+      <RibbonButton label="Inbox" active={activeKind === "inbox"} onClick={onInbox}>
+        <Icons.InboxIcon size={21} />
+      </RibbonButton>
+
+      {/* 그래프 */}
       <RibbonButton label="Graph" active={activeKind === "graph"} onClick={onGraph}>
         <Icons.GraphIcon size={21} />
       </RibbonButton>
 
       <div className="flex-1" />
 
-      {/* 하단: 설정 */}
+      {/* 하단: 도움말 → 설정. 사이드바를 접어도 남는 자리라 단축키 안내를 여기 둔다. */}
+      <HelpButton />
       <RibbonButton label="설정" onClick={onSettings}>
         <Icons.GearIcon size={21} />
       </RibbonButton>
     </nav>
+  );
+}
+
+// 단축키 안내 — 리본이 56px 로 좁아 팝오버는 오른쪽 위로 편다.
+function HelpButton() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <RibbonButton label="도움말" active={open} onClick={() => setOpen((o) => !o)}>
+        <Icons.HelpCircleIcon size={21} />
+      </RibbonButton>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
+          {/* ml — 버튼(40px)이 56px 리본 안에 가운데 정렬돼 있어 리본 우측 경계 밖으로 밀어내야 한다 */}
+          <div className="absolute bottom-0 left-full z-30 ml-3.5 w-56 rounded-lg border border-hairline bg-surface p-2 shadow-elevated">
+            <p className="px-1 pb-1.5 text-[12px] font-medium text-ink-2">단축키</p>
+            {SHORTCUTS.map(([key, label]) => (
+              <div key={key} className="flex items-center justify-between px-1 py-0.5 text-[12px]">
+                <span className="text-ink-muted">{label}</span>
+                <kbd className="rounded-sm bg-fill-subtle px-1.5 py-0.5 font-sans text-[11px] text-ink-2">{key}</kbd>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 

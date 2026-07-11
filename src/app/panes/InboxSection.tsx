@@ -5,7 +5,7 @@ import * as ipc from "../../lib/ipc";
 import { useImportStore } from "../../store/importStore";
 import { draftNoteId } from "../../store/feynmanStore";
 import { useFeynmanEditor } from "./useFeynmanEditor";
-import { useInboxDraftStore, type PdfSummaryJob } from "../../store/inboxDraftStore";
+import { useInboxDraftStore, EMPTY_DRAFT, type InboxDraft, type PdfSummaryJob } from "../../store/inboxDraftStore";
 import { runImageOcr } from "../../llm/ocr";
 import { SlashBlockEditor } from "../../lib/SlashBlockEditor";
 import { ConfirmDialog } from "../shell/Dialogs";
@@ -55,10 +55,13 @@ export function InboxSection({
   existing,
   spaces,
   wikiBySlug,
+  onCreateSpace,
   onOpenWiki,
   onRefresh,
   onNotice,
   onDirtyChange,
+  onTitleChange,
+  draftKey,
   quickMemoOpen,
   onToggleQuickMemo,
 }: {
@@ -66,21 +69,28 @@ export function InboxSection({
   spaceId: string;
   subjectIdsDefault: string[];
   existing: WikiPageT[];
+  // 초안 보존 key = 이 노트 탭의 고유 id — 탭 전환 unmount 돼도 이 key 로 스토어에서 복원. "새 노트"면 새 탭이라 새 key.
+  draftKey: string;
   // 저장 대상 폴더 선택용 — 전체 지식 공간 목록과 공간별 위키(대상 폴더의 dedup 기준)
   spaces: KnowledgeSpace[];
   wikiBySlug: Record<string, WikiPageT[]>;
-  onOpenWiki: (file: string) => void;
+  // 저장 위치 드롭다운에서 바로 새 과목 폴더 만들기 — 만든 slug 를 돌려주면 그 과목으로 대상이 옮겨간다.
+  onCreateSpace: (name: string) => Promise<string | null>;
+  onOpenWiki: (space: string, file: string) => void;
   onRefresh: (space: string) => Promise<void> | void;
   // 저장 실패 등 사용자 알림(상태바 토스트). 성공은 노트 초기화·위키 패널로 암시.
   onNotice?: (msg: string) => void;
-  // 작성 중 초안 유무를 탭에 알린다 — "새 노트" 시 초안 폐기 확인 · 탭 닫기 확인 판정용
+  // 작성 중 초안 유무를 탭에 알린다 — 탭 닫기 확인 판정용
   onDirtyChange?: (dirty: boolean) => void;
+  // 노트 제목을 탭 라벨로 반영
+  onTitleChange?: (title: string) => void;
   // 퀵메모 — 창 자체는 앱 셸이 소유한다(탭을 바꿔도 살아있어야 하므로). 알약은 그 상태를 비출 뿐이다.
   quickMemoOpen: boolean;
   onToggleQuickMemo: () => void;
 }) {
-  // ── 저장 대상 폴더(지식 공간) — 기본은 현재 공간, 저장 버튼 옆 드롭다운으로 변경 ──
-  // 참조 패널(PDF·위키)은 현재 공간 그대로 두고, 저장 목적지만 바꾼다(작성 중 드래프트 유지).
+  // ── 저장 대상 폴더(지식 공간) — 기본은 현재 공간, 노트 헤더 드롭다운으로 변경 ──
+  // 위키 참조 패널은 저장 대상 공간을 따라간다(그 공간 위키를 보며 쓰게). PDF 패널은 원본 파일이
+  // 실제로 현재 공간의 sources/ 에 있으므로 따라가지 않는다.
   const [targetSpace, setTargetSpace] = useState(space);
   useEffect(() => setTargetSpace(space), [space]);
   const resolveTarget = (slug: string) => ({
@@ -88,39 +98,37 @@ export function InboxSection({
     existing: slug === space ? existing : (wikiBySlug[slug] ?? []),
     subjectIds: slug === space ? subjectIdsDefault : (wikiBySlug[slug]?.[0]?.subjectIds ?? []),
   });
-  // ── 보조 패널(PDF·위키) 열림 상태 — 저장하지 않음(노트 단위 상태) ──
-  const [panels, setPanels] = useState<Record<InboxPanelKey, boolean>>({ pdf: false, wiki: false });
-  const togglePanel = (key: InboxPanelKey, open?: boolean) => {
-    setPanels((p) => ({ ...p, [key]: open ?? !p[key] }));
-  };
-
-  // ── 작성(새 페이지) 상태 — 스토어 소유(탭 전환 언마운트에도 초안·스트림 생존) ──
-  const inboxDraft = useInboxDraftStore((s) => s.drafts[space]);
-  const summaryJob = useInboxDraftStore((s) => s.job);
-  const title = inboxDraft?.title ?? "";
-  const body = inboxDraft?.body ?? "";
+  // ── 작성 상태 — 스토어 소유(탭 전환 언마운트에도 초안·PDF요약 스트림 생존). key = 이 노트 탭 id(draftKey) ──
+  // 노트 = 탭 하나. 제목·본문·바인딩·패널·PDF·위키선택을 전부 draftKey 로 보존한다.
   const ds = useInboxDraftStore;
-  const setTitle = (v: string) => ds.getState().setTitle(space, v);
-  const setBody = (v: string) => ds.getState().setBody(space, v);
-  const appendBody = (v: string) => ds.getState().appendBody(space, v);
+  // EMPTY_DRAFT 병합 — 없거나 옛 스키마(누락 필드) draft 여도 8필드가 항상 채워져 렌더가 안 깨진다.
+  const noteDraft = { ...EMPTY_DRAFT, ...useInboxDraftStore((s) => s.drafts[draftKey]) };
+  const summaryJob = useInboxDraftStore((s) => s.job);
+  const { title, body, savedFile, savedSpace, savedSnapshot, panels, refWikiPath, refSource } = noteDraft;
+  const write = (patch: Partial<InboxDraft>) => ds.getState().write(draftKey, patch);
+  const setTitle = (v: string) => ds.getState().setTitle(draftKey, v);
+  const setBody = (v: string) => ds.getState().setBody(draftKey, v);
+  const appendBody = (v: string) => ds.getState().appendBody(draftKey, v);
   const setTitleIfEmpty = (v: string) => {
-    if (!ds.getState().drafts[space]?.title) setTitle(v);
+    if (!ds.getState().drafts[draftKey]?.title) setTitle(v);
   };
-  // 이 공간에서 요약 스트리밍 중이면 편집 잠금 + body 뒤에 미확정 텍스트를 파생 렌더.
-  const summarizing = summaryJob?.space === space && summaryJob.status === "streaming";
+  const setRefWikiPath = (v: string) => write({ refWikiPath: v });
+  const setRefSource = (v: string) => write({ refSource: v });
+  const togglePanel = (key: InboxPanelKey, open?: boolean) => write({ panels: { ...panels, [key]: open ?? !panels[key] } });
+  // 이 노트 탭에서 요약 스트리밍 중이면 편집 잠금 + body 뒤에 미확정 텍스트를 파생 렌더.
+  const summarizing = summaryJob?.noteKey === draftKey && summaryJob.status === "streaming";
   const editorValue = summarizing && summaryJob.text ? (body ? `${body}\n\n${summaryJob.text}` : summaryJob.text) : body;
   // 요약 완료 시 [!easy] 콜아웃 일괄 접기 트리거(done 이면 non-zero 로 바뀌어 1회 발화).
-  const foldEasyKey = summaryJob?.space === space && summaryJob.status === "done" ? summaryJob.text.length : 0;
+  const foldEasyKey = summaryJob?.noteKey === draftKey && summaryJob.status === "done" ? summaryJob.text.length : 0;
   const [withLlm, setWithLlm] = useState(true);
   const { job, runImport } = useImportStore();
-  // 파인만 — 저장 전 초안이라 노트 id 가 없다. 저장되면 importStore 가 진짜 sourceId 로 옮긴다(adopt).
-  const fy = useFeynmanEditor({ noteId: draftNoteId(space), space, markdown: body, noteTitle: title });
+  // 파인만 — 아직 저장 전이면 노트 id 가 없다. 노트=탭이므로 초안 id 는 탭(draftKey) 기준이어야
+  // 탭끼리 판정이 섞이지 않는다. 저장되면 importStore 가 진짜 sourceId 로 옮긴다(adopt).
+  const fy = useFeynmanEditor({ noteId: draftNoteId(draftKey), space, markdown: body, noteTitle: title });
   const busy = !!job && !["completed", "failed"].includes(job.status);
 
-  // ── 참조 패널 상태 ──
-  const [refWikiPath, setRefWikiPath] = useState<string>("");
+  // ── 참조 패널 상태 (sources 목록은 로컬; 선택 refSource·refWikiPath 는 draft 로 보존) ──
   const [sources, setSources] = useState<string[]>([]); // 이 공간의 원본 파일 전체
-  const [refSource, setRefSource] = useState<string>("");
   // 동시 임포트(다중 drop) 대응 — 불리언이면 먼저 끝난 건이 busy 를 풀어버린다.
   const [pdfJobs, setPdfJobs] = useState(0);
   const pdfBusy = pdfJobs > 0;
@@ -183,19 +191,24 @@ export function InboxSection({
     return () => window.removeEventListener("keydown", onKey);
   }, [uploadOpen]);
 
+  // 참조 후보 = 저장 대상 공간의 위키. 대상이 바뀌면 이전 공간에서 고른 참조는 버린다(파일명이 공간 간 충돌한다).
+  const refCandidates = resolveTarget(targetSpace).existing;
+  const targetName = spaces.find((s) => s.slug === targetSpace)?.name ?? targetSpace;
+  useEffect(() => setRefWikiPath(""), [targetSpace]);
   // 고른 게 없으면 없는 것 — `?? existing[0]` 폴백은 빈 노트에 공간의 첫 위키(제목 정렬 1등)를 띄웠다.
-  const refWiki = existing.find((w) => w.path === refWikiPath) ?? null;
+  const refWiki = refCandidates.find((w) => w.path === refWikiPath) ?? null;
 
   const loadSources = useCallback(async () => {
     try {
       const list = await ipc.listSources(space);
       setSources(list);
       // 목록의 첫 파일을 자동 선택하지 않는다 — 이 노트와 무관한 원본이 열린다.
-      setRefSource((cur) => (cur && list.includes(cur) ? cur : ""));
+      const cur = ds.getState().drafts[draftKey]?.refSource ?? "";
+      setRefSource(cur && list.includes(cur) ? cur : "");
     } catch {
       setSources([]);
     }
-  }, [space]);
+  }, [space, draftKey, ds]);
 
   useEffect(() => {
     if (panels.pdf) void loadSources();
@@ -228,8 +241,8 @@ export function InboxSection({
           onNotice?.("다른 PDF 요약이 진행 중이에요 — 끝난 뒤 다시 올려주세요");
           return;
         }
-        const noteTitle = ds.getState().drafts[space]?.title || f.name.replace(/\.[^.]+$/, "");
-        void ds.getState().runSummary({ space, file: stored, title: noteTitle, text });
+        const noteTitle = ds.getState().drafts[draftKey]?.title || f.name.replace(/\.[^.]+$/, "");
+        void ds.getState().runSummary({ noteKey: draftKey, file: stored, title: noteTitle, text });
       } catch {
         // 추출 실패 — 사용자가 직접 필기하면 됨(embed 는 이미 들어감)
       }
@@ -288,13 +301,33 @@ export function InboxSection({
     // 뒤늦은 요약이 비워진 에디터에 고아로 삽입된다.
     if (!title.trim() || busy || pdfBusy || summarizing) return;
     const t = resolveTarget(targetSpace);
-    const res = await runImport({ space: targetSpace, spaceId: t.spaceId, title: title.trim(), markdown: body, subjectIds: t.subjectIds, withLlm, existing: t.existing, feynmanNoteId: draftNoteId(space) });
+    // 재저장(saveNote)은 savedFile 이 그 공간에 있을 때만 — 대상 공간을 바꿨으면 새 노트로(다른 공간 노트 덮어쓰기 방지).
+    const reuse = savedFile && savedSpace === targetSpace ? savedFile : undefined;
+    const res = await runImport({
+      space: targetSpace,
+      spaceId: t.spaceId,
+      title: title.trim(),
+      markdown: body,
+      subjectIds: t.subjectIds,
+      withLlm,
+      existing: t.existing,
+      noteFile: reuse,
+      feynmanNoteId: draftNoteId(draftKey),
+    });
+    // 생성/갱신된 노트에 바인딩(살아있는 노트) — 노트를 비우지 않고 이어서 필기.
+    if (res.noteFile) write({ savedFile: res.noteFile, savedSpace: targetSpace });
     if (res.status === "completed") {
-      ds.getState().clearDraft(space);
+      write({ savedSnapshot: `${title.trim()} ${body}` });
       await onRefresh(targetSpace);
-      if (res.feynmanUsed) onNotice?.("파인만에서 쓴 설명을 위키 정리에 함께 넣었어요");
-      // 방금 만든 위키가 있을 때만 위키 패널을 연다 (대상=현재 공간일 때만 — 참조 패널은 현재 공간 기준)
-      if (withLlm && targetSpace === space && res.firstWikiPath) {
+      onNotice?.(
+        res.feynmanUsed
+          ? "파인만에서 쓴 설명까지 위키에 반영됐어요 ✓ — 이어서 필기하세요"
+          : withLlm
+            ? "위키에 반영됐어요 ✓ — 이어서 필기하세요"
+            : "저장됐어요 ✓ — 이어서 필기하세요",
+      );
+      // 방금 만든 위키가 있을 때만 위키 패널을 연다 (참조 패널은 저장 대상 공간을 따르므로 다른 공간에 저장해도 뜬다)
+      if (withLlm && res.firstWikiPath) {
         setRefWikiPath(res.firstWikiPath);
         togglePanel("wiki", true);
       }
@@ -305,38 +338,23 @@ export function InboxSection({
 
 
 
-  // 작성 중 초안 여부를 탭에 알린다 — 저장하면 title/body 가 비워지므로 자동으로 clean 이 된다.
+  // 작성 중 초안 여부를 탭에 알린다 — 저장 직후엔 내용이 남아도 "깨끗"(마지막 저장과 동일). 바뀌면 다시 dirty.
   // 콜백은 매 렌더 새 함수라 deps 에 넣으면 setTabDirty → 리렌더 → 다시 호출로 돈다. ref 로 고정.
-  const dirty = !!(title.trim() || body.trim());
+  const dirty = !!(title.trim() || body.trim()) && `${title.trim()} ${body}` !== savedSnapshot;
   const onDirtyChangeRef = useRef(onDirtyChange);
   onDirtyChangeRef.current = onDirtyChange;
   useEffect(() => onDirtyChangeRef.current?.(dirty), [dirty]);
+  // 제목을 탭 라벨로 알린다 — 여러 노트 탭을 제목으로 구분한다.
+  const onTitleChangeRef = useRef(onTitleChange);
+  onTitleChangeRef.current = onTitleChange;
+  useEffect(() => onTitleChangeRef.current?.(title), [title]);
 
   // ── 노트 패널 (중심 고정) — 새 원본(archive) 작성 ──
-  // PDF·위키 보조 패널 토글 — 노트 헤더 우측 슬롯에 배치(독립 헤더 줄 제거 → 3줄→2줄)
-  // note variant 는 토글이 없다: 패널은 PDF 업로드·AI 정리로만 등장하고, 각 패널 헤더의 ×로 닫는다.
-  const panelToggles = (
-    <div className="flex shrink-0 items-center gap-0.5 rounded-md border border-hairline p-0.5">
-      {(["pdf", "wiki"] as const).map((k) => (
-        <button
-          key={k}
-          type="button"
-          aria-pressed={panels[k]}
-          onClick={() => togglePanel(k)}
-          className={cn(
-            "rounded px-2.5 py-1 text-[12px] font-medium transition-colors",
-            panels[k] ? "bg-surface-soft text-ink" : "text-ink-muted hover:text-ink",
-          )}
-        >
-          {k === "pdf" ? "PDF 패널" : "위키 패널"}
-        </button>
-      ))}
-    </div>
-  );
-
+  // 패널 토글 버튼은 여기 없다. 타이틀바(InboxPanelToggles)가 그린다 — 노트 패널 안에 두면
+  // 패널이 열릴 때 노트 폭이 줄며 버튼이 딸려 움직여, 방금 누른 버튼이 도망가 다시 눌러 닫기가
+  // 어려웠다. 패널에 자체 닫기 버튼도 없어 그 토글이 닫는 유일한 방법이었다.
   const notePane = (
     <section style={{ minWidth: NOTE_MIN_PX }} className="flex min-w-0 flex-1 flex-col">
-      <PaneHeader right={panelToggles} />
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         {/* 수집 캔버스 헤더 밴드 — 제목 · 한 줄 안내 · 속성 pill. 구분선으로만 몸통과 분리(틴트 없음) */}
         <div className="shrink-0 border-b border-hairline px-5 pb-4 pt-5">
@@ -348,23 +366,15 @@ export function InboxSection({
           />
           <p className="mt-1.5 text-[13px] text-ink-muted">생각의 파편을 담아보세요 — 저장하면 AI가 위키로 정리해요.</p>
           <div className="mt-3 flex flex-wrap items-center gap-1.5">
-            {spaces.length > 1 && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-hairline px-3 py-1 text-[12px] text-ink-muted">
-                <Icons.FolderIcon size={13} className="text-ink-faint" />
-                <select
-                  value={targetSpace}
-                  onChange={(e) => setTargetSpace(e.target.value)}
-                  aria-label="저장 위치"
-                  className="max-w-[150px] truncate bg-transparent text-[12px] text-ink outline-none"
-                >
-                  {spaces.map((s) => (
-                    <option key={s.slug} value={s.slug}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-              </span>
-            )}
+            <SpacePicker
+              spaces={spaces}
+              value={targetSpace}
+              onChange={setTargetSpace}
+              onCreate={async (name) => {
+                const slug = await onCreateSpace(name);
+                if (slug) setTargetSpace(slug);
+              }}
+            />
             <PropertyPill active={withLlm} onClick={() => setWithLlm(!withLlm)} icon={<Icons.SparkleIcon size={13} />}>
               AI 생성
               {withLlm && <Icons.CheckIcon size={12} className="ml-0.5" />}
@@ -397,7 +407,7 @@ export function InboxSection({
             frameless
           />
         </div>
-        {summaryJob?.space === space && <SummaryStrip job={summaryJob} onCancel={() => ds.getState().cancelSummary()} onClose={() => ds.getState().clearJob()} />}
+        {summaryJob?.noteKey === draftKey && <SummaryStrip job={summaryJob} onCancel={() => ds.getState().cancelSummary()} onClose={() => ds.getState().clearJob()} />}
         <div className="flex shrink-0 items-center justify-between pt-3">
           <span className="text-[12px] text-ink-faint">⌘Enter 로 저장</span>
           <Button
@@ -474,19 +484,19 @@ export function InboxSection({
     <section style={{ width: `${paneW.wiki}%`, minWidth: 280 }} className="flex min-w-0 shrink-0 flex-col border-l border-hairline">
       <PaneHeader
         label="위키"
-        hint={existing.length > 0 ? `이 공간의 위키 ${existing.length}개` : "위키 없음"}
+        hint={refCandidates.length > 0 ? `${targetName}의 위키 ${refCandidates.length}개` : "위키 없음"}
         right={
           <div className="flex min-w-0 items-center gap-1.5">
-            {existing.length > 0 && (
+            {refCandidates.length > 0 && (
               <PaneSelect
                 value={refWiki?.path ?? ""}
                 onChange={setRefWikiPath}
-                options={existing.map((w) => ({ value: w.path, label: w.title }))}
+                options={refCandidates.map((w) => ({ value: w.path, label: w.title }))}
                 placeholder="위키 고르기…"
               />
             )}
             {refWiki && (
-              <Button size="sm" variant="utility" className="shrink-0 whitespace-nowrap" onClick={() => onOpenWiki(refWiki.path)}>
+              <Button size="sm" variant="utility" className="shrink-0 whitespace-nowrap" onClick={() => onOpenWiki(targetSpace, refWiki.path)}>
                 열기
               </Button>
             )}
@@ -497,7 +507,7 @@ export function InboxSection({
         {refWiki ? (
           <>
             <h2 className="mb-3 text-[17px] font-bold text-ink">{refWiki.title}</h2>
-            <Markdown source={refWiki.markdown} embedSpace={space} />
+            <Markdown source={refWiki.markdown} embedSpace={targetSpace} />
           </>
         ) : (
           <p className="pt-8 text-center text-[14px] text-ink-muted">
@@ -557,6 +567,148 @@ export function InboxSection({
         </div>
       )}
     </div>
+  );
+}
+
+// ══ 보조 패널(PDF·위키) 토글 — 타이틀바에 얹힌다 ══
+// 노트 패널 안에 두면 패널이 열릴 때 노트 폭이 줄며 버튼이 딸려 움직인다. 방금 누른 버튼이
+// 도망가니 다시 눌러 닫기가 어려웠다(패널에 자체 닫기 버튼이 없어 이게 유일한 방법이다).
+// 타이틀바는 패널 개폐와 무관하게 고정이라 버튼이 제자리에 있다.
+// 상태는 inboxDraftStore 의 노트별 draft(panels) — InboxSection 과 같은 진실을 본다.
+export function InboxPanelToggles({ draftKey }: { draftKey: string }) {
+  const panels = useInboxDraftStore((s) => s.drafts[draftKey]?.panels ?? EMPTY_DRAFT.panels);
+  const write = useInboxDraftStore((s) => s.write);
+  return (
+    <div className="flex shrink-0 items-center gap-0.5 rounded-md border border-hairline p-0.5">
+      {(["pdf", "wiki"] as const).map((k, i) => (
+        <span key={k} className="flex items-center gap-0.5">
+          {/* 두 토글은 각각 독립이다(둘 다 켜질 수 있다) — 구분선으로 하나의 세그먼트가 아님을 알린다 */}
+          {i > 0 && <span className="h-3.5 w-px bg-hairline" />}
+          <button
+            type="button"
+            aria-pressed={panels[k]}
+            onClick={() => write(draftKey, { panels: { ...panels, [k]: !panels[k] } })}
+            className={cn(
+              "rounded px-2.5 py-1 text-[12px] font-medium transition-colors",
+              panels[k] ? "bg-surface-soft text-ink" : "text-ink-muted hover:text-ink",
+            )}
+          >
+            {k === "pdf" ? "PDF 패널" : "위키 패널"}
+          </button>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// 저장 위치(과목) 선택 — 네이티브 select 는 팝업이 OS 스타일이라 테마를 안 따른다.
+// 사이드바 정렬 드롭다운과 같은 팝오버 패턴(백드롭 + bg-surface 패널 + 체크 표시).
+// 목록 끝의 "새 과목 폴더"로 여기서 바로 폴더를 만들고 그 과목으로 옮겨간다.
+function SpacePicker({
+  spaces,
+  value,
+  onChange,
+  onCreate,
+}: {
+  spaces: KnowledgeSpace[];
+  value: string;
+  onChange: (slug: string) => void;
+  onCreate: (name: string) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [newName, setNewName] = useState<string | null>(null); // null = 생성 행 접힘
+  const [creating, setCreating] = useState(false);
+  const current = spaces.find((s) => s.slug === value);
+
+  const close = () => {
+    setOpen(false);
+    setNewName(null);
+  };
+  const create = async () => {
+    const name = (newName ?? "").trim();
+    if (!name || creating) return;
+    setCreating(true);
+    await onCreate(name);
+    setCreating(false);
+    close();
+  };
+
+  return (
+    <span className="relative inline-flex">
+      <button
+        type="button"
+        aria-label="저장 위치"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => (open ? close() : setOpen(true))}
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-full border border-hairline px-3 py-1 text-[12px] text-ink-muted transition-colors hover:bg-fill-subtle hover:text-ink",
+          open && "bg-fill-subtle text-ink",
+        )}
+      >
+        <Icons.FolderIcon size={13} className="text-ink-faint" />
+        <span className="max-w-[150px] truncate font-medium text-ink">{current?.name ?? "저장 위치"}</span>
+        <Icons.ChevronsUpDownIcon size={12} className="shrink-0 text-ink-faint" />
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-20" onClick={close} />
+          <div role="listbox" className="absolute left-0 top-full z-30 mt-1 max-h-72 w-56 overflow-y-auto rounded-lg border border-hairline bg-surface p-1 shadow-elevated">
+            {spaces.map((s) => (
+              <button
+                key={s.slug}
+                type="button"
+                role="option"
+                aria-selected={s.slug === value}
+                onClick={() => {
+                  onChange(s.slug);
+                  close();
+                }}
+                className={cn(
+                  "flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left text-[13px] transition-colors",
+                  s.slug === value ? "bg-fill-subtle font-medium text-ink" : "text-ink-2 hover:bg-surface-soft hover:text-ink",
+                )}
+              >
+                <span className="truncate">{s.name}</span>
+                {s.slug === value && <Icons.CheckIcon size={14} className="shrink-0 text-primary" />}
+              </button>
+            ))}
+
+            <div className="my-1 h-px bg-hairline" />
+
+            {newName === null ? (
+              <button
+                type="button"
+                onClick={() => setNewName("")}
+                className="flex w-full items-center gap-1.5 rounded-md px-2.5 py-1.5 text-left text-[13px] text-ink-2 transition-colors hover:bg-surface-soft hover:text-ink"
+              >
+                <Icons.FolderPlusIcon size={14} className="shrink-0 text-ink-faint" />
+                <span>새 과목 폴더</span>
+              </button>
+            ) : (
+              <div className="flex items-center gap-1 px-1 py-1">
+                <input
+                  autoFocus
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") void create();
+                    if (e.key === "Escape") setNewName(null);
+                  }}
+                  placeholder="과목 이름"
+                  aria-label="새 과목 이름"
+                  className="min-w-0 flex-1 rounded-md border border-hairline bg-surface px-2 py-1 text-[13px] text-ink outline-none focus:border-primary"
+                />
+                <Button size="sm" variant="utility" disabled={!newName.trim() || creating} onClick={() => void create()}>
+                  만들기
+                </Button>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </span>
   );
 }
 

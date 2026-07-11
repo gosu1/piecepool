@@ -173,7 +173,7 @@ test("인박스에서 한 파인만의 설명은 저장 시 위키 재료가 된
 
   // 저장 → 초안(inbox:*) 판정이 진짜 노트로 옮겨지고, 설명이 위키 생성 재료로 들어간다
   await page.getByRole("button", { name: /저장 \+ AI 정리/ }).click();
-  await expect(page.getByText(/파인만에서 쓴 설명을 위키 정리에 함께 넣었어요/)).toBeVisible({ timeout: 30000 });
+  await expect(page.getByText(/파인만에서 쓴 설명까지 위키에 반영됐어요/)).toBeVisible({ timeout: 30000 });
 
   const saved = await page.evaluate(() => localStorage.getItem("pp-feynman-sections"));
   expect(saved).not.toContain("inbox:"); // 초안 키는 남지 않는다
