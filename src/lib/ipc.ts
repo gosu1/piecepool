@@ -31,7 +31,8 @@ const real = {
   readNote: (space: string, file: string) => invoke<ArchiveNote>("read_note", { space, file }),
   createNote: (space: string, title: string, markdown: string, subjectIds: string[]) =>
     invoke<ArchiveNote>("create_note", { space, title, markdown, subjectIds }),
-  saveNote: (space: string, file: string, markdown: string) => invoke<ArchiveNote>("save_note", { space, file, markdown }),
+  saveNote: (space: string, file: string, markdown: string, title?: string) =>
+    invoke<ArchiveNote>("save_note", { space, file, markdown, title }),
   moveNote: (space: string, file: string, toSpace: string) => invoke<ArchiveNote>("move_note", { space, file, toSpace }),
   deleteNote: (space: string, file: string) => invoke<void>("delete_note", { space, file }),
   renameNote: (space: string, file: string, newTitle: string) => invoke<ArchiveNote>("rename_note", { space, file, newTitle }),

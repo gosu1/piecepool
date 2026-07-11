@@ -92,8 +92,14 @@ pub fn create_note(
 }
 
 /// 기존 노트 본문 수정·저장(파일명 유지). archive 는 LLM이 아닌 사용자 원문 보존소.
+/// title 이 주어지면 frontmatter 제목도 갱신한다(살아있는 노트에서 제목을 이어 편집할 때). 파일명은 그대로 둔다.
 #[tauri::command]
-pub fn save_note(space: String, file: String, markdown: String) -> Result<ArchiveNote, String> {
+pub fn save_note(
+    space: String,
+    file: String,
+    markdown: String,
+    title: Option<String>,
+) -> Result<ArchiveNote, String> {
     let sp = space_by_slug(&space)?;
     let path = storage::safe_join(&storage::space_subdir(&space, "archive"), &file)
         .map_err(|e| e.to_string())?;
@@ -101,6 +107,12 @@ pub fn save_note(space: String, file: String, markdown: String) -> Result<Archiv
     let mut note =
         frontmatter::md_to_archive(&sp.id, &file, &existing).map_err(|e| e.to_string())?;
     note.markdown = markdown;
+    if let Some(t) = title {
+        let t = t.trim();
+        if !t.is_empty() {
+            note.title = t.to_string();
+        }
+    }
     note.updated_at = storage::now_iso();
     let st = frontmatter::archive_source_type(&existing);
     // originalFilePath 는 기존 frontmatter 값을 보존 — 누락 시 pdf/image 노트는 저장 자체가 불가능해진다.
