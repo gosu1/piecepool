@@ -240,8 +240,9 @@ export default function PiecePoolApp() {
   const openNewNoteRef = useRef(openNewNote);
   openNewNoteRef.current = openNewNote;
 
-  // 새 지식 공간(폴더) 생성 — 백엔드 create_space → 목록/집계 갱신 후 새 공간으로 이동
-  const createNewSpace = async (name: string) => {
+  // 새 지식 공간(폴더) 생성 — 백엔드 create_space → 목록/집계 갱신 후 새 공간으로 이동.
+  // 만든 slug 를 돌려준다 — 인박스가 저장 위치를 방금 만든 과목으로 바로 옮길 수 있게.
+  const createNewSpace = async (name: string): Promise<string | null> => {
     try {
       const sp = await ipc.createSpace(name);
       const spaceList = await ipc.listSpaces();
@@ -252,8 +253,10 @@ export default function PiecePoolApp() {
       setSubjectsBySlug((m) => ({ ...m, [sp.slug]: [] }));
       setCurrentSpaceSlug(sp.slug);
       setNotice(`새 공간 "${sp.name}"을(를) 만들었어요`);
+      return sp.slug;
     } catch (e) {
       setNotice(`공간 만들기 실패: ${String(e)}`);
+      return null;
     }
   };
 
@@ -1210,6 +1213,7 @@ export default function PiecePoolApp() {
             existing={wikiBySlug[sp] ?? []}
             spaces={spaces}
             wikiBySlug={wikiBySlug}
+            onCreateSpace={createNewSpace}
             onOpenWiki={openWiki}
             onRefresh={(s) => refreshSpace(s)}
             onNotice={setNotice}
