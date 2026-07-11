@@ -120,7 +120,7 @@ src/lib/types.ts                   # re-export 배럴
 
 ## 5. 기능 토글 (clarify / fact-check)
 
-단일 tier이며 플랜 전환 UI는 없다. 되묻기(clarify)·fact-check는 유료 플랜이 아니라 **기본 on, env 토글**로 동작한다 ([`../00-overview/pricing-model.md`](../00-overview/pricing-model.md) §6).
+단일 tier이며 플랜 전환 UI는 없다. 파인만(clarify)·fact-check는 유료 플랜이 아니라 **기본 on, env 토글**로 동작한다 ([`../00-overview/pricing-model.md`](../00-overview/pricing-model.md) §6).
 
 ---
 

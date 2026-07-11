@@ -24,7 +24,7 @@ interface LlmWikiInput {
   subjects: Array<{ id: string; name: string }>;
   existingConcepts: Array<{ id: string; title: string; normalizedTitle: string }>;
   features?: {
-    clarify: boolean;     // 되묻기 활성
+    clarify: boolean;     // 파인만 활성
     factCheck: boolean;   // fact-check 활성
   };
 }
@@ -70,7 +70,7 @@ if feature 3 활성 && LINER_API_KEY is empty
 - adapter 책임:
   - `response_format`에 `LlmWikiResult` JSON Schema 주입
   - fact-check: **주 경로는 Liner 어댑터(§3.3)** — 현재 유일한 구현. LLM 자체 웹 검색 도구는 쓰지 않는다(Gemini OpenAI 호환 엔드포인트는 hosted search tool을 노출하지 않는다).
-  - 되묻기: 1차 응답 분석 → confidence 임계값 미달 시 별도 round-trip (`output-validation.md` (작성 예정))
+  - 파인만: 사용자가 토글을 켜면 1차 생성 개념 중 하나를 자기 말로 설명하게 하고, 그 설명을 재료로 2차 round-trip. 자동 임계값 트리거 없음 (`output-validation.md` §6)
 
 ### 3.2 schema 정규화
 
@@ -86,7 +86,7 @@ adapter는 Gemini raw 응답을 SSOT `LlmWikiResult`로 정규화한다. 검증:
 - adapter 책임:
   - 사용자 필기·label(교수 자료)을 질의로 출처 검색
   - 검증 결과(출처 URL·인용)를 `evidence[].reason`에 누적 (schema 무변경)
-  - Liner 미가용 시 Gemini 되묻기(§6)로 대안 처리
+  - Liner 미가용 시 Gemini 소크라테스식 되묻기로 대안 처리 (§6 **간극 점검** 행)
 
 ---
 
@@ -140,11 +140,12 @@ Backend import-pipeline
 
 | 기능 | 어댑터 동작 |
 |---|---|
-| **되묻기** | **주: Liner 출처 검증으로 간극 판정.** 대안(Liner 미가용): 1차 응답의 `relations[].confidence` 평균이 임계값(TBD, [open-questions](../00-overview/open-questions.md#2-llm--provider))보다 낮으면 Gemini 별도 round-trip. 사용자 응답 받아 2차 호출 |
+| **파인만** (`clarify`) | 사용자가 개념을 자기 말로 설명 → Gemini가 그 설명의 구멍 하나를 되묻는다 → 설명을 재료로 2차 호출. 자동 트리거·timeout 없음(사용자 토글로 진입, 사용자가 종료) |
+| **간극 점검** (정보 간극 메우기) | **주: Liner 출처 검증으로 label↔user 간극 판정.** Liner 미가용 시 Gemini 소크라테스식 되묻기로 대안 |
 | **fact-check** | **Liner API 출처 검색·검증(유일한 구현).** 결과 URL을 `evidence[].reason`에 누적 |
 | **suggest** | fact-check 결과 차이는 Frontend 패널에 표시 (어댑터는 변환만, UI 책임 X) |
 
-트리거 기준 (되묻기 임계값, fact-check 발동 조건)은 **Backend 책임** ([`../20-backend/prompt-design.md`](../20-backend/) 작성 예정). 어댑터는 Backend가 명시한 파라미터 그대로 따른다.
+파인만 진입은 임계값이 아니라 **사용자 토글**이다([`output-validation.md`](output-validation.md) §6.1). 나머지 발동 조건(간극 점검·fact-check)은 **Backend 책임** ([`../20-backend/prompt-design.md`](../20-backend/) 작성 예정). 어댑터는 Backend가 명시한 파라미터 그대로 따른다.
 
 ---
 

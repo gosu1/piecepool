@@ -124,7 +124,7 @@ skill-kit 핵심 두 규칙을 프롬프트에 상수로 둔다:
 
 ## 7. 부가 기능 (schema 무변경)
 
-- **되묻기 트리거 문구**: 1차 응답이 약할 때 사용자에게 물을 재확인 질문 생성. 트리거 조건·흐름은 [`output-validation.md`](output-validation.md) §6. 프롬프트는 별도 round-trip system 블록으로 주입.
+- **파인만 되물음 문구**: 사용자가 자기 말로 설명한 내용의 구멍 하나를 짚어 되물을 질문 생성(정답은 주지 않는다). 진입 조건·흐름은 [`output-validation.md`](output-validation.md) §6. 프롬프트는 별도 round-trip system 블록으로 주입.
 - **fact-check**: Liner API 출처 검색·검증 결과를 `evidence[].reason`에 출처 URL로 누적([`../10-contracts/entities.md#evidence`](../10-contracts/entities.md#evidence)). LLM 자체 웹 검색 도구는 쓰지 않는다.
 - **재시도 보강**: schema 위반 재시도 시 위반 필드 주입([`output-validation.md`](output-validation.md) §4.3).
 

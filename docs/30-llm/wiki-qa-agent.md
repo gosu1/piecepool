@@ -82,9 +82,9 @@
 
 ---
 
-## 6. 모호 질문 — 되묻기 연계
+## 6. 모호 질문 — 파인만 연계
 
-질문이 모호하거나 여러 개념에 걸치면 바로 답하지 말고 **되물어** 좁힌다. import 되묻기와 같은 메커니즘 재사용: [`output-validation.md`](output-validation.md) §6.
+질문이 모호하거나 여러 개념에 걸치면 바로 답하지 말고 **되물어** 좁힌다. import 파인만과 같은 메커니즘 재사용: [`output-validation.md`](output-validation.md) §6.
 
 - clarify round-trip 1회. 불충분하면 최선 후보 + 후보 목록 제시.
 

@@ -32,7 +32,7 @@ llm_processing → [output-validation §3 구문검증]
 
 - 통과: 그대로 `writing`.
 - 부분 위반: 해당 concept/relation drop → 기존 부분 실패([`output-validation.md`](output-validation.md) §5)와 동일 경로.
-- 의심 다수: 되묻기 트리거([`output-validation.md`](output-validation.md) §6).
+- 의심 다수: 자동 재질의 없음 — 사용자가 파인만 토글을 켰을 때만 파인만 round-trip 진입([`output-validation.md`](output-validation.md) §6).
 
 ---
 

@@ -20,7 +20,7 @@ type FetchFn = typeof fetch;
 // Gemini OpenAI 호환 base URL. /chat/completions · /embeddings 를 append 한다.
 export const GEMINI_OPENAI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/openai";
 
-// 모든 Gemini 채팅 호출(위키·되묻기·되물을거리·OCR·목차·PDF요약·정리글)이 공유하는 단일 모델명.
+// 모든 Gemini 채팅 호출(위키·파인만·되물을거리·OCR·목차·PDF요약·정리글)이 공유하는 단일 모델명.
 // 모델은 예고 없이 단종된다 — 여기 한 줄만 고치면 전부 따라오게 한다.
 //   gemini-2.5-flash    → 404 NOT_FOUND ("no longer available to new users", 2026-07)
 //   gemini-3.5-flash    → 503 UNAVAILABLE ("experiencing high demand") 지속

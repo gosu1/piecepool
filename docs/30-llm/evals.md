@@ -15,7 +15,7 @@ LLM 호출 골든 케이스 + 회귀 방지.
 |---|---|
 | **회귀 방지** | 모델/프롬프트 변경 시 기존 기대 결과 유지 |
 | **품질 baseline** | 출력 품질 정량화 |
-| **부가 흐름 검증** | 되묻기 / fact-check round-trip 작동 입증 |
+| **부가 흐름 검증** | 파인만 / fact-check round-trip 작동 입증 |
 
 ---
 
@@ -95,7 +95,7 @@ docs/30-llm/evals/
 | `case-002-deadlock` | Deadlock OS 강의 한 단락 | `causes` relation (Deadlock → System Hang) |
 | `case-003-graph-vs-gnn` | 자료구조 Graph + AI GNN 누적 | cross-subject `related_to` / `used_in` |
 | `case-004-confusing-pair` | Process vs Thread 대조 | `confused_with` relation |
-| `case-005-empty-source` | 짧은 모호한 텍스트 ("그것") | 빈 결과 (`concepts=0`) 또는 되묻기 트리거 |
+| `case-005-empty-source` | 짧은 모호한 텍스트 ("그것") | 빈 결과 (`concepts=0`) — 개념이 0개면 파인만 진입 불가 |
 | `case-006-pdf-multi-concept` | Transformer 1장 (5개 Concept) | 다중 Concept 추출 + 관계 매핑 |
 | `case-007-related-to-abuse` | `related_to` 과다 응답 입력 | 50% 초과 시 경고 로그 |
 
@@ -173,11 +173,11 @@ must_not.confused            ✅
 
 ## 6. 부가 흐름 평가
 
-### 6.1 되묻기 round-trip
+### 6.1 파인만 round-trip
 
-`case-005-empty-source` 활용:
-- 1차 호출이 트리거 조건 만족 ([`output-validation.md`](output-validation.md) §6.1)
-- 시뮬레이션 사용자 응답 주입 (fixture에 명시)
+개념이 1개 이상 추출되는 case(예: `case-001-self-attention`) 활용:
+- 파인만 토글 on + 1차 호출이 Gemini로 성공 (진입 조건 [`output-validation.md`](output-validation.md) §6.1)
+- 시뮬레이션 사용자 설명 주입 (fixture에 명시)
 - 2차 호출 결과가 `must` 통과
 - ImportJob status가 `clarify_pending` → `llm_processing` → `completed`로 전이
 

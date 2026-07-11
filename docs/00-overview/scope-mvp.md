@@ -43,7 +43,7 @@ MVP는 **실제로 동작하는 로컬 앱**이어야 한다. 가짜 화면이�
 ### 2.5 LLM (Gemini) + 출처 검색 (Liner)
 - **Google Gemini** — `GEMINI_API_KEY` 필요
 - **Liner API** — `LINER_API_KEY` 필요 (feature 3 정보 간극 메우기·fact-check 출처 검색)
-- 되묻기, fact-check 기본 흐름
+- 파인만, fact-check 기본 흐름
 - 자세한 매트릭스: [`pricing-model.md`](pricing-model.md)
 
 ### 2.6 Markdown

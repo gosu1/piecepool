@@ -55,7 +55,7 @@ MVP 합격선. **모든 항목이 통과해야 MVP 완료**다.
 ### 3.2 Gemini
 - [ ] Gemini 키(데스크톱 앱=설정 모달, CLI=`GEMINI_API_KEY`)로 Gemini 호출 성공
 - [ ] LLM 출력이 `LlmWikiResult` schema 통과 ([evals](../30-llm/) 입증)
-- [ ] 되묻기 round-trip 작동 (`PIECEPOOL_CLARIFY=true`)
+- [ ] 파인만 round-trip 작동 (`PIECEPOOL_CLARIFY=true`)
 - [ ] Fact-check 기본 흐름 작동 (웹 검색 → `evidence[].reason`에 URL 누적)
 
 ### 3.3 검증 규칙
@@ -107,7 +107,7 @@ MVP 합격선. **모든 항목이 통과해야 MVP 완료**다.
 - [ ] Markdown 편집기에서 archive/wiki 둘 다 편집 가능
 - [ ] Wiki View가 Concept 중심 탐색 지원
 - [ ] Graph View가 정적 이미지가 아닌 실제 클릭/필터/검색 작동
-- [ ] 되묻기·fact-check 토글이 기본 on으로 동작 ([pricing-model](../00-overview/pricing-model.md))
+- [ ] 파인만·fact-check 토글이 기본 on으로 동작 ([pricing-model](../00-overview/pricing-model.md))
 
 ---
 

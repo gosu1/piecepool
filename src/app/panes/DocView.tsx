@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import { AIWritingBanner, Button, Card, SkeletonText, Icons, cn } from "../../ds";
 import { Markdown } from "../../lib/markdown";
 import { SlashBlockEditor } from "../../lib/SlashBlockEditor";
+import type { FeynmanHandlers } from "./FeynmanPanel";
+import { useFeynmanEditor } from "./useFeynmanEditor";
 import { MiniRelationGraph, type MiniGroup } from "../../lib/MiniGraph";
 import { RELATION_LABEL, REVIEW_COLOR, groupOf } from "../../lib/relationMeta";
 import type { RelationType } from "../../lib/generated/RelationType";
@@ -37,6 +39,7 @@ export function DocView({
   toolSlot,
   sideSlot,
   embedSpace,
+  feynman,
 }: {
   docType: "wiki" | "archive";
   title: string;
@@ -65,8 +68,17 @@ export function DocView({
   /** 읽기 모드(archive)에서 본문 옆에 나란히 붙는 패널 — 정리 글 스트리밍 미리보기 */
   sideSlot?: ReactNode;
   embedSpace?: string;
+  /** 원본 노트에서만 — 에디터 우클릭으로 ##/### 섹션 파인만을 연다 */
+  feynman?: { noteId: string; space: string; handlers?: FeynmanHandlers };
 }) {
   const hasConceptPanel = !!(sources?.length || relationGroups?.length || confused?.length);
+  const fy = useFeynmanEditor({
+    noteId: feynman?.noteId ?? "",
+    space: feynman?.space ?? "",
+    markdown: draft,
+    noteTitle: title,
+    handlers: feynman?.handlers,
+  });
   // 읽기 모드 본문 — Notion 처럼 카드 없이 페이지에 바로. 빈 페이지는 클릭해서 작성 시작.
   const readBody = savedMd.trim() ? (
     <div className="px-1">
@@ -102,7 +114,15 @@ export function DocView({
 
       {isEditing ? (
         <div className="grid gap-3 md:grid-cols-2">
-          <SlashBlockEditor value={draft} onChange={onChangeDraft} onSubmit={onSave} height="480px" placeholder="'/' 로 블록 · ⌘Enter 로 저장" />
+          <SlashBlockEditor
+            value={draft}
+            onChange={onChangeDraft}
+            onSubmit={onSave}
+            onSelect={feynman && fy.onSelect}
+            headingAction={feynman && fy.headingAction}
+            height="480px"
+            placeholder="'/' 로 블록 · ⌘Enter 로 저장"
+          />
           <Card padding="lg" className="max-h-[480px] overflow-y-auto">
             <p className="ds-eyebrow mb-2 text-ink-faint">미리보기</p>
             <Markdown source={draft} onLink={onLink} linkExists={linkExists} embedSpace={embedSpace} />
@@ -201,6 +221,9 @@ export function DocView({
           )}
         </div>
       )}
+
+      {/* 섹션 파인만 — 편집/읽기 토글 밖이라 모드를 바꿔도 대화가 살아 있다 */}
+      {feynman && fy.overlay}
 
       {bottomSlot}
     </div>

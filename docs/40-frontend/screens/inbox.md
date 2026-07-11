@@ -78,7 +78,7 @@ Inbox 작성 (제목 + project 선택 + 해시태그(tags) + Markdown 본문 [+ 
             ↓
         status: llm_processing — Concept/WikiPage/Relation 추출 (2차 LLM 호출)
             │
-      (되묻기 on) status: clarify_pending — 사용자 응답 대기
+      (파인만 on) status: clarify_pending — 사용자 응답 대기
             │
         status: writing — wiki/*.md + relations.json 저장
             ↓
@@ -89,12 +89,12 @@ Inbox 작성 (제목 + project 선택 + 해시태그(tags) + Markdown 본문 [+ 
 
 ---
 
-## 6. 되묻기 토글 차이
+## 6. 파인만 토글 차이
 
-- 되묻기 off: `clarify_pending` 발생 안 함, `parsing`→`archiving`→`llm_processing`→`writing`→`completed`로 직행
-- 되묻기 on(기본): 저신뢰·모호 판정 시 `clarify_pending` 경유 가능
+- 파인만 off: `clarify_pending` 발생 안 함, `parsing`→`archiving`→`llm_processing`→`writing`→`completed`로 직행
+- 파인만 on(기본): 저신뢰·모호 판정 시 `clarify_pending` 경유 가능
 
-되묻기를 Inbox 화면 안에서 모달로 보여줄지, 별도 알림으로 보여줄지는 아직 미결 — [`open-questions.md`](../../00-overview/open-questions.md) §3 "되묻기 UI 모달 vs 인라인" (Design #4 + Frontend #2, 결정 기한: `component-states.md` 작성 시). 본 문서는 저장 직후 화면 전환만 다루고, 되묻기 UI 자체는 범위에서 제외한다.
+파인만을 Inbox 화면 안에서 모달로 보여줄지, 별도 알림으로 보여줄지는 아직 미결 — [`open-questions.md`](../../00-overview/open-questions.md) §3 "파인만 UI 모달 vs 인라인" (Design #4 + Frontend #2, 결정 기한: `component-states.md` 작성 시). 본 문서는 저장 직후 화면 전환만 다루고, 파인만 UI 자체는 범위에서 제외한다.
 
 ---
 
@@ -108,7 +108,7 @@ Inbox 작성 (제목 + project 선택 + 해시태그(tags) + Markdown 본문 [+ 
 | Markdown 본문 + 이미지 인라인 첨부 | ✅ (`markdown-editor.md` 컴포넌트 재사용) | — |
 | 고정하기 | ⛔ | post-MVP, `entities.md` 변경(`contracts-change`) 필요 |
 | 연결된 node 표시 | ⛔ (Inbox 단계엔 근거 데이터 없음) | `wiki-view.md`/`graph-view.md`에서 구현 |
-| 되묻기 UI 표시 방식 | ⏸ Open Question | [`open-questions.md`](../../00-overview/open-questions.md) §3 결정 후 |
+| 파인만 UI 표시 방식 | ⏸ Open Question | [`open-questions.md`](../../00-overview/open-questions.md) §3 결정 후 |
 
 ---
 
@@ -118,7 +118,7 @@ Inbox 작성 (제목 + project 선택 + 해시태그(tags) + Markdown 본문 [+ 
 - [`../../10-contracts/workspace-layout.md`](../../10-contracts/workspace-layout.md) — `<space>/inbox/`, `<space>/archive/`
 - [`../../10-contracts/markdown-frontmatter.md`](../../10-contracts/markdown-frontmatter.md) — ArchiveNote frontmatter 검증
 - [`../../00-overview/scope-mvp.md`](../../00-overview/scope-mvp.md) §2.3 — 화면 모델 SSOT
-- [`../../00-overview/open-questions.md`](../../00-overview/open-questions.md) §3 — 되묻기 UI 미결 항목
+- [`../../00-overview/open-questions.md`](../../00-overview/open-questions.md) §3 — 파인만 UI 미결 항목
 - [이슈 #64](https://github.com/gosu1/piecepool/issues/64) — `Source.tags` 신규 필드 제안 (resource 매핑, `contracts-change` 머지 대기)
 - `../ocr-client.md` — 이미지 첨부 파이프라인 (PR #55, 병합 대기 — 머지 후 링크로 교체)
 - `markdown-editor.md` ([#21](https://github.com/gosu1/piecepool/issues/21)) — 본문 편집 컴포넌트 재사용

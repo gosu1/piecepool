@@ -6,7 +6,7 @@ Inbox 자료 한 건이 **archive → LLM 재구성 → wiki/relations 영속화
 > 경계 / SSOT 링크 (본 문서에 규칙 복붙 금지 — 링크만):
 > - 상태 **전이 다이어그램** = [`import-job-states.md`](import-job-states.md) (Cooperative)
 > - 인박스 **우선도** = `prioritization.md`(작성 예정)
-> - LLM 호출·검증·재시도·되묻기 = [`../30-llm/output-validation.md`](../30-llm/output-validation.md), 변환 스키마 = [`../10-contracts/llm-output-schema.md`](../10-contracts/llm-output-schema.md)
+> - LLM 호출·검증·재시도·파인만 = [`../30-llm/output-validation.md`](../30-llm/output-validation.md), 변환 스키마 = [`../10-contracts/llm-output-schema.md`](../10-contracts/llm-output-schema.md)
 > - PDF 추출 = [`pdf-extraction.md`](pdf-extraction.md), 파일 I/O·저장 = [`storage-io.md`](storage-io.md)
 > - 오류 `kind`·`Outcome` 모델 = [`error-handling.md`](error-handling.md), 엔티티 = [`../10-contracts/entities.md`](../10-contracts/entities.md)
 
@@ -43,7 +43,7 @@ Inbox 자료 한 건이 **archive → LLM 재구성 → wiki/relations 영속화
 
 ```
 idle → parsing → archiving → llm_processing → writing → completed
-                                   │ (되묻기 on)
+                                   │ (파인만 on)
                                    ▼
                             clarify_pending ── 사용자 응답 ─► llm_processing(2차) → writing → completed
                                    │           사용자 무시 ─► writing(1차 결과 저장) → completed
@@ -72,11 +72,11 @@ LLM/검증/저장 단계의 **비치명적** 결과는 실패가 아니다. `?`�
 
 ---
 
-## 5. 되묻기 (clarify) round-trip
+## 5. 파인만 (clarify) round-trip
 
 1차 `LlmWikiResult`가 불확실 임계치를 넘으면 `clarify_pending`으로 사용자에게 재질의한다. 트리거 조건·흐름·1회 제한은 [output-validation §6](../30-llm/output-validation.md) SSOT.
 
-- **되묻기 토글 off면 되묻기 없음** — `llm_processing` → 바로 `writing` (단일 tier, [ADR-0002](../adr/0002-single-tier-pricing.md)).
+- **파인만 토글 off면 파인만 없음** — `llm_processing` → 바로 `writing` (단일 tier, [ADR-0002](../adr/0002-single-tier-pricing.md)).
 - `clarify_pending`은 [`entities.md`](../10-contracts/entities.md) `ImportJobStatus` enum에 **정의됨**(2026-05-29 `contracts-change` 추가). 전이는 [`import-job-states.md`](import-job-states.md) 참조.
 
 ---
@@ -100,11 +100,11 @@ LLM/검증/저장 단계의 **비치명적** 결과는 실패가 아니다. `?`�
 
 | 문서 | 내용 |
 |---|---|
-| [`import-job-states.md`](import-job-states.md) | `ImportJobStatus` 전이 다이어그램 (되묻기 round-trip) |
+| [`import-job-states.md`](import-job-states.md) | `ImportJobStatus` 전이 다이어그램 (파인만 round-trip) |
 | `prioritization.md`(작성 예정) | 인박스 중요도/우선도 |
 | [`pdf-extraction.md`](pdf-extraction.md) · [`storage-io.md`](storage-io.md) | parsing·저장 단계가 호출하는 모듈 |
 | [`error-handling.md`](error-handling.md) | `Outcome` 모델 · 오류 `kind` |
-| [`../30-llm/output-validation.md`](../30-llm/output-validation.md) | LLM 검증·재시도·부분실패·되묻기 |
+| [`../30-llm/output-validation.md`](../30-llm/output-validation.md) | LLM 검증·재시도·부분실패·파인만 |
 | [`ipc-api.md`](ipc-api.md) | `extract_pdf_text`·`save_source_file`·`create_note`·`save_wiki`·`append_relations` |
 
 ---

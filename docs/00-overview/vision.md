@@ -80,7 +80,7 @@ PiecePool은 대학생을 위한 **로컬 우선 AI 지식 Workspace**다.
 
 ## 7. LLM
 
-LLM 처리는 **Google Gemini**를 사용한다. fact-check·정보 간극 메우기(feature 3, label↔user)는 **Liner** 출처 검색을 주 해결책으로 쓴다. 되묻기, 웹 검색 비교, suggest로 Wiki 품질·검증을 강화한다.
+LLM 처리는 **Google Gemini**를 사용한다. fact-check·정보 간극 메우기(feature 3, label↔user)는 **Liner** 출처 검색을 주 해결책으로 쓴다. 파인만, 웹 검색 비교, suggest로 Wiki 품질·검증을 강화한다.
 
 자세한 매트릭스: [`pricing-model.md`](pricing-model.md)
 

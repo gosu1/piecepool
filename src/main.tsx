@@ -13,6 +13,12 @@ if (inTauri) {
   import("@tauri-apps/api/webview")
     .then(({ getCurrentWebview }) => getCurrentWebview().setZoom(TAURI_ZOOM))
     .catch(() => {});
+
+  // 웹뷰 기본 컨텍스트 메뉴(Look Up · Translate · Search with Google · Inspect Element …)는
+  // 웹페이지의 것이지 데스크톱 앱의 것이 아니다 — 데스크톱 앱들이 그렇듯 우리 UI 만 보여준다.
+  // 앱이 직접 띄우는 메뉴(트리·탭 우클릭)는 React 핸들러라 그대로 뜬다.
+  // 브라우저(`npm run dev`)에서는 걸지 않는다 — 개발 중 devtools 를 뺏지 않기 위해.
+  window.addEventListener("contextmenu", (e) => e.preventDefault());
 }
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(

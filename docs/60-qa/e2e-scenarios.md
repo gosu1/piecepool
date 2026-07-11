@@ -157,23 +157,23 @@ End-to-end 시나리오. 각 시나리오는 사용자 관점 1회 흐름이며,
 
 ---
 
-## 시나리오 9: 되묻기 round-trip
+## 시나리오 9: 파인만 round-trip
 
 **전제**: 의도적으로 불명확한 input (예: 단어 1개만).
 
 **흐름**:
 1. Inbox에 짧고 모호한 텍스트 입력
 2. LLM 1차 응답 → Backend가 불확실 판정 (`confidence < 임계값`)
-3. **되묻기 UI**가 사용자에게 재확인 질문 표시
+3. **파인만 UI**가 사용자에게 재확인 질문 표시
 4. 사용자가 추가 정보 입력
 5. LLM 2차 호출 → WikiPage 생성
 
 **검증**:
-- 되묻기 UI 트리거됨
+- 파인만 UI 트리거됨
 - 사용자 응답이 LLM 2차 호출 input에 반영
 - ImportJobStatus 전이에 round-trip 단계 기록
 
-**acceptance**: §3.3 되묻기, [pricing-model §3.3](../00-overview/pricing-model.md)
+**acceptance**: §3.3 파인만, [pricing-model §3.3](../00-overview/pricing-model.md)
 
 ---
 
@@ -247,5 +247,5 @@ End-to-end 시나리오. 각 시나리오는 사용자 관점 1회 흐름이며,
 ## 변경 이력 노트
 
 - 본 문서는 신규 작성이다. PRD-v1에는 시나리오 분해가 없었다.
-- 시나리오 4 (OCR), 8 (OpenAI 호출), 9~10 (되묻기·fact-check), 12 (cross-subject)는 본 리팩토링 결정사항 반영이다.
+- 시나리오 4 (OCR), 8 (OpenAI 호출), 9~10 (파인만·fact-check), 12 (cross-subject)는 본 리팩토링 결정사항 반영이다.
 - 2026-07-10: LLM provider를 OpenAI → Google Gemini로 전환 ([ADR-0009](../adr/0009-llm-provider-gemini.md)). 시나리오 2·8 전제/호출 경로를 Gemini(OpenAI 호환 Chat Completions, 키=`GEMINI_API_KEY`)로 정정.

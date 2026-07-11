@@ -713,7 +713,7 @@ export default function PiecePoolApp() {
     }
   };
   // 복습 표시 — reason 은 사용자가 직접 쓴 말이고, 그대로 evidence 가 된다(evidence ≥ 1).
-  // 되묻기 루프 밖에서도 표시할 수 있다: "이건 아직 모르겠다" 는 판단은 언제나 사용자 몫이다.
+  // 파인만 루프 밖에서도 표시할 수 있다: "이건 아직 모르겠다" 는 판단은 언제나 사용자 몫이다.
   const markReview = async (space: string, conceptId: string, title: string, sourceId: string, reason: string) => {
     try {
       await ipc.markReviewNeeded(space, conceptId, sourceId, [reason]);
@@ -1109,6 +1109,8 @@ export default function PiecePoolApp() {
         onLink={(t) => resolveLink(space, t)}
         linkExists={linkExistsIn(space)}
         embedSpace={space}
+        // 파인만은 원본 노트에서만 — 위키는 LLM 이 쓴 글이라 "자기 말로 설명"의 대상이 아니다.
+        feynman={{ noteId: note.sourceId, space }}
         topSlot={
           <AiBar
             busy={aiBusy === key}

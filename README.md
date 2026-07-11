@@ -24,11 +24,12 @@
 
 ## 핵심 기능
 
-LLM이 하는 일 세 가지:
+LLM이 하는 일 네 가지:
 
 1. **Wiki 생성** — 사용자 원본 노트(`archive/`)를 Concept 중심 WikiPage로 재구성한다. 원문은 절대 덮어쓰지 않는다.
 2. **타입 있는 Graph** — Wiki를 12종 RelationType(strength / confidence / 근거 evidence)으로 연결한다. 과목을 넘나드는 지식 지도가 자연히 생긴다.
 3. **정보 간극 메우기 (label ↔ user)** — **Liner API**(주)가 권위 있는 출처를 검색해 정답 기준(label)을 세우고 사용자 필기 사이의 간극을 검증·보강한다(fact-check·출처 provenance). Liner 미가용 시 **Gemini**(보조)가 정답을 바로 주입하지 않고 1~3개 선택지 + 기타 칸으로 **소크라테스식·하브루타식** 되묻기 질문을 생성한다.
+4. **파인만** — 개념을 자기 말로 설명하게 하고, LLM은 정답을 알려주지 않은 채 그 설명의 구멍 하나만 짚어 되묻는다. 이해했는지는 **오직 사용자가** 판정하며(LLM은 채점하지 않는다), 사용자가 남긴 설명이 Wiki의 재료가 된다.
 
 Obsidian(단순 링크)·Notion(SaaS DB)·Anki(고립 카드)와 달리 **LLM 재구성 Wiki + 타입 관계 + 누적 지식 지도**가 차별점이다.
 
@@ -67,7 +68,7 @@ npm run tauri dev         # Tauri 창 + Vite 개발 서버
 | 데스크톱 앱 (`npm run tauri dev`) | 설정 모달 → 브라우저 `localStorage` | **`.env`를 읽지 않는다** |
 | CLI 스크립트 (`npm run eval:feynman`, `chunk` 등) | `.env` 또는 셸 환경변수 | `cp .env.example .env` 후 `GEMINI_API_KEY` 입력 |
 
-키가 없으면 앱은 죽지 않고 휴리스틱 폴백으로 내려간다 — 되묻기 패널이 뜨지 않으면 키부터 확인할 것.
+키가 없으면 앱은 죽지 않고 휴리스틱 폴백으로 내려간다 — 파인만 패널이 뜨지 않으면 키부터 확인할 것.
 
 빌드 · 미리보기 · 테스트:
 
@@ -92,7 +93,7 @@ npm run e2e           # Playwright e2e
 | Frontend | React + TypeScript + Tailwind |
 | Backend | Rust — 파일 I/O · PDF 추출 · import 파이프라인 · IPC |
 | 저장 | 로컬 파일시스템 (Markdown + JSON), Obsidian 호환 `[[파일]]` / `![[파일]]` |
-| LLM | Google Gemini (`gemini-2.5-flash`, OpenAI 호환 엔드포인트) — Wiki 생성 · 파인만식 되묻기 · 타입 Graph |
+| LLM | Google Gemini (`gemini-2.5-flash`, OpenAI 호환 엔드포인트) — Wiki 생성 · 파인만 · 타입 Graph |
 | 출처 검색 | Liner API (`LINER_API_KEY`) — 정보 간극 메우기(fact-check · provenance) |
 
 파이프라인: **Inbox → `archive/`(원문 보존) → LLM Wiki → 타입 Graph**. 확정된 기술 결정과 근거는 [`docs/`](docs/) 트리를 참조한다.
