@@ -302,9 +302,10 @@ export const mock = {
     memNotes[space] = [n, ...(memNotes[space] ?? [])];
     return delay(n);
   },
-  saveNote: (space: string, file: string, markdown: string) => {
+  saveNote: (space: string, file: string, markdown: string, title?: string) => {
     const n = (memNotes[space] ?? []).find((x) => x.path === file)!;
     n.markdown = markdown;
+    if (title && title.trim()) n.title = title.trim();
     return delay(n);
   },
   moveNote: (space: string, file: string, toSpace: string) => {

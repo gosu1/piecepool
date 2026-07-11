@@ -3,7 +3,7 @@ import { Button, FileDropzone, Icons, cn } from "../../ds";
 import type { KnowledgeSpace, WikiPage as WikiPageT } from "../../lib/types";
 import * as ipc from "../../lib/ipc";
 import { useImportStore } from "../../store/importStore";
-import { useInboxDraftStore, type PdfSummaryJob } from "../../store/inboxDraftStore";
+import { useInboxDraftStore, EMPTY_DRAFT, type InboxDraft, type PdfSummaryJob } from "../../store/inboxDraftStore";
 import { runImageOcr } from "../../llm/ocr";
 import { SlashBlockEditor } from "../../lib/SlashBlockEditor";
 import { ConfirmDialog } from "../shell/Dialogs";
@@ -57,6 +57,8 @@ export function InboxSection({
   onRefresh,
   onNotice,
   onDirtyChange,
+  onTitleChange,
+  draftKey,
   quickMemoOpen,
   onToggleQuickMemo,
 }: {
@@ -64,6 +66,8 @@ export function InboxSection({
   spaceId: string;
   subjectIdsDefault: string[];
   existing: WikiPageT[];
+  // 초안 보존 key = 이 노트 탭의 고유 id — 탭 전환 unmount 돼도 이 key 로 스토어에서 복원. "새 노트"면 새 탭이라 새 key.
+  draftKey: string;
   // 저장 대상 폴더 선택용 — 전체 지식 공간 목록과 공간별 위키(대상 폴더의 dedup 기준)
   spaces: KnowledgeSpace[];
   wikiBySlug: Record<string, WikiPageT[]>;
@@ -71,8 +75,10 @@ export function InboxSection({
   onRefresh: (space: string) => Promise<void> | void;
   // 저장 실패 등 사용자 알림(상태바 토스트). 성공은 노트 초기화·위키 패널로 암시.
   onNotice?: (msg: string) => void;
-  // 작성 중 초안 유무를 탭에 알린다 — "새 노트" 시 초안 폐기 확인 · 탭 닫기 확인 판정용
+  // 작성 중 초안 유무를 탭에 알린다 — 탭 닫기 확인 판정용
   onDirtyChange?: (dirty: boolean) => void;
+  // 노트 제목을 탭 라벨로 반영
+  onTitleChange?: (title: string) => void;
   // 퀵메모 — 창 자체는 앱 셸이 소유한다(탭을 바꿔도 살아있어야 하므로). 알약은 그 상태를 비출 뿐이다.
   quickMemoOpen: boolean;
   onToggleQuickMemo: () => void;
@@ -86,39 +92,36 @@ export function InboxSection({
     existing: slug === space ? existing : (wikiBySlug[slug] ?? []),
     subjectIds: slug === space ? subjectIdsDefault : (wikiBySlug[slug]?.[0]?.subjectIds ?? []),
   });
-  // ── 보조 패널(PDF·위키) 열림 상태 — 저장하지 않음(노트 단위 상태) ──
-  const [panels, setPanels] = useState<Record<InboxPanelKey, boolean>>({ pdf: false, wiki: false });
-  const togglePanel = (key: InboxPanelKey, open?: boolean) => {
-    setPanels((p) => ({ ...p, [key]: open ?? !p[key] }));
-  };
-
-  // ── 작성(새 페이지) 상태 — 스토어 소유(탭 전환 언마운트에도 초안·스트림 생존) ──
-  const inboxDraft = useInboxDraftStore((s) => s.drafts[space]);
-  const summaryJob = useInboxDraftStore((s) => s.job);
-  const title = inboxDraft?.title ?? "";
-  const body = inboxDraft?.body ?? "";
+  // ── 작성 상태 — 스토어 소유(탭 전환 언마운트에도 초안·PDF요약 스트림 생존). key = 이 노트 탭 id(draftKey) ──
+  // 노트 = 탭 하나. 제목·본문·바인딩·패널·PDF·위키선택을 전부 draftKey 로 보존한다.
   const ds = useInboxDraftStore;
-  const setTitle = (v: string) => ds.getState().setTitle(space, v);
-  const setBody = (v: string) => ds.getState().setBody(space, v);
-  const appendBody = (v: string) => ds.getState().appendBody(space, v);
+  // EMPTY_DRAFT 병합 — 없거나 옛 스키마(누락 필드) draft 여도 8필드가 항상 채워져 렌더가 안 깨진다.
+  const noteDraft = { ...EMPTY_DRAFT, ...useInboxDraftStore((s) => s.drafts[draftKey]) };
+  const summaryJob = useInboxDraftStore((s) => s.job);
+  const { title, body, savedFile, savedSpace, savedSnapshot, panels, refWikiPath, refSource } = noteDraft;
+  const write = (patch: Partial<InboxDraft>) => ds.getState().write(draftKey, patch);
+  const setTitle = (v: string) => ds.getState().setTitle(draftKey, v);
+  const setBody = (v: string) => ds.getState().setBody(draftKey, v);
+  const appendBody = (v: string) => ds.getState().appendBody(draftKey, v);
   const setTitleIfEmpty = (v: string) => {
-    if (!ds.getState().drafts[space]?.title) setTitle(v);
+    if (!ds.getState().drafts[draftKey]?.title) setTitle(v);
   };
-  // 이 공간에서 요약 스트리밍 중이면 편집 잠금 + body 뒤에 미확정 텍스트를 파생 렌더.
-  const summarizing = summaryJob?.space === space && summaryJob.status === "streaming";
+  const setRefWikiPath = (v: string) => write({ refWikiPath: v });
+  const setRefSource = (v: string) => write({ refSource: v });
+  const togglePanel = (key: InboxPanelKey, open?: boolean) => write({ panels: { ...panels, [key]: open ?? !panels[key] } });
+  // 이 노트 탭에서 요약 스트리밍 중이면 편집 잠금 + body 뒤에 미확정 텍스트를 파생 렌더.
+  const summarizing = summaryJob?.noteKey === draftKey && summaryJob.status === "streaming";
   const editorValue = summarizing && summaryJob.text ? (body ? `${body}\n\n${summaryJob.text}` : summaryJob.text) : body;
   // 요약 완료 시 [!easy] 콜아웃 일괄 접기 트리거(done 이면 non-zero 로 바뀌어 1회 발화).
-  const foldEasyKey = summaryJob?.space === space && summaryJob.status === "done" ? summaryJob.text.length : 0;
+  const foldEasyKey = summaryJob?.noteKey === draftKey && summaryJob.status === "done" ? summaryJob.text.length : 0;
   const [withLlm, setWithLlm] = useState(true);
   const [clarify, setClarify] = useState(false);
-  const [draft, setDraft] = useState(""); // 지금 쓰고 있는 설명
+  const [draft, setDraft] = useState(""); // 지금 쓰고 있는 설명(파인만 되묻기)
   const { job, feynman, runImport, explain, retryProbe, switchConcept, finishFeynman } = useImportStore();
   const busy = !!job && !["completed", "failed"].includes(job.status);
 
-  // ── 참조 패널 상태 ──
-  const [refWikiPath, setRefWikiPath] = useState<string>("");
+  // ── 참조 패널 상태 (sources 목록은 로컬; 선택 refSource·refWikiPath 는 draft 로 보존) ──
   const [sources, setSources] = useState<string[]>([]); // 이 공간의 원본 파일 전체
-  const [refSource, setRefSource] = useState<string>("");
   // 동시 임포트(다중 drop) 대응 — 불리언이면 먼저 끝난 건이 busy 를 풀어버린다.
   const [pdfJobs, setPdfJobs] = useState(0);
   const pdfBusy = pdfJobs > 0;
@@ -189,11 +192,12 @@ export function InboxSection({
       const list = await ipc.listSources(space);
       setSources(list);
       // 목록의 첫 파일을 자동 선택하지 않는다 — 이 노트와 무관한 원본이 열린다.
-      setRefSource((cur) => (cur && list.includes(cur) ? cur : ""));
+      const cur = ds.getState().drafts[draftKey]?.refSource ?? "";
+      setRefSource(cur && list.includes(cur) ? cur : "");
     } catch {
       setSources([]);
     }
-  }, [space]);
+  }, [space, draftKey, ds]);
 
   useEffect(() => {
     if (panels.pdf) void loadSources();
@@ -226,8 +230,8 @@ export function InboxSection({
           onNotice?.("다른 PDF 요약이 진행 중이에요 — 끝난 뒤 다시 올려주세요");
           return;
         }
-        const noteTitle = ds.getState().drafts[space]?.title || f.name.replace(/\.[^.]+$/, "");
-        void ds.getState().runSummary({ space, file: stored, title: noteTitle, text });
+        const noteTitle = ds.getState().drafts[draftKey]?.title || f.name.replace(/\.[^.]+$/, "");
+        void ds.getState().runSummary({ noteKey: draftKey, file: stored, title: noteTitle, text });
       } catch {
         // 추출 실패 — 사용자가 직접 필기하면 됨(embed 는 이미 들어감)
       }
@@ -287,11 +291,16 @@ export function InboxSection({
     if (!title.trim() || busy || pdfBusy || summarizing) return;
     setDraft("");
     const t = resolveTarget(targetSpace);
-    const res = await runImport({ space: targetSpace, spaceId: t.spaceId, title: title.trim(), markdown: body, subjectIds: t.subjectIds, withLlm, clarify, existing: t.existing });
+    // 재저장(saveNote)은 savedFile 이 그 공간에 있을 때만 — 대상 공간을 바꿨으면 새 노트로(다른 공간 노트 덮어쓰기 방지).
+    const reuse = savedFile && savedSpace === targetSpace ? savedFile : undefined;
+    const res = await runImport({ space: targetSpace, spaceId: t.spaceId, title: title.trim(), markdown: body, subjectIds: t.subjectIds, withLlm, clarify, existing: t.existing, noteFile: reuse });
+    // 생성/갱신된 노트에 바인딩(살아있는 노트) — 노트를 비우지 않고 이어서 필기.
+    if (res.noteFile) write({ savedFile: res.noteFile, savedSpace: targetSpace });
     if (res.status === "completed") {
-      ds.getState().clearDraft(space);
+      write({ savedSnapshot: `${title.trim()} ${body}` });
       await onRefresh(targetSpace);
       if (res.clarifySkipped) onNotice?.("AI 정리 키가 없어 되묻기를 건너뛰었어요 — 설정에서 키를 넣어주세요");
+      else onNotice?.(withLlm ? "위키에 반영됐어요 ✓ — 이어서 필기하세요" : "저장됐어요 ✓ — 이어서 필기하세요");
       // 방금 만든 위키가 있을 때만 위키 패널을 연다 (대상=현재 공간일 때만 — 참조 패널은 현재 공간 기준)
       if (withLlm && targetSpace === space && res.firstWikiPath) {
         setRefWikiPath(res.firstWikiPath);
@@ -314,12 +323,15 @@ export function InboxSection({
   const finishClarify = async (understood: boolean) => {
     const res = await finishFeynman(understood);
     if (res.status === "completed") {
-      ds.getState().clearDraft(space);
       setDraft("");
+      // 노트를 비우지 않는다 — 이어서 필기. 방금 저장된 노트·공간에 바인딩.
+      if (res.noteFile) write({ savedFile: res.noteFile, savedSpace: targetSpace });
+      write({ savedSnapshot: `${title.trim()} ${body}` });
       await onRefresh(targetSpace);
       if (res.reviewMarked) onNotice?.(`"${res.reviewMarked}" 을(를) 복습 필요로 표시했어요`);
       else if (res.reviewNoEvidence) onNotice?.("설명을 한 번도 쓰지 않아 복습 표시를 하지 않았어요");
       else if (res.reviewMissed) onNotice?.("복습 표시를 못 했어요 — 정리 결과에 그 개념이 없습니다");
+      else onNotice?.("위키에 반영됐어요 ✓ — 이어서 필기하세요");
       if (res.regenDowngraded) onNotice?.("AI 재생성에 실패해 첫 정리 결과를 그대로 저장했어요");
       if (targetSpace === space && res.firstWikiPath) {
         setRefWikiPath(res.firstWikiPath);
@@ -331,12 +343,16 @@ export function InboxSection({
   };
 
 
-  // 작성 중 초안 여부를 탭에 알린다 — 저장하면 title/body 가 비워지므로 자동으로 clean 이 된다.
+  // 작성 중 초안 여부를 탭에 알린다 — 저장 직후엔 내용이 남아도 "깨끗"(마지막 저장과 동일). 바뀌면 다시 dirty.
   // 콜백은 매 렌더 새 함수라 deps 에 넣으면 setTabDirty → 리렌더 → 다시 호출로 돈다. ref 로 고정.
-  const dirty = !!(title.trim() || body.trim());
+  const dirty = !!(title.trim() || body.trim()) && `${title.trim()} ${body}` !== savedSnapshot;
   const onDirtyChangeRef = useRef(onDirtyChange);
   onDirtyChangeRef.current = onDirtyChange;
   useEffect(() => onDirtyChangeRef.current?.(dirty), [dirty]);
+  // 제목을 탭 라벨로 알린다 — 여러 노트 탭을 제목으로 구분한다.
+  const onTitleChangeRef = useRef(onTitleChange);
+  onTitleChangeRef.current = onTitleChange;
+  useEffect(() => onTitleChangeRef.current?.(title), [title]);
 
   // ── 노트 패널 (중심 고정) — 새 원본(archive) 작성 ──
   // PDF·위키 보조 패널 토글 — 노트 헤더 우측 슬롯에 배치(독립 헤더 줄 제거 → 3줄→2줄)
@@ -419,7 +435,7 @@ export function InboxSection({
             frameless
           />
         </div>
-        {summaryJob?.space === space && <SummaryStrip job={summaryJob} onCancel={() => ds.getState().cancelSummary()} onClose={() => ds.getState().clearJob()} />}
+        {summaryJob?.noteKey === draftKey && <SummaryStrip job={summaryJob} onCancel={() => ds.getState().cancelSummary()} onClose={() => ds.getState().clearJob()} />}
         <div className="flex shrink-0 items-center justify-between pt-3">
           <span className="text-[12px] text-ink-faint">⌘Enter 로 저장</span>
           <Button
@@ -432,7 +448,7 @@ export function InboxSection({
           </Button>
         </div>
 
-        {job?.status === "clarify_pending" && feynman.concept && (
+        {job?.status === "clarify_pending" && feynman.concept && job.noteFile === savedFile && (
           <div className="mt-3 shrink-0 space-y-3 rounded-md border border-primary/40 bg-primary/[0.04] p-3">
             {/* 파인만: 고르게 하지 않는다. 자기 말로 설명하게 한다. */}
             <div className="flex items-baseline justify-between gap-2">

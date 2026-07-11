@@ -33,6 +33,7 @@ export interface ImportJobView {
   mergedCount?: number;
   factChecked?: number; // Liner fact-check 로 출처가 붙은 관계 수
   firstWikiPath?: string; // 이번 임포트로 생성/갱신된 첫 위키 경로 — 위키 패널이 방금 만든 위키를 열도록
+  noteFile?: string; // 생성/갱신된 archive 노트 파일명 — Inbox 가 바인딩해 이어서 편집(살아있는 노트)
   reviewMarked?: string; // 사용자가 "아직 모르겠어요" 로 표시한 개념 제목
   reviewMissed?: boolean; // 표시하려 했으나 2차 생성 결과에 그 개념이 없어 건너뜀(경고용)
   reviewNoEvidence?: boolean; // 설명을 한 번도 안 써서 표시할 근거가 없음(evidence ≥ 1 계약)
@@ -60,6 +61,8 @@ export interface RunImportParams {
   withLlm: boolean;
   clarify: boolean;
   existing: WikiPage[];
+  /** 살아있는 노트 — 이미 저장된 노트의 파일명. 있으면 새로 만들지 않고 그 노트를 갱신한다(재저장 중복 방지). */
+  noteFile?: string;
 }
 
 interface Pending {
@@ -193,7 +196,12 @@ export const useImportStore = create<ImportState>((set, get) => {
       commit(job);
       try {
         job = commit({ ...job, status: "archiving" });
-        const note = await ipc.createNote(p.space, p.title, p.markdown, p.subjectIds);
+        // 살아있는 노트 — noteFile 이 있으면 새로 만들지 않고 그 노트를 갱신한다(재저장 시 archive 중복 방지).
+        const note = p.noteFile
+          ? await ipc.saveNote(p.space, p.noteFile, p.markdown, p.title)
+          : await ipc.createNote(p.space, p.title, p.markdown, p.subjectIds);
+        // 생성/갱신된 노트 파일명을 job 에 실어 Inbox 가 바인딩하게 한다(이후 모든 return 에 전파).
+        job = { ...job, noteFile: note.path };
 
         if (!p.withLlm) {
           commit({ ...job, status: "writing" });

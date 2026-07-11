@@ -83,7 +83,10 @@ export function TabStrip({
             className={cn(
               // 폭은 개수 기반(tabW). min 96px 까지 축소 허용, width 전환으로 부드럽게.
               "group my-auto flex h-9 min-w-[96px] cursor-pointer items-center gap-1.5 rounded-md px-3 text-[14px] transition-[width,background-color,color] duration-150",
-              active ? "bg-canvas text-ink" : "text-ink-muted hover:bg-surface-soft/60 hover:text-ink",
+              // 활성 탭 = 음영(canvas 배경) + 그림자로 띄우고 + 볼드 + 위 액센트 선. 지금 어느 탭인지 한눈에.
+              active
+                ? "bg-canvas font-semibold text-ink shadow-soft"
+                : "text-ink-muted hover:bg-surface-soft/60 hover:text-ink",
             )}
           >
             <span className={cn("shrink-0", active ? "text-ink-muted" : "text-ink-faint")}>

@@ -147,14 +147,15 @@ test("Inbox 패널 — 노트 고정, PDF·위키 보조 패널 여닫기", asyn
   await expect(page.getByText("위키", { exact: true })).not.toBeVisible();
 });
 
-// 새 노트 = Inbox 재사용 + 초안 초기화. 작성 중 초안이 있으면 확인부터.
-test("새 노트 — 작성 중 초안은 확인 후에만 버려진다", async ({ page }) => {
+// 노트 = 탭 하나(웹 탭 모델). "새 노트"는 새 탭을 열 뿐, 옛 노트를 덮어쓰지 않는다(확인 다이얼로그 없음).
+test("새 노트 — 노트마다 새 탭, 옛 노트는 탭으로 유지된다", async ({ page }) => {
   await page.getByRole("button", { name: "새 노트 작성" }).click();
-  await page.getByPlaceholder("새 페이지").fill("버려질 초안");
+  await page.getByPlaceholder("새 페이지").fill("첫 노트");
   await page.getByRole("button", { name: "새 노트 작성" }).click();
-  await expect(page.getByText("작성 중인 초안이 있어요")).toBeVisible();
-  await page.getByRole("button", { name: "새로 시작" }).click();
+  // 새 노트는 빈 탭으로 열린다 — 확인 없이, 옛 노트를 덮어쓰지 않는다.
   await expect(page.getByPlaceholder("새 페이지")).toHaveValue("");
+  // 옛 노트는 자기 탭으로 그대로 남아 있다 (탭 라벨 = 제목).
+  await expect(page.getByRole("tab", { name: /첫 노트/ })).toBeVisible();
 });
 
 // 위키 패널을 열어도 아무 위키가 자동 선택되지 않는다 — 고르기 전엔 빈 상태.
