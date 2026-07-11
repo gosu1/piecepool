@@ -119,6 +119,7 @@ export function DocView({
             onChange={onChangeDraft}
             onSubmit={onSave}
             onSelect={feynman && fy.onSelect}
+            headingAction={feynman && fy.headingAction}
             height="480px"
             placeholder="'/' 로 블록 · ⌘Enter 로 저장"
           />

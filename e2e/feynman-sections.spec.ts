@@ -57,12 +57,40 @@ async function dragLine(page: import("@playwright/test").Page, text: string) {
   await page.mouse.up();
 }
 
+test("## 제목에 마우스를 올리면 버튼이 뜨고, 클릭 한 번으로 그 섹션이 시작된다", async ({ page }) => {
+  await openNote(page);
+
+  // 평소엔 조용하다 — 마우스가 제목을 떠나면 아무 버튼도 보이지 않는다
+  await page.mouse.move(0, 0);
+  await expect(page.locator(".pp-heading-action:visible")).toHaveCount(0);
+
+  const heading = page.locator(".cm-line", { hasText: "attention" }).first();
+  await heading.hover();
+  const handle = heading.locator(".pp-heading-action");
+  await expect(handle).toBeVisible();
+
+  // 드래그 없이 클릭 한 번 → 그 섹션 + 하위 소주제가 순차 주제
+  await handle.click();
+  await expect(page.getByText("주제 1/3")).toBeVisible();
+  await expect(page.getByText(/attention.*처음 배우는 사람에게/)).toBeVisible();
+});
+
+test("### 제목의 버튼은 그 소주제 하나만 시작한다", async ({ page }) => {
+  await openNote(page);
+  const heading = page.locator(".cm-line", { hasText: "multi-head" }).first();
+  await heading.hover();
+  await heading.locator(".pp-heading-action").click();
+
+  await expect(page.getByText(/multi-head.*처음 배우는 사람에게/)).toBeVisible();
+  await expect(page.getByText(/주제 \d+\/\d+/)).toHaveCount(0); // 주제가 하나뿐이면 진행 표시가 없다
+});
+
 test("## 을 드래그하면 자신 + 하위 ### 이 순차 주제가 된다", async ({ page }) => {
   await openNote(page);
   await dragLine(page, "attention");
 
-  // 우클릭을 찾아 헤매지 않는다 — 선택 위에 바로 뜬다
-  const btn = page.getByRole("button", { name: /파인만/ });
+  // 선택 위에 바로 뜬다
+  const btn = page.locator(".pp-feynman-select");
   await expect(btn).toHaveText(/주제 3개/);
   await btn.click();
 
@@ -86,14 +114,14 @@ test("## 을 드래그하면 자신 + 하위 ### 이 순차 주제가 된다", a
 test("소주제만 드래그하면 그 소주제 하나만 대상이다", async ({ page }) => {
   await openNote(page);
   await dragLine(page, "헤드를 여러 개 둔다");
-  await expect(page.getByRole("button", { name: /파인만/ })).toHaveText(/multi-head/);
+  await expect(page.locator(".pp-feynman-select")).toHaveText(/multi-head/);
 });
 
 test("헤딩을 건드리지 않은 선택에는 버튼이 뜨지 않는다", async ({ page }) => {
   const editor = await openNote(page);
   // 첫 줄(H1) 은 주제가 아니다
   await dragLine(page, "Transformer");
-  await expect(page.getByRole("button", { name: /파인만/ })).toHaveCount(0);
+  await expect(page.locator(".pp-feynman-select")).toHaveCount(0);
   await expect(editor).toBeVisible();
 });
 
@@ -106,7 +134,7 @@ test("되물음이 실패해도 설명은 보존된다 — 재타이핑 없이 [
 
   await openNote(page);
   await dragLine(page, "attention");
-  await page.getByRole("button", { name: /파인만/ }).click();
+  await page.locator(".pp-feynman-select").click();
   await page.getByLabel("주제 설명").fill("애써 쓴 내 설명");
   await page.getByRole("button", { name: "설명 보내기" }).click();
 
@@ -155,7 +183,7 @@ test("인박스에서 한 파인만의 설명은 저장 시 위키 재료가 된
 test("판정은 localStorage 에 남고, 노트 본문은 변하지 않는다", async ({ page }) => {
   await openNote(page);
   await dragLine(page, "토큰을 벡터로");
-  await page.getByRole("button", { name: /파인만/ }).click();
+  await page.locator(".pp-feynman-select").click();
   await page.getByLabel("주제 설명").fill("각 토큰을 고정 길이 벡터로 매핑해요");
   await page.getByRole("button", { name: "설명 보내기" }).click();
   await expect(page.getByText(/유사도가 크면/)).toBeVisible({ timeout: 20000 });

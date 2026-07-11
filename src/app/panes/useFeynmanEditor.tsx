@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Icons, cn } from "../../ds";
 import type { EditorSelection } from "../../lib/SlashBlockEditor";
+import type { HeadingAction } from "../../lib/cmHeadingAction";
 import { topicsForSelection, wholeNoteTopics, type SectionTopic } from "../../lib/noteSections";
 import { useFeynmanStore, hasGeminiKey } from "../../store/feynmanStore";
 import { FeynmanPanel, type FeynmanHandlers } from "./FeynmanPanel";
@@ -14,6 +15,8 @@ import { FeynmanPanel, type FeynmanHandlers } from "./FeynmanPanel";
 export interface FeynmanEditor {
   /** SlashBlockEditor 에 그대로 넘긴다 */
   onSelect: (sel: EditorSelection | null) => void;
+  /** ##/### 제목에 마우스를 올리면 뜨는 버튼 — 한 번 클릭으로 그 섹션 시작 */
+  headingAction: HeadingAction;
   /** 선택 위에 뜨는 액션 버튼 + 노트 하단 Q&A 패널 */
   overlay: React.ReactNode;
   /** "글 전체를 파인만" — 현재 본문 전체를 대상으로 시작한다 */
@@ -45,6 +48,12 @@ export function useFeynmanEditor(p: {
 
   return {
     onSelect: setSel,
+    // 제목 줄 호버 → 클릭 한 번. 드래그해서 고르라는 부담을 지우지 않는다 —
+    // 섹션은 이미 사용자가 나눠 놓은 경계다.
+    headingAction: {
+      label: keyed ? "파인만" : "파인만 — API 키 필요",
+      run: ({ pos, doc }) => begin(topicsForSelection(doc, pos, pos)),
+    },
     startWhole: () => begin(wholeNoteTopics(p.markdown, p.noteTitle)),
     canStart: keyed && !!p.markdown.trim(),
     overlay: (
@@ -90,7 +99,7 @@ function SelectionButton({
         disabled={!keyed}
         onClick={onStart}
         className={cn(
-          "flex items-center gap-1.5 rounded-lg border border-hairline bg-surface px-2.5 py-1.5 text-[13px] font-medium shadow-elevated transition-colors",
+          "pp-feynman-select flex items-center gap-1.5 rounded-lg border border-hairline bg-surface px-2.5 py-1.5 text-[13px] font-medium shadow-elevated transition-colors",
           keyed ? "text-ink-2 hover:bg-surface-soft hover:text-ink" : "cursor-default text-ink-faint",
         )}
       >

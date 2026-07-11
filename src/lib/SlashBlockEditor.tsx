@@ -10,6 +10,7 @@ import { autocompletion, startCompletion, type Completion, type CompletionContex
 import { cn } from "../ds";
 import { mathPreview } from "./cmMath";
 import { calloutPreview, foldEasyCallouts } from "./cmCallout";
+import { headingAction as headingActionExt, type HeadingAction } from "./cmHeadingAction";
 
 // Notion식 CM6 캡처 에디터: "/" 슬래시 메뉴 + 마크다운 리스트 자동 이어짐 + ⌘Enter 제출.
 // 테마는 DS 토큰 참조(라이트/다크 자동). 한글-first라 슬래시는 ASCII "/"에서만 트리거(IME 안전).
@@ -24,6 +25,25 @@ const theme = EditorView.theme({
     { backgroundColor: "color-mix(in srgb, var(--ds-ink) 18%, transparent)" },
   ".cm-cursor": { borderLeftColor: "var(--ds-ink)" },
   ".cm-placeholder": { color: "var(--ds-ink-faint)" },
+  // 헤딩 호버 액션 — 그 줄에 마우스를 올렸을 때만 나타난다(평소엔 글이 조용하다).
+  ".pp-heading-action": {
+    display: "none",
+    marginLeft: "10px",
+    verticalAlign: "middle",
+    fontFamily: "var(--font-sans)",
+    fontSize: "11px",
+    fontWeight: "500",
+    lineHeight: "1.4",
+    color: "var(--ds-ink-faint)",
+    backgroundColor: "var(--ds-fill-subtle)",
+    border: "1px solid var(--ds-hairline)",
+    borderRadius: "6px",
+    padding: "2px 7px",
+    cursor: "pointer",
+    userSelect: "none",
+  },
+  ".cm-line:hover .pp-heading-action": { display: "inline-block" },
+  ".pp-heading-action:hover": { color: "var(--ds-ink)", backgroundColor: "var(--ds-surface-soft)" },
   // 슬래시 메뉴 — Notion식 조용·airy: 12px 팝업 라운드 · 6px ul 인셋으로 선택 필(surface-soft) 부유 · 테두리 없는 22px 아이콘 타일(선택 시에만 fill-subtle 워시) · 11px/600 레터스페이스 아이브로우 · 단일 액센트(primary=매칭 텍스트) · 우측 키캡 칩 단축키 · 미들닷 푸터
   ".cm-tooltip.cm-tooltip-autocomplete": { backgroundColor: "var(--ds-surface)", border: "1px solid var(--ds-hairline)", borderRadius: "12px", boxShadow: "var(--shadow-elevated)", overflow: "hidden", minWidth: "300px", padding: "0" },
   ".cm-tooltip-autocomplete > ul": { maxHeight: "360px", padding: "6px", fontFamily: "var(--font-sans)" },
@@ -204,6 +224,7 @@ export function SlashBlockEditor({
   onChange,
   onSubmit,
   onSelect,
+  headingAction: heading,
   placeholder,
   height = "320px",
   className,
@@ -216,6 +237,8 @@ export function SlashBlockEditor({
   onSubmit?: () => void;
   /** 드래그로 텍스트를 잡으면 그 범위·좌표를 올린다. 선택이 풀리면 null. */
   onSelect?: (sel: EditorSelection | null) => void;
+  /** ##/### 제목 줄에 마우스를 올리면 제목 끝에 뜨는 버튼 (Notion 블록 핸들과 같은 결) */
+  headingAction?: HeadingAction;
   placeholder?: string;
   height?: string;
   className?: string;
@@ -231,6 +254,8 @@ export function SlashBlockEditor({
   // onSubmit 과 같은 이유로 ref 우회 — extensions deps 에 넣으면 매 렌더 에디터가 재구성된다.
   const selRef = useRef(onSelect);
   selRef.current = onSelect;
+  const headingRef = useRef(heading);
+  headingRef.current = heading;
   const viewRef = useRef<EditorView | null>(null);
   useEffect(() => {
     if (foldEasyKey && viewRef.current) foldEasyCallouts(viewRef.current);
@@ -243,6 +268,7 @@ export function SlashBlockEditor({
       markdown(),
       syntaxHighlighting(liveMarkdown),
       hideHeaderMarks,
+      headingActionExt(() => headingRef.current),
       mathPreview,
       calloutPreview,
       EditorView.lineWrapping,

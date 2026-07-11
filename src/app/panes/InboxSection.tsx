@@ -388,6 +388,7 @@ export function InboxSection({
             onChange={setBody}
             onSubmit={run}
             onSelect={fy.onSelect}
+            headingAction={fy.headingAction}
             readOnly={summarizing}
             foldEasyKey={foldEasyKey}
             placeholder="'/' 로 블록 삽입 · 마크다운으로 작성 · ⌘Enter 로 저장"
