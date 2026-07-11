@@ -154,6 +154,18 @@ export function QuickMemo({ onClose }: { onClose: () => void }) {
     setError(null);
   };
 
+  // ⌘E → 정리. 창이 열려 있는 동안에만 산다(언마운트하면 자동 해제).
+  // textarea 안에서도 눌리도록 window 에 건다 — 손이 자판을 떠나지 않아야 한다.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "e") return;
+      e.preventDefault();
+      void tidy();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [tidy]);
+
   const showResult = phase === "tidying" || phase === "done";
 
   return (
@@ -238,6 +250,7 @@ export function QuickMemo({ onClose }: { onClose: () => void }) {
               variant="primary"
               onClick={tidy}
               disabled={!draft.trim()}
+              title="⌘E"
               leftIcon={<Icons.SparkleIcon size={13} />}
             >
               정리

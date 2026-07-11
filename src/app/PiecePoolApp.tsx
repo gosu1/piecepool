@@ -166,7 +166,7 @@ export default function PiecePoolApp() {
   // 활성 탭 → 현재 공간(아래에서 계산)을 keydown 핸들러([] deps)에서 참조하기 위한 ref
   const currentSpaceRef = useRef("");
 
-  // ⌘K/⌘O → 검색 팔레트 · ⌘N → 새 노트
+  // ⌘K/⌘O → 검색 팔레트 · ⌘N → 새 노트 · ⌘M → 퀵메모
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey)) return;
@@ -177,6 +177,10 @@ export default function PiecePoolApp() {
       } else if (k === "n") {
         e.preventDefault();
         openNewNoteRef.current(currentSpaceRef.current);
+      } else if (k === "m") {
+        // 강의 중 급하게 부르는 키다 — 어느 화면에 있든, 메모장에 포커스가 있어도 여닫힌다.
+        e.preventDefault();
+        setMemoOpen((v) => !v);
       }
     };
     window.addEventListener("keydown", onKey);
