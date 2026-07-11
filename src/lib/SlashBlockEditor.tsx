@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { markdown, insertNewlineContinueMarkup, deleteMarkupBackward } from "@codemirror/lang-markdown";
 import { Decoration, EditorView, ViewPlugin, keymap, placeholder as cmPlaceholder } from "@codemirror/view";
@@ -8,6 +8,8 @@ import { HighlightStyle, syntaxHighlighting, syntaxTree } from "@codemirror/lang
 import { tags } from "@lezer/highlight";
 import { autocompletion, startCompletion, type Completion, type CompletionContext } from "@codemirror/autocomplete";
 import { cn } from "../ds";
+import { mathPreview } from "./cmMath";
+import { calloutPreview, foldEasyCallouts } from "./cmCallout";
 
 // Notion식 CM6 캡처 에디터: "/" 슬래시 메뉴 + 마크다운 리스트 자동 이어짐 + ⌘Enter 제출.
 // 테마는 DS 토큰 참조(라이트/다크 자동). 한글-first라 슬래시는 ASCII "/"에서만 트리거(IME 안전).
@@ -131,6 +133,8 @@ const SLASH_ITEMS: SlashItem[] = [
   { label: "인용", detail: "> ", insert: "> ", icon: "\"", section: SEC_BASIC },
   { label: "코드 블록", detail: "``` ```", insert: "```\n\n```", cursor: 4, icon: "<>", section: SEC_INSERT },
   { label: "콜아웃", detail: "> [!note]", insert: "> [!note] ", icon: "!", section: SEC_INSERT },
+  { label: "수식", detail: "$$ … $$", insert: "$$\n\n$$", cursor: 3, icon: "∑", section: SEC_INSERT },
+  { label: "쉬운 설명", detail: "> [!easy]", insert: "> [!easy] 쉬운 설명\n> ", icon: "?", section: SEC_INSERT },
   { label: "구분선", detail: "---", insert: "---\n", icon: "─", section: SEC_INSERT },
   { label: "출처 링크", detail: "[[ ... ]]", insert: "[[", icon: "[[", section: SEC_INSERT },
   { label: "임베드", detail: "![[ ... ]]", insert: "![[", icon: "![", section: SEC_INSERT },
@@ -185,6 +189,8 @@ export function SlashBlockEditor({
   height = "320px",
   className,
   frameless = false,
+  readOnly = false,
+  foldEasyKey = 0,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -194,9 +200,17 @@ export function SlashBlockEditor({
   className?: string;
   /** 테두리·배경 없이 패널에 녹아드는 Notion 본문 모드 */
   frameless?: boolean;
+  /** AI 스트리밍 중 편집 잠금 — 톱레벨 prop 이라 extensions 재구성 없음 */
+  readOnly?: boolean;
+  /** 값이 바뀔 때마다 [!easy] 콜아웃을 일괄 접는다 — 스트림 완료 시 부모가 올린다 */
+  foldEasyKey?: number;
 }) {
   const submitRef = useRef(onSubmit);
   submitRef.current = onSubmit;
+  const viewRef = useRef<EditorView | null>(null);
+  useEffect(() => {
+    if (foldEasyKey && viewRef.current) foldEasyCallouts(viewRef.current);
+  }, [foldEasyKey]);
 
   // extensions 가 렌더마다 새 배열이면 @uiw/react-codemirror 가 매 입력마다 에디터를
   // 재구성해 슬래시 팝업이 즉시 닫힌다 → 안정 참조로 memo(onSubmit 은 ref 로 우회).
@@ -205,6 +219,8 @@ export function SlashBlockEditor({
       markdown(),
       syntaxHighlighting(liveMarkdown),
       hideHeaderMarks,
+      mathPreview,
+      calloutPreview,
       EditorView.lineWrapping,
       theme,
       frameless ? framelessFrame : boxedFrame,
@@ -244,6 +260,10 @@ export function SlashBlockEditor({
       height={height}
       extensions={extensions}
       onChange={onChange}
+      readOnly={readOnly}
+      onCreateEditor={(view) => {
+        viewRef.current = view;
+      }}
       basicSetup={BASIC_SETUP}
       className={cn(!frameless && "overflow-hidden rounded-md border border-hairline", className)}
     />
