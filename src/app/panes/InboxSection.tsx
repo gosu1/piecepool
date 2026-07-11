@@ -95,7 +95,8 @@ export function InboxSection({
   // ── 작성 상태 — 스토어 소유(탭 전환 언마운트에도 초안·PDF요약 스트림 생존). key = 이 노트 탭 id(draftKey) ──
   // 노트 = 탭 하나. 제목·본문·바인딩·패널·PDF·위키선택을 전부 draftKey 로 보존한다.
   const ds = useInboxDraftStore;
-  const noteDraft = useInboxDraftStore((s) => s.drafts[draftKey]) ?? EMPTY_DRAFT;
+  // EMPTY_DRAFT 병합 — 없거나 옛 스키마(누락 필드) draft 여도 8필드가 항상 채워져 렌더가 안 깨진다.
+  const noteDraft = { ...EMPTY_DRAFT, ...useInboxDraftStore((s) => s.drafts[draftKey]) };
   const summaryJob = useInboxDraftStore((s) => s.job);
   const { title, body, savedFile, savedSpace, savedSnapshot, panels, refWikiPath, refSource } = noteDraft;
   const write = (patch: Partial<InboxDraft>) => ds.getState().write(draftKey, patch);

@@ -45,7 +45,6 @@ export const EMPTY_DRAFT: InboxDraft = {
 interface InboxDraftState {
   drafts: Record<string, InboxDraft>; // key = 노트 탭 id(draftKey)
   job: PdfSummaryJob | null;
-  read: (key: string) => InboxDraft; // EMPTY 병합 — 옛 스키마/누락 필드에도 안전
   write: (key: string, patch: Partial<InboxDraft>) => void;
   setTitle: (key: string, title: string) => void;
   setBody: (key: string, body: string) => void;
@@ -89,14 +88,15 @@ export const useInboxDraftStore = create<InboxDraftState>()(
       };
 
       // 종결: 그 노트 본문 병합 + job 패치를 한 set 으로(중간 렌더에 중복 안 보이게).
+      // 소유권 가드: 뒤늦게 도착한 stale finish 가 그 사이 시작된 다른 노트의 job 을 덮어쓰지 않게 noteKey 대조.
       const finish = (noteKey: string, mergeText: string, patch: Partial<PdfSummaryJob>) => {
-        stopFlush();
+        if (get().job?.noteKey === noteKey) stopFlush();
         set((s) => {
           const d = s.drafts[noteKey];
           // 초안이 이미 지워졌으면(탭 닫기 중 abort) 부분 텍스트를 되살리지 않는다 — clear 가 job 도 null.
           return {
             drafts: mergeText && d ? { ...s.drafts, [noteKey]: { ...d, body: join(d.body, mergeText) } } : s.drafts,
-            job: s.job ? { ...s.job, ...patch } : s.job,
+            job: s.job && s.job.noteKey === noteKey ? { ...s.job, ...patch } : s.job,
           };
         });
       };
@@ -105,7 +105,6 @@ export const useInboxDraftStore = create<InboxDraftState>()(
         drafts: {},
         job: null,
 
-        read: (key) => ({ ...EMPTY_DRAFT, ...get().drafts[key] }),
         write: (key, patch) => putDraft(key, { ...draftOf(key), ...patch }),
         setTitle: (key, title) => putDraft(key, { ...draftOf(key), title }),
         setBody: (key, body) => putDraft(key, { ...draftOf(key), body }),
@@ -131,13 +130,14 @@ export const useInboxDraftStore = create<InboxDraftState>()(
 
         runSummary: async (p) => {
           if (get().job?.status === "streaming") return; // single-flight (버튼 disable 백스톱)
-          ac = new AbortController();
+          const myAc = new AbortController();
+          ac = myAc;
           latest = "";
           set({ job: { noteKey: p.noteKey, file: p.file, status: "streaming", text: "" } });
           try {
             const r = await runPdfSummary({ sourceTitle: p.title, sourceText: p.text }, apiKey(), {
               onDelta,
-              signal: ac.signal,
+              signal: myAc.signal,
             });
             finish(p.noteKey, r.markdown, { status: "done", text: r.markdown, truncated: r.truncated, warning: r.warning });
           } catch (e) {
@@ -149,7 +149,7 @@ export const useInboxDraftStore = create<InboxDraftState>()(
               finish(p.noteKey, "", { status: "failed", error: e instanceof Error ? e.message : String(e) });
             }
           } finally {
-            ac = null;
+            if (ac === myAc) ac = null; // 내가 시작한 컨트롤러일 때만 정리(다른 노트 요약을 건드리지 않게)
           }
         },
       };

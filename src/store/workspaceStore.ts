@@ -128,8 +128,13 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             : s,
         ),
 
+      // 값이 그대로면 새 배열을 만들지 않는다 — 노트 제목 타이핑마다 탭 스트립 전체가 리렌더되지 않게(setTabDirty 와 동일 가드).
       renameTab: (id, title) =>
-        set((s) => ({ openTabs: s.openTabs.map((t) => (t.id === id ? { ...t, title } : t)) })),
+        set((s) =>
+          s.openTabs.some((t) => t.id === id && t.title !== title)
+            ? { openTabs: s.openTabs.map((t) => (t.id === id ? { ...t, title } : t)) }
+            : s,
+        ),
 
       // 뒤로/앞으로 — 열려 있지 않은(닫힌) id 는 건너뛰며 pop. 이동 자체는 히스토리에 기록하지 않는다.
       goBack: () =>

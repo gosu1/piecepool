@@ -310,7 +310,10 @@ export default function PiecePoolApp() {
   // 미저장 편집이 있는 탭은 확인 후 닫기
   const requestCloseTab = (id: string) => {
     const tab = openTabs.find((t) => t.id === id);
-    if (tab?.dirty) setDialog({ kind: "close-dirty", tabId: id });
+    // 재시작으로 복원된 inbox 탭은 한 번도 안 열려 tab.dirty=false 여도, 저장 안 한 초안이 남아있을 수 있다 → 스토어로 확인.
+    const d = id.startsWith("inbox:") ? useInboxDraftStore.getState().drafts[id] : undefined;
+    const inboxDirty = !!d && !!(d.title.trim() || d.body.trim()) && `${d.title.trim()} ${d.body}` !== d.savedSnapshot;
+    if (tab?.dirty || inboxDirty) setDialog({ kind: "close-dirty", tabId: id });
     else closeTabClean(id);
   };
   // 문서별 세션 상태(드래프트·편집·간극) 일괄 정리 — 저장/이동/삭제/닫기 후 stale 부활 방지.
