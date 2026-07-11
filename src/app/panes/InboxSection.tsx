@@ -57,6 +57,8 @@ export function InboxSection({
   onRefresh,
   onNotice,
   onDirtyChange,
+  quickMemoOpen,
+  onToggleQuickMemo,
 }: {
   space: string;
   spaceId: string;
@@ -71,6 +73,9 @@ export function InboxSection({
   onNotice?: (msg: string) => void;
   // 작성 중 초안 유무를 탭에 알린다 — "새 노트" 시 초안 폐기 확인 · 탭 닫기 확인 판정용
   onDirtyChange?: (dirty: boolean) => void;
+  // 퀵메모 — 창 자체는 앱 셸이 소유한다(탭을 바꿔도 살아있어야 하므로). 알약은 그 상태를 비출 뿐이다.
+  quickMemoOpen: boolean;
+  onToggleQuickMemo: () => void;
 }) {
   // ── 저장 대상 폴더(지식 공간) — 기본은 현재 공간, 저장 버튼 옆 드롭다운으로 변경 ──
   // 참조 패널(PDF·위키)은 현재 공간 그대로 두고, 저장 목적지만 바꾼다(작성 중 드래프트 유지).
@@ -392,6 +397,10 @@ export function InboxSection({
             </PropertyPill>
             <PropertyPill active={clarify} disabled={!withLlm} onClick={() => setClarify(!clarify)} icon={<Icons.HelpCircleIcon size={13} />}>
               되묻기
+            </PropertyPill>
+            {/* 퀵메모 — 창 열림/닫힘을 그대로 반영하는 토글. AI 생성 여부와 무관하게 항상 쓸 수 있다. */}
+            <PropertyPill active={quickMemoOpen} onClick={onToggleQuickMemo} icon={<Icons.EditIcon size={13} />}>
+              퀵메모
             </PropertyPill>
           </div>
         </div>

@@ -31,6 +31,7 @@ import { TitlebarRow } from "./shell/TitlebarRow";
 import { SidebarHeader, SidebarShortcuts, SidebarFooter } from "./shell/SidebarChrome";
 import { SearchPalette } from "./shell/SearchPalette";
 import { SettingsModal } from "./shell/SettingsModal";
+import { QuickMemo } from "./panes/QuickMemo";
 import { ContextMenu, ConfirmDialog, PromptDialog } from "./shell/Dialogs";
 import { useWorkspaceStore, SIDEBAR_DEFAULT } from "../store/workspaceStore";
 import type { TabKind } from "../store/workspaceStore";
@@ -75,6 +76,8 @@ export default function PiecePoolApp() {
   const [gapBusy, setGapBusy] = useState<string>("");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // 퀵메모 — 셸이 소유한다. 탭을 바꿔도 창이 살아있어야 하기 때문(스티커 메모의 성질).
+  const [memoOpen, setMemoOpen] = useState(false);
 
   // 셸 오버레이 — 트리 컨텍스트 메뉴 · 페인 "…" 메뉴 · 확인/입력 다이얼로그 · 상태바 알림
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
@@ -1211,6 +1214,8 @@ export default function PiecePoolApp() {
             onOpenWiki={(file) => openWiki(sp, file)}
             onRefresh={(s) => refreshSpace(s)}
             onNotice={setNotice}
+            quickMemoOpen={memoOpen}
+            onToggleQuickMemo={() => setMemoOpen((v) => !v)}
           />
         );
       }
@@ -1371,6 +1376,7 @@ export default function PiecePoolApp() {
 
       {paletteOpen && <SearchPalette items={allFiles} onPick={pickSearch} onClose={() => setPaletteOpen(false)} />}
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} workspacePath={workspace?.rootPath} />}
+      {memoOpen && <QuickMemo onClose={() => setMemoOpen(false)} />}
 
       {menu && menuItems.length > 0 && <ContextMenu x={menu.x} y={menu.y} items={menuItems} onClose={() => setMenu(null)} />}
       {paneMenu && paneMenuItems.length > 0 && <ContextMenu x={paneMenu.x} y={paneMenu.y} items={paneMenuItems} onClose={() => setPaneMenu(null)} />}
