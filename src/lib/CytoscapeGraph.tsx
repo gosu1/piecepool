@@ -1,108 +1,22 @@
 import { useEffect, useMemo, useRef } from "react";
 import cytoscape from "cytoscape";
 import type { Core, ElementDefinition } from "cytoscape";
-import { forceSimulation, forceLink, forceManyBody, forceCenter, forceCollide, forceRadial, forceX, forceY } from "d3-force";
-import type { Simulation, SimulationNodeDatum } from "d3-force";
+import type { Simulation } from "d3-force";
 import type { GraphData } from "./types";
-import { RELATION_LABEL, REVIEW_COLOR, computeDepth, groupOf } from "./relationMeta";
+import { RELATION_LABEL, REVIEW_COLOR, groupOf } from "./relationMeta";
+import { createLayoutSim } from "./graphLayout";
+import type { SimLink, SimNode } from "./graphLayout";
 import { useTheme } from "../ds";
 
-// 옵시디언식 물리: d3-force 시뮬레이션이 cytoscape 노드 위치를 구동한다.
-// alpha 냉각으로 스스로 식어 정지 → idle CPU ≈ 0. 노드를 잡으면 alphaTarget 로 재가열되어
-// 이웃이 스프링처럼 유기적으로 재배치되고, 놓으면 다시 식어 멈춘다.
-interface SimNode extends SimulationNodeDatum {
-  id: string;
-  space?: string; // 병합(전체) 뷰에서 space별 군집 배치용
-}
-interface SimLink {
-  source: string;
-  target: string;
-}
-
-// cy 요소로부터 시뮬레이션을 구성한다. 노드 x/y 를 비워 두면 d3 가 나선형으로 초기 배치(겹침 방지),
-// 매 tick 에 좌표를 cy 로 흘려보낸다. (링크 거리·반발·중심·충돌 힘 = 옵시디언 그래프 힘 구성)
-// layout="hier": part_of·prerequisite 로 유도한 깊이(computeDepth)를 forceY 목표로 — 위=기초/전체, 아래=심화/부분.
+// cy 요소 → 배치 물리(graphLayout.ts) 어댑터. 매 tick 에 좌표를 cy 로 흘려보낸다.
 function buildSim(cy: Core, layout: "force" | "hier"): { sim: Simulation<SimNode, SimLink>; map: Map<string, SimNode> } {
-  const w = cy.width() || 800;
-  const h = cy.height() || 600;
-  const nodes: SimNode[] = cy.nodes().map((n) => ({ id: n.id(), space: n.data("space") as string | undefined }));
-  const links: SimLink[] = cy.edges().map((e) => ({ source: e.source().id(), target: e.target().id() }));
-  const map = new Map(nodes.map((n) => [n.id, n]));
-
-  // 차수 집계 → radial 힘: 연결 많은 허브는 중심(반지름 0), 적은 노드는 외곽(큰 반지름)으로 당긴다.
-  const deg = new Map<string, number>();
-  for (const l of links) {
-    deg.set(l.source, (deg.get(l.source) ?? 0) + 1);
-    deg.set(l.target, (deg.get(l.target) ?? 0) + 1);
-  }
-  const maxDeg = Math.max(1, ...deg.values());
-  const R = Math.min(w, h) * 0.42; // 최외곽 반지름
-
-  const sim = forceSimulation<SimNode, SimLink>(nodes)
-    .force("link", forceLink<SimNode, SimLink>(links).id((d) => d.id).distance(70).strength(0.4))
-    .force("collide", forceCollide<SimNode>(14));
-
-  // 전체(병합) 뷰: space 가 2개 이상이면 cross-space 엣지가 없어 섬들이 흩어진다.
-  // space별 그리드 앵커를 중심으로 한 radial 로 군집 + degree 배치(허브=앵커중심, 리프=바깥링)를
-  // 클러스터마다 재현한다. 단일 뷰의 "연결 적은 노드 바깥" 느낌을 각 공간에서 유지.
-  const spacesPresent = Array.from(new Set(nodes.map((n) => n.space).filter(Boolean))) as string[];
-
-  // 계층 깊이 — 단일 뷰 + 계층 모드에서만. 계층 엣지(part_of·prerequisite) 없으면 비어서 force 폴백.
-  const depth =
-    layout === "hier" && spacesPresent.length <= 1
-      ? computeDepth(cy.edges().map((e) => ({ source: e.source().id(), target: e.target().id(), rel: e.data("rel") as string })))
-      : new Map<string, number>();
-
-  if (spacesPresent.length > 1) {
-    const cols = Math.ceil(Math.sqrt(spacesPresent.length));
-    const rows = Math.ceil(spacesPresent.length / cols);
-    const cellR = 0.4 * Math.min(w / cols, h / rows); // 클러스터 최외곽 반지름 (셀 안에 수렴)
-    const anchor = new Map<string, { x: number; y: number }>();
-    spacesPresent.forEach((s, i) => {
-      const col = i % cols;
-      const row = Math.floor(i / cols);
-      anchor.set(s, { x: ((col + 0.5) / cols) * w, y: ((row + 0.5) / rows) * h });
-    });
-    // 커스텀 radial: 각 노드를 자기 space 앵커 중심으로, 차수 낮을수록 바깥으로 민다.
-    // (d3 forceRadial 은 중심이 단일 고정점이라 space별 중심을 못 써서 직접 구현)
-    const clusterRadial = (alpha: number) => {
-      for (const n of nodes) {
-        const a = n.space ? anchor.get(n.space) : undefined;
-        if (!a || n.x == null || n.y == null) continue;
-        const dx = n.x - a.x;
-        const dy = n.y - a.y;
-        const r = Math.sqrt(dx * dx + dy * dy) || 1e-6;
-        const target = cellR * (1 - (deg.get(n.id) ?? 0) / maxDeg);
-        const k = ((target - r) / r) * 0.18 * alpha;
-        n.vx = (n.vx ?? 0) + dx * k;
-        n.vy = (n.vy ?? 0) + dy * k;
-      }
-    };
-    sim
-      .force("charge", forceManyBody<SimNode>().strength(-120).distanceMax(220))
-      .force("cluster", clusterRadial);
-  } else if (depth.size > 0) {
-    // ── 계층 모드: 세로축 = 논리 계층. 계층 노드는 제 층으로 강하게, 고아(일반 엣지만)는
-    // 링크 힘으로 이웃 곁 정착(0), 완전 고립만 하단 미분류 밴드로 약하게 당긴다.
-    // forceCenter 는 무게중심을 평행이동시켜 절대 y 목표와 싸우므로 약한 forceX 로 수평만 잡는다.
-    const maxDepth = Math.max(...depth.values());
-    const layerGap = Math.min(110, Math.max(70, (h * 0.76) / Math.max(1, maxDepth)));
-    const topY = h * 0.12;
-    sim
-      .force("charge", forceManyBody<SimNode>().strength(-160).distanceMax(500))
-      .force("x", forceX<SimNode>(w / 2).strength(0.04))
-      .force(
-        "layerY",
-        forceY<SimNode>((d) => (depth.has(d.id) ? topY + depth.get(d.id)! * layerGap : topY + (maxDepth + 1) * layerGap)).strength((d) =>
-          depth.has(d.id) ? 0.5 : (deg.get(d.id) ?? 0) === 0 ? 0.12 : 0,
-        ),
-      );
-  } else {
-    sim
-      .force("charge", forceManyBody<SimNode>().strength(-160).distanceMax(500))
-      .force("center", forceCenter(w / 2, h / 2))
-      .force("radial", forceRadial<SimNode>((d) => R * (1 - (deg.get(d.id) ?? 0) / maxDeg), w / 2, h / 2).strength(0.12));
-  }
+  const { sim, nodes, map } = createLayoutSim({
+    nodes: cy.nodes().map((n) => ({ id: n.id(), space: n.data("space") as string | undefined })),
+    edges: cy.edges().map((e) => ({ source: e.source().id(), target: e.target().id(), rel: e.data("rel") as string })),
+    width: cy.width() || 800,
+    height: cy.height() || 600,
+    layout,
+  });
 
   sim.on("tick", () => {
     cy.batch(() => {

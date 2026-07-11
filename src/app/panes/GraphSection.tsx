@@ -146,6 +146,9 @@ export function GraphSection({
     () => (graph?.relations ?? []).some((r) => HIER_TYPES.has(r.relationType) && (typeFilter.length === 0 || typeFilter.includes(r.relationType))),
     [graph, typeFilter],
   );
+  // 그래프와 "그래프 읽는 법"이 같은 진실을 말하도록 실제 적용되는 레이아웃을 한 곳에서 정한다.
+  // force 모드는 세로축이 radial 이라 "위=기초"가 아예 성립하지 않는다.
+  const effectiveLayout: "force" | "hier" = scope === "all" || !hasHier ? "force" : layoutMode;
 
   // 필터로 선택 엣지가 화면에서 사라지면 상세 패널도 비운다 (노드 가드와 동일한 데스ync 방지)
   useEffect(() => {
@@ -338,7 +341,7 @@ export function GraphSection({
                 spaceColors={scope === "all" ? spaceColors : undefined}
                 selectedId={selNode}
                 focus={focus}
-                layout={scope === "all" || !hasHier ? "force" : layoutMode}
+                layout={effectiveLayout}
                 onNode={(id) => {
                   setSelNode(id);
                   setSelEdge(null);
@@ -370,7 +373,13 @@ export function GraphSection({
                       </button>
                     </div>
                     <ul className="space-y-1 text-[12px] leading-relaxed text-ink-2">
-                      <li>· 위에 있을수록 기초·전체 개념, 아래로 갈수록 세부예요</li>
+                      {/* 세로 위치가 의미를 갖는 건 계층 모드뿐이다. 자유 배치에서는 그 말을 하지 않는다. */}
+                      {effectiveLayout === "hier" && (
+                        <>
+                          <li>· 위에 있을수록 기초·전체 개념, 아래로 갈수록 세부예요</li>
+                          <li>· 계층 관계(부분·선행)가 없는 개념은 아래쪽에 따로 모여요 — 그 높이는 의미가 없어요</li>
+                        </>
+                      )}
                       <li>· 실선은 뼈대(구조·인과), 점선은 느슨한 연결 — 빨간 선은 복습 표시</li>
                       <li>· 확대하거나 점에 마우스를 올리면 관계 이름이 떠요 — 선을 클릭하면 문장으로 설명해 드려요</li>
                     </ul>
