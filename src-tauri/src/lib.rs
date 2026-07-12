@@ -725,6 +725,78 @@ mod tests {
             "경로 탈출 거부"
         );
 
+        // 18) move_source: 공간 간 이동 + 충돌 접미사 + no-op + 없는 파일 거부
+        let b64_m = storage::to_base64(&[1u8, 2, 3]);
+        let src = commands::workspace::save_source_file(
+            "operating-systems".into(),
+            "lecture.pdf".into(),
+            b64_m.clone(),
+        )
+        .expect("save for move");
+        assert_eq!(src, "lecture.pdf");
+
+        // 18-1) 이동: from 에서 사라지고 to 에 생긴다
+        let moved = commands::workspace::move_source(
+            "operating-systems".into(),
+            "statistics".into(),
+            src.clone(),
+        )
+        .expect("move");
+        assert_eq!(moved, "lecture.pdf", "충돌 없으면 이름 유지");
+        assert!(!storage::exists(
+            &storage::space_subdir("operating-systems", "sources/original-files")
+                .join("lecture.pdf")
+        ));
+        let back = commands::workspace::read_file_bytes("statistics".into(), moved.clone())
+            .expect("read moved");
+        assert_eq!(back, b64_m, "이동 후 내용 동일");
+
+        // 18-2) 대상에 동명 파일이 있으면 접미사가 붙고 그 이름이 반환된다
+        let src2 = commands::workspace::save_source_file(
+            "operating-systems".into(),
+            "lecture.pdf".into(),
+            b64_m.clone(),
+        )
+        .expect("save for move 2");
+        let moved2 =
+            commands::workspace::move_source("operating-systems".into(), "statistics".into(), src2)
+                .expect("move 2");
+        assert_eq!(moved2, "lecture-2.pdf", "대상 충돌 접미사");
+
+        // 18-3) from == to 는 no-op — 파일명 그대로, 파일도 그대로
+        let same = commands::workspace::move_source(
+            "statistics".into(),
+            "statistics".into(),
+            "lecture.pdf".into(),
+        )
+        .expect("no-op move");
+        assert_eq!(same, "lecture.pdf");
+        assert!(storage::exists(
+            &storage::space_subdir("statistics", "sources/original-files").join("lecture.pdf")
+        ));
+
+        // 18-4) 없는 파일 → 오류
+        assert!(
+            commands::workspace::move_source(
+                "operating-systems".into(),
+                "statistics".into(),
+                "nope.pdf".into()
+            )
+            .is_err(),
+            "없는 원본 거부"
+        );
+
+        // 18-5) 없는 공간 → 오류
+        assert!(
+            commands::workspace::move_source(
+                "statistics".into(),
+                "no-such-space".into(),
+                "lecture.pdf".into()
+            )
+            .is_err(),
+            "없는 대상 공간 거부"
+        );
+
         let _ = std::fs::remove_dir_all(storage::workspace_root());
     }
 
@@ -880,6 +952,7 @@ pub fn run() {
             commands::workspace::extract_pdf_text,
             commands::workspace::read_file_bytes,
             commands::workspace::save_source_file,
+            commands::workspace::move_source,
             commands::workspace::delete_source,
             commands::notes::list_notes,
             commands::notes::list_source_types,

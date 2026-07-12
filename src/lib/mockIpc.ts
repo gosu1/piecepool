@@ -363,6 +363,7 @@ export const mock = {
   },
   saveSourceFile: (_space: string, name: string, _dataBase64: string) => delay(name),
   deleteSource: (_space: string, _file: string) => delay<void>(undefined),
+  moveSource: (_fromSpace: string, _toSpace: string, file: string) => delay(file),
   getGraph: (space: string) => delay(graphOf(space)),
   // Rust graph.rs 와 같은 불변식을 브라우저에서도 지킨다 — mock 이 검증을 우회하면
   // "LLM 은 review_needed 를 못 붙인다" 는 주장이 브라우저에서 거짓이 된다.
