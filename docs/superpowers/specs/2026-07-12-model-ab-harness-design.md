@@ -22,7 +22,7 @@ docs/30-llm/evals/model-ab/
   fixtures/pdfsummary/            ← 신규 픽스처 2개 (영어 원문 JSON)
   results/<run-id>/               ← gitignore (기존 evals/results 규약과 동일)
     report.html                   ← 판정용 자급자족 HTML — 판정은 이 파일 하나로 완결
-    raw/*.json                    ← 모델별 원본 출력 + 지연·재시도 기록
+    raw/*.json                    ← 모델별 원본 출력 + 지연 기록
 ```
 
 - npm 스크립트: `"eval:ab": "tsx --env-file-if-exists=.env scripts/model-ab.ts"`.
@@ -61,7 +61,7 @@ npm run eval:ab -- --task pdfsummary                   # 특정 작업만 (wiki|
 | 파인만 되묻기 | 기존 18개 중 유형 다양성 기준 6개 선별 | `probeExplanation` | fixture 의 `studentSays` 라운드 전체 대화 재생 |
 | PDF 한국어 요약 | 신규 픽스처 2개 | `runPdfSummary` | 스트리밍 아닌 완료 텍스트만 수집 |
 
-호출마다 기록: 소요 ms · 재시도 횟수 · 실패 여부. 케이스 단위 실패는 "모델 X 실패"로
+호출마다 기록: 소요 ms · 실패 여부. (재시도 횟수는 provider 내부 로직이라 앱 코드 불변 제약상 기록하지 않는다.) 케이스 단위 실패는 "모델 X 실패"로
 표기하고 계속 진행 (전체 중단 없음).
 
 ### 4.3 판정 HTML
