@@ -33,7 +33,9 @@ function conceptMarkdown(c: LlmConcept): string {
   const parts = [`# ${c.title}`, "", c.summary];
   if (c.explanation && c.explanation.trim() !== c.summary.trim()) parts.push("", c.explanation.trim());
   if (c.examples && c.examples.length) parts.push("", "## 예시", ...c.examples.map((e) => `- ${e}`));
-  if (c.sourceEmbeds && c.sourceEmbeds.length) parts.push("", "## 근거", ...c.sourceEmbeds.map((e) => `![[${e}]]`));
+  // sourceEmbeds 는 validate.ts(canonicalEmbed)가 이미 `![[file]]` 형태로 정규화해 넘긴다.
+  // 여기서 다시 감싸면 `![[![[file]]]]` 가 되고, 파서가 파일명을 `![[file` 로 읽어 임베드가 깨진다.
+  if (c.sourceEmbeds && c.sourceEmbeds.length) parts.push("", "## 근거", ...c.sourceEmbeds);
   if (c.confusingConcepts && c.confusingConcepts.length)
     parts.push("", "## 헷갈리는 개념", ...c.confusingConcepts.map((e) => `- [[${e}]]`));
   if (c.relatedQuestions && c.relatedQuestions.length)

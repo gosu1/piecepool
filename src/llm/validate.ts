@@ -23,6 +23,18 @@ export function validateLlmWikiResult(data: unknown): ValidationResult {
   return { valid: false, errors };
 }
 
+// sourceEmbeds 는 스키마상 그냥 string[] 이라 대괄호 포함 여부가 정의돼 있지 않다 — 모델이
+// `![[a.pdf]]` 를 줄지 `a.pdf` 를 줄지 우리가 고를 수 없다. 어느 쪽으로 오든 canonical
+// `![[file]]` / `![[file#page=N]]` 하나로 정규화해 소비자(llmApply)가 형식을 가정하지 않게 한다.
+// 파일명은 입력으로 준 원본과 정확히 일치해야 한다(부분일치 금지 — 환각 파일명 차단).
+export function canonicalEmbed(raw: string, allowed: Set<string>): string | null {
+  const inner = raw.replace(/^[![\s]+/, "").replace(/[\]\s]+$/, "");
+  const [file, frag] = inner.split("#");
+  if (!allowed.has(file)) return null;
+  const n = frag?.startsWith("page=") ? Number(frag.slice(5)) : NaN;
+  return Number.isInteger(n) && n >= 1 ? `![[${file}#page=${n}]]` : `![[${file}]]`;
+}
+
 // §5(4) — sourceRefs[].sourceId는 호출 입력 Source.id 중 하나여야 한다. 입력에 없는 source를
 // 가리키는 (환각) ref는 정규화 단계에서 제거하고 file을 입력값으로 교정한다. ref가 사라진
 // sourceEmbeds도 함께 정리한다. SSOT: docs/10-contracts/llm-output-schema.md §5(4).
@@ -40,9 +52,13 @@ export function sanitizeSourceRefs(
     dropped += c.sourceRefs.length - sourceRefs.length;
 
     const keptFiles = new Set(sourceRefs.map((r) => r.file));
-    const sourceEmbeds = c.sourceEmbeds.filter((e) =>
-      [...keptFiles].some((f) => e.includes(f)),
-    );
+    const sourceEmbeds = [
+      ...new Set(
+        c.sourceEmbeds
+          .map((e) => canonicalEmbed(e, keptFiles))
+          .filter((e): e is string => e !== null),
+      ),
+    ];
 
     return { ...c, sourceRefs, sourceEmbeds };
   });

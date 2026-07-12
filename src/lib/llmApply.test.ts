@@ -120,6 +120,30 @@ describe("synthesisPage", () => {
   });
 });
 
+// 회귀: 근거 섹션이 sourceEmbeds 를 한 번 더 `![[...]]` 로 감싸 `![[![[a.pdf]]]]` 를 만들었고,
+// 파서가 파일명을 `![[a.pdf` 로 읽어 위키의 원본 임베드가 전부 깨졌다.
+// sourceEmbeds 는 validate.ts(canonicalEmbed)가 이미 완성된 형태로 넘긴다 — 그대로 쓴다.
+describe("근거 섹션 — 이중 래핑 금지", () => {
+  it("sourceEmbeds 를 그대로 본문에 넣는다", async () => {
+    const result = {
+      concepts: [
+        { title: "글루카곤", summary: "s", explanation: "e", examples: [], sourceRefs: [], sourceEmbeds: ["![[a.pdf]]"] },
+      ],
+      relations: [],
+    };
+    const applied = await applyLlmResult(
+      "space",
+      "sp-1",
+      [],
+      result,
+      { sourceId: NOTE.sourceId, archivePath: `archive/${NOTE.path}` },
+      [],
+    );
+    expect(applied.pages[0].markdown).toContain("![[a.pdf]]");
+    expect(applied.pages[0].markdown).not.toContain("![[![[");
+  });
+});
+
 describe("applyLlmResult 클로버 가드", () => {
   it("추출 개념 제목이 정리 글 제목과 겹쳐도 정리 글 파일에 병합하지 않는다", async () => {
     const synPage = synthesisPage("sp-1", NOTE, "# OS 3주차 정리\n소중한 정리 글", []);
