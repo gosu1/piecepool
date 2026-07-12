@@ -194,20 +194,27 @@ export function InboxSection({
       return;
     }
     setPdfJobs((n) => n + 1); // 이동 중 저장 잠금 — 어느 공간에도 파일이 없는 순간이 있다
-    // 하나씩 옮기며 본문·refSource 를 누적한다. 대상 충돌로 이름이 바뀔 수 있으므로 반환된 이름을 쓴다.
-    let body = body0;
+    // 하나씩 옮기며 리네임을 [from, to] 쌍으로만 누적한다. 대상 충돌로 이름이 바뀔 수 있으므로 반환된 이름을 쓴다.
+    // body 문자열을 await 너머로 들고 가지 않는다 — 이동 중에도 사용자는 계속 타이핑하고 PDF 요약이 본문에
+    // 병합될 수 있어, 옛 스냅샷을 쓰면 그 사이 편집이 통째로 지워진다. 쓸 때 살아있는 body 를 다시 읽어 재생한다.
+    const renames: [string, string][] = [];
     let ref = src0;
     const done: string[] = []; // 이미 옮긴 파일들의 새 공간에서의 이름(롤백용)
+    // 지금 스토어의 body 에 누적 리네임을 재생 — 리네임이 없으면 body 는 아예 건드리지 않는다.
+    const replay = () => {
+      const b = ds.getState().drafts[draftKey]?.body ?? "";
+      return renames.reduce((acc, [f, t]) => renameRefs(acc, f, t), b);
+    };
     try {
       for (const f of files) {
         const moved = await ipc.moveSource(targetSpace, slug, f);
         done.push(moved);
         if (moved !== f) {
-          body = renameRefs(body, f, moved);
+          renames.push([f, moved]);
           if (ref === f) ref = moved;
         }
       }
-      write({ targetSpace: slug, refSource: ref, body });
+      write({ targetSpace: slug, refSource: ref, ...(renames.length ? { body: replay() } : {}) });
     } catch (e) {
       // 절반만 옮겨진 상태 — 옮긴 것들을 최선을 다해 되돌리고 폴더 변경은 포기한다.
       // 되돌리다 또 충돌 리네임될 수 있으니 그 이름도 본문·refSource 에 반영한다.
@@ -216,7 +223,7 @@ export function InboxSection({
         try {
           const back = await ipc.moveSource(slug, targetSpace, moved);
           if (back !== moved) {
-            body = renameRefs(body, moved, back);
+            renames.push([moved, back]);
             if (ref === moved) ref = back;
           }
         } catch {
@@ -224,7 +231,7 @@ export function InboxSection({
         }
       }
       // 폴더는 그대로 두되, 이름이 바뀐 게 있으면 draft 가 파일의 실제 위치를 가리키도록 반영한다.
-      if (body !== body0 || ref !== src0) write({ refSource: ref, body });
+      if (renames.length || ref !== src0) write({ refSource: ref, ...(renames.length ? { body: replay() } : {}) });
       onNotice?.(`원본을 옮기지 못했어요 — 폴더를 그대로 둡니다 (${String(e)})`);
     } finally {
       setPdfJobs((n) => n - 1);
@@ -336,27 +343,41 @@ export function InboxSection({
       reader.readAsText(f);
     } else if (f.type.startsWith("image")) {
       // 이미지 → 원본 보존(수용기준 §5, 키 무관) + OCR(vision) 3-block 마크다운. 키 없으면 오프라인 폴백.
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const dataUrl = String(reader.result ?? "");
-        setTitleIfEmpty(stem);
-        // 원본 이미지를 sources/original-files 에 저장하고 embed 로 연결 — OCR 실패/키 없음이어도 이미지는 남는다.
-        let embed = "";
+      // PDF 와 같은 pdfJobs 잠금을 건다 — 임베드는 OCR 이 끝난 뒤에야 본문에 붙으므로, 그 사이 폴더를
+      // 바꾸면 옮길 파일이 본문에 안 보여 이미지는 옛 공간에 남고 임베드만 새 공간을 가리켜 깨진다.
+      setPdfJobs((n) => n + 1);
+      void (async () => {
         try {
-          const stored = await ipc.saveSourceFile(targetSpace, f.name, dataUrl.split(",")[1] ?? "");
-          embed = `![[${stored}]]\n\n`;
-        } catch {
-          // 저장 실패해도 OCR 은 계속
+          // FileReader → Promise 로 감싼다: onerror·읽기 실패도 reject 로 받아야 finally 가 카운터를 반드시 푼다
+          // (콜백이 끝내 안 오면 잠금이 영영 안 풀려 저장·폴더 변경이 잠긴다).
+          const dataUrl = await new Promise<string>((res, rej) => {
+            const reader = new FileReader();
+            reader.onload = () => res(String(reader.result ?? ""));
+            reader.onerror = () => rej(reader.error);
+            reader.readAsDataURL(f);
+          });
+          setTitleIfEmpty(stem);
+          // 원본 이미지를 sources/original-files 에 저장하고 embed 로 연결 — OCR 실패/키 없음이어도 이미지는 남는다.
+          let embed = "";
+          try {
+            const stored = await ipc.saveSourceFile(targetSpace, f.name, dataUrl.split(",")[1] ?? "");
+            embed = `![[${stored}]]\n\n`;
+          } catch {
+            // 저장 실패해도 OCR 은 계속
+          }
+          const apiKey = (typeof localStorage !== "undefined" && localStorage.getItem("gemini-key")) || "";
+          try {
+            const { markdown } = await runImageOcr(dataUrl, apiKey);
+            appendBody(embed + markdown);
+          } catch {
+            appendBody(`${embed}> ${f.name} OCR 실패 — 텍스트를 직접 입력하세요.`);
+          }
+        } catch (e) {
+          onNotice?.(`${f.name} 읽기 실패: ${String(e)}`);
+        } finally {
+          setPdfJobs((n) => n - 1);
         }
-        const apiKey = (typeof localStorage !== "undefined" && localStorage.getItem("gemini-key")) || "";
-        try {
-          const { markdown } = await runImageOcr(dataUrl, apiKey);
-          appendBody(embed + markdown);
-        } catch {
-          appendBody(`${embed}> ${f.name} OCR 실패 — 텍스트를 직접 입력하세요.`);
-        }
-      };
-      reader.readAsDataURL(f);
+      })();
     } else {
       appendBody(`> ${f.name} — 지원하지 않는 형식이에요 (md/txt/pdf/이미지).`);
     }
