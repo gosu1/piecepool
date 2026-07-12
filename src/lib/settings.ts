@@ -86,3 +86,16 @@ export function getInboxPaneWidths(): Record<InboxPaneKey, number> {
 export function setInboxPaneWidth(key: InboxPaneKey, pct: number): void {
   ls()?.setItem(`inbox-pane-${key}`, String(Math.round(clampPanePct(pct) * 10) / 10));
 }
+
+// ── LLM 생성 언어 (위키·파인만 등 AI 생성 텍스트; tidy 제외) ──
+// SSOT: docs/superpowers/specs/2026-07-12-llm-output-language-design.md §3
+export type OutputLanguage = "ko" | "en";
+const OUTPUT_LANGUAGE_KEY = "output-language";
+
+export function getOutputLanguage(): OutputLanguage {
+  return ls()?.getItem(OUTPUT_LANGUAGE_KEY) === "en" ? "en" : "ko";
+}
+
+export function setOutputLanguage(v: OutputLanguage): void {
+  ls()?.setItem(OUTPUT_LANGUAGE_KEY, v);
+}

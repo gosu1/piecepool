@@ -33,6 +33,16 @@ describe("buildPdfSummaryBody", () => {
     expect(b.temperature).toBeGreaterThanOrEqual(0);
   });
 
+  it("lang='en' — 영어 요약 지시, 한국어 번역 지시 없음, 콜아웃·수식 규칙 유지", () => {
+    const b = buildPdfSummaryBody(INPUT, undefined, "en");
+    const sys = b.messages[0].content;
+    expect(sys).toContain("# Summary");
+    expect(sys).toContain("[!easy]");
+    expect(sys).toContain("$...$");
+    expect(sys).not.toContain("한국어");
+    expect(b.messages[1].content).toContain("English summary note");
+  });
+
   it("SUMMARY_MAX_CHARS 초과 입력은 잘리고 '잘림' 마커가 붙는다", () => {
     const long = "x".repeat(SUMMARY_MAX_CHARS + 100);
     const b = buildPdfSummaryBody({ sourceTitle: "T", sourceText: long });

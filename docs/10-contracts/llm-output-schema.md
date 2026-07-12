@@ -64,7 +64,7 @@ type LlmRelation = {
   relationType: RelationType;        // 12종 enum
   strength: number;                  // 0.0 ~ 1.0
   confidence: number;                // 0.0 ~ 1.0
-  explanation: string;               // 한국어 1-2문장
+  explanation: string;               // 사용자 언어 설정을 따름, 1-2문장
   evidence: LlmEvidence[];           // 최소 1개 권장
 };
 ```

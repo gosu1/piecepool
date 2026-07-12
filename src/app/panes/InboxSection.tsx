@@ -18,6 +18,7 @@ import {
   setInboxPaneWidth,
   clampPanePct,
   INBOX_PANE_DEFAULTS,
+  getOutputLanguage,
   type InboxPanelKey,
   type InboxPaneKey,
 } from "../../lib/settings";
@@ -316,7 +317,8 @@ export function InboxSection({
         if (!text) return;
         const apiKey = (typeof localStorage !== "undefined" && localStorage.getItem("gemini-key")) || "";
         if (!apiKey) {
-          onNotice?.("AI 요약 키가 없어요 — 설정에서 Gemini 키를 넣으면 PDF를 한국어로 요약해요");
+          const langName = getOutputLanguage() === "en" ? "영어" : "한국어";
+          onNotice?.(`AI 요약 키가 없어요 — 설정에서 Gemini 키를 넣으면 PDF를 ${langName}로 요약해요`);
           return;
         }
         if (ds.getState().job?.status === "streaming") {
@@ -870,12 +872,12 @@ function PaneSelect({
 }
 
 // 속성 토글 pill (AI 생성 · 파인만) — 기존 checkbox 대체. 켜지면 primary 계열, 상태가 한눈에. 저장위치는 select pill 로 별도.
-// PDF 한국어 요약 진행/종결 스트립 — 스트리밍 중엔 파형+중단, 종결 후엔 결과+닫기.
+// PDF 요약(생성 언어 설정 준수) 진행/종결 스트립 — 스트리밍 중엔 파형+중단, 종결 후엔 결과+닫기.
 function SummaryStrip({ job, onCancel, onClose }: { job: PdfSummaryJob; onCancel: () => void; onClose: () => void }) {
   const streaming = job.status === "streaming";
   const label =
     job.status === "streaming"
-      ? `AI가 PDF를 한국어로 요약하고 있어요 · ${job.text.length}자`
+      ? `AI가 PDF를 ${getOutputLanguage() === "en" ? "영어" : "한국어"}로 요약하고 있어요 · ${job.text.length}자`
       : job.status === "failed"
         ? `요약 실패: ${job.error ?? "알 수 없는 오류"}`
         : job.status === "cancelled"

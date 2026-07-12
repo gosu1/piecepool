@@ -5,6 +5,7 @@
 
 import { streamChatText } from "./stream";
 import { GEMINI_MODEL } from "./gemini";
+import { languageDirective, getOutputLanguage, type OutputLanguage } from "./language";
 
 export interface SynthesisInput {
   sourceTitle: string;
@@ -25,12 +26,13 @@ export interface SynthesisOptions {
   fetchFn?: typeof fetch;
   maxRetries?: number; // 기본 2 (openai.ts 미러)
   backoffMs?: number; // 기본 250 (0=즉시, 테스트용)
+  lang?: OutputLanguage; // 미지정 시 설정값(getOutputLanguage)
 }
 
 /** 스트림 도중(첫 delta 이후) 실패 — 부분 텍스트는 화면에 유지, 저장 금지, 휴리스틱 교체 금지. */
 export class SynthesisStreamError extends Error {}
 
-const SYSTEM_PROMPT =
+const systemPrompt = (lang: OutputLanguage) =>
   "너는 학습 노트 편집자다. 학생이 수업 중 급하게 적은 파편 메모(불릿, 반문장, 화살표, 순서 뒤섞임)를 " +
   "하나의 논리적으로 정리된 마크다운 글로 재구성한다.\n" +
   "[규칙 — 엄격]\n" +
@@ -40,21 +42,28 @@ const SYSTEM_PROMPT =
   "4. [[위키링크]]와 ![[임베드]]는 글자 그대로 유지한다 (수정·삭제 금지).\n" +
   "5. 출력은 순수 마크다운만. 설명 문장·코드펜스 감싸기 금지.\n" +
   "6. 첫 줄은 반드시 '# {제목}' 한 줄이다.\n" +
-  "7. 본문은 한국어. 용어·식별자는 파편의 원문 표기를 따른다.";
+  "7. 출력 언어·용어 규칙:\n" +
+  languageDirective(lang);
 
 // 첫 토큰 지연 최소화(reasoning 모델) + 출력 상한 — 튜너블 상수.
 const MAX_OUTPUT_TOKENS = 8192;
 
-export function buildSynthesisBody(input: SynthesisInput, model = GEMINI_MODEL) {
+export function buildSynthesisBody(
+  input: SynthesisInput,
+  model = GEMINI_MODEL,
+  lang: OutputLanguage = getOutputLanguage(),
+) {
+  const ask =
+    lang === "en"
+      ? `Rewrite the fragments above into one organized article starting with '# ${input.sourceTitle}'.`
+      : `위 파편을 '# ${input.sourceTitle} 정리'로 시작하는 하나의 정리 글로 재구성하라.`;
   return {
     model,
     messages: [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: systemPrompt(lang) },
       {
         role: "user",
-        content:
-          `[노트]\n제목: ${input.sourceTitle}\n파편 원문:\n${input.sourceText}\n\n` +
-          `위 파편을 '# ${input.sourceTitle} 정리'로 시작하는 하나의 정리 글로 재구성하라.`,
+        content: `[노트]\n제목: ${input.sourceTitle}\n파편 원문:\n${input.sourceText}\n\n` + ask,
       },
     ],
     max_tokens: MAX_OUTPUT_TOKENS,
@@ -87,7 +96,7 @@ export async function runSynthesis(
     try {
       const r = await streamChatText({
         apiKey: key,
-        body: buildSynthesisBody(input, opts?.model),
+        body: buildSynthesisBody(input, opts?.model, opts?.lang),
         endpoint: opts?.endpoint,
         signal: opts?.signal,
         onDelta,

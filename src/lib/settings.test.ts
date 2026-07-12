@@ -8,6 +8,8 @@ import {
   setInboxPaneWidth,
   clampPanePct,
   INBOX_PANE_DEFAULTS,
+  getOutputLanguage,
+  setOutputLanguage,
 } from "./settings";
 
 // Map 백엔드 fake localStorage — node vitest 환경엔 없으므로 주입.
@@ -73,5 +75,27 @@ describe("chunk settings", () => {
     expect(getInboxPaneWidths().pdf).toBe(INBOX_PANE_DEFAULTS.pdf);
     expect(clampPanePct(200)).toBe(70);
     expect(clampPanePct(-3)).toBe(30);
+  });
+});
+
+describe("output language (LLM 생성 언어)", () => {
+  beforeEach(() => {
+    g.localStorage = new FakeStorage() as unknown as Storage;
+  });
+  afterEach(() => {
+    delete g.localStorage;
+  });
+
+  it("기본은 ko, set 후 반영", () => {
+    expect(getOutputLanguage()).toBe("ko");
+    setOutputLanguage("en");
+    expect(getOutputLanguage()).toBe("en");
+    setOutputLanguage("ko");
+    expect(getOutputLanguage()).toBe("ko");
+  });
+
+  it("무효 저장값은 ko로 폴백", () => {
+    localStorage.setItem("output-language", "jp");
+    expect(getOutputLanguage()).toBe("ko");
   });
 });

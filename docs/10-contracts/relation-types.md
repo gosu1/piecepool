@@ -57,7 +57,7 @@ type Relation = {
   relationType: RelationType;
   strength: number;          // 0.0 ~ 1.0
   confidence: number;        // 0.0 ~ 1.0
-  explanation: string;       // 짧은 한국어 설명
+  explanation: string;       // 언어 설정을 따르는 짧은 설명
   evidence: Evidence[];      // 근거 목록 (최소 1개 권장)
   createdAt: string;
   updatedAt: string;
@@ -93,7 +93,7 @@ MVP에서는 LLM이 부여한 값을 그대로 사용. 후속 버전에서 가�
 
 ### 4.3 `explanation`
 
-사용자가 edge 상세 패널에서 읽을 한국어 짧은 설명. 1-2문장.
+사용자가 edge 상세 패널에서 읽을 짧은 설명. 사용자 언어 설정(ko/en)을 따른다. 1-2문장.
 
 예: `"Self-Attention은 Transformer의 핵심 layer 중 하나로, 입력 token 간 관계를 계산한다."`
 
