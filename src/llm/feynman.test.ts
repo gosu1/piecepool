@@ -130,4 +130,41 @@ describe("probeExplanation", () => {
       }),
     ).rejects.toThrow(/no structured output/);
   });
+
+  it("deps.lang='en' → system이 영어 톤, 존댓말 지시 없음", async () => {
+    let sent = "";
+    const ok = new Response(
+      JSON.stringify({ choices: [{ message: { content: JSON.stringify({ probe: "Why?", targetGap: "why" }) } }] }),
+      { status: 200 },
+    );
+    await probeExplanation("TCP", "note", [{ role: "user", text: "설명" }], "k", {
+      lang: "en",
+      backoffMs: 0,
+      fetchFn: (async (_u: unknown, init: { body: string }) => {
+        sent = init.body;
+        return ok;
+      }) as unknown as typeof fetch,
+    });
+    const body = JSON.parse(sent);
+    expect(body.messages[0].content).toContain("Write all prose in English");
+    expect(body.messages[0].content).not.toContain("존댓말");
+  });
+
+  it("기본(ko) → system에 존댓말 + 혼용 규칙", async () => {
+    let sent = "";
+    const ok = new Response(
+      JSON.stringify({ choices: [{ message: { content: JSON.stringify({ probe: "왜죠?", targetGap: "why" }) } }] }),
+      { status: 200 },
+    );
+    await probeExplanation("TCP", "note", [{ role: "user", text: "설명" }], "k", {
+      backoffMs: 0,
+      fetchFn: (async (_u: unknown, init: { body: string }) => {
+        sent = init.body;
+        return ok;
+      }) as unknown as typeof fetch,
+    });
+    const body = JSON.parse(sent);
+    expect(body.messages[0].content).toContain("존댓말");
+    expect(body.messages[0].content).toContain("원문 표기를 그대로");
+  });
 });

@@ -1,4 +1,5 @@
 import { extractChatJson, GEMINI_OPENAI_ENDPOINT, GEMINI_MODEL } from "./gemini";
+import { languageDirective, getOutputLanguage, type OutputLanguage } from "./language";
 
 // 파인만 — 사용자가 개념을 자기 말로 설명하면, LLM 이 그 설명의 구멍을 짚어 되묻는다.
 // 설계: docs/superpowers/specs/2026-07-10-feynman-clarify-design.md
@@ -33,6 +34,7 @@ export interface FeynmanDeps {
   model?: string;
   maxRetries?: number; // gemini.ts 와 같은 규약(기본 2)
   backoffMs?: number; // 0 = 즉시(테스트용)
+  lang?: OutputLanguage; // 미지정 시 설정값(getOutputLanguage)
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -51,23 +53,33 @@ const PROBE_SCHEMA = {
   },
 } as const;
 
-const SYSTEM = [
-  "You are a Feynman-technique tutor. The student explains a concept in their own words; you probe the gap.",
-  "HARD RULES:",
-  "1. NEVER give the answer. Do not define the concept, do not state the correct explanation, do not hint at it.",
-  "   Even when the student is factually WRONG, do not correct them — point at the contradiction and let them find it.",
-  "   Even when the student demands the answer, refuse and ask them to try in their own words.",
-  "2. Ask EXACTLY ONE thing. One question mark, one gap. Never combine two asks",
-  "   (e.g. '무엇인지 + 예를 들어'). Choose the single most useful gap:",
-  "   a missing cause ('why'), an undefined term ('term'),",
-  "   a missing concrete example ('example'), or a contradiction with what they said earlier ('contradiction').",
-  "3. NEVER judge sufficiency. Do not say the explanation is good/enough/lacking/correct/wrong. The student decides that.",
-  "4. Address the student directly in Korean 존댓말. NEVER write the word '학생' at all —",
-  "   not '학생은', not '학생의 말로', not '학생분'. Say '본인의 말로' or just omit the subject.",
-  "   Speak TO them, never ABOUT them.",
-  "5. ONE short warm question. Quote their own words when useful.",
-  "Respond ONLY with JSON conforming to the schema.",
-].join("\n");
+const buildSystem = (lang: OutputLanguage) =>
+  [
+    "You are a Feynman-technique tutor. The student explains a concept in their own words; you probe the gap.",
+    "HARD RULES:",
+    "1. NEVER give the answer. Do not define the concept, do not state the correct explanation, do not hint at it.",
+    "   Even when the student is factually WRONG, do not correct them — point at the contradiction and let them find it.",
+    "   Even when the student demands the answer, refuse and ask them to try in their own words.",
+    "2. Ask EXACTLY ONE thing. One question mark, one gap. Never combine two asks",
+    "   (e.g. '무엇인지 + 예를 들어'). Choose the single most useful gap:",
+    "   a missing cause ('why'), an undefined term ('term'),",
+    "   a missing concrete example ('example'), or a contradiction with what they said earlier ('contradiction').",
+    "3. NEVER judge sufficiency. Do not say the explanation is good/enough/lacking/correct/wrong. The student decides that.",
+    ...(lang === "en"
+      ? [
+          "4. Address the student directly in a polite, encouraging tone. NEVER use the word 'student' —",
+          "   never 'the student said'. Speak TO them, never ABOUT them.",
+        ]
+      : [
+          "4. Address the student directly in Korean 존댓말. NEVER write the word '학생' at all —",
+          "   not '학생은', not '학생의 말로', not '학생분'. Say '본인의 말로' or just omit the subject.",
+          "   Speak TO them, never ABOUT them.",
+        ]),
+    "5. ONE short warm question. Quote their own words when useful.",
+    "Probe language rule:",
+    languageDirective(lang),
+    "Respond ONLY with JSON conforming to the schema.",
+  ].join("\n");
 
 /**
  * 사용자 설명을 읽고 구멍 하나를 짚어 되묻는다.
@@ -94,10 +106,12 @@ export async function probeExplanation(
   const maxRetries = deps?.maxRetries ?? 2;
   const backoffMs = deps?.backoffMs ?? 250;
 
+  const lang = deps?.lang ?? getOutputLanguage();
+
   const body = JSON.stringify({
     model: deps?.model ?? GEMINI_MODEL,
     messages: [
-      { role: "system", content: SYSTEM },
+      { role: "system", content: buildSystem(lang) },
       {
         role: "user",
         content: JSON.stringify({
