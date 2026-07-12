@@ -30,6 +30,20 @@ describe("buildSynthesisBody", () => {
     expect(b.messages[1].content).toContain("# OS 3주차 정리");
     expect(b.max_tokens).toBeGreaterThan(0);
   });
+
+  it("lang='en' — directive가 영어 지시, user 메시지도 영어 재구성 지시", () => {
+    const b = buildSynthesisBody({ sourceTitle: "TCP", sourceText: "- 파편" }, undefined, "en");
+    expect(b.messages[0].content).toContain("Write all prose in English");
+    expect(b.messages[0].content).not.toContain("본문은 한국어");
+    expect(b.messages[1].content).toContain("starting with '# TCP'");
+  });
+
+  it("기본(ko) — 혼용 규칙 directive 포함, '# {제목} 정리' 지시 유지", () => {
+    const b = buildSynthesisBody({ sourceTitle: "TCP", sourceText: "- 파편" });
+    expect(b.messages[0].content).toContain("서술은 한국어로 쓴다");
+    expect(b.messages[0].content).toContain("원문 표기를 그대로");
+    expect(b.messages[1].content).toContain("'# TCP 정리'");
+  });
 });
 
 describe("runSynthesis — Gemini 경로", () => {
