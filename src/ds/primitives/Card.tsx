@@ -1,7 +1,7 @@
 import type { HTMLAttributes } from "react";
 import { cn } from "../lib/cn";
 
-// 카드/패널 (DESIGN-notion.md). 흰 표면 + 헤어라인이 기본, 그림자는 거의 없음.
+// 카드/패널 (디자인 레퍼런스). 흰 표면 + 헤어라인이 기본, 그림자는 거의 없음.
 //  - elevation "flat"     : 헤어라인만(기본). feature-card.
 //  - elevation "soft"     : 미세 다층 그림자(shadow-soft). feature-card-elevated / 떠 있는 패널.
 //  - featured             : surface-soft(따뜻한 오프화이트) 채움으로 추천 항목을 띄움. pricing-featured.

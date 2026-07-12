@@ -96,7 +96,7 @@ Phase 4. Tracking issue: [#3](https://github.com/gosu1/piecepool/issues/3)
 
 ## A. 원자성 (Atomicity) — 분할 단위
 
-Zettelkasten / Obsidian 철학: **하나의 조각 = 하나의 완결된 아이디어.**
+Zettelkasten 철학: **하나의 조각 = 하나의 완결된 아이디어.**
 
 판단 기준 3가지:
 

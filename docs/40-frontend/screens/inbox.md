@@ -20,7 +20,7 @@ PiecePool 사용자 첫 진입 화면. 글/이미지를 작성해 하나의 `Sou
 
 ## 2. 속성 패널 ↔ entity 매핑
 
-`scope-mvp.md` §2.3: "제목, resource, project, 고정하기, 연결된 node들이 화면에 표시된다" (첨부된 예시 화면은 Notion 캡처 그 자체이며 PiecePool 자체 목업이 아니다). 각 속성을 현재 SSOT(`entities.md`)와 대조한 결과:
+`scope-mvp.md` §2.3: "제목, resource, project, 고정하기, 연결된 node들이 화면에 표시된다" (첨부된 예시 화면은 타사 앱 캡처이며 PiecePool 자체 목업이 아니다). 각 속성을 현재 SSOT(`entities.md`)와 대조한 결과:
 
 | 속성 | 매핑 | 근거 |
 |---|---|---|
@@ -34,7 +34,7 @@ PiecePool 사용자 첫 진입 화면. 글/이미지를 작성해 하나의 `Sou
 
 ## 3. 화면 구성
 
-Notion 페이지 모델([`../../00-overview/scope-mvp.md`](../../00-overview/scope-mvp.md) §2.3 예시 화면 그대로): 상단 제목 입력 + 속성 패널(project 선택 dropdown, 자유 해시태그 입력) + 하단 Markdown 본문 편집 영역.
+페이지 모델([`../../00-overview/scope-mvp.md`](../../00-overview/scope-mvp.md) §2.3 예시 화면 그대로): 상단 제목 입력 + 속성 패널(project 선택 dropdown, 자유 해시태그 입력) + 하단 Markdown 본문 편집 영역.
 
 ```
 ┌─────────────────────────────┐

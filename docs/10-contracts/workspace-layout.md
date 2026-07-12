@@ -106,7 +106,7 @@ LLM이 개념 중심으로 정리한 WikiPage 저장소 (Markdown).
 - 각 WikiPage = 하나의 `.md` 파일
 - 사용자는 직접 열고 편집 가능
 - 사용자 친화적 설명 + 앱/LLM 친화적 구조화 메타데이터 동시 보유
-- Obsidian 호환 `[[...]]` / `![[...]]` 문법 지원
+- 외부 마크다운 에디터 호환 `[[...]]` / `![[...]]` 문법 지원
 
 **엔티티 정의**: [entities.md#wikipage](entities.md#wikipage)
 **Frontmatter 스키마**: [markdown-frontmatter.md#wiki-page](markdown-frontmatter.md)
@@ -160,9 +160,9 @@ Wiki에서 `[[파일명]]` / `![[파일명]]` 문법으로 참조하는 대상�
 
 ---
 
-## 5. Obsidian 호환 가이드
+## 5. 외부 에디터 호환 가이드
 
-추후 Obsidian vault로도 동작 가능하도록 다음을 유지한다.
+추후 외부 마크다운 볼트로도 동작 가능하도록 다음을 유지한다.
 
 - 모든 사람 읽기 대상 문서 = Markdown (`.md`)
 - Frontmatter = YAML (`---` 구분자)
@@ -170,7 +170,7 @@ Wiki에서 `[[파일명]]` / `![[파일명]]` 문법으로 참조하는 대상�
 - Embed = `![[파일명]]`
 - 디렉토리 구조 = 사용자가 직접 탐색 가능한 평탄한 트리
 
-Obsidian 미지원 자산(예: `relations/relations.json`)은 별도 폴더에 격리해 본문 충돌을 피한다.
+외부 에디터 미지원 자산(예: `relations/relations.json`)은 별도 폴더에 격리해 본문 충돌을 피한다.
 
 ---
 

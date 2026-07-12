@@ -3,8 +3,8 @@ import { Button } from "../primitives/Button";
 import { Badge } from "../primitives/Badge";
 import { cn } from "../lib/cn";
 
-// 요금제 티어 카드 (DESIGN-notion.md pricing). 추천 티어는 색 보더/리본이 아니라
-// 따뜻한 surface-soft 채움(featured)으로 구분하고, CTA만 단일 Notion 블루 알약.
+// 요금제 티어 카드 (디자인 레퍼런스: docs/50-design/references/ pricing). 추천 티어는 색 보더/리본이 아니라
+// 따뜻한 surface-soft 채움(featured)으로 구분하고, CTA만 단일 프라이머리 블루 알약.
 //  - recommended : featured 채움 + soft 그림자 + 블루 primary CTA. 예) Professional
 //  - 일반        : 헤어라인 카드 + utility(흰 표면) CTA. 예) Basic
 

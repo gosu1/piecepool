@@ -2,7 +2,7 @@
 
 PiecePool workspace를 **SKILL.md 한 장으로 내보내** Claude Code / Codex가 그 vault를 직접 질의하게 한다.
 
-> **상태**: 제안 / post-MVP. roadmap §6 "Obsidian 호환 vault mode"([`../70-roadmap/post-mvp.md`](../70-roadmap/post-mvp.md))와 연계.
+> **상태**: 제안 / post-MVP. roadmap §6 "외부 마크다운 볼트 호환 mode"([`../70-roadmap/post-mvp.md`](../70-roadmap/post-mvp.md))와 연계.
 > 외부 영감: research-wiki-skill-kit (vault → SKILL.md 변환 + 4단계 파이프라인).
 > in-app 질의는 [`wiki-qa-agent.md`](wiki-qa-agent.md) — 본 문서는 **외부** 에이전트용.
 
@@ -10,7 +10,7 @@ PiecePool workspace를 **SKILL.md 한 장으로 내보내** Claude Code / Codex�
 
 ## 1. 동기 (거의 공짜인 이유)
 
-PiecePool은 이미 **로컬 Markdown vault + Obsidian 호환**([`../00-overview/vision.md`](../00-overview/vision.md) §6). vault 구조([`../10-contracts/workspace-layout.md`](../10-contracts/workspace-layout.md))와 노트 타입([`../10-contracts/entities.md`](../10-contracts/entities.md))이 **이미 고정**돼 있다.
+PiecePool은 이미 **로컬 Markdown vault + 외부 에디터 호환**([`../00-overview/vision.md`](../00-overview/vision.md) §6). vault 구조([`../10-contracts/workspace-layout.md`](../10-contracts/workspace-layout.md))와 노트 타입([`../10-contracts/entities.md`](../10-contracts/entities.md))이 **이미 고정**돼 있다.
 
 → skill-kit이 사람한테 시키는 "vault 구조 발견"을 PiecePool은 **이미 안다**. SKILL.md를 자동 생성만 하면 사용자가 자기 지식 지도를 Claude Code/Codex에서 바로 질의. 앱 밖 확장.
 
@@ -77,7 +77,7 @@ causes, solves, contrasts, confused_with, related_to, tested_in, review_needed
 2. 사용자가 vault 폴더를 Claude Code/Codex로 연다.
 3. SKILL.md가 로드돼 외부 에이전트가 같은 검색·근거 규칙으로 vault 질의.
 
-→ PiecePool UI 밖(터미널/IDE)에서도 지식 지도 활용. Obsidian vault export([`../70-roadmap/post-mvp.md`](../70-roadmap/post-mvp.md) §6)와 한 묶음으로 출시 가능.
+→ PiecePool UI 밖(터미널/IDE)에서도 지식 지도 활용. 외부 마크다운 볼트 export([`../70-roadmap/post-mvp.md`](../70-roadmap/post-mvp.md) §6)와 한 묶음으로 출시 가능.
 
 ---
 

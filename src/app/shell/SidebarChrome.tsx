@@ -2,7 +2,7 @@ import { useState } from "react";
 import { cn, Icons, IconButton } from "../../ds";
 import { useWorkspaceStore, type TreeSort } from "../../store/workspaceStore";
 
-// 사이드바 파일 정렬 드롭다운 (이름/업데이트/생성일 × 오름·내림) — Obsidian 파일 정렬 패턴
+// 사이드바 파일 정렬 드롭다운 (이름/업데이트/생성일 × 오름·내림)
 const SORT_OPTIONS: { label: string; sort: TreeSort }[] = [
   { label: "파일 이름 (알파벳순)", sort: { key: "name", dir: "asc" } },
   { label: "파일 이름 (알파벳 역순)", sort: { key: "name", dir: "desc" } },
@@ -49,7 +49,7 @@ function SortButton() {
   );
 }
 
-// ══ 사이드바 크롬 (Obsidian식) — 헤더 액션 · 숏컷 행 ══
+// ══ 사이드바 크롬 — 헤더 액션 · 숏컷 행 ══
 // Sidebar 의 headerSlot / shortcutsSlot 에 꽂힌다. 트리(TreeNav)는 건드리지 않는다.
 
 export function SidebarHeader({ title, onNewNote }: { title: string; onNewNote: () => void }) {
@@ -78,7 +78,7 @@ export function SidebarShortcuts({
   onToggleCollapseAll: () => void;
   /** 모든 폴더가 접혀 있으면 true → 버튼이 "전체 펼치기"로 전환 */
   allCollapsed?: boolean;
-  /** 페이지 헤더 "고정하기"로 고정한 문서 — Notion 즐겨찾기 위치 */
+  /** 페이지 헤더 "고정하기"로 고정한 문서 — 즐겨찾기 위치 */
   pinned?: { id: string; label: string }[];
   onOpenPinned?: (id: string) => void;
   /** 우클릭 컨텍스트 메뉴 "고정 해제" */

@@ -7,7 +7,7 @@ import type { GraphData } from "./types";
 import { RELATION_LABEL, REVIEW_COLOR, computeDepth, groupOf } from "./relationMeta";
 import { useTheme } from "../ds";
 
-// 옵시디언식 물리: d3-force 시뮬레이션이 cytoscape 노드 위치를 구동한다.
+// d3-force 물리: 시뮬레이션이 cytoscape 노드 위치를 구동한다.
 // alpha 냉각으로 스스로 식어 정지 → idle CPU ≈ 0. 노드를 잡으면 alphaTarget 로 재가열되어
 // 이웃이 스프링처럼 유기적으로 재배치되고, 놓으면 다시 식어 멈춘다.
 interface SimNode extends SimulationNodeDatum {
@@ -20,7 +20,7 @@ interface SimLink {
 }
 
 // cy 요소로부터 시뮬레이션을 구성한다. 노드 x/y 를 비워 두면 d3 가 나선형으로 초기 배치(겹침 방지),
-// 매 tick 에 좌표를 cy 로 흘려보낸다. (링크 거리·반발·중심·충돌 힘 = 옵시디언 그래프 힘 구성)
+// 매 tick 에 좌표를 cy 로 흘려보낸다. (링크 거리·반발·중심·충돌 힘을 기본 구성으로, 분기별 radial·계층 힘 추가)
 // layout="hier": part_of·prerequisite 로 유도한 깊이(computeDepth)를 forceY 목표로 — 위=기초/전체, 아래=심화/부분.
 function buildSim(cy: Core, layout: "force" | "hier"): { sim: Simulation<SimNode, SimLink>; map: Map<string, SimNode> } {
   const w = cy.width() || 800;

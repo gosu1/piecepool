@@ -3,7 +3,7 @@ import type { KnowledgeSpace, WikiPage as WikiPageT, ArchiveNote, GraphData } fr
 
 // ══ Study Home (부팅 탭-0) — "파편이 지식이 되다, Piecepool" ══
 // C1 저널 레이아웃(넉넉·시원): 브랜드 태그라인(단어별 3초 페이드업) → 새 노트 CTA(블루+후광)
-// → 개념 지도 미니 그래프(추상 장식) → 최근 위키 피드 → 정리 추천 → 공간. 색은 기존 primary(Notion 블루) 토큰.
+// → 개념 지도 미니 그래프(추상 장식) → 최근 위키 피드 → 정리 추천 → 공간. 색은 기존 primary(프라이머리 블루) 토큰.
 const TAGWORDS = ["파편이", "지식이", "되다,", "Piecepool"];
 
 // 상대 시간 — 최근 피드용(방금/N분/N시간/어제/N일/날짜).

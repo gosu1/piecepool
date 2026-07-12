@@ -12,9 +12,9 @@
 - 파일 시작 라인 `---`, 종료 라인 `---`
 - YAML 1.2 (UTF-8, LF)
 - ISO 8601 시각 표기 (예: `"2026-05-28T12:30:00+09:00"`)
-- 문자열은 큰따옴표 권장 (Obsidian 호환)
+- 문자열은 큰따옴표 권장 (외부 에디터 호환)
 - `id`는 ULID 또는 안정 식별자
-- frontmatter 외 본문은 GitHub Flavored Markdown + Obsidian wikilink/embed ([wikilink-embed.md](wikilink-embed.md))
+- frontmatter 외 본문은 GitHub Flavored Markdown + 위키링크/embed ([wikilink-embed.md](wikilink-embed.md))
 
 ---
 

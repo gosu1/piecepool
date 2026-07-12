@@ -1,8 +1,8 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { cn } from "../lib/cn";
 
-// 버튼 (DESIGN-notion.md). 액센트는 Notion 블루 하나, 모양 대비(알약 vs 8px)가 의도.
-//  - primary   : Notion 블루 채움 + 흰 글자, 완전 알약(rounded-full). 마케팅/주요 CTA. (button-primary)
+// 버튼 (디자인 레퍼런스). 액센트는 프라이머리 블루 하나, 모양 대비(알약 vs 8px)가 의도.
+//  - primary   : 프라이머리 블루 채움 + 흰 글자, 완전 알약(rounded-full). 마케팅/주요 CTA. (button-primary)
 //  - solid     : ink 채움 + 흰 글자, rounded-md. 앱 내 주요 동작(Sign In · 파일 선택). 다크 아일랜드.
 //  - secondary : 흰 표면 + ink, 알약 + 부드러운 그림자. (button-secondary)
 //  - utility   : 흰 표면 + ink, rounded-md + 헤어라인. nav/플랜 선택. (button-utility)

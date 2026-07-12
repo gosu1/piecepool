@@ -24,7 +24,7 @@ export interface SidebarProps
   nodes: TreeNode[];
   onAddFile?: () => void;
   onLogout?: () => void;
-  /** 상단 헤더 대체 슬롯(Obsidian식 타이틀+액션). 미지정 시 로고+새 노트. */
+  /** 상단 헤더 대체 슬롯(타이틀+액션 행). 미지정 시 로고+새 노트. */
   headerSlot?: ReactNode;
   /** 헤더 아래 숏컷 행(홈·새 노트 등). */
   shortcutsSlot?: ReactNode;

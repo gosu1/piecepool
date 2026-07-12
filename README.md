@@ -31,7 +31,7 @@ LLM이 하는 일 네 가지:
 3. **정보 간극 메우기 (label ↔ user)** — **Liner API**(주)가 권위 있는 출처를 검색해 정답 기준(label)을 세우고 사용자 필기 사이의 간극을 검증·보강한다(fact-check·출처 provenance). Liner 미가용 시 **Gemini**(보조)가 정답을 바로 주입하지 않고 1~3개 선택지 + 기타 칸으로 **소크라테스식·하브루타식** 되묻기 질문을 생성한다.
 4. **파인만** — 개념을 자기 말로 설명하게 하고, LLM은 정답을 알려주지 않은 채 그 설명의 구멍 하나만 짚어 되묻는다. 이해했는지는 **오직 사용자가** 판정하며(LLM은 채점하지 않는다), 사용자가 남긴 설명이 Wiki의 재료가 된다.
 
-Obsidian(단순 링크)·Notion(SaaS DB)·Anki(고립 카드)와 달리 **LLM 재구성 Wiki + 타입 관계 + 누적 지식 지도**가 차별점이다.
+단순 링크형 노트앱·SaaS 문서 DB·Anki(고립 카드)와 달리 **LLM 재구성 Wiki + 타입 관계 + 누적 지식 지도**가 차별점이다.
 
 <details>
 <summary>정보 간극 메우기 상세</summary>
@@ -92,7 +92,7 @@ npm run e2e           # Playwright e2e
 | 앱 골격 | Tauri v2 |
 | Frontend | React + TypeScript + Tailwind |
 | Backend | Rust — 파일 I/O · PDF 추출 · import 파이프라인 · IPC |
-| 저장 | 로컬 파일시스템 (Markdown + JSON), Obsidian 호환 `[[파일]]` / `![[파일]]` |
+| 저장 | 로컬 파일시스템 (Markdown + JSON), 외부 에디터 호환 `[[파일]]` / `![[파일]]` |
 | LLM | Google Gemini (`gemini-2.5-flash`, OpenAI 호환 엔드포인트) — Wiki 생성 · 파인만 · 타입 Graph |
 | 출처 검색 | Liner API (`LINER_API_KEY`) — 정보 간극 메우기(fact-check · provenance) |
 
