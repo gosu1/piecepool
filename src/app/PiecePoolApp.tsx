@@ -319,6 +319,18 @@ export default function PiecePoolApp() {
       setGraphBySlug(drop);
       setSubjectsBySlug(drop);
       openTabs.filter((t) => t.space === slug).forEach((t) => closeTabClean(t.id));
+      // 다른 탭에 있으면서 이 공간을 저장 대상으로 삼던 초안 — 그대로 두면 갇힌다(폴더 변경·저장 모두
+      // 없는 공간을 향해 실패한다). 공간과 함께 죽은 원본 기록(refSource·uploads)과 바인딩을 풀어 되살린다.
+      // 본문은 손대지 않는다 — 임베드 자동 재작성 금지(wikilink-embed.md). 깨진 ![[...]] 는 사용자가 정리한다.
+      const ds = useInboxDraftStore.getState();
+      for (const [key, d] of Object.entries(ds.drafts)) {
+        const boundHere = d.savedSpace === slug;
+        if (d.targetSpace !== slug && !boundHere) continue;
+        ds.write(key, {
+          ...(d.targetSpace === slug ? { targetSpace: "", refSource: "", uploads: [] } : {}),
+          ...(boundHere ? { savedFile: null, savedSpace: null } : {}),
+        });
+      }
       if (currentSpace === slug) {
         setCurrentSpaceSlug(spaceList[0]?.slug ?? "");
         openHome();
@@ -333,6 +345,8 @@ export default function PiecePoolApp() {
   const openEmptyTab = () => openTab({ id: `empty:${Date.now().toString(36)}`, kind: "empty", title: "새 탭" });
   // 노트 탭을 닫으면 그 초안도 스토어에서 지운다(닫기 = 명시적 폐기, 진행 중 요약도 중단). 저장된 archive 파일은 남는다.
   // 한 번도 저장하지 않은 초안이 올린 원본은 아무 노트도 참조하지 않는다 — PDF·이미지 전부 함께 지운다.
+  // 삭제 대상은 "이 초안이 올린 것"(uploads)뿐이다 — 본문 파싱이면 손으로 친 ![[남의파일.pdf]] 하나에
+  // 저장된 남의 노트의 원본이 딸려 지워진다.
   // savedFile 이 있으면 archive 노트가 그 원본들을 ![[...]] 로 참조 중이다. 절대 건드리지 않는다.
   const closeTabClean = (id: string) => {
     if (id.startsWith("inbox:")) {
@@ -341,7 +355,7 @@ export default function PiecePoolApp() {
         const space = d.targetSpace || openTabs.find((t) => t.id === id)?.space || "";
         // 정리는 부수 작업 — 한 파일이 실패해도 나머지 삭제와 탭 닫기를 막지 않는다.
         if (space) {
-          for (const f of noteOriginalFiles(d.body, d.refSource)) {
+          for (const f of d.uploads ?? []) {
             void ipc.deleteSource(space, f).catch(() => {});
           }
         }
