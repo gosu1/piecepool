@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button, FileDropzone, Icons, cn } from "../../ds";
 import type { KnowledgeSpace, WikiPage as WikiPageT } from "../../lib/types";
 import * as ipc from "../../lib/ipc";
@@ -38,6 +38,16 @@ const IMPORT_STATUS_LABEL: Record<string, string> = {
   completed: "완료",
   failed: "실패",
 };
+
+/** 본문에서 그 파일의 임베드 줄만 걷어낸다(원본 삭제 시). 남는 빈 줄은 최대 1개로 접는다. */
+function stripEmbed(body: string, file: string): string {
+  return body
+    .split("\n")
+    .filter((l) => l.trim() !== `![[${file}]]`)
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
 
 function fileToBase64(f: File): Promise<string> {
   return new Promise((res, rej) => {
@@ -127,20 +137,23 @@ export function InboxSection({
   const fy = useFeynmanEditor({ noteId: draftNoteId(draftKey), space, markdown: body, noteTitle: title });
   const busy = !!job && !["completed", "failed"].includes(job.status);
 
-  // ── 참조 패널 상태 (sources 목록은 로컬; 선택 refSource·refWikiPath 는 draft 로 보존) ──
-  const [sources, setSources] = useState<string[]>([]); // 이 공간의 원본 파일 전체
+  // ── 참조 패널 상태 (선택 refSource·refWikiPath 는 draft 로 보존) ──
+  // 원본은 "이 노트가 올린 PDF 하나"다 — 공간의 원본 목록에서 골라 쓰지 않는다(노트↔원본 1:1).
   // 동시 임포트(다중 drop) 대응 — 불리언이면 먼저 끝난 건이 busy 를 풀어버린다.
   const [pdfJobs, setPdfJobs] = useState(0);
   const pdfBusy = pdfJobs > 0;
   const [uploadOpen, setUploadOpen] = useState(false);
   const [confirmDelSrc, setConfirmDelSrc] = useState(false);
   const [srcErr, setSrcErr] = useState<string | null>(null);
+  // 삭제 = 이 노트의 원본을 무르는 유일한 수단(잘못 올림). 원본 파일 + 본문 임베드를 함께 걷어야
+  // 다시 올릴 수 있다 — 사용자가 명시적으로 누른 삭제이므로 자동 재작성 금지 계약에 걸리지 않는다.
   const deleteSource = async () => {
     setConfirmDelSrc(false);
     setSrcErr(null);
     try {
       await ipc.deleteSource(space, refSource);
-      await loadSources(); // refSource 는 loadSources 가 목록 기준으로 재보정
+      setBody(stripEmbed(ds.getState().drafts[draftKey]?.body ?? "", refSource));
+      setRefSource("");
     } catch (e) {
       setSrcErr(String(e));
     }
@@ -198,29 +211,14 @@ export function InboxSection({
   // 고른 게 없으면 없는 것 — `?? existing[0]` 폴백은 빈 노트에 공간의 첫 위키(제목 정렬 1등)를 띄웠다.
   const refWiki = refCandidates.find((w) => w.path === refWikiPath) ?? null;
 
-  const loadSources = useCallback(async () => {
-    try {
-      const list = await ipc.listSources(space);
-      setSources(list);
-      // 목록의 첫 파일을 자동 선택하지 않는다 — 이 노트와 무관한 원본이 열린다.
-      const cur = ds.getState().drafts[draftKey]?.refSource ?? "";
-      setRefSource(cur && list.includes(cur) ? cur : "");
-    } catch {
-      setSources([]);
-    }
-  }, [space, draftKey, ds]);
-
-  useEffect(() => {
-    if (panels.pdf) void loadSources();
-  }, [panels.pdf, loadSources]);
-
   // PDF → sources/original-files 저장 + 패널 열람 + 출처 임베드 + 한국어 번역·요약 스트리밍.
   // 요약은 스토어가 소유(fire-and-forget) — 탭을 떠나도 계속 흐르고 종결 시 본문에 병합된다.
+  // 같은 PDF 를 다른 노트에서 또 올리면 백엔드가 `-2` 접미사로 별개 파일을 만든다 — 의도된 것이다.
+  // 원본을 노트끼리 공유하면 한쪽에서 삭제·이동할 때 다른 노트의 임베드가 깨진다.
   const importPdf = async (f: File) => {
     setPdfJobs((n) => n + 1);
     try {
       const stored = await ipc.saveSourceFile(space, f.name, await fileToBase64(f));
-      await loadSources();
       setRefSource(stored);
       // 올린 PDF 를 바로 볼 수 있게 PDF 패널 자동 열림
       togglePanel("pdf", true);
@@ -253,7 +251,7 @@ export function InboxSection({
     }
   };
 
-  // 파일 1개 처리 — 여러 개 드랍/선택 시 각각 순서대로 에디터에 누적된다.
+  // 파일 1개 처리 — 여러 개 드랍/선택 시 각각 순서대로 에디터에 누적된다. PDF 는 onFiles 가 따로 건다.
   const addFile = (f: File) => {
     const stem = f.name.replace(/\.[^.]+$/, "");
     if (f.type.startsWith("text") || /\.(md|markdown|txt)$/i.test(f.name)) {
@@ -275,7 +273,6 @@ export function InboxSection({
         try {
           const stored = await ipc.saveSourceFile(space, f.name, dataUrl.split(",")[1] ?? "");
           embed = `![[${stored}]]\n\n`;
-              void loadSources();
         } catch {
           // 저장 실패해도 OCR 은 계속
         }
@@ -288,13 +285,26 @@ export function InboxSection({
         }
       };
       reader.readAsDataURL(f);
-    } else if (/\.pdf$/i.test(f.name) || f.type === "application/pdf") {
-      void importPdf(f);
     } else {
       appendBody(`> ${f.name} — 지원하지 않는 형식이에요 (md/txt/pdf/이미지).`);
     }
   };
-  const onFiles = (files: FileList) => Array.from(files).forEach(addFile);
+
+  // 노트 하나 = PDF 하나. 이미 원본이 있으면 새 PDF 를 받지 않는다 — 바꾸려면 삭제가 먼저다.
+  // (sourceRefs 가 노트당 대표 파일 1개만 쓴다: llmApply.ts embedSourceFiles)
+  const isPdf = (f: File) => /\.pdf$/i.test(f.name) || f.type === "application/pdf";
+  const onFiles = (files: FileList) => {
+    const arr = Array.from(files);
+    arr.filter((f) => !isPdf(f)).forEach(addFile);
+    const pdfs = arr.filter(isPdf);
+    if (!pdfs.length) return;
+    if (pdfBusy || ds.getState().drafts[draftKey]?.refSource) {
+      onNotice?.("이 노트엔 이미 원본이 있어요 — 바꾸려면 PDF 패널에서 삭제 후 다시 올려주세요");
+      return;
+    }
+    if (pdfs.length > 1) onNotice?.("노트 하나에 PDF 하나예요 — 첫 파일만 올렸어요");
+    void importPdf(pdfs[0]);
+  };
 
   const run = async () => {
     // pdfBusy/summarizing 게이트: 요약 완료 전 저장하면 아카이브에 PDF 요약이 빠진 채 저장되고
@@ -433,23 +443,16 @@ export function InboxSection({
     <section style={{ width: `${paneW.pdf}%`, minWidth: 280 }} className="flex min-w-0 shrink-0 flex-col border-r border-hairline">
       <PaneHeader
         label="PDF"
-        // 목록이 이 노트가 아니라 이 공간의 것임을 밝힌다 — 자동 선택은 하지 않는다.
-        hint={sources.length > 0 ? `이 공간의 원본 ${sources.length}개` : "원본 없음"}
+        // 이 노트가 올린 원본 하나만 보여준다 — 공간의 원본 목록에서 고르는 기능은 없다.
+        hint={refSource || "원본 없음"}
         right={
           <div className="flex min-w-0 items-center gap-1.5">
-            {sources.length > 0 && (
-              <PaneSelect
-                value={refSource}
-                onChange={setRefSource}
-                options={sources.map((s) => ({ value: s, label: s }))}
-                placeholder="원본 고르기…"
-              />
-            )}
             {refSource && (
               <Button size="sm" variant="utility" className="shrink-0 whitespace-nowrap" onClick={() => setConfirmDelSrc(true)}>
                 삭제
               </Button>
             )}
+            {/* 업로드는 항상 열려 있다 — PDF 는 1개 게이트(onFiles)에 걸리지만 이미지·md 는 계속 받는다. */}
             <Button size="sm" variant="utility" className="shrink-0 whitespace-nowrap" onClick={() => setUploadOpen(true)}>
               업로드
             </Button>
