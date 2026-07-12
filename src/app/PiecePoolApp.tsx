@@ -836,7 +836,7 @@ export default function PiecePoolApp() {
       sp?.id ?? "",
       note.subjectIds,
       fc.result,
-      { sourceId: note.sourceId, archivePath: `archive/${note.path}` },
+      { sourceId: note.sourceId, archivePath: `archive/${note.path}`, title: note.title },
       wikiBySlug[space] ?? [],
     );
     const mergedNote = applied.merged > 0 ? ` (기존 ${applied.merged}개 병합)` : "";

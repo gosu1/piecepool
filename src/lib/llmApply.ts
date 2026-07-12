@@ -29,18 +29,47 @@ export function slugOrHash(title: string): string {
   return s || `c-${hash8(title)}`;
 }
 
-function conceptMarkdown(c: LlmConcept): string {
-  const parts = [`# ${c.title}`, "", c.summary];
+/** 이 위키/관계를 만든 원본 노트. */
+export interface ImportSource {
+  sourceId: string;
+  archivePath: string;
+  title: string;
+}
+
+// ── 본문 축적: 노트별 블록 덧붙이기 ────────────────────────────────
+// 한 개념이 여러 노트에서 추출되면, 기존 본문을 덮지 않고 노트마다 블록을 아래에 쌓는다.
+// 각 블록은 `<!-- src:{sourceId} -->` 마커로 시작한다 — 같은 노트를 재처리하면 그 블록만
+// 교체되어 중복 append 를 막는다(멱등).
+// 주의: 사용자가 LLM 블록 *안*을 직접 고쳤다면 그 노트 재처리 시 함께 교체된다.
+const srcMark = (sourceId: string) => `<!-- src:${sourceId} -->`;
+
+function sourceBlock(c: LlmConcept, source: ImportSource): string {
+  const parts = [srcMark(source.sourceId), `## ${source.title}에서`, "", c.summary];
   if (c.explanation && c.explanation.trim() !== c.summary.trim()) parts.push("", c.explanation.trim());
-  if (c.examples && c.examples.length) parts.push("", "## 예시", ...c.examples.map((e) => `- ${e}`));
+  if (c.examples && c.examples.length) parts.push("", "### 예시", ...c.examples.map((e) => `- ${e}`));
   // sourceEmbeds 는 validate.ts(canonicalEmbed)가 이미 `![[file]]` 형태로 정규화해 넘긴다.
   // 여기서 다시 감싸면 `![[![[file]]]]` 가 되고, 파서가 파일명을 `![[file` 로 읽어 임베드가 깨진다.
-  if (c.sourceEmbeds && c.sourceEmbeds.length) parts.push("", "## 근거", ...c.sourceEmbeds);
+  if (c.sourceEmbeds && c.sourceEmbeds.length) parts.push("", "### 근거", ...c.sourceEmbeds);
   if (c.confusingConcepts && c.confusingConcepts.length)
-    parts.push("", "## 헷갈리는 개념", ...c.confusingConcepts.map((e) => `- [[${e}]]`));
+    parts.push("", "### 헷갈리는 개념", ...c.confusingConcepts.map((e) => `- [[${e}]]`));
   if (c.relatedQuestions && c.relatedQuestions.length)
-    parts.push("", "## 관련 질문", ...c.relatedQuestions.map((q) => `- ${q}`));
+    parts.push("", "### 관련 질문", ...c.relatedQuestions.map((q) => `- ${q}`));
   return parts.join("\n");
+}
+
+function conceptMarkdown(c: LlmConcept, source: ImportSource): string {
+  return `# ${c.title}\n\n${sourceBlock(c, source)}`;
+}
+
+/** 기존 본문 보존 + 이 노트 블록 추가. 같은 노트의 블록이 이미 있으면 그것만 교체. */
+export function appendConceptBlock(existingMd: string, c: LlmConcept, source: ImportSource): string {
+  const block = sourceBlock(c, source);
+  const mark = srcMark(source.sourceId);
+  const start = existingMd.indexOf(mark);
+  if (start < 0) return `${existingMd.trimEnd()}\n\n${block}\n`;
+  const next = existingMd.indexOf("<!-- src:", start + mark.length);
+  const tail = next < 0 ? "" : `\n\n${existingMd.slice(next).trimStart()}`;
+  return `${existingMd.slice(0, start).trimEnd()}\n\n${block}${tail}\n`;
 }
 
 // 노트 본문의 첫 pdf/image embed → LlmWikiInput.sourceFiles.
@@ -148,7 +177,7 @@ export async function applyLlmResult(
   spaceId: string,
   subjectIds: string[],
   result: LlmWikiResult,
-  source: { sourceId: string; archivePath: string },
+  source: ImportSource,
   existing: WikiPage[],
 ): Promise<ApplyResult> {
   const now = new Date().toISOString();
@@ -176,7 +205,8 @@ export async function applyLlmResult(
       subjectIds: ex ? Array.from(new Set([...ex.subjectIds, ...subjectIds])) : subjectIds,
       sourceIds: ex ? Array.from(new Set([...ex.sourceIds, source.sourceId])) : [source.sourceId],
       sourceRefs: toSourceRefs(c, allowed, slugOrHash(c.title), ex?.sourceRefs),
-      markdown: conceptMarkdown(c),
+      // 병합이면 기존 본문을 보존한 채 이 노트 블록만 얹는다 — 지식 축적.
+      markdown: ex ? appendConceptBlock(ex.markdown, c, source) : conceptMarkdown(c, source),
       createdAt: ex ? ex.createdAt : now, // 병합 시 생성시각 보존
       updatedAt: now,
     };

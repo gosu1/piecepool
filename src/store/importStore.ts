@@ -121,7 +121,7 @@ export const useImportStore = create<ImportState>((set) => {
       p.spaceId,
       note.subjectIds,
       fc.result,
-      { sourceId: note.sourceId, archivePath: `archive/${note.path}` },
+      { sourceId: note.sourceId, archivePath: `archive/${note.path}`, title: note.title },
       p.existing,
     );
     const done = commit({

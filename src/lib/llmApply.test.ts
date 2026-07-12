@@ -136,7 +136,7 @@ describe("근거 섹션 — 이중 래핑 금지", () => {
       "sp-1",
       [],
       result,
-      { sourceId: NOTE.sourceId, archivePath: `archive/${NOTE.path}` },
+      { sourceId: NOTE.sourceId, archivePath: `archive/${NOTE.path}`, title: NOTE.title },
       [],
     );
     expect(applied.pages[0].markdown).toContain("![[a.pdf]]");
@@ -156,7 +156,7 @@ describe("applyLlmResult 클로버 가드", () => {
       "sp-1",
       ["subj-1"],
       result,
-      { sourceId: NOTE.sourceId, archivePath: `archive/${NOTE.path}` },
+      { sourceId: NOTE.sourceId, archivePath: `archive/${NOTE.path}`, title: NOTE.title },
       [synPage],
     );
     expect(applied.merged).toBe(0); // 병합 안 됨 — 새 개념 페이지로 생성
@@ -191,15 +191,13 @@ const conceptNamed = (title: string): LlmConcept => ({
   sourceEmbeds: [],
 });
 
-const applyOnto = (existing: WikiPage[], title: string, subjectIds: string[] = ["subj-os"]) =>
-  applyLlmResult(
-    "space",
-    "sp-1",
-    subjectIds,
-    { concepts: [conceptNamed(title)], relations: [] },
-    { sourceId: "source-week3", archivePath: "archive/2026-07-15-os.md" },
-    existing,
-  );
+const applyOnto = (
+  existing: WikiPage[],
+  title: string,
+  subjectIds: string[] = ["subj-os"],
+  source = { sourceId: "source-week3", archivePath: "archive/2026-07-15-os.md", title: "OS 5주차" },
+) =>
+  applyLlmResult("space", "sp-1", subjectIds, { concepts: [conceptNamed(title)], relations: [] }, source, existing);
 
 describe("applyLlmResult 병합 — 기존 개념에 새 노트가 얹힐 때", () => {
   it("같은 개념이면 새 파일을 만들지 않고 기존 파일에 병합한다 (id·path·conceptId·생성시각 보존)", async () => {
@@ -222,6 +220,39 @@ describe("applyLlmResult 병합 — 기존 개념에 새 노트가 얹힐 때", 
     const ex = existingPage({ subjectIds: ["subj-os", "subj-ml"] });
     const applied = await applyOnto([ex], "교착 상태", ["subj-os"]);
     expect(applied.pages[0].subjectIds).toEqual(["subj-os", "subj-ml"]);
+  });
+
+  // ── 본문 축적(방식 B: 노트별 블록 덧붙이기) ──
+  it("기존 본문을 보존하고 새 노트 블록을 아래에 덧붙인다", async () => {
+    const ex = existingPage(); // 1주차 본문 보유
+    const applied = await applyOnto([ex], "교착 상태");
+    const md = applied.pages[0].markdown;
+    expect(md).toContain("1주차에 배운 내용"); // 기존 본문 보존
+    expect(md).toContain("3주차 요약"); // 새 내용 추가
+    expect(md).toContain("## OS 5주차에서"); // 출처 귀속 헤더
+    expect(md).toContain("<!-- src:source-week3 -->"); // 멱등 마커
+    expect(md.indexOf("1주차에 배운 내용")).toBeLessThan(md.indexOf("3주차 요약")); // 아래에 붙는다
+  });
+
+  it("같은 노트를 다시 처리하면 그 블록만 교체된다 — 중복 append 금지", async () => {
+    const first = await applyOnto([existingPage()], "교착 상태");
+    const again = await applyOnto([first.pages[0]], "교착 상태");
+    const md = again.pages[0].markdown;
+    expect(md.match(/<!-- src:source-week3 -->/g)).toHaveLength(1);
+    expect(md).toContain("1주차에 배운 내용"); // 다른 노트 블록·기존 본문은 그대로
+  });
+
+  it("서로 다른 노트는 각자의 블록으로 쌓인다", async () => {
+    const w3 = await applyOnto([existingPage()], "교착 상태");
+    const w5 = await applyOnto([w3.pages[0]], "교착 상태", ["subj-os"], {
+      sourceId: "source-week7",
+      archivePath: "archive/2026-07-29-os.md",
+      title: "OS 7주차",
+    });
+    const md = w5.pages[0].markdown;
+    expect(md).toContain("## OS 5주차에서");
+    expect(md).toContain("## OS 7주차에서");
+    expect(md).toContain("1주차에 배운 내용");
   });
 });
 
