@@ -163,6 +163,12 @@ export function InboxSection({
   // 실패하면 공간 변경을 되돌린다(절반만 옮겨진 상태를 만들지 않는다).
   const changeTargetSpace = async (slug: string) => {
     if (slug === targetSpace) return;
+    // PDF 처리 중에는 폴더를 바꾸지 않는다 — 업로드는 시작할 때의 공간에 파일을 쓰므로,
+    // 지금 대상만 바꾸면 파일은 옛 공간에, 노트는 새 공간에 남아 임베드가 깨진다.
+    if (pdfBusy) {
+      onNotice?.("PDF를 처리하는 중이에요 — 끝난 뒤에 폴더를 바꿔주세요");
+      return;
+    }
     const src = ds.getState().drafts[draftKey]?.refSource ?? "";
     if (!src) {
       write({ targetSpace: slug });
