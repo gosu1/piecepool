@@ -17,6 +17,18 @@ beforeEach(() => {
 });
 
 describe("draft 슬라이스", () => {
+  it("targetSpace — 새 초안은 빈 문자열(호출부가 탭의 space 로 폴백)", () => {
+    const s = useInboxDraftStore.getState();
+    s.write("inbox:os:t1", { title: "제목" });
+    expect(useInboxDraftStore.getState().drafts["inbox:os:t1"].targetSpace).toBe("");
+  });
+
+  it("targetSpace — write 로 바꾸면 보존된다", () => {
+    const s = useInboxDraftStore.getState();
+    s.write("inbox:os:t2", { targetSpace: "statistics" });
+    expect(useInboxDraftStore.getState().drafts["inbox:os:t2"].targetSpace).toBe("statistics");
+  });
+
   it("setTitle/setBody 는 노트 탭별로 저장한다", () => {
     const s = useInboxDraftStore.getState();
     s.setTitle(KEY, "제목");

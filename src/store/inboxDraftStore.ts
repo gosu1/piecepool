@@ -29,6 +29,7 @@ export interface InboxDraft {
   panels: { pdf: boolean; wiki: boolean }; // 보조 패널 열림(탭 전환 생존)
   refSource: string; // PDF 패널에 띄운 원본
   refWikiPath: string; // 위키 패널에 띄운 위키
+  targetSpace: string; // 저장될 공간(원본도 여기 산다). "" 면 아직 안 정함 → 호출부가 탭의 space 로 폴백
 }
 
 export const EMPTY_DRAFT: InboxDraft = {
@@ -40,6 +41,7 @@ export const EMPTY_DRAFT: InboxDraft = {
   panels: { pdf: false, wiki: false },
   refSource: "",
   refWikiPath: "",
+  targetSpace: "",
 };
 
 interface InboxDraftState {
