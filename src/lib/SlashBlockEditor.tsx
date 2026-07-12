@@ -22,8 +22,9 @@ const theme = EditorView.theme({
   // CM6 기본 테마는 포커스 시 `&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground` 로
   // #d7d4f0(연보라)을 박는다 — specificity 가 높아 `.cm-selectionBackground` 한 줄로는 못 이긴다.
   // 다크 테마에서 그 밝은 판이 글자를 삼켜 안 보였다. 같은 선택자로 되받아친다.
+  // 선택 판은 앱 전역 ::selection(index.css)과 같은 색으로 — 회색 판은 다크에서 밝은 글자에 묻혔다.
   "&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionLayer .cm-selectionBackground, & ::selection":
-    { backgroundColor: "color-mix(in srgb, var(--ds-ink) 18%, transparent)" },
+    { backgroundColor: "color-mix(in srgb, var(--ds-primary) 28%, transparent)" },
   ".cm-cursor": { borderLeftColor: "var(--ds-ink)" },
   ".cm-placeholder": { color: "var(--ds-ink-faint)" },
   // 헤딩 호버 액션 — 그 줄에 마우스를 올렸을 때만 나타난다(평소엔 글이 조용하다).

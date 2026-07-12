@@ -175,6 +175,12 @@
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
+  /* 드래그 선택 — UA 기본은 선택 글자를 흰색으로 강제한다. 다크에서 선택 판도 밝아
+     글자와 함께 하얘져 안 보였다. 배경·글자 모두 테마 토큰으로 되받는다. */
+  ::selection {
+    background-color: color-mix(in srgb, var(--ds-primary) 28%, transparent);
+    color: var(--ds-ink);
+  }
   @keyframes ds-shimmer {
     100% {
       transform: translateX(100%);
