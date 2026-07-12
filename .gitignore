@@ -39,3 +39,4 @@ docs/30-llm/evals/results/
 
 # feynman eval 실행 결과 — run-*.json 은 매 실행마다 쌓인다. latest.json 만 커밋한다.
 docs/30-llm/evals/feynman/results/run-*.json
+docs/30-llm/evals/model-ab/results/

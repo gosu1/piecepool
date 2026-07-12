@@ -43,7 +43,8 @@
     "classify": "tsx --env-file-if-exists=.env scripts/classify-preview.ts",
     "provenance": "tsx --env-file-if-exists=.env scripts/provenance-preview.ts",
     "tauri": "tauri",
-    "eval:feynman": "tsx --env-file-if-exists=.env scripts/feynman-eval.ts"
+    "eval:feynman": "tsx --env-file-if-exists=.env scripts/feynman-eval.ts",
+    "eval:ab": "tsx --env-file-if-exists=.env scripts/model-ab.ts"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
