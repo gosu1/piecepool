@@ -85,13 +85,15 @@ function ViewPicker({ spaces, value, onChange }: { spaces: KnowledgeSpace[]; val
 }
 
 // ══ Graph 섹션 (Cytoscape 인터랙티브) ══
-// 과목 선택: 아무 과목(단일 space) ↔ 전체 과목(전 space 병합). 셸/사이드바 무관, 그래프 뷰 국소.
+// 과목 선택: 아무 과목(단일 space) ↔ 전체 과목(전 space 병합).
 // 노드→위키 · 엣지→관계 상세 · RelationType/Subject 필터 · 노드 검색(수용기준 §6).
 export function GraphSection({
   spaces,
   graphBySlug,
   wikiBySlug,
   space,
+  view,
+  onViewChange,
   onOpenWiki,
   onOpenArchive,
   onUnmarkReview,
@@ -101,6 +103,10 @@ export function GraphSection({
   graphBySlug: Record<string, GraphData>;
   wikiBySlug: Record<string, WikiPageT[]>;
   space: string;
+  /** 보고 있는 과목. 빈 문자열이면 전체 과목(전 space 병합). 셸이 소유한다 — 상태바 경로가
+   *  지금 보는 과목을 가리켜야 하고, 탭을 오가도 선택이 리셋되면 안 된다. */
+  view: string;
+  onViewChange: (slug: string) => void;
   onOpenWiki: (space: string, file: string) => void;
   onOpenArchive: (space: string, file: string) => void;
   /** 복습 표시 해제 — 붙일 때처럼 거둘 때도 사용자만 한다(relation-types.md §review_needed). */
@@ -108,8 +114,6 @@ export function GraphSection({
   /** 복습 표시 — reason 이 곧 evidence 다(evidence ≥ 1). AI 는 이 표시를 못 만든다. */
   onMarkReview: (space: string, conceptId: string, title: string, sourceId: string, reason: string) => Promise<void>;
 }) {
-  // 보고 있는 과목 — 빈 문자열이면 전체 과목(전 space 병합). 탭이 열린 과목으로 시작.
-  const [view, setView] = useState<string>(space);
   const [selNode, setSelNode] = useState<string | null>(null);
   const [selEdge, setSelEdge] = useState<string | null>(null);
   const [groupFilter, setGroupFilter] = useState<RelationGroupId[]>([]);
@@ -256,7 +260,7 @@ export function GraphSection({
 
   // 과목 전환 시 선택·필터 초기화 (다른 space 잔여 선택 방지)
   const pickView = (slug: string) => {
-    setView(slug);
+    onViewChange(slug);
     setSelNode(null);
     setSelEdge(null);
     setFocus(null);
