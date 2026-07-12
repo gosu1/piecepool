@@ -100,11 +100,21 @@ export function SettingsModal({ onClose, workspacePath }: { onClose: () => void;
               <span className="text-[14px] text-ink-2">생성 언어</span>
               <p className="text-[12px] text-ink-muted">위키·파인만 등 AI가 생성하는 글의 언어. 영어 통용 전문용어는 영어로 유지됩니다.</p>
             </div>
-            <div className="flex gap-1">
-              <Button variant={lang === "ko" ? "solid" : "utility"} size="sm" onClick={() => changeLang("ko")}>
+            <div className="flex shrink-0 gap-1">
+              <Button
+                variant={lang === "ko" ? "solid" : "utility"}
+                size="sm"
+                className="whitespace-nowrap"
+                onClick={() => changeLang("ko")}
+              >
                 한국어
               </Button>
-              <Button variant={lang === "en" ? "solid" : "utility"} size="sm" onClick={() => changeLang("en")}>
+              <Button
+                variant={lang === "en" ? "solid" : "utility"}
+                size="sm"
+                className="whitespace-nowrap"
+                onClick={() => changeLang("en")}
+              >
                 English
               </Button>
             </div>
@@ -130,7 +140,12 @@ export function SettingsModal({ onClose, workspacePath }: { onClose: () => void;
               <span className="text-[14px] text-ink-2">Fact-check</span>
               <p className="text-[12px] text-ink-muted">위키 생성 시 관계 근거에 권위 출처 URL을 붙입니다. Liner Key 필요 · 기본 켜짐.</p>
             </div>
-            <Button variant={factOn ? "solid" : "utility"} size="sm" onClick={toggleFact}>
+            <Button
+              variant={factOn ? "solid" : "utility"}
+              size="sm"
+              className="shrink-0 whitespace-nowrap"
+              onClick={toggleFact}
+            >
               {factOn ? "켜짐" : "꺼짐"}
             </Button>
           </div>
@@ -140,7 +155,12 @@ export function SettingsModal({ onClose, workspacePath }: { onClose: () => void;
                 <span className="text-[14px] text-ink-2">의미 청킹 (semantic chunking)</span>
                 <p className="text-[12px] text-ink-muted">원문을 의미 경계에서 조각내 조각별로 추출합니다. API Key 필요.</p>
               </div>
-              <Button variant={chunkOn ? "solid" : "utility"} size="sm" onClick={toggleChunk}>
+              <Button
+                variant={chunkOn ? "solid" : "utility"}
+                size="sm"
+                className="shrink-0 whitespace-nowrap"
+                onClick={toggleChunk}
+              >
                 {chunkOn ? "켜짐" : "꺼짐"}
               </Button>
             </div>
