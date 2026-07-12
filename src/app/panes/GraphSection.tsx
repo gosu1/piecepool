@@ -26,6 +26,64 @@ const HELP_SEEN_KEY = "piecepool.graph-help-seen";
 // 과목 선택기: 이 개수까지는 칩(1클릭 전환), 넘으면 드롭다운(줄바꿈으로 그래프가 밀리지 않게)
 const CHIP_MAX = 5;
 
+// 과목 선택 드롭다운 — 인박스 저장 위치(SpacePicker)와 같은 팝오버 패턴(백드롭 + bg-surface 패널 + 체크 표시).
+// 네이티브 select 는 팝업이 OS 스타일이라 테마를 안 따른다.
+function ViewPicker({ spaces, value, onChange }: { spaces: KnowledgeSpace[]; value: string; onChange: (slug: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const options = [...spaces.map((s) => ({ slug: s.slug, name: s.name })), { slug: "", name: "전체 과목" }]; // 칩 버전과 같은 순서
+  const current = options.find((o) => o.slug === value);
+
+  return (
+    <span className="relative inline-flex">
+      <button
+        type="button"
+        aria-label="과목 선택"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-full border border-hairline px-3 py-1 text-[12px] text-ink-muted transition-colors hover:bg-fill-subtle hover:text-ink",
+          open && "bg-fill-subtle text-ink",
+        )}
+      >
+        <Icons.FolderIcon size={13} className="text-ink-faint" />
+        <span className="max-w-[150px] truncate font-medium text-ink">{current?.name ?? "과목 선택"}</span>
+        <Icons.ChevronsUpDownIcon size={12} className="shrink-0 text-ink-faint" />
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
+          <div
+            role="listbox"
+            className="absolute left-0 top-full z-30 mt-1 max-h-72 w-56 overflow-y-auto rounded-lg border border-hairline bg-surface p-1 shadow-elevated"
+          >
+            {options.map((o) => (
+              <button
+                key={o.slug || "all"}
+                type="button"
+                role="option"
+                aria-selected={o.slug === value}
+                onClick={() => {
+                  onChange(o.slug);
+                  setOpen(false);
+                }}
+                className={cn(
+                  "flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left text-[13px] transition-colors",
+                  o.slug === value ? "bg-fill-subtle font-medium text-ink" : "text-ink-2 hover:bg-surface-soft hover:text-ink",
+                )}
+              >
+                <span className="truncate">{o.name}</span>
+                {o.slug === value && <Icons.CheckIcon size={14} className="shrink-0 text-primary" />}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </span>
+  );
+}
+
 // ══ Graph 섹션 (Cytoscape 인터랙티브) ══
 // 과목 선택: 아무 과목(단일 space) ↔ 전체 과목(전 space 병합). 셸/사이드바 무관, 그래프 뷰 국소.
 // 노드→위키 · 엣지→관계 상세 · RelationType/Subject 필터 · 노드 검색(수용기준 §6).
@@ -258,22 +316,7 @@ export function GraphSection({
             {/* 과목이 많으면 칩이 줄바꿈돼 그래프를 밀어낸다 → CHIP_MAX 초과 시 드롭다운으로 */}
             {spaces.length > 1 &&
               (spaces.length > CHIP_MAX ? (
-                <span className="inline-flex items-center gap-1.5 rounded-lg border border-hairline px-2.5 py-1 text-[12px] text-ink-muted">
-                  <Icons.FolderIcon size={13} className="text-ink-faint" />
-                  <select
-                    value={view}
-                    onChange={(e) => pickView(e.target.value)}
-                    aria-label="과목 선택"
-                    className="max-w-[160px] truncate bg-transparent text-[12px] font-medium text-ink outline-none"
-                  >
-                    {spaces.map((s) => (
-                      <option key={s.slug} value={s.slug}>
-                        {s.name}
-                      </option>
-                    ))}
-                    <option value="">전체 과목</option>
-                  </select>
-                </span>
+                <ViewPicker spaces={spaces} value={view} onChange={pickView} />
               ) : (
                 <div className="flex w-fit gap-0.5 rounded-lg border border-hairline p-0.5">
                   {[...spaces.map((s) => ({ slug: s.slug, name: s.name })), { slug: "", name: "전체 과목" }].map((o) => (
