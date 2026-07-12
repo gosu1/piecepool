@@ -1,6 +1,7 @@
 import type { LlmProvider, LlmWikiInput, LlmWikiResult } from "./provider";
 import { normalizeLlmResult, validateLlmWikiResult } from "./validate";
 import schema from "./schema/llm-wiki-result.schema.json" with { type: "json" };
+import { languageDirective, type OutputLanguage } from "./language";
 
 // Gemini (OpenAI 호환 엔드포인트 /chat/completions, response_format json_schema). SSOT: docs/30-llm/provider-config.md §3.2, §4.
 // Google 의 OpenAI 호환층(v1beta/openai)을 쓴다 — Bearer 인증 그대로, Chat Completions 형태.
@@ -149,10 +150,13 @@ export function extractChatText(resp: unknown): string {
 }
 
 // 프롬프트 본문은 docs/30-llm/prompt-templates.md SSOT. 여기서는 최소 직렬화만.
-function buildMessages(input: LlmWikiInput) {
+// 언어 규칙: 사용자 노출 텍스트 필드 전부(summary/explanation/examples/relations[].explanation)가 directive를 따른다.
+export function buildMessages(input: LlmWikiInput, lang?: OutputLanguage) {
   const system =
     "You extract structured wiki concepts and relations from study notes. " +
-    "Respond ONLY with JSON conforming to the LlmWikiResult schema. No prose, no markdown.";
+    "Respond ONLY with JSON conforming to the LlmWikiResult schema. No prose, no markdown.\n" +
+    "All user-facing text fields (summary, explanation, examples, relations[].explanation) follow this language rule:\n" +
+    languageDirective(lang);
   return [
     { role: "system", content: system },
     { role: "user", content: JSON.stringify(input) },
