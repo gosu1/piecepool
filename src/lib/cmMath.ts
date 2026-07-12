@@ -1,4 +1,4 @@
-// CM6 수식 라이브 프리뷰 — Notion식: 평소엔 KaTeX 렌더, 커서가 닿으면(인접 포함) 원문 $...$ 노출.
+// CM6 수식 라이브 프리뷰 — 평소엔 KaTeX 렌더, 커서가 닿으면(인접 포함) 원문 $...$ 노출.
 // 클릭 → ignoreEvent(false) 로 커서가 수식 위치에 놓임 → 다음 업데이트에서 원문이 드러난다.
 // 블록 위젯은 세로 레이아웃을 바꾸므로 ViewPlugin 이 아닌 StateField 로 제공한다(CM6 규칙).
 import katex from "katex";

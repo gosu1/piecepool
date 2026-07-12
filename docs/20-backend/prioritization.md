@@ -17,24 +17,24 @@
 ## 1. 두 개의 관통 원칙
 
 1. **우선도(priority)는 저장하는 엔티티가 아니라 파생값(derived value)이다.** 매 그래프 조회 시 계산한다. 저장하지 않으므로 `entities.md` 계약을 건드리지 않는다.
-2. **클릭 빈도는 vault 자산이 아니라 기기별 텔레메트리다.** 사용자 학습 자산(`archive/`, `wiki/`, `relations/`)과 물리적으로 분리해, 동기화·Obsidian·계약의 경계 **밖**에 둔다.
+2. **클릭 빈도는 vault 자산이 아니라 기기별 텔레메트리다.** 사용자 학습 자산(`archive/`, `wiki/`, `relations/`)과 물리적으로 분리해, 동기화·외부 에디터·계약의 경계 **밖**에 둔다.
 
 ---
 
 ## 2. 왜 클릭 빈도를 vault 본문·핵심 파일에 넣으면 위험한가 (아키텍처 근거)
 
-이 프로젝트에서 `wiki/*.md`, `archive/*.md`, `relations/relations.json`은 전부 **사용자 학습 자산**이자 **Obsidian 호환 동기화 대상**이다. 여기에 클릭 카운터를 섞으면 백엔드 아키텍처의 4개 계약과 정면충돌한다.
+이 프로젝트에서 `wiki/*.md`, `archive/*.md`, `relations/relations.json`은 전부 **사용자 학습 자산**이자 **외부 에디터 호환 동기화 대상**이다. 여기에 클릭 카운터를 섞으면 백엔드 아키텍처의 4개 계약과 정면충돌한다.
 
-### 2.1 Obsidian/동기화 자산 오염 — 본문 충돌
-`workspace-layout.md §5`는 "Obsidian 미지원 자산(예: `relations.json`)은 **별도 폴더에 격리해 본문 충돌을 피한다**"고 명시한다. `wiki/*.md`는 사람이 읽고 Obsidian·git·iCloud로 동기화하는 파일이다. 클릭 1회마다 이 파일을 다시 쓰면:
+### 2.1 외부 에디터/동기화 자산 오염 — 본문 충돌
+`workspace-layout.md §5`는 "외부 에디터 미지원 자산(예: `relations.json`)은 **별도 폴더에 격리해 본문 충돌을 피한다**"고 명시한다. `wiki/*.md`는 사람이 읽고 외부 에디터·git·iCloud로 동기화하는 파일이다. 클릭 1회마다 이 파일을 다시 쓰면:
 - `updatedAt`이 계속 갱신되어, **의미 없는 diff**가 하루에 수백 번 발생(git/동기화 폴더가 "변경됨"으로 오염).
-- 사용자가 Obsidian으로 같은 파일을 열어둔 상태에서 카운터 쓰기가 끼어들면 **양방향 덮어쓰기 충돌**.
+- 사용자가 외부 에디터로 같은 파일을 열어둔 상태에서 카운터 쓰기가 끼어들면 **양방향 덮어쓰기 충돌**.
 
 ### 2.2 SSOT 계약 비용 — 4역할 승인
 `entities.md`·`markdown-frontmatter.md`·`workspace-layout.md`는 SSOT다. 여기 `clickCount`/`priority` 필드를 추가하는 순간 `contracts-change` 라벨 + **Backend·Frontend·LLM·Design 4역할 전원 승인** + CI `docs-check`/`ssot-check`가 걸린다. 선례: 선택 필드 `tags` 하나 추가(2026-06-25)도 4역할 review를 거쳤다. **기기별 휘발성 카운터를 팀 공용 스키마에 밀어넣는 것은 거버넌스 낭비**다.
 
 ### 2.3 fs-watch 외부 수정 충돌
-`storage-io.md §3`의 `notify` 워처는 `wiki/`·`archive/` `.md`의 외부 `Modify` 이벤트를 **충돌로 간주**해 "외부 변경 감지" 배너를 띄운다(무시 대상은 `.tmp`뿐). 카운터 쓰기가 감시 대상 파일을 건드리면 self-write가 `file-changed`를 폭주시키고, 사용자의 Obsidian 편집과 겹치면 **거짓 충돌**을 만든다.
+`storage-io.md §3`의 `notify` 워처는 `wiki/`·`archive/` `.md`의 외부 `Modify` 이벤트를 **충돌로 간주**해 "외부 변경 감지" 배너를 띄운다(무시 대상은 `.tmp`뿐). 카운터 쓰기가 감시 대상 파일을 건드리면 self-write가 `file-changed`를 폭주시키고, 사용자의 외부 에디터 편집과 겹치면 **거짓 충돌**을 만든다.
 
 ### 2.4 원자적 whole-file 쓰기 = write amplification
 `storage/mod.rs`의 쓰기는 전부 **tmp 파일 생성 → `fs::rename`** 방식의 whole-file 교체다. 카운터 하나 올리려고 WikiPage `.md` 전체 또는 `relations.json` 배열 전체를 매번 다시 쓰는 것은 명백한 write amplification이고, 동시 사용자 편집을 클로버할 위험까지 얹는다.
@@ -70,7 +70,7 @@
 
 이 위치가 사는 이유:
 - `workspace-layout.md`(SSOT) **미변경** → 4역할 승인 불요.
-- git/Obsidian/동기화 폴더 밖 → §2.1 본문 충돌·sync noise 원천 차단.
+- git/외부 에디터/동기화 폴더 밖 → §2.1 본문 충돌·sync noise 원천 차단.
 - `notify` 워처의 감시 트리(vault) 밖 → self-write가 `file-changed`를 발생시키지 않음(§2.3 해소).
 - 기기별 사용 패턴이 기기별로 유지 → 다기기 병합 지옥 회피(오히려 랭킹이 더 정확).
 

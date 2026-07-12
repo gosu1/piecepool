@@ -99,7 +99,7 @@ conceptId → 노드 상태 맵:
 
 - 상태 플립만으로 사용자 편집 대상 `wiki/*.md`를 대량 재기록 → churn + `updatedAt` 노이즈.
 - "WikiPage 본문 LLM 재생성 정책"([open-questions §5](../00-overview/open-questions.md), 미결)과 충돌 — 사용자 편집 보존 원칙 위협.
-- [workspace-layout §5](../10-contracts/workspace-layout.md)의 "Obsidian 미지원 자산은 별도 폴더에 격리" 가이드와도 어긋남.
+- [workspace-layout §5](../10-contracts/workspace-layout.md)의 "외부 에디터 미지원 자산은 별도 폴더에 격리" 가이드와도 어긋남.
 
 별도 파일이면 재평가가 **json 1개만** 다시 쓰고 사용자 콘텐츠는 건드리지 않는다. archive 불가침 원칙과도 정렬.
 

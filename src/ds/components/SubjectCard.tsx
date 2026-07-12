@@ -3,7 +3,7 @@ import { IconButton } from "../primitives/IconButton";
 import { PlusIcon } from "../icons";
 import { cn } from "../lib/cn";
 
-// 홈 그리드 지식공간 카드 (DESIGN-notion.md). 따뜻한 캔버스 위 흰 카드.
+// 홈 그리드 지식공간 카드 (디자인 레퍼런스: docs/50-design/references/). 따뜻한 캔버스 위 흰 카드.
 //  - 상단: 제목 + 선택적 설명(2줄 클램프)
 //  - 하단: 문서 수 + 원형 추가 버튼(이벤트 버블링 차단)
 

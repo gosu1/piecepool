@@ -29,9 +29,9 @@ PiecePool은 대학생을 위한 **로컬 우선 AI 지식 Workspace**다.
 | 자료를 단순 저장 | 자료를 **LLM-Wiki와 Graph로 계속 재구성** |
 | 폴더/태그 기반 분류 | **타입 있는 Relation** (`part_of`, `used_in`, `confused_with` 등) |
 | 단발 요약 | **누적 지식 지도** |
-| 클라우드 SaaS | **로컬 우선** (Obsidian 같은 vault 구조) |
+| 클라우드 SaaS | **로컬 우선** (로컬 Markdown vault 구조) |
 
-제품 경험은 Notion/SaaS 대시보드가 아니라 **Obsidian 같은 로컬 Markdown 작업 공간**에 가깝다.
+제품 경험은 클라우드 SaaS 대시보드가 아니라 **로컬 Markdown 작업 공간**에 가깝다.
 
 ---
 
@@ -73,7 +73,7 @@ PiecePool은 대학생을 위한 **로컬 우선 AI 지식 Workspace**다.
 | **로컬 우선** | 모든 데이터는 사용자 머신에 저장. 외부 의존은 LLM(Gemini)·출처 검색(Liner) API 호출뿐 |
 | **원문 보존** | LLM 정리가 archive 노트를 덮어쓰지 않는다 |
 | **타입 있는 지식 그래프** | edge가 단순 선이 아니라 의미(`part_of`, `used_in` 등)를 갖는다 |
-| **Obsidian 호환** | `[[파일]]`, `![[파일]]` 문법 그대로. 추후 vault로 이식 가능 |
+| **외부 에디터 호환** | `[[파일]]`, `![[파일]]` 문법 그대로. 추후 외부 vault로 이식 가능 |
 | **실제 LLM 호출** | 가짜 UI/정적 데모 금지. MVP부터 진짜 호출 |
 
 ---

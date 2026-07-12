@@ -13,7 +13,7 @@ import { calloutPreview, foldEasyCallouts } from "./cmCallout";
 import { headingAction as headingActionExt, type HeadingAction } from "./cmHeadingAction";
 import { toggleMark } from "./cmFormat";
 
-// Notion식 CM6 캡처 에디터: "/" 슬래시 메뉴 + 마크다운 리스트 자동 이어짐 + ⌘Enter 제출.
+// CM6 캡처 에디터: "/" 슬래시 메뉴 + 마크다운 리스트 자동 이어짐 + ⌘Enter 제출.
 // 테마는 DS 토큰 참조(라이트/다크 자동). 한글-first라 슬래시는 ASCII "/"에서만 트리거(IME 안전).
 const theme = EditorView.theme({
   "&": { color: "var(--ds-ink)", fontSize: "15px" },
@@ -46,7 +46,7 @@ const theme = EditorView.theme({
   },
   ".cm-line:hover .pp-heading-action": { display: "inline-block" },
   ".pp-heading-action:hover": { color: "var(--ds-ink)", backgroundColor: "var(--ds-surface-soft)" },
-  // 슬래시 메뉴 — Notion식 조용·airy: 12px 팝업 라운드 · 6px ul 인셋으로 선택 필(surface-soft) 부유 · 테두리 없는 22px 아이콘 타일(선택 시에만 fill-subtle 워시) · 11px/600 레터스페이스 아이브로우 · 단일 액센트(primary=매칭 텍스트) · 우측 키캡 칩 단축키 · 미들닷 푸터
+  // 슬래시 메뉴 — 조용·airy: 12px 팝업 라운드 · 6px ul 인셋으로 선택 필(surface-soft) 부유 · 테두리 없는 22px 아이콘 타일(선택 시에만 fill-subtle 워시) · 11px/600 레터스페이스 아이브로우 · 단일 액센트(primary=매칭 텍스트) · 우측 키캡 칩 단축키 · 미들닷 푸터
   ".cm-tooltip.cm-tooltip-autocomplete": { backgroundColor: "var(--ds-surface)", border: "1px solid var(--ds-hairline)", borderRadius: "12px", boxShadow: "var(--shadow-elevated)", overflow: "hidden", minWidth: "300px", padding: "0" },
   ".cm-tooltip-autocomplete > ul": { maxHeight: "360px", padding: "6px", fontFamily: "var(--font-sans)" },
   ".cm-tooltip-autocomplete completion-section": { display: "block", padding: "10px 10px 5px", fontSize: "11px", fontWeight: "600", letterSpacing: "0.06em", color: "var(--ds-ink-faint)" },
@@ -82,7 +82,7 @@ const liveMarkdown = HighlightStyle.define([
   { tag: tags.processingInstruction, color: "var(--ds-ink-faint)", fontWeight: "400" },
 ]);
 
-// ── 마크업 기호(`# `, `**`, `*`) 감추기 — Obsidian/Notion 라이브 프리뷰 ──
+// ── 마크업 기호(`# `, `**`, `*`) 감추기 — 라이브 프리뷰 ──
 // 커서가 닿지 않으면 기호를 화면에서 지운다. 문서는 그대로다(Decoration.replace 는 표시만 바꾼다).
 // 편집하러 들어가면 다시 나타나므로 무엇이 저장되는지(archive 원문) 언제든 확인·수정할 수 있다.
 //
@@ -149,7 +149,7 @@ const hideMarkupMarks = ViewPlugin.fromClass(
   },
 );
 
-// 배경·패딩은 프레임 유무에 따라 분리 — frameless 는 패널에 그대로 녹아드는 Notion 본문(투명·수평 패딩 0).
+// 배경·패딩은 프레임 유무에 따라 분리 — frameless 는 패널에 그대로 녹아드는 본문 모드(투명·수평 패딩 0).
 const boxedFrame = EditorView.theme({
   "&": { backgroundColor: "var(--ds-surface)" },
   ".cm-content": { padding: "12px 14px" },
@@ -254,12 +254,12 @@ export function SlashBlockEditor({
   onSubmit?: () => void;
   /** 드래그로 텍스트를 잡으면 그 범위·좌표를 올린다. 선택이 풀리면 null. */
   onSelect?: (sel: EditorSelection | null) => void;
-  /** ##/### 제목 줄에 마우스를 올리면 제목 끝에 뜨는 버튼 (Notion 블록 핸들과 같은 결) */
+  /** ##/### 제목 줄에 마우스를 올리면 제목 끝에 뜨는 버튼 (블록 핸들 패턴) */
   headingAction?: HeadingAction;
   placeholder?: string;
   height?: string;
   className?: string;
-  /** 테두리·배경 없이 패널에 녹아드는 Notion 본문 모드 */
+  /** 테두리·배경 없이 패널에 녹아드는 본문 모드 */
   frameless?: boolean;
   /** AI 스트리밍 중 편집 잠금 — 톱레벨 prop 이라 extensions 재구성 없음 */
   readOnly?: boolean;

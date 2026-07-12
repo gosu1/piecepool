@@ -15,7 +15,7 @@ const SHORTCUTS: [string, string][] = [
   ["⌘Enter", "저장 / 임포트"],
 ];
 
-// ══ 좌측 리본 (Obsidian식 세로 아이콘 네비) — 홈 · 인박스 · 그래프 · 도움말 · 설정 ══
+// ══ 좌측 리본 (세로 아이콘 네비) — 홈 · 인박스 · 그래프 · 도움말 · 설정 ══
 // 파일트리 토글(미닫이)·검색은 상단 타이틀바가 담당(중복 제거).
 // Wiki/Source 는 파일 트리로 접근(리본에서 제거). 활성 표시는 현재 탭 kind 기준.
 export function Ribbon({
@@ -102,7 +102,7 @@ function RibbonButton({ label, active, onClick, children }: { label: string; act
       onClick={onClick}
       className={cn(
         "relative flex h-10 w-10 items-center justify-center rounded-lg transition-colors",
-        // Obsidian quiet chrome — 활성도 모노크롬(액센트 없음)
+        // quiet chrome — 활성도 모노크롬(액센트 없음)
         active ? "bg-fill-subtle text-ink" : "text-ink-muted hover:bg-fill-subtle hover:text-ink",
       )}
     >

@@ -4,7 +4,7 @@ import { macOverlayChrome } from "../../lib/platform";
 import { TabStrip, TabIcon } from "./TabStrip";
 import type { WorkspaceTab } from "../../store/workspaceStore";
 
-// ══ 타이틀바 행 (Obsidian식 최상단 크롬) — 신호등 인셋 + 퀵 액션 + 탭 + 탭 컨트롤 + 탭 목록 ══
+// ══ 타이틀바 행 (최상단 크롬) — 신호등 인셋 + 퀵 액션 + 탭 + 탭 컨트롤 + 탭 목록 ══
 //
 // right 슬롯 = 활성 탭이 제공하는 컨트롤(Inbox 의 PDF·위키 패널 토글). 패널을 열고 닫아도
 // 이 자리는 움직이지 않는다 — 노트 패널 안에 두면 폭이 줄며 버튼이 딸려 움직여, 방금 누른

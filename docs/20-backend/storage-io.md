@@ -153,7 +153,7 @@ write_atomic(&relations_path, bytes.as_bytes()).await?;
 
 ### 3.1 배경
 
-PiecePool은 Obsidian, VS Code 등 외부 에디터와 동일한 파일을 공유한다. 앱이 열린 상태에서 사용자가 외부 에디터로 `wiki/` 또는 `archive/` 파일을 수정하면, 앱은 이를 인지해야 한다.
+PiecePool은 VS Code 등 외부 에디터와 동일한 파일을 공유한다. 앱이 열린 상태에서 사용자가 외부 에디터로 `wiki/` 또는 `archive/` 파일을 수정하면, 앱은 이를 인지해야 한다.
 
 ### 3.2 감지 전략: `notify` 크레이트
 

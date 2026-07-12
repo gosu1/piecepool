@@ -255,7 +255,7 @@ export default function PiecePoolApp() {
   const openNewNoteRef = useRef(openNewNote);
   openNewNoteRef.current = openNewNote;
 
-  // 마지막 탭을 닫으면 빈 화면 대신 Study Home 을 연다 — 탭이 0개인 순간이 없다(옵시디언과 같다).
+  // 마지막 탭을 닫으면 빈 화면 대신 Study Home 을 연다 — 탭이 0개인 순간이 없다.
   // "+" 는 언제나 마지막 탭 옆에 붙어야 뜻이 읽힌다("탭 하나 더"). 탭이 없으면 붙을 데가 없어
   // 좌측 크롬 옆으로 밀려나 자리를 잃었다. 탭을 0개로 두지 않으면 그 상황 자체가 생기지 않는다.
   // 부팅 시 복원 탭이 없을 때와 같은 착지점이다 — "탭이 없다" 는 상황의 답이 하나여야 한다.
@@ -705,7 +705,7 @@ export default function PiecePoolApp() {
     setTabDirty(`archive:${space}:${file}`, false);
   };
 
-  // ── 페이지 헤더(Notion풍) — 과목 토글 · 사용자 직접 연결 ──
+  // ── 페이지형 헤더 — 과목 토글 · 사용자 직접 연결 ──
   // 토글은 디스크 최신본 기준 + 직렬화 — 연타 레이스로 앞선 토글이 사라지거나,
   // 메모리 stale markdown 이 디스크의 새 본문을 덮어쓰는 것(saveWiki 는 struct 전체 저장)을 막는다.
   const subjectChain = useRef(Promise.resolve());
@@ -1203,7 +1203,7 @@ export default function PiecePoolApp() {
     );
   };
 
-  // 활성 탭 본문 렌더 (Obsidian pane)
+  // 활성 탭 본문 렌더 (pane)
   const renderActiveTab = () => {
     if (!activeTab) {
       return launcher();

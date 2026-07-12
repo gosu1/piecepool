@@ -1,4 +1,4 @@
-// PiecePool 인라인 아이콘 세트. Notion 풍 라인 아이콘(stroke=currentColor, fill=none).
+// PiecePool 인라인 아이콘 세트. 가는 라인 아이콘(stroke=currentColor, fill=none).
 // 모든 아이콘은 size / className / strokeWidth 를 받는다. 색은 currentColor 로 상속된다.
 import type { ReactNode, SVGProps } from "react";
 
