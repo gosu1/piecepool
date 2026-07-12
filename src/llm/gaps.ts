@@ -1,5 +1,6 @@
 import { LinerClient, type LinerSource } from "./liner";
 import { extractChatJson, GEMINI_OPENAI_ENDPOINT, GEMINI_MODEL } from "./gemini";
+import { languageDirective, getOutputLanguage, type OutputLanguage } from "./language";
 
 // 정보 간극 메우기 (README §LLM ③, feature 3). 정답(label)과 사용자 필기 사이 간극을
 // 소크라테스/하브루타식으로 되묻는다 — 정답을 주입하지 않고 1~3개 선택지 + "기타"로 가이드.
@@ -32,6 +33,7 @@ export interface BuildGapDeps {
   linerClient?: LinerClient; // 주입(테스트/대체)
   fetchFn?: typeof fetch; // Gemini 보조 호출용 주입
   geminiEndpoint?: string;
+  lang?: OutputLanguage; // 미지정 시 설정값(getOutputLanguage)
 }
 
 export async function buildGaps(
@@ -40,12 +42,13 @@ export async function buildGaps(
   keys: { liner?: string; gemini?: string },
   deps?: BuildGapDeps,
 ): Promise<GapReport> {
+  const lang = deps?.lang ?? getOutputLanguage();
   // ① Liner
   const linerKey = keys.liner?.trim();
   if (linerKey || deps?.linerClient) {
     try {
       const client = deps?.linerClient ?? new LinerClient({ config: { apiKey: linerKey ?? "" } });
-      const questions = await linerGaps(title, text, client);
+      const questions = await linerGaps(title, text, client, lang);
       if (questions.length > 0) return { questions, engine: "liner" };
     } catch {
       // ↓ Gemini 보조로
@@ -66,14 +69,21 @@ export async function buildGaps(
 }
 
 // ── ① Liner: 섹션별 출처 검색 → label 스니펫을 선택지로 ──────────────
-async function linerGaps(title: string, text: string, client: LinerClient): Promise<GapQuestion[]> {
+async function linerGaps(
+  title: string,
+  text: string,
+  client: LinerClient,
+  lang: OutputLanguage,
+): Promise<GapQuestion[]> {
   const targets = topSections(title, text);
   const out: GapQuestion[] = [];
   let failures = 0;
   for (const s of targets) {
     const claim = firstSentence(s.body) || `${s.title}의 핵심`;
     try {
-      const { answer, sources } = await client.search(`${title} ${s.title} 핵심 개념 정의`.slice(0, 200));
+      const query =
+        lang === "en" ? `${title} ${s.title} core concept definition` : `${title} ${s.title} 핵심 개념 정의`;
+      const { answer, sources } = await client.search(query.slice(0, 200));
       // label(권위 출처) 기준 선택지 — 스니펫이 없으면 answer 요약으로.
       const label = truncate(sources[0]?.snippet ?? answer ?? "", 120);
       out.push({
@@ -118,10 +128,13 @@ const GAP_SCHEMA = {
 async function geminiGaps(title: string, text: string, apiKey: string, deps?: BuildGapDeps): Promise<GapQuestion[]> {
   const fetchFn = deps?.fetchFn ?? globalThis.fetch.bind(globalThis);
   const endpoint = deps?.geminiEndpoint ?? GEMINI_OPENAI_ENDPOINT;
+  const lang = deps?.lang ?? getOutputLanguage();
   const system =
-    "You are a Socratic study coach. Given a student's note, produce up to 3 gap-check questions in Korean. " +
+    "You are a Socratic study coach. Given a student's note, produce up to 3 gap-check questions. " +
     "Never inject the answer; each question offers 1-3 guiding choices (student's likely claim first). " +
-    "Respond ONLY with JSON conforming to the schema.";
+    "Question language rule:\n" +
+    languageDirective(lang) +
+    "\nRespond ONLY with JSON conforming to the schema.";
   const res = await fetchFn(`${endpoint}/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },

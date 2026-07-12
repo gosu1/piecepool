@@ -76,6 +76,39 @@ describe("buildGaps 폴백 체인", () => {
     expect(r.engine).toBe("heuristic");
     expect(r.questions.length).toBeGreaterThan(0);
   });
+
+  it("lang='en' → Gemini 간극질문 system에 English directive, 'in Korean' 하드코딩 없음", async () => {
+    let sent = "";
+    const geminiFetch: FetchFn = (async (_url: string | URL | Request, init?: RequestInit) => {
+      sent = String(init?.body ?? "");
+      return jsonRes({
+        choices: [
+          { message: { content: JSON.stringify({ questions: [{ context: "c", prompt: "p?", choices: [] }] }) } },
+        ],
+      });
+    }) as FetchFn;
+    const r = await buildGaps("Deadlock", "## Locks\nbody", { gemini: "gk" }, { fetchFn: geminiFetch, lang: "en" });
+    expect(r.engine).toBe("gemini");
+    const body = JSON.parse(sent);
+    expect(body.messages[0].content).toContain("Write all prose in English");
+    expect(body.messages[0].content).not.toContain("in Korean");
+  });
+
+  it("lang='en' → Liner 검색 쿼리가 영어 템플릿 (ko 템플릿은 기본 동작 그대로)", async () => {
+    // liner() 헬퍼는 handler에 요청 인자를 넘기지 않으므로 query 캡처용 client는 직접 구성한다.
+    let sentQuery = "";
+    const client = new LinerClient({
+      config: { apiKey: "liner-test", backoffMs: 0, maxRetries: 0 },
+      fetchFn: (async (_url: unknown, init?: RequestInit) => {
+        sentQuery = JSON.parse(String(init?.body ?? "{}")).query;
+        return jsonRes({ answer: "a", sources: [] });
+      }) as FetchFn,
+    });
+    const r = await buildGaps("OS", NOTE, { liner: "k" }, { linerClient: client, lang: "en" });
+    expect(r.engine).toBe("liner");
+    expect(sentQuery).toContain("core concept definition");
+    expect(sentQuery).not.toContain("핵심 개념 정의");
+  });
 });
 
 describe("heuristicGaps (기존 동작 보존)", () => {
