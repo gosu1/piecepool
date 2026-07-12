@@ -214,7 +214,8 @@ function renderColumn(col) {
   }
   if (col.summaryMarkdown !== undefined) {
     var md = h("div", "md");
-    md.innerHTML = marked.parse(col.summaryMarkdown);
+    // 원시 HTML 무력화 — LLM 요약이 실어온 태그가 실행되지 않게 & < 선-이스케이프 (마크다운 문법 비파괴)
+    md.innerHTML = marked.parse(col.summaryMarkdown.replace(/&/g, "&amp;").replace(/</g, "&lt;"));
     box.appendChild(md);
   } else if (col.feynman) {
     col.feynman.rounds.forEach(function (r) {

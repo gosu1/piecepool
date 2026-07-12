@@ -111,4 +111,11 @@ describe("renderReportHtml", () => {
     expect(html).toContain("marked");
     expect(html).toContain("katex");
   });
+
+  it("summaryMarkdown 원시 HTML은 marked 전에 선-이스케이프된다", () => {
+    const raw = [rawOut("m1", "c1"), rawOut("m2", "c1")];
+    const d = buildReportData("r", ["m1", "m2"], [], raw, mulberry32(1));
+    const html = renderReportHtml(d);
+    expect(html).toContain('replace(/&/g, "&amp;").replace(/</g, "&lt;")');
+  });
 });
