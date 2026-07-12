@@ -3,6 +3,7 @@ import {
   buildReportData,
   labelColumns,
   mulberry32,
+  renderReportHtml,
   shuffleWithRng,
   type ProbeResult,
   type RawOutput,
@@ -83,5 +84,31 @@ describe("buildReportData", () => {
     const d = buildReportData("run1", ["m1"], [], raw, mulberry32(1));
     expect(d.stats[0].latencyP50).toBeNull();
     expect(d.stats[0].latencyMax).toBeNull();
+  });
+});
+
+describe("renderReportHtml", () => {
+  it("runId·개봉 버튼을 포함하고, 봉인 데이터가 </script> 로 탈출하지 않는다", () => {
+    const raw = [
+      rawOut("m1", "c1", { summaryMarkdown: "</script><b>주입</b> $x^2$" }),
+      rawOut("m2", "c1"),
+    ];
+    const d = buildReportData("run-42", ["m1", "m2"], [], raw, mulberry32(1));
+    const html = renderReportHtml(d);
+    expect(html).toContain("run-42");
+    expect(html).toContain("개봉");
+    // DATA 직렬화 줄에 닫는 스크립트 태그가 그대로 남으면 안 된다 (< 이스케이프)
+    const dataLine = html.split("\n").find((l) => l.includes("const DATA"))!;
+    expect(dataLine).not.toContain("</script>");
+    expect(dataLine).toContain("\\u003c/script>");
+  });
+
+  it("케이스별 컬럼 라벨과 무승부 선택지가 들어간다", () => {
+    const raw = [rawOut("m1", "c1"), rawOut("m2", "c1")];
+    const d = buildReportData("r", ["m1", "m2"], [], raw, mulberry32(1));
+    const html = renderReportHtml(d);
+    expect(html).toContain("무승부");
+    expect(html).toContain("marked");
+    expect(html).toContain("katex");
   });
 });
