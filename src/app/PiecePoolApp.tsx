@@ -226,7 +226,20 @@ export default function PiecePoolApp() {
 
   // 활성 탭 → 현재 공간 컨텍스트(브레드크럼·트리가 따라감)
   const activeTab = openTabs.find((t) => t.id === activeTabId) ?? null;
-  const currentSpace = activeTab?.space || currentSpaceSlug || spaces[0]?.slug || "";
+  // Inbox 탭의 공간은 탭이 열린 공간이 아니라 "이 노트가 저장될 공간"(draft.targetSpace)이다.
+  // 사용자가 저장 위치 드롭다운에서 과목을 바꾸면 원본 PDF 도 그 공간으로 따라가므로, 상태바
+  // 경로·그래프·새 노트도 같은 곳을 가리켜야 한다. 탭 id 를 key 로 그 한 값만 구독한다 —
+  // drafts 전체를 구독하면 타이핑 한 글자마다 앱 전체가 리렌더된다.
+  const inboxTargetSpace = useInboxDraftStore((s) =>
+    activeTabId?.startsWith("inbox:") ? (s.drafts[activeTabId]?.targetSpace ?? "") : "",
+  );
+  // Graph 탭이 보고 있는 과목도 같은 이유로 셸이 소유한다(탭 id key). GraphSection 의 useState 면
+  // 탭을 오갈 때 unmount 되어 선택이 탭의 원래 과목으로 리셋됐고, 상태바 경로도 따라가지 못했다.
+  // 값이 없으면 = 아직 안 고름(탭의 과목), 빈 문자열이면 = 전체 과목(둘은 다른 상태다).
+  const [graphViews, setGraphViews] = useState<Record<string, string>>({});
+  const graphView = activeTab?.kind === "graph" ? graphViews[activeTab.id] : undefined;
+  const currentSpace =
+    inboxTargetSpace || graphView || activeTab?.space || currentSpaceSlug || spaces[0]?.slug || "";
   useEffect(() => {
     currentSpaceRef.current = currentSpace;
   }, [currentSpace]);
@@ -361,6 +374,16 @@ export default function PiecePoolApp() {
         }
       }
       useInboxDraftStore.getState().clear(id);
+    }
+    // 그래프 탭 id 는 `graph:<space>` 라 다시 열면 같은 id 다 — 지우지 않으면 닫기 전 과목 선택이
+    // 되살아나 "그래프 열기"가 엉뚱한 과목을 띄운다.
+    if (id.startsWith("graph:")) {
+      setGraphViews((m) => {
+        if (!(id in m)) return m;
+        const next = { ...m };
+        delete next[id];
+        return next;
+      });
     }
     closeTab(id);
   };
@@ -1252,20 +1275,25 @@ export default function PiecePoolApp() {
         const note = (notesBySlug[sp] ?? []).find((n) => n.path === activeTab.file);
         return note ? sourceReader(sp, note) : <EmptyState icon={<Icons.FileUpIcon size={28} />} title="원본을 찾을 수 없어요" description={activeTab.file} />;
       }
-      case "graph":
+      case "graph": {
+        const tabId = activeTab.id;
         return (
           <GraphSection
-            key={activeTab.id}
+            key={tabId}
             spaces={spaces}
             graphBySlug={graphBySlug}
             wikiBySlug={wikiBySlug}
             space={sp}
+            // 아직 안 골랐으면 탭의 과목. 셸이 소유해야 상태바 경로가 따라가고 탭 전환에도 안 리셋된다.
+            view={graphViews[tabId] ?? sp}
+            onViewChange={(slug) => setGraphViews((m) => ({ ...m, [tabId]: slug }))}
             onOpenWiki={openWiki}
             onOpenArchive={openArchive}
             onUnmarkReview={unmarkReview}
             onMarkReview={markReview}
           />
         );
+      }
       case "inbox": {
         const tabId = activeTab.id;
         return (
@@ -1308,6 +1336,9 @@ export default function PiecePoolApp() {
   if (activeTab && activeTab.kind !== "home") {
     if (activeTab.kind === "empty") {
       pathParts.push("새 탭");
+    } else if (activeTab.kind === "graph" && graphView === "") {
+      // 전체 과목 뷰는 특정 과목이 아니다 — 탭이 열린 과목을 가리키면 거짓말이 된다.
+      pathParts.push("전체 과목", KIND_LABEL.graph);
     } else {
       if (spaceName || currentSpace) pathParts.push(spaceName || currentSpace);
       pathParts.push(KIND_LABEL[activeTab.kind]);
