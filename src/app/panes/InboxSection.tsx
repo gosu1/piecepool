@@ -99,10 +99,7 @@ export function InboxSection({
   onToggleQuickMemo: () => void;
 }) {
   // ── 저장 대상 폴더(지식 공간) — 기본은 현재 공간, 노트 헤더 드롭다운으로 변경 ──
-  // 위키 참조 패널은 저장 대상 공간을 따라간다(그 공간 위키를 보며 쓰게). PDF 패널은 원본 파일이
-  // 실제로 현재 공간의 sources/ 에 있으므로 따라가지 않는다.
-  const [targetSpace, setTargetSpace] = useState(space);
-  useEffect(() => setTargetSpace(space), [space]);
+  // 위키 참조 패널·PDF 패널 모두 저장 대상 공간을 따라간다 — 원본은 노트와 같은 공간에 산다.
   const resolveTarget = (slug: string) => ({
     spaceId: slug === space ? spaceId : (spaces.find((s) => s.slug === slug)?.id ?? spaceId),
     existing: slug === space ? existing : (wikiBySlug[slug] ?? []),
@@ -115,6 +112,9 @@ export function InboxSection({
   const noteDraft = { ...EMPTY_DRAFT, ...useInboxDraftStore((s) => s.drafts[draftKey]) };
   const summaryJob = useInboxDraftStore((s) => s.job);
   const { title, body, savedFile, savedSpace, savedSnapshot, panels, refWikiPath, refSource } = noteDraft;
+  // 저장 대상 공간 = 이 노트가 속할 공간. 원본 PDF 도 여기 산다(노트↔원본은 같은 공간).
+  // draft 에 persist — useState 면 탭 전환 언마운트에 리셋돼 원본과 노트가 어긋난다.
+  const targetSpace = noteDraft.targetSpace || space;
   const write = (patch: Partial<InboxDraft>) => ds.getState().write(draftKey, patch);
   const setTitle = (v: string) => ds.getState().setTitle(draftKey, v);
   const setBody = (v: string) => ds.getState().setBody(draftKey, v);
@@ -151,11 +151,37 @@ export function InboxSection({
     setConfirmDelSrc(false);
     setSrcErr(null);
     try {
-      await ipc.deleteSource(space, refSource);
+      await ipc.deleteSource(targetSpace, refSource);
       setBody(stripEmbed(ds.getState().drafts[draftKey]?.body ?? "", refSource));
       setRefSource("");
     } catch (e) {
       setSrcErr(String(e));
+    }
+  };
+
+  // 대상 공간을 바꾸면 원본도 따라 옮긴다 — 노트는 B 에, PDF 는 A 에 남으면 임베드가 깨진다.
+  // 실패하면 공간 변경을 되돌린다(절반만 옮겨진 상태를 만들지 않는다).
+  const changeTargetSpace = async (slug: string) => {
+    if (slug === targetSpace) return;
+    const src = ds.getState().drafts[draftKey]?.refSource ?? "";
+    if (!src) {
+      write({ targetSpace: slug });
+      return;
+    }
+    setPdfJobs((n) => n + 1); // 이동 중 저장 잠금 — 어느 공간에도 파일이 없는 순간이 있다
+    try {
+      const moved = await ipc.moveSource(targetSpace, slug, src);
+      const b = ds.getState().drafts[draftKey]?.body ?? "";
+      // 대상 충돌로 이름이 바뀔 수 있다 — 반환된 이름으로 본문 임베드를 교체한다.
+      write({
+        targetSpace: slug,
+        refSource: moved,
+        body: moved === src ? b : b.split(`![[${src}]]`).join(`![[${moved}]]`),
+      });
+    } catch (e) {
+      onNotice?.(`원본을 옮기지 못했어요 — 폴더를 그대로 둡니다 (${String(e)})`);
+    } finally {
+      setPdfJobs((n) => n - 1);
     }
   };
 
@@ -218,7 +244,7 @@ export function InboxSection({
   const importPdf = async (f: File) => {
     setPdfJobs((n) => n + 1);
     try {
-      const stored = await ipc.saveSourceFile(space, f.name, await fileToBase64(f));
+      const stored = await ipc.saveSourceFile(targetSpace, f.name, await fileToBase64(f));
       setRefSource(stored);
       // 올린 PDF 를 바로 볼 수 있게 PDF 패널 자동 열림
       togglePanel("pdf", true);
@@ -227,7 +253,7 @@ export function InboxSection({
       appendBody(`![[${stored}]]`);
       // PDF 내용 → 한국어 요약 스트리밍. 추출/키없음/타 요약 진행 중이면 embed 만 남기고 안내.
       try {
-        const ext = await ipc.extractPdfText(space, stored);
+        const ext = await ipc.extractPdfText(targetSpace, stored);
         const text = ext.pages.map((p) => p.text).join("\n\n").trim();
         if (!text) return;
         const apiKey = (typeof localStorage !== "undefined" && localStorage.getItem("gemini-key")) || "";
@@ -271,7 +297,7 @@ export function InboxSection({
         // 원본 이미지를 sources/original-files 에 저장하고 embed 로 연결 — OCR 실패/키 없음이어도 이미지는 남는다.
         let embed = "";
         try {
-          const stored = await ipc.saveSourceFile(space, f.name, dataUrl.split(",")[1] ?? "");
+          const stored = await ipc.saveSourceFile(targetSpace, f.name, dataUrl.split(",")[1] ?? "");
           embed = `![[${stored}]]\n\n`;
         } catch {
           // 저장 실패해도 OCR 은 계속
@@ -379,10 +405,10 @@ export function InboxSection({
             <SpacePicker
               spaces={spaces}
               value={targetSpace}
-              onChange={setTargetSpace}
+              onChange={(slug) => void changeTargetSpace(slug)}
               onCreate={async (name) => {
                 const slug = await onCreateSpace(name);
-                if (slug) setTargetSpace(slug);
+                if (slug) await changeTargetSpace(slug);
               }}
             />
             <PropertyPill active={withLlm} onClick={() => setWithLlm(!withLlm)} icon={<Icons.SparkleIcon size={13} />}>
@@ -463,13 +489,13 @@ export function InboxSection({
       {refSource && refSourceIsPdf ? (
         <div className="flex min-h-0 flex-1 flex-col">
           {pdfBusy && <p className="shrink-0 border-b border-hairline px-4 py-1.5 text-[13px] text-ink-muted">PDF 처리 중…</p>}
-          <PdfViewer space={space} file={refSource} />
+          <PdfViewer space={targetSpace} file={refSource} />
         </div>
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
           {pdfBusy && <p className="mb-2 text-[13px] text-ink-muted">PDF 처리 중…</p>}
           {refSource ? (
-            <FilePreview space={space} target={refSource} />
+            <FilePreview space={targetSpace} target={refSource} />
           ) : (
             <p className="pt-8 text-center text-[14px] text-ink-muted">
               PDF를 업로드하면 여기서 보면서
