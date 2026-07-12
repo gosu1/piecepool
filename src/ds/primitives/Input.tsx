@@ -1,7 +1,7 @@
 import type { InputHTMLAttributes } from "react";
 import { cn } from "../lib/cn";
 
-// 텍스트 인풋 (DESIGN-notion.md text-input). 흰 표면 + 옅은 테두리 + 타이트한 rounded-xs(4px).
+// 텍스트 인풋 (디자인 레퍼런스 text-input). 흰 표면 + 옅은 테두리 + 타이트한 rounded-xs(4px).
 // 폼 필드는 의도적으로 알약이 아니라 각진 모서리. 포커스 시 부드러운 그림자.
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   invalid?: boolean;

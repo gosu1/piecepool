@@ -1,7 +1,7 @@
 import type { HTMLAttributes } from "react";
 import { cn } from "../lib/cn";
 
-// 이어브로우/카테고리 알약 (DESIGN-notion.md badge-pill).
+// 이어브로우/카테고리 알약 (디자인 레퍼런스 badge-pill).
 //  - primary : 흰 표면 + 블루 글자(기본). 예) 카테고리/이어브로우 라벨.
 //  - solid   : ink 채움 + 흰 글자. 강조 라벨(예: RECOMMENDED).
 //  - neutral : 흰 표면 + muted 글자.

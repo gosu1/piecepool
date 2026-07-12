@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import { cn } from "../lib/cn";
 
-// 밑줄형 탭. active 인디케이터는 단 하나의 액센트(Notion 블루). 위키 ↔ 그래프 토글 등.
+// 밑줄형 탭. active 인디케이터는 단 하나의 액센트(프라이머리 블루). 위키 ↔ 그래프 토글 등.
 export interface TabItem {
   value: string;
   label: ReactNode;

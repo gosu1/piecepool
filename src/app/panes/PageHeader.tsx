@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { Icons, cn } from "../../ds";
 import type { Subject } from "../../lib/types";
 
-// ══ Notion풍 페이지 헤더 — 제목(인라인 이름 변경) · 속성(과목/고정/더 보기) · 관계형 ══
+// ══ 페이지형 헤더 — 제목(인라인 이름 변경) · 속성(과목/고정/더 보기) · 관계형 ══
 // 고정은 뷰 상태(workspaceStore, localStorage) — frontmatter 는 계약(SSOT)이라 건드리지 않는다.
 
 export interface LinkedItem {
@@ -47,7 +47,7 @@ export function PageHeader({
   const [popover, setPopover] = useState<"subject" | "link" | null>(null);
   const [linkQuery, setLinkQuery] = useState("");
 
-  // 새 노트 기본 제목("제목 없음")은 Notion 처럼 빈 placeholder 로 보여준다.
+  // 새 노트 기본 제목("제목 없음")은 빈 placeholder 로 보여준다.
   const isUntitled = title === "제목 없음";
   const commitTitle = (el: HTMLInputElement) => {
     const v = el.value.trim();

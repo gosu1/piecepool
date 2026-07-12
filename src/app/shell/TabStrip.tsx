@@ -2,7 +2,7 @@ import { Fragment } from "react";
 import { cn, Icons } from "../../ds";
 import type { WorkspaceTab, TabKind } from "../../store/workspaceStore";
 
-// ══ 센터 탭 스트립 (Obsidian pane 탭) — 열린 아티팩트 목록. TitlebarRow 안에서 렌더된다. ══
+// ══ 센터 탭 스트립 (pane 탭) — 열린 아티팩트 목록. TitlebarRow 안에서 렌더된다. ══
 export function TabIcon({ kind }: { kind: TabKind }) {
   const size = 15;
   if (kind === "graph") return <Icons.GraphIcon size={size} />;
@@ -28,7 +28,7 @@ export function TabStrip({
   onReorder?: (dragId: string, targetId: string) => void;
 }) {
   if (tabs.length === 0) return null;
-  // 옵시디언식 개수 기반 폭 — 5개까지 220px, 6개부터 개당 16px씩 점진 축소(하한 132px).
+  // 개수 기반 폭 — 5개까지 220px, 6개부터 개당 16px씩 점진 축소(하한 132px).
   // 창이 좁으면 flex-shrink + min-w-[96px] 가 추가로 줄이고, 그 이하는 우측 드롭다운.
   const tabW = tabs.length <= 5 ? 220 : Math.max(132, 220 - (tabs.length - 5) * 16);
   return (
@@ -37,7 +37,7 @@ export function TabStrip({
     <div data-tauri-drag-region="" className="flex min-w-0 shrink items-center self-stretch overflow-hidden px-1">
       {tabs.map((t, i) => {
         const active = t.id === activeId;
-        // 옵시디언식 구분선 — 인접한 두 비활성 탭 사이에만. 활성 탭 양옆은 숨김.
+        // 탭 구분선 — 인접한 두 비활성 탭 사이에만. 활성 탭 양옆은 숨김.
         const prevActive = i > 0 && tabs[i - 1].id === activeId;
         const showDivider = i > 0 && !active && !prevActive;
         return (

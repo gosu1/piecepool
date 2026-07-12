@@ -14,7 +14,7 @@ PiecePool은 대학생을 위한 로컬 우선 AI 지식 Workspace다.
 
 사용자는 강의 PDF, 직접 작성한 필기, 붙여넣은 수업 정리 텍스트, 질문 기록 같은 학습 자료를 하나의 로컬 Workspace에 넣는다. PiecePool은 사용자가 넣은 원문을 Workspace 안의 지식 영역별 `<space>/archive/`에 보존하고, 실제 LLM을 호출해 개념 중심 Wiki 문서와 타입이 있는 지식 그래프로 재구성한다.
 
-제품 경험은 일반 웹 SaaS 대시보드보다 Obsidian 같은 로컬 Markdown 지식 작업 공간에 가깝다. 차이는 PiecePool이 자료를 단순 저장하지 않고 LLM-Wiki와 Graph View로 계속 재구성한다는 점이다.
+제품 경험은 일반 웹 SaaS 대시보드보다 로컬 Markdown 지식 작업 공간에 가깝다. 차이는 PiecePool이 자료를 단순 저장하지 않고 LLM-Wiki와 Graph View로 계속 재구성한다는 점이다.
 
 ## 3. 핵심 사용자와 장기 사용 시나리오
 
@@ -49,7 +49,7 @@ MVP 필수 목표:
 - PDF에서 텍스트를 실제 추출하고 archive 노트로 저장
 - 실제 LLM 호출로 Concept, WikiPage, Relation, Evidence 생성
 - LLM이 정리한 WikiPage를 실제 `.md` 파일로 지식 영역별 `<space>/wiki/`에 저장
-- WikiPage 안에서 Obsidian식 `[[파일명]]` 링크와 `![[파일명]]` inline embed 지원
+- WikiPage 안에서 `[[파일명]]` 위키링크와 `![[파일명]]` inline embed 지원
 - PDF/이미지 원본은 `<space>/sources/original-files/`에 보존하고, Wiki에서는 embed로 읽을 수 있게 표시
 - Relation 메타데이터를 지식 영역별 `<space>/relations/relations.json`에 저장
 - Graph View를 로컬 `<space>/wiki/`와 `<space>/relations/` 데이터에서 렌더링
@@ -90,7 +90,7 @@ MVP 필수 목표:
 
 - Mac 로컬 앱
 - Apple Silicon Mac 우선
-- 추후 Obsidian식 vault 구조와 호환 가능하도록 설계
+- 추후 외부 마크다운 볼트 구조와 호환 가능하도록 설계
 
 ## 7. 로컬 Workspace 구조
 
@@ -174,7 +174,7 @@ LLM이 개념 중심으로 정리한 WikiPage를 저장한다.
 
 각 WikiPage는 하나의 Markdown 파일이다. 사용자는 이 파일을 직접 열고 수정할 수 있어야 한다. WikiPage는 사용자가 읽기 쉬운 설명 문서이면서, 앱과 LLM이 다시 이해하기 쉬운 구조화 Markdown이어야 한다.
 
-WikiPage는 Obsidian식 파일 링크와 embed 문법을 지원한다.
+WikiPage는 `[[...]]` 위키링크식 파일 링크와 embed 문법을 지원한다.
 
 - `[[transformer-week3.pdf]]`: 원본 파일 링크
 - `[[transformer-week3.pdf#page=12]]`: 특정 PDF page 링크
@@ -751,7 +751,7 @@ Self-Attention은 sequence 안의 token들이 서로의 관계를 계산해 문�
 
 ### 11.3 Wiki 파일 링크와 embed 문법
 
-Wiki는 Obsidian식 파일 링크와 embed 문법을 사용한다.
+Wiki는 `[[...]]` 위키링크식 파일 링크와 embed 문법을 사용한다.
 
 ```md
 [[transformer-week3.pdf]]
@@ -1123,7 +1123,7 @@ Graph와 Wiki를 기반으로 복습 행동을 생성한다.
 - File watcher
 - 외부 Markdown 수정 감지
 - 선택적 sync account
-- Obsidian 호환 vault mode
+- 외부 마크다운 볼트 호환 mode
 
 ### 17.6 Relation scoring
 

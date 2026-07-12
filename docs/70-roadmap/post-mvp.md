@@ -96,7 +96,7 @@ Graph + Wiki 기반 일일 복습 행동 생성.
 - File watcher (외부 Markdown 수정 감지)
 - 외부 변경 충돌 해소 (3-way merge)
 - 선택적 sync account (E2EE)
-- Obsidian 호환 vault mode (vault 위치 import / export)
+- 외부 마크다운 볼트 호환 mode (vault 위치 import / export)
 
 ---
 
@@ -178,7 +178,7 @@ MVP는 같은 KnowledgeSpace 안의 `[[...]]` / `![[...]]`만 해석.
 | MVP+1 | OCR 정밀화, fact-check 정밀화, branch protection, 자동 릴리즈 |
 | MVP+2 | Today Task, Relation scoring, file watcher |
 | MVP+3 | 결제 시스템, cross-space link, Project Flow |
-| MVP+4 | 모바일 viewer, Obsidian vault 호환, Anthropic Claude provider |
+| MVP+4 | 모바일 viewer, 외부 마크다운 볼트 호환, Anthropic Claude provider |
 | 신중 검토 | 협업, 텔레메트리 |
 
 위 우선순위는 제안. 실제 결정은 사용자 피드백 / 자원에 따라.

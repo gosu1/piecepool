@@ -77,7 +77,7 @@ test("에디터 라이브 프리뷰 — 헤딩이 타이핑 즉시 커진다", a
   expect(h3).toBeGreaterThan(base);
 });
 
-// Obsidian 라이브 프리뷰 — 커서가 떠난 줄의 "#" 는 화면에서 사라지고, 돌아가면 다시 보인다(문서는 불변).
+// 라이브 프리뷰 — 커서가 떠난 줄의 "#" 는 화면에서 사라지고, 돌아가면 다시 보인다(문서는 불변).
 test("에디터 라이브 프리뷰 — 커서 떠난 줄의 # 기호가 사라진다", async ({ page }) => {
   await page.getByRole("button", { name: "새 노트 작성" }).click();
   await page.locator(".cm-content").click();
@@ -98,7 +98,7 @@ test("에디터 수식 — 커서 떠난 $...$ 가 KaTeX 로 렌더된다", asyn
   await page.locator(".cm-content").click();
   await page.keyboard.type("앞 $a^2$ 뒤\n다음 줄"); // 커서는 2번째 줄 → 1번째 줄 수식은 렌더
   await expect(page.locator(".cm-content .katex").first()).toBeVisible();
-  // 렌더된 수식 클릭 → 커서가 닿아 원문 $a^2$ 가 다시 드러난다(노션식, 문서 불변).
+  // 렌더된 수식 클릭 → 커서가 닿아 원문 $a^2$ 가 다시 드러난다(문서 불변).
   // CM6 는 버블링으로 mousedown 을 받아 커서를 놓는다 — Playwright 히트테스트는 force 로 우회.
   await page.locator(".cm-content .katex").first().click({ force: true });
   await expect(page.locator(".cm-line").first()).toContainText("$a^2$");

@@ -2,7 +2,7 @@ import { EditorView, Decoration, WidgetType, ViewPlugin, type DecorationSet, typ
 import { RangeSetBuilder } from "@codemirror/state";
 import { syntaxTree } from "@codemirror/language";
 
-// ══ 헤딩 줄 호버 액션 — Notion 의 블록 핸들과 같은 결 ══
+// ══ 헤딩 줄 호버 액션 — 블록 핸들 패턴 ══
 //
 // ##/### 제목 줄에 마우스를 올리면 제목 끝에 작은 버튼이 나타난다. 한 번 누르면 끝.
 // 드래그해서 고르라고 하면 "무언가 하려면 먼저 선택부터 해야 한다" 는 부담을 지운다 —

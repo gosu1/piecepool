@@ -43,7 +43,7 @@ export function DocView({
 }: {
   docType: "wiki" | "archive";
   title: string;
-  /** Notion풍 페이지 헤더(PageHeader) — 아이콘·제목·속성·관계형 */
+  /** 페이지형 헤더(PageHeader) — 아이콘·제목·속성·관계형 */
   header?: ReactNode;
   savedMd: string;
   isEditing: boolean;
@@ -79,7 +79,7 @@ export function DocView({
     noteTitle: title,
     handlers: feynman?.handlers,
   });
-  // 읽기 모드 본문 — Notion 처럼 카드 없이 페이지에 바로. 빈 페이지는 클릭해서 작성 시작.
+  // 읽기 모드 본문 — 카드 없이 페이지에 바로. 빈 페이지는 클릭해서 작성 시작.
   const readBody = savedMd.trim() ? (
     <div className="px-1">
       <Markdown source={savedMd} onLink={onLink} linkExists={linkExists} embedSpace={embedSpace} />

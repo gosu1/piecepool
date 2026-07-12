@@ -109,7 +109,7 @@ export default function DesignSystemScreen() {
         <div className="flex items-center gap-3">
           <Logo size={22} />
           <Divider orientation="vertical" className="h-5" />
-          <span className="text-[15px] text-ink-muted">Design System · Notion</span>
+          <span className="text-[15px] text-ink-muted">Design System</span>
         </div>
         <div className="flex items-center gap-2">
           <Link to="/home-demo">
@@ -142,7 +142,7 @@ export default function DesignSystemScreen() {
           </div>
         </Section>
 
-        <Section title="Foundations · Typography (NotionInter)">
+        <Section title="Foundations · Typography (Inter)">
           <Card padding="lg" className="space-y-3">
             <p className="ds-display-2 text-ink">Display · 64/54</p>
             <p className="ds-h1 text-ink">Heading 1 · 운영체제론</p>

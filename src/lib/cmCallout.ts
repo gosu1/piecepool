@@ -1,4 +1,4 @@
-// CM6 콜아웃 라이브 프리뷰 — Obsidian식: `> [!easy] …` 블록을 색 배경+접기 셰브론으로.
+// CM6 콜아웃 라이브 프리뷰 — `> [!easy] …` 블록을 색 배경+접기 셰브론으로.
 // 커서가 블록 밖이면 `> ` 마크와 `[!easy]` 토큰을 감추고(hideHeaderMarks 패턴),
 // 접기는 CM6 내장 codeFolding 을 쓴다(접힘 위치 추적을 CM 이 관리 — 커스텀 상태 불필요).
 import { Decoration, EditorView, ViewPlugin, WidgetType } from "@codemirror/view";
@@ -136,7 +136,7 @@ const calloutPlugin = ViewPlugin.fromClass(
     decorations: DecorationSet;
     constructor(view: EditorView) {
       this.decorations = calloutDecorations(view);
-      // 마운트 시 완성된 [!easy] 블록은 접어 둔다(유니브AI 기본 접힘). 생성자 안 dispatch 금지 → 마이크로태스크.
+      // 마운트 시 완성된 [!easy] 블록은 접어 둔다. 생성자 안 dispatch 금지 → 마이크로태스크.
       queueMicrotask(() => foldEasyCallouts(view));
     }
     update(u: ViewUpdate) {

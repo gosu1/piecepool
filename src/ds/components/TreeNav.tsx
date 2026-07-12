@@ -43,7 +43,7 @@ export interface TreeNavProps {
   className?: string;
 }
 
-// 사이드바 파일/폴더 트리. 조용한 Notion 앱셸 행 — 활성 행만 blue 인디케이터.
+// 사이드바 파일/폴더 트리. 조용한 앱셸 행 — 활성 행만 blue 인디케이터.
 export function TreeNav({
   nodes,
   selectedId,
@@ -87,7 +87,7 @@ export function TreeNav({
     const isExpanded = isExpandedOf(node.id);
     const isSelected = node.id === selectedId;
     const isDropTarget = isFolder && !!node.dropTarget && (!!onMoveNode || !!onDropFiles);
-    // md 외 확장자는 Obsidian 처럼 대문자 배지로 분리 표기 (현재 트리 라벨은 제목이라 대부분 무확장).
+    // md 외 확장자는 대문자 배지로 분리 표기 (현재 트리 라벨은 제목이라 대부분 무확장).
     const extMatch = !isFolder ? node.label.match(/\.(\w+)$/) : null;
     const ext = extMatch && extMatch[1].toLowerCase() !== "md" ? extMatch[1] : null;
 

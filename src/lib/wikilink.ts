@@ -1,4 +1,4 @@
-// Obsidian 위키링크/embed 파싱 + 자체 remark 플러그인.
+// 위키링크/embed 파싱 + 자체 remark 플러그인.
 // 규약: docs/10-contracts/wikilink-embed.md. markdown.tsx 와 테스트에서 공용.
 
 export interface WikilinkToken {
