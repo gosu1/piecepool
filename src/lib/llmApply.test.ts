@@ -165,6 +165,66 @@ describe("applyLlmResult 클로버 가드", () => {
   });
 });
 
+// ── 병합 경로 — 기존 위키가 있는 과목에 새 노트가 들어올 때 지식이 축적되는가 ──
+// 이 경로(llmApply.ts 의 `ex` truthy 분기)는 지금까지 테스트가 0개였다.
+const existingPage = (over: Partial<WikiPage> = {}): WikiPage => ({
+  id: "wiki-old",
+  spaceId: "sp-1",
+  conceptId: "concept-old",
+  title: "교착 상태",
+  path: "old.md",
+  subjectIds: ["subj-os"],
+  sourceIds: ["source-week1"],
+  sourceRefs: [],
+  markdown: "# 교착 상태\n\n1주차에 배운 내용",
+  createdAt: "2026-07-01T10:00:00+09:00",
+  updatedAt: "2026-07-01T10:00:00+09:00",
+  ...over,
+});
+
+const conceptNamed = (title: string): LlmConcept => ({
+  title,
+  summary: "3주차 요약",
+  explanation: "3주차 설명",
+  examples: [],
+  sourceRefs: [],
+  sourceEmbeds: [],
+});
+
+const applyOnto = (existing: WikiPage[], title: string, subjectIds: string[] = ["subj-os"]) =>
+  applyLlmResult(
+    "space",
+    "sp-1",
+    subjectIds,
+    { concepts: [conceptNamed(title)], relations: [] },
+    { sourceId: "source-week3", archivePath: "archive/2026-07-15-os.md" },
+    existing,
+  );
+
+describe("applyLlmResult 병합 — 기존 개념에 새 노트가 얹힐 때", () => {
+  it("같은 개념이면 새 파일을 만들지 않고 기존 파일에 병합한다 (id·path·conceptId·생성시각 보존)", async () => {
+    const ex = existingPage();
+    const applied = await applyOnto([ex], "교착 상태");
+    expect(applied.merged).toBe(1);
+    const p = applied.pages[0];
+    expect(p.id).toBe(ex.id);
+    expect(p.path).toBe(ex.path);
+    expect(p.conceptId).toBe(ex.conceptId);
+    expect(p.createdAt).toBe(ex.createdAt);
+  });
+
+  it("출처(sourceIds)는 합집합으로 누적된다", async () => {
+    const applied = await applyOnto([existingPage()], "교착 상태");
+    expect(applied.pages[0].sourceIds).toEqual(["source-week1", "source-week3"]);
+  });
+
+  it("과목(subjectIds)도 합집합으로 누적된다 — 기존 태그를 덮지 않는다", async () => {
+    const ex = existingPage({ subjectIds: ["subj-os", "subj-ml"] });
+    const applied = await applyOnto([ex], "교착 상태", ["subj-os"]);
+    expect(applied.pages[0].subjectIds).toEqual(["subj-os", "subj-ml"]);
+  });
+});
+
 // LlmWikiInput.sourceFiles 구성 — 이게 비면 sanitizeSourceRefs 가 모든 ref 를 버린다(파이프라인 no-op 방지)
 describe("embedSourceFiles", () => {
   it("본문 첫 pdf embed → 대표 원본 파일 1개", () => {

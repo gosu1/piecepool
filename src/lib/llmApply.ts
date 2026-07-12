@@ -163,7 +163,7 @@ export async function applyLlmResult(
       conceptId: cid,
       title: c.title,
       path: ex ? ex.path : `${slugOrHash(c.title)}.md`,
-      subjectIds,
+      subjectIds: ex ? Array.from(new Set([...ex.subjectIds, ...subjectIds])) : subjectIds,
       sourceIds: ex ? Array.from(new Set([...ex.sourceIds, source.sourceId])) : [source.sourceId],
       sourceRefs: toSourceRefs(c, allowed, slugOrHash(c.title), ex?.sourceRefs),
       markdown: conceptMarkdown(c),
