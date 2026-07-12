@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { normalizeTitle, slugOrHash, toSourceRefs, embedSourceFiles, synthesisPage, isSynthesisPage, applyLlmResult } from "./llmApply";
+import { normalizeTitle, slugOrHash, toSourceRefs, embedSourceFiles, synthesisPage, isSynthesisPage, applyLlmResult, toExistingConcepts } from "./llmApply";
 import type { LlmConcept } from "../llm/provider";
 import type { ArchiveNote, SourceRef, WikiPage } from "./types";
 
@@ -222,6 +222,23 @@ describe("applyLlmResult 병합 — 기존 개념에 새 노트가 얹힐 때", 
     const ex = existingPage({ subjectIds: ["subj-os", "subj-ml"] });
     const applied = await applyOnto([ex], "교착 상태", ["subj-os"]);
     expect(applied.pages[0].subjectIds).toEqual(["subj-os", "subj-ml"]);
+  });
+});
+
+// LLM 입력의 existingConcepts — normalizedTitle 이 validate.normTitle 과 다른 규칙으로 만들어지면
+// known 집합 비교가 영영 실패해 그 기존 개념으로 향하는 관계가 전부 조용히 드롭된다(droppedTitle).
+describe("toExistingConcepts", () => {
+  it("normalizedTitle 은 normalizeTitle 규칙(NFC·소문자·공백정규화)을 따른다 — 엣지 드롭 방지", () => {
+    const pages = [existingPage({ conceptId: "concept-cnn", title: "합성곱  신경망" })];
+    expect(toExistingConcepts(pages)).toEqual([
+      { id: "concept-cnn", title: "합성곱  신경망", normalizedTitle: "합성곱 신경망" },
+    ]);
+  });
+
+  it("정리 글(합성) 페이지는 개념이 아니므로 제외한다", () => {
+    const syn = synthesisPage("sp-1", NOTE, "정리 글", []);
+    expect(toExistingConcepts([syn, existingPage()])).toHaveLength(1);
+    expect(toExistingConcepts([syn, existingPage()])[0].id).toBe("concept-old");
   });
 });
 

@@ -114,6 +114,16 @@ export function synthesisPage(spaceId: string, note: ArchiveNote, markdown: stri
   };
 }
 
+// 기존 위키 → LlmWikiInput.existingConcepts.
+// normalizedTitle 은 반드시 normalizeTitle 규칙이어야 한다 — validate.normTitle 이 관계의
+// 제목을 같은 규칙으로 정규화해 known 집합과 대조하므로, 규칙이 어긋나면 그 개념으로 향하는
+// 관계가 전부 droppedTitle 로 조용히 사라진다.
+export function toExistingConcepts(pages: WikiPage[]): NonNullable<LlmWikiInput["existingConcepts"]> {
+  return pages
+    .filter((w) => !isSynthesisPage(w)) // 정리 글은 개념이 아니다 — 중복 힌트에서 제외
+    .map((w) => ({ id: w.conceptId, title: w.title, normalizedTitle: normalizeTitle(w.title) }));
+}
+
 function toEvidence(e: LlmEvidence): Evidence {
   return {
     sourceId: e.sourceId,
