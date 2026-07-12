@@ -175,7 +175,9 @@ export function InboxSection({
     if (slug === targetSpace) return;
     // PDF 처리 중에는 폴더를 바꾸지 않는다 — 업로드는 시작할 때의 공간에 파일을 쓰므로,
     // 지금 대상만 바꾸면 파일은 옛 공간에, 노트는 새 공간에 남아 임베드가 깨진다.
-    if (pdfBusy) {
+    // 렌더 클로저의 pdfBusy 가 아니라 스토어를 직접 읽는다 — onCreate 경로는 새 공간 생성을
+    // await 한 뒤 여기 오므로, 그 사이 시작된 업로드가 클로저에는 안 보인다.
+    if ((ds.getState().pdfJobs[draftKey] ?? 0) > 0) {
       onNotice?.("PDF를 처리하는 중이에요 — 끝난 뒤에 폴더를 바꿔주세요");
       return;
     }
