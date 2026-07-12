@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseWikilinks, parseEmbedTarget } from "./wikilink";
+import { parseWikilinks, parseEmbedTarget, firstEmbedFile } from "./wikilink";
 
 describe("parseWikilinks", () => {
   it("splits text / link / embed", () => {
@@ -30,5 +30,31 @@ describe("parseEmbedTarget", () => {
   });
   it("image without page", () => {
     expect(parseEmbedTarget("diagram.png")).toEqual({ file: "diagram.png" });
+  });
+});
+
+describe("firstEmbedFile — 노트당 대표 원본 1개", () => {
+  it("첫 pdf 임베드를 찾는다", () => {
+    expect(firstEmbedFile("![[lecture.pdf]]\n\n필기")).toEqual({ file: "lecture.pdf", type: "pdf" });
+  });
+
+  it("이미지 임베드도 찾는다", () => {
+    expect(firstEmbedFile("![[shot.png]]")).toEqual({ file: "shot.png", type: "image" });
+  });
+
+  it("#page=N 조각을 떼고 파일명만 준다", () => {
+    expect(firstEmbedFile("![[lecture.pdf#page=3]]")).toEqual({ file: "lecture.pdf", type: "pdf" });
+  });
+
+  it("임베드가 아닌 위키링크는 무시한다", () => {
+    expect(firstEmbedFile("[[lecture.pdf]] 는 링크일 뿐")).toBeNull();
+  });
+
+  it("원본이 없으면 null", () => {
+    expect(firstEmbedFile("그냥 필기")).toBeNull();
+  });
+
+  it("여럿이면 첫 번째만", () => {
+    expect(firstEmbedFile("![[a.pdf]]\n![[b.pdf]]")).toEqual({ file: "a.pdf", type: "pdf" });
   });
 });

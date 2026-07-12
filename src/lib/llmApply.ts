@@ -1,6 +1,6 @@
 import type { LlmWikiResult, LlmConcept, LlmEvidence, LlmWikiInput } from "../llm/provider";
 import type { WikiPage, Relation, Evidence, SourceRef, ArchiveNote } from "./types";
-import { parseWikilinks, parseEmbedTarget } from "./wikilink";
+import { parseWikilinks, parseEmbedTarget, firstEmbedFile } from "./wikilink";
 import * as ipc from "./ipc";
 
 // LlmWikiResult → WikiPage[] + Relation[] 변환 후 백엔드에 저장.
@@ -45,17 +45,9 @@ function conceptMarkdown(c: LlmConcept): string {
 // 이걸 입력에 넣어야 sanitizeSourceRefs(validate.ts)가 LLM 의 sourceRefs 를 살려서 통과시킨다 —
 // 비우면 모든 ref 가 환각으로 간주되어 제거되고 sourceRefs 파이프라인 전체가 no-op 이 된다.
 // sanitize 가 sourceId→file 1:1 맵을 쓰므로 노트당 대표 파일 1개만 준다.
-const IMAGE_EXTS = new Set(["png", "jpg", "jpeg", "webp", "gif"]);
-
 export function embedSourceFiles(sourceId: string, markdown: string): NonNullable<LlmWikiInput["sourceFiles"]> {
-  for (const t of parseWikilinks(markdown)) {
-    if (t.kind !== "embed") continue;
-    const { file } = parseEmbedTarget(t.value);
-    const ext = file.split(".").pop()?.toLowerCase() ?? "";
-    if (ext === "pdf") return [{ id: sourceId, file, type: "pdf" }];
-    if (IMAGE_EXTS.has(ext)) return [{ id: sourceId, file, type: "image" }];
-  }
-  return [];
+  const e = firstEmbedFile(markdown);
+  return e ? [{ id: sourceId, file: e.file, type: e.type }] : [];
 }
 
 // LlmSourceRef → SourceRef (llm-output-schema 변환 파이프라인 · 수용기준 §2.2).

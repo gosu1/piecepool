@@ -76,3 +76,18 @@ function walk(node: MdNode): void {
 export function remarkWikilink() {
   return (tree: MdNode) => walk(tree);
 }
+
+const IMAGE_EXTS = new Set(["png", "jpg", "jpeg", "webp", "gif"]);
+
+/** 본문의 첫 pdf/image 임베드 → 그 노트의 대표 원본. 없으면 null.
+ *  노트↔원본은 1:1 이다(sanitizeSourceRefs 의 sourceId→file 맵이 1:1). */
+export function firstEmbedFile(markdown: string): { file: string; type: "pdf" | "image" } | null {
+  for (const t of parseWikilinks(markdown)) {
+    if (t.kind !== "embed") continue;
+    const { file } = parseEmbedTarget(t.value);
+    const ext = file.split(".").pop()?.toLowerCase() ?? "";
+    if (ext === "pdf") return { file, type: "pdf" };
+    if (IMAGE_EXTS.has(ext)) return { file, type: "image" };
+  }
+  return null;
+}
