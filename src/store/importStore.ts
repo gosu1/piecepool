@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { ImportJobStatus, WikiPage, ArchiveNote } from "../lib/types";
 import * as ipc from "../lib/ipc";
 import { runWikiGeneration } from "../llm/generate";
+import { runWikiMerge } from "../llm/mergeWiki";
 import type { LlmWikiInput, LlmWikiResult } from "../llm/provider";
 import { applyLlmResult, embedSourceFiles, toExistingConcepts } from "../lib/llmApply";
 import { maybeFactCheck } from "../lib/factCheck";
@@ -121,8 +122,10 @@ export const useImportStore = create<ImportState>((set) => {
       p.spaceId,
       note.subjectIds,
       fc.result,
-      { sourceId: note.sourceId, archivePath: `archive/${note.path}` },
+      { sourceId: note.sourceId, archivePath: `archive/${note.path}`, title: note.title },
       p.existing,
+      // 본문 축적(방식 A) — 기존 개념에 얹힐 때만 2차 LLM 호출로 통합한다.
+      { mergeMarkdown: (md, c, src) => runWikiMerge(md, c, src, apiKey()) },
     );
     const done = commit({
       ...job,

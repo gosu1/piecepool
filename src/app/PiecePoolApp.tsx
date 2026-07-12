@@ -5,6 +5,7 @@ import type { KnowledgeSpace, WikiPage as WikiPageT, ArchiveNote, GraphData, Wor
 import * as ipc from "../lib/ipc";
 import { startFileDragOut } from "../lib/dragOut";
 import { runWikiGeneration } from "../llm/generate";
+import { runWikiMerge } from "../llm/mergeWiki";
 import type { LlmWikiInput } from "../llm/provider";
 import { applyLlmResult, embedSourceFiles, isSynthesisPage, synthesisConceptId, toExistingConcepts } from "../lib/llmApply";
 import { buildGaps } from "../llm/gaps";
@@ -836,8 +837,10 @@ export default function PiecePoolApp() {
       sp?.id ?? "",
       note.subjectIds,
       fc.result,
-      { sourceId: note.sourceId, archivePath: `archive/${note.path}` },
+      { sourceId: note.sourceId, archivePath: `archive/${note.path}`, title: note.title },
       wikiBySlug[space] ?? [],
+      // 본문 축적(방식 A) — 기존 개념에 얹힐 때만 2차 LLM 호출로 통합한다.
+      { mergeMarkdown: (md, c, src) => runWikiMerge(md, c, src, apiKey) },
     );
     const mergedNote = applied.merged > 0 ? ` (기존 ${applied.merged}개 병합)` : "";
     // [E] 연결성 게이트 advisory — 이번 추출에서 어디에도 안 붙은(고립) 개념 수 표시.
