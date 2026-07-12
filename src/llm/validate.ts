@@ -23,9 +23,25 @@ export function validateLlmWikiResult(data: unknown): ValidationResult {
   return { valid: false, errors };
 }
 
+/** SourceRef → 본문 임베드 문자열. frontmatter 와 본문이 같은 (file, page) 를 쓰게 하는 단일 규칙. */
+export function refEmbed(r: { file: string; page?: number }): string {
+  return r.page ? `![[${r.file}#page=${r.page}]]` : `![[${r.file}]]`;
+}
+
 // §5(4) — sourceRefs[].sourceId는 호출 입력 Source.id 중 하나여야 한다. 입력에 없는 source를
-// 가리키는 (환각) ref는 정규화 단계에서 제거하고 file을 입력값으로 교정한다. ref가 사라진
-// sourceEmbeds도 함께 정리한다. SSOT: docs/10-contracts/llm-output-schema.md §5(4).
+// 가리키는 (환각) ref는 정규화 단계에서 제거하고 file을 입력값으로 교정한다.
+// SSOT: docs/10-contracts/llm-output-schema.md §5(4).
+//
+// sourceEmbeds 는 모델이 준 문자열을 쓰지 않고 sourceRefs 에서 **파생**한다. 계약이 이 필드를
+// "(참고)" 로 표시한 대로, 권위 있는 채널은 sourceRefs 뿐이다 — 파일명이 실제 업로드 원본으로
+// 교정되고 환각이 걸러지는 쪽이 여기다. 모델은 두 채널을 동기화하지 않는다(embed: true 라고
+// 해놓고 sourceEmbeds: [] 를 주는 응답이 실제로 나왔다). 그러면 frontmatter 는 "임베드하라"는데
+// 본문엔 임베드가 없어 "출처와 본문 임베드가 어긋나요" 경고가 뜬다.
+// 파생시키면 둘은 구조적으로 일치하고, 그 충돌 자체가 존재할 수 없게 된다.
+//
+// embed 플래그도 true 로 못박는다. 근거 섹션의 존재 이유가 원본을 보여주는 것인데, 모델의
+// embed 선택은 근거 없는 동전던지기였다(한 런은 전부 true, 다른 런은 전부 false). 그 선택에
+// 사용자가 PDF 를 볼 수 있는지가 걸려서는 안 된다.
 export function sanitizeSourceRefs(
   result: LlmWikiResult,
   input: LlmWikiInput,
@@ -36,13 +52,10 @@ export function sanitizeSourceRefs(
   const concepts = result.concepts.map((c) => {
     const sourceRefs = c.sourceRefs
       .filter((r) => fileById.has(r.sourceId))
-      .map((r) => ({ ...r, file: fileById.get(r.sourceId) as string }));
+      .map((r) => ({ ...r, file: fileById.get(r.sourceId) as string, embed: true }));
     dropped += c.sourceRefs.length - sourceRefs.length;
 
-    const keptFiles = new Set(sourceRefs.map((r) => r.file));
-    const sourceEmbeds = c.sourceEmbeds.filter((e) =>
-      [...keptFiles].some((f) => e.includes(f)),
-    );
+    const sourceEmbeds = [...new Set(sourceRefs.map(refEmbed))];
 
     return { ...c, sourceRefs, sourceEmbeds };
   });
