@@ -5,6 +5,7 @@
 
 import { streamChatText } from "./stream";
 import { GEMINI_MODEL } from "./gemini";
+import { getOutputLanguage, type OutputLanguage } from "./language";
 
 export interface PdfSummaryInput {
   sourceTitle: string;
@@ -25,6 +26,7 @@ export interface PdfSummaryOptions {
   fetchFn?: typeof fetch;
   maxRetries?: number; // 기본 2
   backoffMs?: number; // 기본 250 (0=즉시, 테스트용)
+  lang?: OutputLanguage; // 미지정 시 설정값(getOutputLanguage)
 }
 
 /** 스트림 도중(첫 delta 이후) 실패 — 부분 텍스트는 화면에 유지, 재시도·교체 없음. */
@@ -34,7 +36,7 @@ export class PdfSummaryStreamError extends Error {}
 export const SUMMARY_MAX_CHARS = 48_000;
 const MAX_OUTPUT_TOKENS = 8192;
 
-const SYSTEM_PROMPT =
+const SYSTEM_PROMPT_KO =
   "너는 영어 학습 자료를 한국어 요약 노트로 만들어 주는 번역·요약 편집자다.\n" +
   "PDF에서 추출한 영어 원문을 읽고, 한국어로 번역·요약된 학습 노트를 마크다운으로 작성한다.\n" +
   "[규칙 — 엄격]\n" +
@@ -53,21 +55,45 @@ const SYSTEM_PROMPT =
   "7. 페이지 번호·출처 표기·==하이라이트== 는 쓰지 않는다.\n" +
   "8. 출력은 순수 마크다운만 — 인사말·머리말·설명 문장·코드펜스(```)로 감싸기 금지.";
 
-export function buildPdfSummaryBody(input: PdfSummaryInput, model = GEMINI_MODEL) {
+const SYSTEM_PROMPT_EN =
+  "You are an editor who turns study material extracted from a PDF into a concise English summary note in Markdown.\n" +
+  "[Rules — strict]\n" +
+  "1. Only include what is actually in the source. Never invent facts, numbers, examples, or conclusions. Do not supplement with general knowledge or standard curriculum. When unsure, leave it out.\n" +
+  "2. Output structure:\n" +
+  "   - Start with a `# Summary` heading and 2-4 sentences covering the whole document.\n" +
+  "   - Then, following the source's main sections in order, `## {number}. {section title}` headings with each section's key content summarized.\n" +
+  "3. Compress into short paragraphs and bullets — this is a summary, not a full translation. 3-8 lines per section.\n" +
+  "4. Write math in KaTeX syntax — inline $...$, block $$...$$. Block math goes outside callouts only.\n" +
+  "5. **Every `##` section, no exceptions**, ends with one plain-language callout:\n" +
+  "   > [!easy] In plain terms\n" +
+  "   > (2-4 sentences explaining the section to a first-time learner with everyday analogies)\n" +
+  "   Every callout line starts with `> `. No jargon dumps — use words a middle-schooler understands.\n" +
+  "   The callout also covers only what is in the source (new analogies are fine; new facts are not).\n" +
+  "6. No page numbers, no source citations, no ==highlights==.\n" +
+  "7. Output pure Markdown only — no greetings, no preamble, no code-fence wrapping.";
+
+const systemPrompt = (lang: OutputLanguage) => (lang === "en" ? SYSTEM_PROMPT_EN : SYSTEM_PROMPT_KO);
+
+export function buildPdfSummaryBody(
+  input: PdfSummaryInput,
+  model = GEMINI_MODEL,
+  lang: OutputLanguage = getOutputLanguage(),
+) {
   const clipped =
     input.sourceText.length > SUMMARY_MAX_CHARS
       ? `${input.sourceText.slice(0, SUMMARY_MAX_CHARS)}\n\n(입력 상한 초과 — 이후 내용 잘림)`
       : input.sourceText;
+  const userMsg =
+    lang === "en"
+      ? `[Document]\nTitle: ${input.sourceTitle}\nSource text (PDF extract, no page breaks):\n${clipped}\n\n` +
+        "Following the rules, write an English summary note starting with `# Summary`."
+      : `[문서]\n제목: ${input.sourceTitle}\n영어 원문(PDF 추출, 페이지 구분 없음):\n${clipped}\n\n` +
+        "위 문서를 규칙에 따라 `# 요약`으로 시작하는 한국어 요약 노트로 작성하라.";
   return {
     model,
     messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      {
-        role: "user",
-        content:
-          `[문서]\n제목: ${input.sourceTitle}\n영어 원문(PDF 추출, 페이지 구분 없음):\n${clipped}\n\n` +
-          "위 문서를 규칙에 따라 `# 요약`으로 시작하는 한국어 요약 노트로 작성하라.",
-      },
+      { role: "system", content: systemPrompt(lang) },
+      { role: "user", content: userMsg },
     ],
     temperature: 0.2,
     max_tokens: MAX_OUTPUT_TOKENS,
@@ -97,7 +123,7 @@ export async function runPdfSummary(
     try {
       const r = await streamChatText({
         apiKey: key,
-        body: buildPdfSummaryBody(input, opts?.model),
+        body: buildPdfSummaryBody(input, opts?.model, opts?.lang),
         endpoint: opts?.endpoint,
         signal: opts?.signal,
         onDelta,
