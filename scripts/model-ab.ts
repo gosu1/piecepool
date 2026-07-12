@@ -226,7 +226,7 @@ async function main(): Promise<void> {
 
   const models = (get("--models") ?? DEFAULT_MODELS.join(","))
     .split(",")
-    .map((s) => s.trim())
+    .map((s) => s.trim().replace(/^models\//, ""))
     .filter(Boolean);
   const only = get("--task") as AbTask | undefined;
   if (only && !TASKS.includes(only)) {
@@ -258,7 +258,11 @@ async function main(): Promise<void> {
   const runDir = join(AB_DIR, "results", runId);
   mkdirSync(join(runDir, "raw"), { recursive: true });
   for (const r of raw) {
-    writeFileSync(join(runDir, "raw", `${r.task}-${r.caseId}-${r.model}.json`), JSON.stringify(r, null, 2), "utf-8");
+    writeFileSync(
+      join(runDir, "raw", `${r.task}-${r.caseId}-${r.model.replace(/\//g, "_")}.json`),
+      JSON.stringify(r, null, 2),
+      "utf-8",
+    );
   }
   const data = buildReportData(runId, alive, probe, raw, mulberry32(Date.now() >>> 0));
   const htmlPath = join(runDir, "report.html");

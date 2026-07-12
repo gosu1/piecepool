@@ -164,6 +164,7 @@ details pre{white-space:pre-wrap}
 .gap{font-size:11px;color:#0969da;margin-left:6px}
 .rule-pass{color:#1a7f37;font-size:13px}
 .rule-fail{color:#cf222e;font-size:13px}
+.rule-warn{color:#9a6700;font-size:13px}
 .err{color:#cf222e;font-size:13px}
 .verdict{padding:12px 16px;border-top:1px solid #e1e4e8;background:#fafbfc;font-size:14px}
 .verdict label{margin-right:16px;cursor:pointer}
@@ -198,6 +199,7 @@ function h(tag, cls, html) {
   if (html !== undefined) e.innerHTML = html;
   return e;
 }
+// text node 전용 — 속성값에 넣으면 따옴표가 이스케이프되지 않아 뚫린다
 function esc(s) {
   var d = document.createElement("div");
   d.textContent = s == null ? "" : String(s);
@@ -216,6 +218,10 @@ function renderColumn(col) {
     var md = h("div", "md");
     // 원시 HTML 무력화 — LLM 요약이 실어온 태그가 실행되지 않게 & < 선-이스케이프 (마크다운 문법 비파괴)
     md.innerHTML = marked.parse(col.summaryMarkdown.replace(/&/g, "&amp;").replace(/</g, "&lt;"));
+    md.querySelectorAll("a").forEach(function (a) {
+      var href = a.getAttribute("href") || "";
+      if (!/^https?:/i.test(href)) a.removeAttribute("href");
+    });
     box.appendChild(md);
   } else if (col.feynman) {
     col.feynman.rounds.forEach(function (r) {
@@ -237,7 +243,8 @@ function renderColumn(col) {
     box.appendChild(rul);
     box.appendChild(h("div", null,
       '<span class="rule-pass">규칙 ✓ ' + w.rulePasses.length + "</span>" +
-      (w.ruleFailures.length ? ' <span class="rule-fail">✗ ' + w.ruleFailures.map(esc).join(" · ") + "</span>" : "")));
+      (w.ruleFailures.length ? ' <span class="rule-fail">✗ ' + w.ruleFailures.map(esc).join(" · ") + "</span>" : "") +
+      (w.ruleWarnings.length ? ' <span class="rule-warn">⚠ ' + w.ruleWarnings.length + "</span>" : "")));
   }
   return box;
 }
@@ -290,6 +297,7 @@ function tally() {
 }
 
 document.getElementById("reveal").addEventListener("click", function () {
+  document.querySelectorAll(".verdict input").forEach(function (i) { i.disabled = true; });
   document.querySelectorAll(".model-name").forEach(function (e) { e.classList.remove("hidden"); });
   var t = tally();
   var out = "<h2>집계</h2><table><tr><th>작업</th>";

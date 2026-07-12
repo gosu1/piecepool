@@ -118,4 +118,12 @@ describe("renderReportHtml", () => {
     const html = renderReportHtml(d);
     expect(html).toContain('replace(/&/g, "&amp;").replace(/</g, "&lt;")');
   });
+
+  it("개봉 시 판정 라디오를 잠그고, 요약 링크의 비-http href를 제거한다", () => {
+    const raw = [rawOut("m1", "c1"), rawOut("m2", "c1")];
+    const d = buildReportData("r", ["m1", "m2"], [], raw, mulberry32(1));
+    const html = renderReportHtml(d);
+    expect(html).toContain("i.disabled = true");
+    expect(html).toContain('removeAttribute("href")');
+  });
 });
