@@ -226,7 +226,14 @@ export default function PiecePoolApp() {
 
   // 활성 탭 → 현재 공간 컨텍스트(브레드크럼·트리가 따라감)
   const activeTab = openTabs.find((t) => t.id === activeTabId) ?? null;
-  const currentSpace = activeTab?.space || currentSpaceSlug || spaces[0]?.slug || "";
+  // Inbox 탭의 공간은 탭이 열린 공간이 아니라 "이 노트가 저장될 공간"(draft.targetSpace)이다.
+  // 사용자가 저장 위치 드롭다운에서 과목을 바꾸면 원본 PDF 도 그 공간으로 따라가므로, 상태바
+  // 경로·그래프·새 노트도 같은 곳을 가리켜야 한다. 탭 id 를 key 로 그 한 값만 구독한다 —
+  // drafts 전체를 구독하면 타이핑 한 글자마다 앱 전체가 리렌더된다.
+  const inboxTargetSpace = useInboxDraftStore((s) =>
+    activeTabId?.startsWith("inbox:") ? (s.drafts[activeTabId]?.targetSpace ?? "") : "",
+  );
+  const currentSpace = inboxTargetSpace || activeTab?.space || currentSpaceSlug || spaces[0]?.slug || "";
   useEffect(() => {
     currentSpaceRef.current = currentSpace;
   }, [currentSpace]);
