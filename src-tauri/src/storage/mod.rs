@@ -324,6 +324,25 @@ pub fn slugify(input: &str) -> String {
     }
 }
 
+/// 비ASCII(한글 등) 이름용 안정 해시 토큰 — slugify 가 빈 값이 될 때 유니크 slug 재료로 쓴다.
+pub fn name_hash(input: &str) -> String {
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    input.hash(&mut h);
+    format!("{:x}", h.finish() & 0xffff_ffff)
+}
+
+/// slugify 하되, ASCII 영숫자가 하나도 없으면(순수 한글 등) 이름 해시로 유니크 ASCII slug 를 만든다.
+/// slugify 는 비ASCII 를 전부 버려 한글 폴더/파일이 모두 "untitled" 로 겹치므로, 공간 slug 와
+/// 원본 파일명 stem 에서 이 함수를 쓴다. (계약: slug = ASCII kebab 유지)
+pub fn slug_or_hash(input: &str) -> String {
+    if input.chars().any(|c| c.is_ascii_alphanumeric()) {
+        slugify(input)
+    } else {
+        name_hash(input)
+    }
+}
+
 /// 간단한 안정 식별자(시간 기반). ULID 대체(contract 허용: "ULID 또는 안정 식별자").
 pub fn gen_id(prefix: &str) -> String {
     let nanos = SystemTime::now()

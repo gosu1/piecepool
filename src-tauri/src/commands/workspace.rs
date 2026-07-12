@@ -31,7 +31,8 @@ pub fn create_space(name: String) -> Result<KnowledgeSpace, String> {
         storage::read_json(&spaces_path).map_err(|e| e.to_string())?;
 
     // slug 충돌 방지 — 이미 있으면 slug-2, slug-3 …
-    let base = storage::slugify(name);
+    // 순수 한글 등 비ASCII 이름은 slugify 가 "untitled" 로 뭉개지므로 이름 해시로 유니크화한다.
+    let base = storage::slug_or_hash(name);
     let mut slug = base.clone();
     let mut n = 2;
     while spaces.iter().any(|s| s.slug == slug) {
@@ -149,7 +150,7 @@ pub fn delete_source(space: String, file: String) -> Result<(), String> {
 }
 
 /// base64 원본 파일을 <space>/sources/original-files/ 에 저장하고 최종 파일명을 반환.
-/// 파일명 정리: stem·확장자 모두 slugify(소문자 영숫자). 충돌 시 base-2.ext … 접미사.
+/// 파일명 정리: stem 은 slug_or_hash(한글 등은 해시), 확장자는 slugify(소문자 영숫자). 충돌 시 base-2.ext … 접미사.
 #[tauri::command]
 pub fn save_source_file(
     space: String,
@@ -165,7 +166,7 @@ pub fn save_source_file(
         Some((s, e)) if !e.trim().is_empty() => (s, e),
         _ => return Err("파일 확장자가 필요합니다".into()),
     };
-    let safe_name = format!("{}.{}", storage::slugify(stem), storage::slugify(ext));
+    let safe_name = format!("{}.{}", storage::slug_or_hash(stem), storage::slugify(ext));
     let dir = storage::space_subdir(&space, "sources/original-files");
     let final_name = crate::commands::unique_file_name(&dir, &safe_name);
     let path = storage::safe_join(&dir, &final_name).map_err(|e| e.to_string())?;

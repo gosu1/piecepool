@@ -16,6 +16,23 @@ mod tests {
     use crate::{commands, seed, storage};
 
     #[test]
+    fn slug_or_hash_handles_korean() {
+        // ASCII 있으면 slugify 그대로
+        assert_eq!(
+            storage::slug_or_hash("Operating Systems"),
+            "operating-systems"
+        );
+        assert_eq!(storage::slug_or_hash("CS 자료구조"), "cs");
+        // 순수 한글은 untitled 로 뭉개지지 않고 유니크 해시 slug (폴더·파일명 공용)
+        let a = storage::slug_or_hash("자료구조");
+        let b = storage::slug_or_hash("알고리즘");
+        assert_ne!(a, "untitled");
+        assert!(a.chars().all(|c| c.is_ascii_alphanumeric()));
+        assert_ne!(a, b, "다른 한글 이름은 다른 slug");
+        assert_eq!(a, storage::slug_or_hash("자료구조"), "같은 이름은 안정적");
+    }
+
+    #[test]
     fn seed_and_read_back() {
         // 임시 HOME 으로 격리 (실제 ~/PiecePool 오염 방지)
         let tmp = std::env::temp_dir().join(format!("pp-test-{}", std::process::id()));
@@ -671,6 +688,17 @@ mod tests {
         )
         .expect("save src");
         assert_eq!(saved, "my-lecture.pdf", "stem slugify + 확장자 소문자");
+        // 한글 파일명은 stem 이 untitled 로 뭉개지지 않고 해시 stem 으로 저장된다
+        let ko = commands::workspace::save_source_file(
+            "operating-systems".into(),
+            "확률과 통계 3주차.pdf".into(),
+            b64.clone(),
+        )
+        .expect("save ko src");
+        assert!(
+            ko.ends_with(".pdf") && !ko.starts_with("untitled"),
+            "한글 stem → 해시, untitled 아님: {ko}"
+        );
         let back = commands::workspace::read_file_bytes("operating-systems".into(), saved.clone())
             .expect("read back");
         assert_eq!(back, b64, "저장/조회 roundtrip");
