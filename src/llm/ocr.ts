@@ -3,27 +3,40 @@
 // OCR 품질(실사진)은 사람 검증 대상. 요청 모양/오프라인 폴백/파싱은 자체검증.
 
 import { GEMINI_OPENAI_ENDPOINT, GEMINI_MODEL, extractChatText } from "./gemini";
+import { getOutputLanguage, type OutputLanguage } from "./language";
 
 export interface OcrResult {
   markdown: string;
   engine: "gemini" | "none";
 }
 
-const OCR_INSTRUCTION =
+const OCR_INSTRUCTION_KO =
   "이 이미지를 정확히 3개 블록의 마크다운으로 정리하라. 이미지에 없는 내용을 지어내지 말 것.\n" +
   "## 원문\n(보이는 텍스트를 그대로 옮긴다. 수식·기호·표 포함)\n" +
   "## 구조\n(제목·목록으로 재구성)\n" +
   "## 요약\n(핵심 3줄 이내)";
 
-export function buildOcrRequest(dataUrl: string, model = GEMINI_MODEL) {
+const OCR_INSTRUCTION_EN =
+  "Transcribe this image into exactly 3 Markdown blocks. Never invent content that is not in the image.\n" +
+  "## Original\n(transcribe visible text verbatim, incl. math/symbols/tables)\n" +
+  "## Structure\n(reorganize into headings and lists)\n" +
+  "## Summary\n(3 lines max)";
+
+export function buildOcrRequest(dataUrl: string, model = GEMINI_MODEL, lang: OutputLanguage = getOutputLanguage()) {
   return {
     model,
     messages: [
-      { role: "system", content: "너는 학습 노트 OCR 도우미다. 손글씨/인쇄 텍스트를 정확히 옮기고 구조화한다." },
+      {
+        role: "system",
+        content:
+          lang === "en"
+            ? "You are a study-note OCR assistant. Transcribe handwriting/printed text accurately and structure it."
+            : "너는 학습 노트 OCR 도우미다. 손글씨/인쇄 텍스트를 정확히 옮기고 구조화한다.",
+      },
       {
         role: "user",
         content: [
-          { type: "text", text: OCR_INSTRUCTION },
+          { type: "text", text: lang === "en" ? OCR_INSTRUCTION_EN : OCR_INSTRUCTION_KO },
           { type: "image_url", image_url: { url: dataUrl } },
         ],
       },
@@ -42,17 +55,18 @@ const OFFLINE_FALLBACK =
 export async function runImageOcr(
   dataUrl: string,
   apiKey: string,
-  opts?: { endpoint?: string; model?: string; fetchFn?: typeof fetch },
+  opts?: { endpoint?: string; model?: string; fetchFn?: typeof fetch; lang?: OutputLanguage },
 ): Promise<OcrResult> {
   if (!apiKey) return { engine: "none", markdown: OFFLINE_FALLBACK };
   const endpoint = opts?.endpoint ?? GEMINI_OPENAI_ENDPOINT;
   const fetchFn = opts?.fetchFn ?? globalThis.fetch.bind(globalThis);
+  const lang = opts?.lang ?? getOutputLanguage();
   const res = await fetchFn(`${endpoint}/chat/completions`, {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify(buildOcrRequest(dataUrl, opts?.model)),
+    body: JSON.stringify(buildOcrRequest(dataUrl, opts?.model, lang)),
   });
   if (!res.ok) throw new Error(`[ocr] HTTP ${res.status}`);
   const text = extractText(await res.json());
-  return { engine: "gemini", markdown: text || "## 원문\n\n(빈 응답)" };
+  return { engine: "gemini", markdown: text || (lang === "en" ? "## Original\n\n(empty response)" : "## 원문\n\n(빈 응답)") };
 }

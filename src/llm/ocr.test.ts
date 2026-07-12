@@ -28,4 +28,13 @@ describe("runImageOcr", () => {
     expect(r.engine).toBe("gemini");
     expect(r.markdown).toContain("필기 내용");
   });
+
+  it("lang='en' — 헤딩과 지시가 영어", () => {
+    const req = buildOcrRequest("data:image/png;base64,x", undefined, "en");
+    const txt = (req.messages[1].content as Array<{ type: string; text?: string }>).find((c) => c.type === "text");
+    expect(txt?.text).toContain("## Original");
+    expect(txt?.text).toContain("## Summary");
+    expect(txt?.text).not.toContain("## 원문");
+    expect(req.messages[0].content).toContain("OCR assistant");
+  });
 });
