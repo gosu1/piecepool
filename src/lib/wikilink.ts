@@ -91,3 +91,20 @@ export function firstEmbedFile(markdown: string): { file: string; type: "pdf" | 
   }
   return null;
 }
+
+/** original-files 에 사는 원본(pdf + 이미지)인가 — firstEmbedFile 과 같은 확장자 규칙. */
+export function isOriginalFile(file: string): boolean {
+  const ext = file.split(".").pop()?.toLowerCase() ?? "";
+  return ext === "pdf" || IMAGE_EXTS.has(ext);
+}
+
+/** 본문에서 그 원본을 가리키는 모든 참조의 파일명을 바꾼다(원본 이동·충돌 리네임 시).
+ *  네 형태 모두: ![[f]] · ![[f#page=N]] · [[f]] · [[f#page=N]] (별칭 [[f|별칭]] 포함).
+ *  대괄호 토큰 전체를 맞춘다 — a.pdf 를 바꿔도 aa.pdf 는 건드리지 않는다.
+ *  파일명은 백엔드가 slug 화하지만 믿지 않고 정규식 메타문자를 이스케이프한다. */
+export function renameRefs(body: string, from: string, to: string): string {
+  if (from === to) return body;
+  const esc = from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(`(!?\\[\\[)${esc}((?:#[^\\]|]*)?(?:\\|[^\\]]*)?)\\]\\]`, "g");
+  return body.replace(re, (_m, open: string, rest: string) => `${open}${to}${rest}]]`);
+}

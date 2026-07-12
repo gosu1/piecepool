@@ -12,6 +12,7 @@ import { ConfirmDialog } from "../shell/Dialogs";
 import { Markdown } from "../../lib/markdown";
 import { FilePreview } from "../../lib/FilePreview";
 import { PdfViewer } from "../../lib/PdfViewer";
+import { parseWikilinks, parseEmbedTarget, isOriginalFile, renameRefs } from "../../lib/wikilink";
 import {
   getInboxPaneWidths,
   setInboxPaneWidth,
@@ -47,6 +48,20 @@ function stripEmbed(body: string, file: string): string {
     .join("\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+/** 이 노트가 가진 원본 파일들 = 본문 임베드 대상 중 원본(pdf·이미지)인 것. 중복 제거, 등장 순.
+ *  [[링크]]는 참조일 뿐 업로드가 아니므로 이동 대상이 아니다(이름만 따라 바뀐다).
+ *  refSource 는 방어적으로 포함 — 사용자가 임베드만 지웠어도 파일은 남아 있다. */
+function noteOriginalFiles(body: string, refSource: string): string[] {
+  const out: string[] = [];
+  for (const t of parseWikilinks(body)) {
+    if (t.kind !== "embed") continue;
+    const { file } = parseEmbedTarget(t.value);
+    if (isOriginalFile(file) && !out.includes(file)) out.push(file);
+  }
+  if (refSource && !out.includes(refSource)) out.push(refSource);
+  return out;
 }
 
 function fileToBase64(f: File): Promise<string> {
@@ -169,22 +184,47 @@ export function InboxSection({
       onNotice?.("PDF를 처리하는 중이에요 — 끝난 뒤에 폴더를 바꿔주세요");
       return;
     }
-    const src = ds.getState().drafts[draftKey]?.refSource ?? "";
-    if (!src) {
+    const d = ds.getState().drafts[draftKey];
+    const src0 = d?.refSource ?? "";
+    const body0 = d?.body ?? "";
+    // PDF 하나가 아니라 이 노트가 올린 원본 전부(이미지 포함)를 옮긴다 — 하나라도 남으면 임베드가 깨진다.
+    const files = noteOriginalFiles(body0, src0);
+    if (!files.length) {
       write({ targetSpace: slug });
       return;
     }
     setPdfJobs((n) => n + 1); // 이동 중 저장 잠금 — 어느 공간에도 파일이 없는 순간이 있다
+    // 하나씩 옮기며 본문·refSource 를 누적한다. 대상 충돌로 이름이 바뀔 수 있으므로 반환된 이름을 쓴다.
+    let body = body0;
+    let ref = src0;
+    const done: string[] = []; // 이미 옮긴 파일들의 새 공간에서의 이름(롤백용)
     try {
-      const moved = await ipc.moveSource(targetSpace, slug, src);
-      const b = ds.getState().drafts[draftKey]?.body ?? "";
-      // 대상 충돌로 이름이 바뀔 수 있다 — 반환된 이름으로 본문 임베드를 교체한다.
-      write({
-        targetSpace: slug,
-        refSource: moved,
-        body: moved === src ? b : b.split(`![[${src}]]`).join(`![[${moved}]]`),
-      });
+      for (const f of files) {
+        const moved = await ipc.moveSource(targetSpace, slug, f);
+        done.push(moved);
+        if (moved !== f) {
+          body = renameRefs(body, f, moved);
+          if (ref === f) ref = moved;
+        }
+      }
+      write({ targetSpace: slug, refSource: ref, body });
     } catch (e) {
+      // 절반만 옮겨진 상태 — 옮긴 것들을 최선을 다해 되돌리고 폴더 변경은 포기한다.
+      // 되돌리다 또 충돌 리네임될 수 있으니 그 이름도 본문·refSource 에 반영한다.
+      // (되돌리기까지 실패하면 그 파일은 새 공간에 남지만, 본문은 이미 그 이름을 가리킨다.)
+      for (const moved of done) {
+        try {
+          const back = await ipc.moveSource(slug, targetSpace, moved);
+          if (back !== moved) {
+            body = renameRefs(body, moved, back);
+            if (ref === moved) ref = back;
+          }
+        } catch {
+          // 되돌리기 실패 — 사용자에게는 아래 onNotice 로 알린다
+        }
+      }
+      // 폴더는 그대로 두되, 이름이 바뀐 게 있으면 draft 가 파일의 실제 위치를 가리키도록 반영한다.
+      if (body !== body0 || ref !== src0) write({ refSource: ref, body });
       onNotice?.(`원본을 옮기지 못했어요 — 폴더를 그대로 둡니다 (${String(e)})`);
     } finally {
       setPdfJobs((n) => n - 1);

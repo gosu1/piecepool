@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseWikilinks, parseEmbedTarget, firstEmbedFile } from "./wikilink";
+import { parseWikilinks, parseEmbedTarget, firstEmbedFile, renameRefs } from "./wikilink";
 
 describe("parseWikilinks", () => {
   it("splits text / link / embed", () => {
@@ -56,5 +56,45 @@ describe("firstEmbedFile — 노트당 대표 원본 1개", () => {
 
   it("여럿이면 첫 번째만", () => {
     expect(firstEmbedFile("![[a.pdf]]\n![[b.pdf]]")).toEqual({ file: "a.pdf", type: "pdf" });
+  });
+});
+
+describe("renameRefs — 원본 이동 후 참조 리네임", () => {
+  it("임베드 형태", () => {
+    expect(renameRefs("![[a.pdf]]", "a.pdf", "a-2.pdf")).toBe("![[a-2.pdf]]");
+  });
+
+  it("#page=N 임베드 형태", () => {
+    expect(renameRefs("![[a.pdf#page=3]]", "a.pdf", "a-2.pdf")).toBe("![[a-2.pdf#page=3]]");
+  });
+
+  it("링크 형태(임베드 아님)도 바꾼다", () => {
+    expect(renameRefs("[[a.pdf]] 참고", "a.pdf", "a-2.pdf")).toBe("[[a-2.pdf]] 참고");
+  });
+
+  it("#page=N 링크 형태", () => {
+    expect(renameRefs("[[a.pdf#page=12]]", "a.pdf", "a-2.pdf")).toBe("[[a-2.pdf#page=12]]");
+  });
+
+  it("별칭도 보존한다", () => {
+    expect(renameRefs("[[a.pdf|강의록]]", "a.pdf", "a-2.pdf")).toBe("[[a-2.pdf|강의록]]");
+  });
+
+  it("a.pdf 를 바꿔도 aa.pdf 는 건드리지 않는다", () => {
+    expect(renameRefs("![[aa.pdf]] ![[a.pdf]]", "a.pdf", "a-2.pdf")).toBe("![[aa.pdf]] ![[a-2.pdf]]");
+  });
+
+  it("정규식 메타문자가 든 파일명도 리터럴로 다룬다", () => {
+    expect(renameRefs("![[a+b(1).png]] ![[axb(1).png]]", "a+b(1).png", "c.png")).toBe("![[c.png]] ![[axb(1).png]]");
+  });
+
+  it("같은 파일을 여러 번 참조해도 전부 바꾼다", () => {
+    expect(renameRefs("![[a.pdf]]\n[[a.pdf]]\n![[a.pdf#page=2]]", "a.pdf", "b.pdf")).toBe(
+      "![[b.pdf]]\n[[b.pdf]]\n![[b.pdf#page=2]]",
+    );
+  });
+
+  it("이름이 그대로면 본문도 그대로", () => {
+    expect(renameRefs("![[a.pdf]]", "a.pdf", "a.pdf")).toBe("![[a.pdf]]");
   });
 });
