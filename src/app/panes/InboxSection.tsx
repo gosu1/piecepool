@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button, FileDropzone, Icons, cn } from "../../ds";
 import type { KnowledgeSpace, WikiPage as WikiPageT } from "../../lib/types";
 import * as ipc from "../../lib/ipc";
@@ -12,6 +12,7 @@ import { ConfirmDialog } from "../shell/Dialogs";
 import { Markdown } from "../../lib/markdown";
 import { FilePreview } from "../../lib/FilePreview";
 import { PdfViewer } from "../../lib/PdfViewer";
+import { renameRefs } from "../../lib/wikilink";
 import {
   getInboxPaneWidths,
   setInboxPaneWidth,
@@ -38,6 +39,16 @@ const IMPORT_STATUS_LABEL: Record<string, string> = {
   completed: "완료",
   failed: "실패",
 };
+
+/** 본문에서 그 파일의 임베드 줄만 걷어낸다(원본 삭제 시). 남는 빈 줄은 최대 1개로 접는다. */
+function stripEmbed(body: string, file: string): string {
+  return body
+    .split("\n")
+    .filter((l) => l.trim() !== `![[${file}]]`)
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
 
 function fileToBase64(f: File): Promise<string> {
   return new Promise((res, rej) => {
@@ -89,10 +100,7 @@ export function InboxSection({
   onToggleQuickMemo: () => void;
 }) {
   // ── 저장 대상 폴더(지식 공간) — 기본은 현재 공간, 노트 헤더 드롭다운으로 변경 ──
-  // 위키 참조 패널은 저장 대상 공간을 따라간다(그 공간 위키를 보며 쓰게). PDF 패널은 원본 파일이
-  // 실제로 현재 공간의 sources/ 에 있으므로 따라가지 않는다.
-  const [targetSpace, setTargetSpace] = useState(space);
-  useEffect(() => setTargetSpace(space), [space]);
+  // 위키 참조 패널·PDF 패널 모두 저장 대상 공간을 따라간다 — 원본은 노트와 같은 공간에 산다.
   const resolveTarget = (slug: string) => ({
     spaceId: slug === space ? spaceId : (spaces.find((s) => s.slug === slug)?.id ?? spaceId),
     existing: slug === space ? existing : (wikiBySlug[slug] ?? []),
@@ -105,6 +113,9 @@ export function InboxSection({
   const noteDraft = { ...EMPTY_DRAFT, ...useInboxDraftStore((s) => s.drafts[draftKey]) };
   const summaryJob = useInboxDraftStore((s) => s.job);
   const { title, body, savedFile, savedSpace, savedSnapshot, panels, refWikiPath, refSource } = noteDraft;
+  // 저장 대상 공간 = 이 노트가 속할 공간. 원본 PDF 도 여기 산다(노트↔원본은 같은 공간).
+  // draft 에 persist — useState 면 탭 전환 언마운트에 리셋돼 원본과 노트가 어긋난다.
+  const targetSpace = noteDraft.targetSpace || space;
   const write = (patch: Partial<InboxDraft>) => ds.getState().write(draftKey, patch);
   const setTitle = (v: string) => ds.getState().setTitle(draftKey, v);
   const setBody = (v: string) => ds.getState().setBody(draftKey, v);
@@ -114,6 +125,12 @@ export function InboxSection({
   };
   const setRefWikiPath = (v: string) => write({ refWikiPath: v });
   const setRefSource = (v: string) => write({ refSource: v });
+  // 업로드 기록 — 이 초안이 실제로 올린 파일만 이동·삭제 대상이다(본문 파싱 아님).
+  // 지금 스토어의 목록에 이어 붙인다 — 렌더 클로저의 스냅샷을 쓰면 동시 업로드가 서로를 덮어쓴다.
+  const addUpload = (file: string) => {
+    const cur = ds.getState().drafts[draftKey]?.uploads ?? [];
+    if (!cur.includes(file)) write({ uploads: [...cur, file] });
+  };
   const togglePanel = (key: InboxPanelKey, open?: boolean) => write({ panels: { ...panels, [key]: open ?? !panels[key] } });
   // 이 노트 탭에서 요약 스트리밍 중이면 편집 잠금 + body 뒤에 미확정 텍스트를 파생 렌더.
   const summarizing = summaryJob?.noteKey === draftKey && summaryJob.status === "streaming";
@@ -127,22 +144,101 @@ export function InboxSection({
   const fy = useFeynmanEditor({ noteId: draftNoteId(draftKey), space, markdown: body, noteTitle: title });
   const busy = !!job && !["completed", "failed"].includes(job.status);
 
-  // ── 참조 패널 상태 (sources 목록은 로컬; 선택 refSource·refWikiPath 는 draft 로 보존) ──
-  const [sources, setSources] = useState<string[]>([]); // 이 공간의 원본 파일 전체
+  // ── 참조 패널 상태 (선택 refSource·refWikiPath 는 draft 로 보존) ──
+  // 원본은 "이 노트가 올린 PDF 하나"다 — 공간의 원본 목록에서 골라 쓰지 않는다(노트↔원본 1:1).
   // 동시 임포트(다중 drop) 대응 — 불리언이면 먼저 끝난 건이 busy 를 풀어버린다.
-  const [pdfJobs, setPdfJobs] = useState(0);
-  const pdfBusy = pdfJobs > 0;
+  // 카운터는 스토어 소유(비영속) — 컴포넌트 useState 면 탭 전환 언마운트에 0 으로 리셋돼 잠금이 풀린다.
+  const pdfBusy = useInboxDraftStore((s) => (s.pdfJobs[draftKey] ?? 0) > 0);
+  const beginPdfJob = () => ds.getState().beginPdfJob(draftKey);
+  const endPdfJob = () => ds.getState().endPdfJob(draftKey);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [confirmDelSrc, setConfirmDelSrc] = useState(false);
   const [srcErr, setSrcErr] = useState<string | null>(null);
+  // 삭제 = 이 노트의 원본을 무르는 유일한 수단(잘못 올림). 원본 파일 + 본문 임베드를 함께 걷어야
+  // 다시 올릴 수 있다 — 사용자가 명시적으로 누른 삭제이므로 자동 재작성 금지 계약에 걸리지 않는다.
   const deleteSource = async () => {
     setConfirmDelSrc(false);
     setSrcErr(null);
     try {
-      await ipc.deleteSource(space, refSource);
-      await loadSources(); // refSource 는 loadSources 가 목록 기준으로 재보정
+      await ipc.deleteSource(targetSpace, refSource);
+      setBody(stripEmbed(ds.getState().drafts[draftKey]?.body ?? "", refSource));
+      // 지운 파일은 더 이상 이 초안의 업로드가 아니다 — 남겨두면 폴더 변경이 없는 파일을 옮기려다 실패한다.
+      write({ refSource: "", uploads: (ds.getState().drafts[draftKey]?.uploads ?? []).filter((u) => u !== refSource) });
     } catch (e) {
       setSrcErr(String(e));
+    }
+  };
+
+  // 대상 공간을 바꾸면 원본도 따라 옮긴다 — 노트는 B 에, PDF 는 A 에 남으면 임베드가 깨진다.
+  // 실패하면 공간 변경을 되돌린다(절반만 옮겨진 상태를 만들지 않는다).
+  const changeTargetSpace = async (slug: string) => {
+    if (slug === targetSpace) return;
+    // PDF 처리 중에는 폴더를 바꾸지 않는다 — 업로드는 시작할 때의 공간에 파일을 쓰므로,
+    // 지금 대상만 바꾸면 파일은 옛 공간에, 노트는 새 공간에 남아 임베드가 깨진다.
+    // 렌더 클로저의 pdfBusy 가 아니라 스토어를 직접 읽는다 — onCreate 경로는 새 공간 생성을
+    // await 한 뒤 여기 오므로, 그 사이 시작된 업로드가 클로저에는 안 보인다.
+    if ((ds.getState().pdfJobs[draftKey] ?? 0) > 0) {
+      onNotice?.("PDF를 처리하는 중이에요 — 끝난 뒤에 폴더를 바꿔주세요");
+      return;
+    }
+    const d = ds.getState().drafts[draftKey];
+    const src0 = d?.refSource ?? "";
+    // PDF 하나가 아니라 이 노트가 올린 원본 전부(이미지 포함)를 옮긴다 — 하나라도 남으면 임베드가 깨진다.
+    // 본문 파싱이 아니라 "이 초안이 올린 것"만 옮긴다 — 손으로 친 ![[남의파일.pdf]] 까지 옮기면 남의 노트가 깨진다.
+    const files = d?.uploads ?? [];
+    // 이미 저장한 노트가 이 원본들을 참조 중이면 옮길 수 없다 — 디스크의 .md 는 그대로라 임베드가 영영 깨진다.
+    if (files.length && d?.savedFile && d.savedSpace === targetSpace) {
+      onNotice?.("이미 저장한 노트가 이 원본을 참조해요 — 폴더를 바꾸려면 새 노트로 시작하세요");
+      return;
+    }
+    if (!files.length) {
+      write({ targetSpace: slug });
+      return;
+    }
+    beginPdfJob(); // 이동 중 저장 잠금 — 어느 공간에도 파일이 없는 순간이 있다
+    // 하나씩 옮기며 리네임을 [from, to] 쌍으로만 누적한다. 대상 충돌로 이름이 바뀔 수 있으므로 반환된 이름을 쓴다.
+    // body 문자열을 await 너머로 들고 가지 않는다 — 이동 중에도 사용자는 계속 타이핑하고 PDF 요약이 본문에
+    // 병합될 수 있어, 옛 스냅샷을 쓰면 그 사이 편집이 통째로 지워진다. 쓸 때 살아있는 body 를 다시 읽어 재생한다.
+    const renames: [string, string][] = [];
+    let ref = src0;
+    const ups = [...files]; // 리네임을 반영해 갱신할 업로드 목록(초안의 새 uploads)
+    const done: string[] = []; // 이미 옮긴 파일들의 새 공간에서의 이름(롤백용)
+    // 충돌 리네임 하나를 누적 — 본문(재생용)·refSource·uploads 셋 다 새 이름을 가리켜야 한다.
+    const rename = (from: string, to: string) => {
+      renames.push([from, to]);
+      if (ref === from) ref = to;
+      const i = ups.indexOf(from);
+      if (i >= 0) ups[i] = to;
+    };
+    // 지금 스토어의 body 에 누적 리네임을 재생 — 리네임이 없으면 body 는 아예 건드리지 않는다.
+    const replay = () => {
+      const b = ds.getState().drafts[draftKey]?.body ?? "";
+      return renames.reduce((acc, [f, t]) => renameRefs(acc, f, t), b);
+    };
+    try {
+      for (const f of files) {
+        const moved = await ipc.moveSource(targetSpace, slug, f);
+        done.push(moved);
+        if (moved !== f) rename(f, moved);
+      }
+      write({ targetSpace: slug, refSource: ref, uploads: ups, ...(renames.length ? { body: replay() } : {}) });
+    } catch (e) {
+      // 절반만 옮겨진 상태 — 옮긴 것들을 최선을 다해 되돌리고 폴더 변경은 포기한다.
+      // 되돌리다 또 충돌 리네임될 수 있으니 그 이름도 본문·refSource·uploads 에 반영한다.
+      // (되돌리기까지 실패하면 그 파일은 새 공간에 남지만, 본문은 이미 그 이름을 가리킨다.)
+      for (const moved of done) {
+        try {
+          const back = await ipc.moveSource(slug, targetSpace, moved);
+          if (back !== moved) rename(moved, back);
+        } catch {
+          // 되돌리기 실패 — 사용자에게는 아래 onNotice 로 알린다
+        }
+      }
+      // 폴더는 그대로 두되, 이름이 바뀐 게 있으면 draft 가 파일의 실제 위치를 가리키도록 반영한다.
+      if (renames.length || ref !== src0) write({ refSource: ref, uploads: ups, ...(renames.length ? { body: replay() } : {}) });
+      onNotice?.(`원본을 옮기지 못했어요 — 폴더를 그대로 둡니다 (${String(e)})`);
+    } finally {
+      endPdfJob();
     }
   };
 
@@ -198,29 +294,15 @@ export function InboxSection({
   // 고른 게 없으면 없는 것 — `?? existing[0]` 폴백은 빈 노트에 공간의 첫 위키(제목 정렬 1등)를 띄웠다.
   const refWiki = refCandidates.find((w) => w.path === refWikiPath) ?? null;
 
-  const loadSources = useCallback(async () => {
-    try {
-      const list = await ipc.listSources(space);
-      setSources(list);
-      // 목록의 첫 파일을 자동 선택하지 않는다 — 이 노트와 무관한 원본이 열린다.
-      const cur = ds.getState().drafts[draftKey]?.refSource ?? "";
-      setRefSource(cur && list.includes(cur) ? cur : "");
-    } catch {
-      setSources([]);
-    }
-  }, [space, draftKey, ds]);
-
-  useEffect(() => {
-    if (panels.pdf) void loadSources();
-  }, [panels.pdf, loadSources]);
-
   // PDF → sources/original-files 저장 + 패널 열람 + 출처 임베드 + 한국어 번역·요약 스트리밍.
   // 요약은 스토어가 소유(fire-and-forget) — 탭을 떠나도 계속 흐르고 종결 시 본문에 병합된다.
+  // 같은 PDF 를 다른 노트에서 또 올리면 백엔드가 `-2` 접미사로 별개 파일을 만든다 — 의도된 것이다.
+  // 원본을 노트끼리 공유하면 한쪽에서 삭제·이동할 때 다른 노트의 임베드가 깨진다.
   const importPdf = async (f: File) => {
-    setPdfJobs((n) => n + 1);
+    beginPdfJob();
     try {
-      const stored = await ipc.saveSourceFile(space, f.name, await fileToBase64(f));
-      await loadSources();
+      const stored = await ipc.saveSourceFile(targetSpace, f.name, await fileToBase64(f));
+      addUpload(stored);
       setRefSource(stored);
       // 올린 PDF 를 바로 볼 수 있게 PDF 패널 자동 열림
       togglePanel("pdf", true);
@@ -229,7 +311,7 @@ export function InboxSection({
       appendBody(`![[${stored}]]`);
       // PDF 내용 → 한국어 요약 스트리밍. 추출/키없음/타 요약 진행 중이면 embed 만 남기고 안내.
       try {
-        const ext = await ipc.extractPdfText(space, stored);
+        const ext = await ipc.extractPdfText(targetSpace, stored);
         const text = ext.pages.map((p) => p.text).join("\n\n").trim();
         if (!text) return;
         const apiKey = (typeof localStorage !== "undefined" && localStorage.getItem("gemini-key")) || "";
@@ -249,11 +331,11 @@ export function InboxSection({
     } catch (e) {
       onNotice?.(`${f.name} 저장 실패: ${String(e)}`);
     } finally {
-      setPdfJobs((n) => n - 1);
+      endPdfJob();
     }
   };
 
-  // 파일 1개 처리 — 여러 개 드랍/선택 시 각각 순서대로 에디터에 누적된다.
+  // 파일 1개 처리 — 여러 개 드랍/선택 시 각각 순서대로 에디터에 누적된다. PDF 는 onFiles 가 따로 건다.
   const addFile = (f: File) => {
     const stem = f.name.replace(/\.[^.]+$/, "");
     if (f.type.startsWith("text") || /\.(md|markdown|txt)$/i.test(f.name)) {
@@ -266,35 +348,62 @@ export function InboxSection({
       reader.readAsText(f);
     } else if (f.type.startsWith("image")) {
       // 이미지 → 원본 보존(수용기준 §5, 키 무관) + OCR(vision) 3-block 마크다운. 키 없으면 오프라인 폴백.
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const dataUrl = String(reader.result ?? "");
-        setTitleIfEmpty(stem);
-        // 원본 이미지를 sources/original-files 에 저장하고 embed 로 연결 — OCR 실패/키 없음이어도 이미지는 남는다.
-        let embed = "";
+      // PDF 와 같은 pdfJobs 잠금을 건다 — 임베드는 OCR 이 끝난 뒤에야 본문에 붙으므로, 그 사이 폴더를
+      // 바꾸면 옮길 파일이 본문에 안 보여 이미지는 옛 공간에 남고 임베드만 새 공간을 가리켜 깨진다.
+      beginPdfJob();
+      void (async () => {
         try {
-          const stored = await ipc.saveSourceFile(space, f.name, dataUrl.split(",")[1] ?? "");
-          embed = `![[${stored}]]\n\n`;
-              void loadSources();
-        } catch {
-          // 저장 실패해도 OCR 은 계속
+          // FileReader → Promise 로 감싼다: onerror·읽기 실패도 reject 로 받아야 finally 가 카운터를 반드시 푼다
+          // (콜백이 끝내 안 오면 잠금이 영영 안 풀려 저장·폴더 변경이 잠긴다).
+          const dataUrl = await new Promise<string>((res, rej) => {
+            const reader = new FileReader();
+            reader.onload = () => res(String(reader.result ?? ""));
+            reader.onerror = () => rej(reader.error);
+            reader.readAsDataURL(f);
+          });
+          setTitleIfEmpty(stem);
+          // 원본 이미지를 sources/original-files 에 저장하고 embed 로 연결 — OCR 실패/키 없음이어도 이미지는 남는다.
+          let embed = "";
+          try {
+            const stored = await ipc.saveSourceFile(targetSpace, f.name, dataUrl.split(",")[1] ?? "");
+            addUpload(stored);
+            embed = `![[${stored}]]\n\n`;
+          } catch {
+            // 저장 실패해도 OCR 은 계속
+          }
+          const apiKey = (typeof localStorage !== "undefined" && localStorage.getItem("gemini-key")) || "";
+          try {
+            const { markdown } = await runImageOcr(dataUrl, apiKey);
+            appendBody(embed + markdown);
+          } catch {
+            appendBody(`${embed}> ${f.name} OCR 실패 — 텍스트를 직접 입력하세요.`);
+          }
+        } catch (e) {
+          onNotice?.(`${f.name} 읽기 실패: ${String(e)}`);
+        } finally {
+          endPdfJob();
         }
-        const apiKey = (typeof localStorage !== "undefined" && localStorage.getItem("gemini-key")) || "";
-        try {
-          const { markdown } = await runImageOcr(dataUrl, apiKey);
-          appendBody(embed + markdown);
-        } catch {
-          appendBody(`${embed}> ${f.name} OCR 실패 — 텍스트를 직접 입력하세요.`);
-        }
-      };
-      reader.readAsDataURL(f);
-    } else if (/\.pdf$/i.test(f.name) || f.type === "application/pdf") {
-      void importPdf(f);
+      })();
     } else {
       appendBody(`> ${f.name} — 지원하지 않는 형식이에요 (md/txt/pdf/이미지).`);
     }
   };
-  const onFiles = (files: FileList) => Array.from(files).forEach(addFile);
+
+  // 노트 하나 = PDF 하나. 이미 원본이 있으면 새 PDF 를 받지 않는다 — 바꾸려면 삭제가 먼저다.
+  // (sourceRefs 가 노트당 대표 파일 1개만 쓴다: llmApply.ts embedSourceFiles)
+  const isPdf = (f: File) => /\.pdf$/i.test(f.name) || f.type === "application/pdf";
+  const onFiles = (files: FileList) => {
+    const arr = Array.from(files);
+    arr.filter((f) => !isPdf(f)).forEach(addFile);
+    const pdfs = arr.filter(isPdf);
+    if (!pdfs.length) return;
+    if (pdfBusy || ds.getState().drafts[draftKey]?.refSource) {
+      onNotice?.("이 노트엔 이미 원본이 있어요 — 바꾸려면 PDF 패널에서 삭제 후 다시 올려주세요");
+      return;
+    }
+    if (pdfs.length > 1) onNotice?.("노트 하나에 PDF 하나예요 — 첫 파일만 올렸어요");
+    void importPdf(pdfs[0]);
+  };
 
   const run = async () => {
     // pdfBusy/summarizing 게이트: 요약 완료 전 저장하면 아카이브에 PDF 요약이 빠진 채 저장되고
@@ -369,10 +478,10 @@ export function InboxSection({
             <SpacePicker
               spaces={spaces}
               value={targetSpace}
-              onChange={setTargetSpace}
+              onChange={(slug) => void changeTargetSpace(slug)}
               onCreate={async (name) => {
                 const slug = await onCreateSpace(name);
-                if (slug) setTargetSpace(slug);
+                if (slug) await changeTargetSpace(slug);
               }}
             />
             <PropertyPill active={withLlm} onClick={() => setWithLlm(!withLlm)} icon={<Icons.SparkleIcon size={13} />}>
@@ -433,23 +542,17 @@ export function InboxSection({
     <section style={{ width: `${paneW.pdf}%`, minWidth: 280 }} className="flex min-w-0 shrink-0 flex-col border-r border-hairline">
       <PaneHeader
         label="PDF"
-        // 목록이 이 노트가 아니라 이 공간의 것임을 밝힌다 — 자동 선택은 하지 않는다.
-        hint={sources.length > 0 ? `이 공간의 원본 ${sources.length}개` : "원본 없음"}
+        // 이 노트가 올린 원본 하나만 보여준다 — 공간의 원본 목록에서 고르는 기능은 없다.
+        hint={refSource || "원본 없음"}
         right={
           <div className="flex min-w-0 items-center gap-1.5">
-            {sources.length > 0 && (
-              <PaneSelect
-                value={refSource}
-                onChange={setRefSource}
-                options={sources.map((s) => ({ value: s, label: s }))}
-                placeholder="원본 고르기…"
-              />
-            )}
             {refSource && (
-              <Button size="sm" variant="utility" className="shrink-0 whitespace-nowrap" onClick={() => setConfirmDelSrc(true)}>
+              // 원본 처리(업로드·OCR·폴더 이동) 중엔 삭제 금지 — 이동 중 삭제하면 이동이 끝나며 지운 refSource 를 되쓴다.
+              <Button size="sm" variant="utility" disabled={pdfBusy} className="shrink-0 whitespace-nowrap" onClick={() => setConfirmDelSrc(true)}>
                 삭제
               </Button>
             )}
+            {/* 업로드는 항상 열려 있다 — PDF 는 1개 게이트(onFiles)에 걸리지만 이미지·md 는 계속 받는다. */}
             <Button size="sm" variant="utility" className="shrink-0 whitespace-nowrap" onClick={() => setUploadOpen(true)}>
               업로드
             </Button>
@@ -460,13 +563,13 @@ export function InboxSection({
       {refSource && refSourceIsPdf ? (
         <div className="flex min-h-0 flex-1 flex-col">
           {pdfBusy && <p className="shrink-0 border-b border-hairline px-4 py-1.5 text-[13px] text-ink-muted">PDF 처리 중…</p>}
-          <PdfViewer space={space} file={refSource} />
+          <PdfViewer space={targetSpace} file={refSource} />
         </div>
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
           {pdfBusy && <p className="mb-2 text-[13px] text-ink-muted">PDF 처리 중…</p>}
           {refSource ? (
-            <FilePreview space={space} target={refSource} />
+            <FilePreview space={targetSpace} target={refSource} />
           ) : (
             <p className="pt-8 text-center text-[14px] text-ink-muted">
               PDF를 업로드하면 여기서 보면서

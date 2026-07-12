@@ -36,6 +36,7 @@ import { useWorkspaceStore, SIDEBAR_DEFAULT } from "../store/workspaceStore";
 import type { TabKind } from "../store/workspaceStore";
 import { useConvertStore } from "../store/convertStore";
 import { useInboxDraftStore } from "../store/inboxDraftStore";
+import { noteOriginalFiles } from "../lib/wikilink";
 
 const KIND_LABEL: Record<TabKind, string> = { wiki: "Wiki", archive: "Source", inbox: "Inbox", graph: "Graph", home: "Home", empty: "새 탭" };
 
@@ -318,6 +319,18 @@ export default function PiecePoolApp() {
       setGraphBySlug(drop);
       setSubjectsBySlug(drop);
       openTabs.filter((t) => t.space === slug).forEach((t) => closeTabClean(t.id));
+      // 다른 탭에 있으면서 이 공간을 저장 대상으로 삼던 초안 — 그대로 두면 갇힌다(폴더 변경·저장 모두
+      // 없는 공간을 향해 실패한다). 공간과 함께 죽은 원본 기록(refSource·uploads)과 바인딩을 풀어 되살린다.
+      // 본문은 손대지 않는다 — 임베드 자동 재작성 금지(wikilink-embed.md). 깨진 ![[...]] 는 사용자가 정리한다.
+      const ds = useInboxDraftStore.getState();
+      for (const [key, d] of Object.entries(ds.drafts)) {
+        const boundHere = d.savedSpace === slug;
+        if (d.targetSpace !== slug && !boundHere) continue;
+        ds.write(key, {
+          ...(d.targetSpace === slug ? { targetSpace: "", refSource: "", uploads: [] } : {}),
+          ...(boundHere ? { savedFile: null, savedSpace: null } : {}),
+        });
+      }
       if (currentSpace === slug) {
         setCurrentSpaceSlug(spaceList[0]?.slug ?? "");
         openHome();
@@ -331,8 +344,24 @@ export default function PiecePoolApp() {
   // 이전의 즉시 createNote("제목 없음")는 클릭마다 빈 파일을 쌓았다 — 생성은 저장 시점으로 일원화.
   const openEmptyTab = () => openTab({ id: `empty:${Date.now().toString(36)}`, kind: "empty", title: "새 탭" });
   // 노트 탭을 닫으면 그 초안도 스토어에서 지운다(닫기 = 명시적 폐기, 진행 중 요약도 중단). 저장된 archive 파일은 남는다.
+  // 한 번도 저장하지 않은 초안이 올린 원본은 아무 노트도 참조하지 않는다 — PDF·이미지 전부 함께 지운다.
+  // 삭제 대상은 "이 초안이 올린 것"(uploads)뿐이다 — 본문 파싱이면 손으로 친 ![[남의파일.pdf]] 하나에
+  // 저장된 남의 노트의 원본이 딸려 지워진다.
+  // savedFile 이 있으면 archive 노트가 그 원본들을 ![[...]] 로 참조 중이다. 절대 건드리지 않는다.
   const closeTabClean = (id: string) => {
-    if (id.startsWith("inbox:")) useInboxDraftStore.getState().clear(id);
+    if (id.startsWith("inbox:")) {
+      const d = useInboxDraftStore.getState().drafts[id];
+      if (d && !d.savedFile) {
+        const space = d.targetSpace || openTabs.find((t) => t.id === id)?.space || "";
+        // 정리는 부수 작업 — 한 파일이 실패해도 나머지 삭제와 탭 닫기를 막지 않는다.
+        if (space) {
+          for (const f of d.uploads ?? []) {
+            void ipc.deleteSource(space, f).catch(() => {});
+          }
+        }
+      }
+      useInboxDraftStore.getState().clear(id);
+    }
     closeTab(id);
   };
   // 미저장 편집이 있는 탭은 확인 후 닫기
@@ -596,7 +625,12 @@ export default function PiecePoolApp() {
         closeTab(`wiki:${d.space}:${d.file}`);
         setNotice(`"${d.title}" 삭제됨${pruned > 0 ? ` · 관계 ${pruned}개 정리` : ""}`);
       } else {
+        // 노트가 죽으면 그 원본도 전부 죽는다 — 첨부 저장소이지 자료실이 아니다(노트마다 새로 업로드).
+        // 삭제 전에 본문에서 원본 목록을 뽑아둔다 — deleteNote 뒤에는 마크다운이 사라진다.
+        const srcs = noteOriginalFiles(notesBySlug[d.space]?.find((n) => n.path === d.file)?.markdown ?? "");
         await ipc.deleteNote(d.space, d.file);
+        // 정리는 부수 작업 — 한 파일이 실패해도 나머지를 시도하고, 삭제 자체는 성공으로 알린다.
+        for (const f of srcs) await ipc.deleteSource(d.space, f).catch(() => {});
         closeTab(`archive:${d.space}:${d.file}`);
         setNotice(`"${d.title}" 삭제됨`);
       }

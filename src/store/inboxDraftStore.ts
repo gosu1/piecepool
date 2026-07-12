@@ -29,6 +29,10 @@ export interface InboxDraft {
   panels: { pdf: boolean; wiki: boolean }; // 보조 패널 열림(탭 전환 생존)
   refSource: string; // PDF 패널에 띄운 원본
   refWikiPath: string; // 위키 패널에 띄운 위키
+  targetSpace: string; // 저장될 공간(원본도 여기 산다). "" 면 아직 안 정함 → 호출부가 탭의 space 로 폴백
+  // 이 초안이 실제로 업로드한 원본 파일명들 — 이동·삭제 대상의 진실.
+  // 본문 파싱(noteOriginalFiles)으로 대신하면 손으로 친 ![[남의파일.pdf]] 하나에 남의 원본이 딸려 지워진다.
+  uploads: string[];
 }
 
 export const EMPTY_DRAFT: InboxDraft = {
@@ -40,11 +44,19 @@ export const EMPTY_DRAFT: InboxDraft = {
   panels: { pdf: false, wiki: false },
   refSource: "",
   refWikiPath: "",
+  targetSpace: "",
+  uploads: [],
 };
 
 interface InboxDraftState {
   drafts: Record<string, InboxDraft>; // key = 노트 탭 id(draftKey)
   job: PdfSummaryJob | null;
+  // 노트별 진행 중 원본 처리(업로드·OCR·공간 이동) 카운터 — 저장·폴더변경·원본삭제 잠금.
+  // 스토어 소유여야 탭 전환 언마운트를 넘겨 살아남는다(컴포넌트 useState 면 0 으로 리셋돼 잠금이 풀린다).
+  // 비영속 — 업로드 도중 크래시한 잠금이 재시작 후까지 남으면 노트가 영영 잠긴다.
+  pdfJobs: Record<string, number>;
+  beginPdfJob: (key: string) => void;
+  endPdfJob: (key: string) => void;
   write: (key: string, patch: Partial<InboxDraft>) => void;
   setTitle: (key: string, title: string) => void;
   setBody: (key: string, body: string) => void;
@@ -54,6 +66,9 @@ interface InboxDraftState {
   cancelSummary: () => void;
   clearJob: () => void;
 }
+
+/** localStorage 에 남기는 것 = drafts 뿐. job(AbortController 참조)·pdfJobs(진행 중 잠금)는 리로드를 넘기면 안 된다. */
+export const partialize = (s: InboxDraftState) => ({ drafts: s.drafts });
 
 const FLUSH_MS = 100; // CM6 전체 교체 방어 — 초당 10회면 충분
 
@@ -104,6 +119,18 @@ export const useInboxDraftStore = create<InboxDraftState>()(
       return {
         drafts: {},
         job: null,
+        pdfJobs: {},
+
+        beginPdfJob: (key) => set((s) => ({ pdfJobs: { ...s.pdfJobs, [key]: (s.pdfJobs[key] ?? 0) + 1 } })),
+        endPdfJob: (key) =>
+          set((s) => {
+            const n = (s.pdfJobs[key] ?? 0) - 1;
+            const next = { ...s.pdfJobs };
+            // 0 이하면 키를 지운다 — 탭이 닫힌 뒤 뒤늦게 온 release 가 음수로 남지 않게.
+            if (n > 0) next[key] = n;
+            else delete next[key];
+            return { pdfJobs: next };
+          }),
 
         write: (key, patch) => putDraft(key, { ...draftOf(key), ...patch }),
         setTitle: (key, title) => putDraft(key, { ...draftOf(key), title }),
@@ -115,7 +142,9 @@ export const useInboxDraftStore = create<InboxDraftState>()(
           set((s) => {
             const next = { ...s.drafts };
             delete next[key];
-            return { drafts: next, job: s.job?.noteKey === key ? null : s.job };
+            const jobs = { ...s.pdfJobs };
+            delete jobs[key]; // 탭이 사라졌으니 잠금도 사라진다(진행 중이던 업로드는 초안 없는 곳에 write 할 뿐)
+            return { drafts: next, job: s.job?.noteKey === key ? null : s.job, pdfJobs: jobs };
           });
         },
 
@@ -154,6 +183,6 @@ export const useInboxDraftStore = create<InboxDraftState>()(
         },
       };
     },
-    { name: "piecepool-inbox-drafts", partialize: (s) => ({ drafts: s.drafts }) },
+    { name: "piecepool-inbox-drafts", partialize },
   ),
 );

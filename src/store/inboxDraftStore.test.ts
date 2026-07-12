@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { useInboxDraftStore } from "./inboxDraftStore";
+import { useInboxDraftStore, partialize } from "./inboxDraftStore";
 import { runPdfSummary, PdfSummaryStreamError, type PdfSummaryOptions } from "../llm/pdfsummary";
 
 vi.mock("../llm/pdfsummary", async (orig) => {
@@ -12,11 +12,23 @@ const KEY = "inbox:deep-learning:t1";
 const RUN = { noteKey: KEY, file: "paper.pdf", title: "Attention", text: "The Transformer..." };
 
 beforeEach(() => {
-  useInboxDraftStore.setState({ drafts: {}, job: null });
+  useInboxDraftStore.setState({ drafts: {}, job: null, pdfJobs: {} });
   vi.mocked(runPdfSummary).mockReset();
 });
 
 describe("draft 슬라이스", () => {
+  it("targetSpace — 새 초안은 빈 문자열(호출부가 탭의 space 로 폴백)", () => {
+    const s = useInboxDraftStore.getState();
+    s.write("inbox:os:t1", { title: "제목" });
+    expect(useInboxDraftStore.getState().drafts["inbox:os:t1"].targetSpace).toBe("");
+  });
+
+  it("targetSpace — write 로 바꾸면 보존된다", () => {
+    const s = useInboxDraftStore.getState();
+    s.write("inbox:os:t2", { targetSpace: "statistics" });
+    expect(useInboxDraftStore.getState().drafts["inbox:os:t2"].targetSpace).toBe("statistics");
+  });
+
   it("setTitle/setBody 는 노트 탭별로 저장한다", () => {
     const s = useInboxDraftStore.getState();
     s.setTitle(KEY, "제목");
@@ -37,6 +49,57 @@ describe("draft 슬라이스", () => {
     s.setBody(KEY, "본문");
     s.clear(KEY);
     expect(useInboxDraftStore.getState().drafts[KEY]).toBeUndefined();
+  });
+});
+
+// uploads = 이 초안이 실제로 올린 원본. 이동·삭제 대상의 진실(본문 파싱 아님).
+describe("uploads", () => {
+  it("새 초안은 빈 배열 — 손으로 친 임베드는 업로드가 아니다", () => {
+    useInboxDraftStore.getState().setBody(KEY, "![[남의파일.pdf]]");
+    expect(useInboxDraftStore.getState().drafts[KEY].uploads).toEqual([]);
+  });
+
+  it("업로드가 누적된다(스토어의 현재 목록에 이어 붙임)", () => {
+    const add = (f: string) => {
+      const cur = useInboxDraftStore.getState().drafts[KEY]?.uploads ?? [];
+      useInboxDraftStore.getState().write(KEY, { uploads: [...cur, f] });
+    };
+    add("paper.pdf");
+    add("shot.png");
+    expect(useInboxDraftStore.getState().drafts[KEY].uploads).toEqual(["paper.pdf", "shot.png"]);
+  });
+});
+
+// 원본 처리 잠금 — 탭 전환 언마운트를 넘겨 살아남아야 하므로 스토어 소유. 단 persist 는 되면 안 된다.
+describe("pdfJobs (원본 처리 잠금)", () => {
+  it("노트 key 별로 증감하고, 0 초과일 때만 busy", () => {
+    const s = useInboxDraftStore.getState();
+    const busy = (k: string) => (useInboxDraftStore.getState().pdfJobs[k] ?? 0) > 0;
+    s.beginPdfJob(KEY);
+    s.beginPdfJob(KEY); // 동시 업로드 2건
+    expect(useInboxDraftStore.getState().pdfJobs[KEY]).toBe(2);
+    expect(busy("inbox:other:t9")).toBe(false); // 다른 노트는 잠기지 않는다
+    s.endPdfJob(KEY);
+    expect(busy(KEY)).toBe(true); // 하나 끝나도 아직 잠김
+    s.endPdfJob(KEY);
+    expect(busy(KEY)).toBe(false);
+    expect(useInboxDraftStore.getState().pdfJobs[KEY]).toBeUndefined();
+  });
+
+  it("탭을 닫으면 그 노트의 잠금도 사라진다(뒤늦은 release 가 음수로 남지 않는다)", () => {
+    const s = useInboxDraftStore.getState();
+    s.beginPdfJob(KEY);
+    s.clear(KEY);
+    expect(useInboxDraftStore.getState().pdfJobs[KEY]).toBeUndefined();
+    useInboxDraftStore.getState().endPdfJob(KEY); // 진행 중이던 업로드가 뒤늦게 finally 로 release
+    expect(useInboxDraftStore.getState().pdfJobs[KEY]).toBeUndefined();
+  });
+
+  it("persist 되지 않는다 — 업로드 중 크래시한 잠금이 재시작 후 노트를 잠그면 안 된다", () => {
+    useInboxDraftStore.getState().beginPdfJob(KEY);
+    const saved = partialize(useInboxDraftStore.getState());
+    expect(Object.keys(saved)).toEqual(["drafts"]); // localStorage 로 나가는 건 drafts 뿐
+    expect(saved).not.toHaveProperty("pdfJobs");
   });
 });
 

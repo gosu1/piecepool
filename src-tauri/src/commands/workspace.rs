@@ -172,3 +172,33 @@ pub fn save_source_file(
     storage::write_bytes(&path, &data).map_err(|e| e.to_string())?;
     Ok(final_name)
 }
+
+/// 원본 파일을 다른 공간의 sources/original-files/ 로 옮기고 최종 파일명을 반환.
+/// 대상에 동명 파일이 있으면 base-2.ext 접미사가 붙으므로 호출부는 반환된 이름을 써야 한다.
+/// from == to 는 no-op. 부분 실패 안전 순서: 복사 → 원본 삭제(move_note 와 동일).
+#[tauri::command]
+pub fn move_source(from_space: String, to_space: String, file: String) -> Result<String, String> {
+    crate::commands::space_by_slug(&from_space)?;
+    crate::commands::space_by_slug(&to_space)?;
+    if from_space == to_space {
+        return Ok(file);
+    }
+    let from = storage::safe_join(
+        &storage::space_subdir(&from_space, "sources/original-files"),
+        &file,
+    )
+    .map_err(|e| e.to_string())?;
+    if !storage::exists(&from) {
+        return Err(format!("원본 없음: {file}"));
+    }
+    storage::ensure_space_tree(&to_space).map_err(|e| e.to_string())?;
+    let to_dir = storage::space_subdir(&to_space, "sources/original-files");
+    let final_name = crate::commands::unique_file_name(&to_dir, &file);
+    let to = storage::safe_join(&to_dir, &final_name).map_err(|e| e.to_string())?;
+
+    let bytes = storage::read_bytes(&from).map_err(|e| e.to_string())?;
+    storage::write_bytes(&to, &bytes).map_err(|e| e.to_string())?;
+    // 대상 기록은 끝났다 — 소스 정리 실패(잠금 등)는 무해한 복사본만 남기므로 오류로 만들지 않는다.
+    let _ = storage::remove_file(&from);
+    Ok(final_name)
+}
