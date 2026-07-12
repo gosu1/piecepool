@@ -4,6 +4,7 @@ import { semanticChunk, type EmbedFn, type Chunk } from "./chunk";
 import { createGeminiEmbedder } from "./embeddings";
 import { promote } from "./promote";
 import { classify, type NodeType } from "./classify";
+import { getOutputLanguage, type OutputLanguage } from "./language";
 
 // LLM 위키 생성 오케스트레이션 (README §LLM ①).
 //  - apiKey 있으면 Gemini(OpenAI 호환 Chat Completions, 구조화 출력) 호출.
@@ -153,25 +154,28 @@ function promotionReport(result: LlmWikiResult): PromotionReport {
 
 // ── 휴리스틱 생성: 노트 → 개념 위키 + 관계 ──────────────────
 // 규칙: `## 헤딩` 들을 하위 개념으로, 노트 제목을 상위 개념으로. 헤딩이 없으면 제목 1개만.
-export function heuristicWiki(input: LlmWikiInput): LlmWikiResult {
+export function heuristicWiki(input: LlmWikiInput, lang: OutputLanguage = getOutputLanguage()): LlmWikiResult {
   const sections = splitSections(input.sourceText);
   const concepts: LlmConcept[] = [];
   const relations: LlmRelation[] = [];
 
   const rootTitle = cleanTitle(input.sourceTitle);
   const rootBody = sections.length ? input.sourceText : input.sourceText;
-  concepts.push(concept(rootTitle, rootBody));
+  concepts.push(concept(rootTitle, rootBody, lang));
 
   for (const sec of sections) {
     if (normalize(sec.title) === normalize(rootTitle)) continue;
-    concepts.push(concept(sec.title, sec.body));
+    concepts.push(concept(sec.title, sec.body, lang));
     relations.push({
       sourceConceptTitle: sec.title,
       targetConceptTitle: rootTitle,
       relationType: "part_of",
       strength: 0.7,
       confidence: 0.6,
-      explanation: `"${sec.title}"는 "${rootTitle}" 노트의 하위 주제다. (휴리스틱)`,
+      explanation:
+        lang === "en"
+          ? `"${sec.title}" is a subtopic of the note "${rootTitle}". (heuristic)`
+          : `"${sec.title}"는 "${rootTitle}" 노트의 하위 주제다. (휴리스틱)`,
       evidence: [],
     });
   }
@@ -201,9 +205,9 @@ function splitSections(md: string): Section[] {
   return out.filter((s) => s.title);
 }
 
-function concept(title: string, body: string): LlmConcept {
+function concept(title: string, body: string, lang: OutputLanguage): LlmConcept {
   const text = body.trim();
-  const summary = firstSentence(text) || `${title} 개념 정리`;
+  const summary = firstSentence(text) || (lang === "en" ? `${title} concept overview` : `${title} 개념 정리`);
   return {
     title,
     summary,

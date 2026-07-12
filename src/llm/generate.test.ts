@@ -158,3 +158,17 @@ describe("runWikiGeneration — [C] chunking (opt-in)", () => {
     expect(total).toBe(2); // 조각 2개 각각 분류됨
   });
 });
+
+describe("heuristicWiki 언어 설정", () => {
+  it("heuristicWiki lang='en' — 폴백 explanation·summary가 영어", () => {
+    const r = heuristicWiki(
+      { sourceId: "s", sourceTitle: "Deadlock", sourceText: "# Deadlock\n\n## Locks\n" } as never,
+      "en",
+    );
+    const rel = r.relations[0];
+    expect(rel.explanation).toContain("subtopic");
+    expect(rel.explanation).not.toContain("하위 주제다");
+    const locks = r.concepts.find((c) => c.title === "Locks");
+    expect(locks?.summary).toContain("concept overview");
+  });
+});
