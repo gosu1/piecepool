@@ -12,7 +12,7 @@ import { ConfirmDialog } from "../shell/Dialogs";
 import { Markdown } from "../../lib/markdown";
 import { FilePreview } from "../../lib/FilePreview";
 import { PdfViewer } from "../../lib/PdfViewer";
-import { parseWikilinks, parseEmbedTarget, isOriginalFile, renameRefs } from "../../lib/wikilink";
+import { noteOriginalFiles, renameRefs } from "../../lib/wikilink";
 import {
   getInboxPaneWidths,
   setInboxPaneWidth,
@@ -48,20 +48,6 @@ function stripEmbed(body: string, file: string): string {
     .join("\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
-}
-
-/** 이 노트가 가진 원본 파일들 = 본문 임베드 대상 중 원본(pdf·이미지)인 것. 중복 제거, 등장 순.
- *  [[링크]]는 참조일 뿐 업로드가 아니므로 이동 대상이 아니다(이름만 따라 바뀐다).
- *  refSource 는 방어적으로 포함 — 사용자가 임베드만 지웠어도 파일은 남아 있다. */
-function noteOriginalFiles(body: string, refSource: string): string[] {
-  const out: string[] = [];
-  for (const t of parseWikilinks(body)) {
-    if (t.kind !== "embed") continue;
-    const { file } = parseEmbedTarget(t.value);
-    if (isOriginalFile(file) && !out.includes(file)) out.push(file);
-  }
-  if (refSource && !out.includes(refSource)) out.push(refSource);
-  return out;
 }
 
 function fileToBase64(f: File): Promise<string> {

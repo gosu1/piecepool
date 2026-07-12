@@ -98,6 +98,21 @@ export function isOriginalFile(file: string): boolean {
   return ext === "pdf" || IMAGE_EXTS.has(ext);
 }
 
+/** 이 노트가 가진 원본 파일들 = 본문 임베드 대상 중 원본(pdf·이미지)인 것. 중복 제거, 등장 순.
+ *  [[링크]]는 참조일 뿐 업로드가 아니므로 이동·삭제 대상이 아니다(이름만 따라 바뀐다).
+ *  refSource(초안이 추적하는 PDF)는 방어적으로 포함 — 사용자가 임베드만 지웠어도 파일은 남아 있다.
+ *  노트가 죽거나 옮겨갈 때 원본 전부가 따라가야 한다 — PDF 하나만 챙기면 이미지가 디스크에 샌다. */
+export function noteOriginalFiles(body: string, refSource = ""): string[] {
+  const out: string[] = [];
+  for (const t of parseWikilinks(body)) {
+    if (t.kind !== "embed") continue;
+    const { file } = parseEmbedTarget(t.value);
+    if (isOriginalFile(file) && !out.includes(file)) out.push(file);
+  }
+  if (refSource && !out.includes(refSource)) out.push(refSource);
+  return out;
+}
+
 /** 본문에서 그 원본을 가리키는 모든 참조의 파일명을 바꾼다(원본 이동·충돌 리네임 시).
  *  네 형태 모두: ![[f]] · ![[f#page=N]] · [[f]] · [[f#page=N]] (별칭 [[f|별칭]] 포함).
  *  대괄호 토큰 전체를 맞춘다 — a.pdf 를 바꿔도 aa.pdf 는 건드리지 않는다.

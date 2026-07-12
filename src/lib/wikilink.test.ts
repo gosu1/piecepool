@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseWikilinks, parseEmbedTarget, firstEmbedFile, renameRefs } from "./wikilink";
+import { parseWikilinks, parseEmbedTarget, firstEmbedFile, noteOriginalFiles, renameRefs } from "./wikilink";
 
 describe("parseWikilinks", () => {
   it("splits text / link / embed", () => {
@@ -56,6 +56,41 @@ describe("firstEmbedFile — 노트당 대표 원본 1개", () => {
 
   it("여럿이면 첫 번째만", () => {
     expect(firstEmbedFile("![[a.pdf]]\n![[b.pdf]]")).toEqual({ file: "a.pdf", type: "pdf" });
+  });
+});
+
+describe("noteOriginalFiles — 노트가 가진 원본 전부", () => {
+  it("PDF + 이미지 여러 장을 등장 순으로 전부 준다", () => {
+    expect(noteOriginalFiles("![[lecture.pdf]]\n필기\n![[a.png]]\n![[b.jpg]]")).toEqual([
+      "lecture.pdf",
+      "a.png",
+      "b.jpg",
+    ]);
+  });
+
+  it("중복은 한 번만(#page=N 조각은 뗀다)", () => {
+    expect(noteOriginalFiles("![[a.pdf#page=1]]\n![[a.pdf#page=7]]\n![[a.pdf]]")).toEqual(["a.pdf"]);
+  });
+
+  it("임베드가 아닌 [[링크]]는 원본이 아니다", () => {
+    expect(noteOriginalFiles("[[a.pdf]] 는 링크일 뿐\n![[b.png]]")).toEqual(["b.png"]);
+  });
+
+  it("원본 확장자가 아니면 제외한다", () => {
+    expect(noteOriginalFiles("![[note.md]]\n![[a.png]]")).toEqual(["a.png"]);
+  });
+
+  it("refSource 는 본문에 임베드가 없어도 포함한다", () => {
+    expect(noteOriginalFiles("![[a.png]]", "lecture.pdf")).toEqual(["a.png", "lecture.pdf"]);
+  });
+
+  it("refSource 가 이미 본문에 있으면 중복하지 않는다", () => {
+    expect(noteOriginalFiles("![[lecture.pdf]]", "lecture.pdf")).toEqual(["lecture.pdf"]);
+  });
+
+  it("원본이 없으면 빈 배열", () => {
+    expect(noteOriginalFiles("그냥 필기")).toEqual([]);
+    expect(noteOriginalFiles("", "")).toEqual([]);
   });
 });
 
