@@ -209,8 +209,30 @@ must_not.confused            ✅
 
 ---
 
-## 9. 변경 이력 노트
+## 9. 모델 A/B 블라인드 비교 (`npm run eval:ab`)
+
+Gemini 모델 단종/승격 결정용. 후보 모델들을 위키 생성(5케이스)·파인만 되묻기(6케이스)·
+PDF 한국어 요약(2케이스)에 돌려 익명 컬럼 `report.html`로 사람이 블라인드 판정한다.
+
+```bash
+npm run eval:ab -- --list          # 지금 살아있는 gemini 모델 나열
+npm run eval:ab                    # 기본 후보: gemini-3.1-flash-lite vs gemini-3.5-flash
+npm run eval:ab -- --models a,b    # 후보 지정
+npm run eval:ab -- --task wiki     # 특정 작업만 (wiki|feynman|pdfsummary)
+```
+
+- 흐름: 가용성 프로브(404/지속503 탈락) → 생성(순차, 호출 간 500ms) → `results/<runId>/report.html`.
+- 판정: 브라우저에서 케이스별 A/B/무승부 선택 → 전부 판정하면 "개봉" 활성화 →
+  모델명 공개 + 작업별 승수 + 지연·에러 통계. 결과는 verdicts JSON으로 저장 가능.
+- 결정 반영: 승자를 `src/llm/gemini.ts`의 `GEMINI_MODEL` 상수 한 줄로 교체.
+- 러너 구조는 eval.ts와 동형 — src/llm 직호출, 재구현 없음. 순수 로직은
+  `scripts/model-ab-report.ts`에 분리, vitest 단위 테스트 있음.
+
+---
+
+## 10. 변경 이력 노트
 
 - 본 문서는 신규 작성이다. 초안 = [Phase 4 tracking #3 (LLM)](https://github.com/gosu1/piecepool/issues/3) + [sub-issue #32](https://github.com/gosu1/piecepool/issues/32) 기반.
 - 골든 케이스 7건은 MVP scope. `fixtures/*.json`과 `expected/*.json` 실제 작성은 별도 PR.
 - §5.2 CI 통합 / §5.3 baseline 갱신 / §8 도구 선택 → 결정 보류, [`open-questions.md`](../00-overview/open-questions.md) 추가 예정.
+- 2026-07-12 @gosu1 — §9 모델 A/B 블라인드 비교 러너(`eval:ab`) 추가.
