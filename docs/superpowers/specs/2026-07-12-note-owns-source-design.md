@@ -77,11 +77,13 @@ pub fn move_source(from_space: String, to_space: String, file: String) -> Result
 **(a) 미저장 탭 닫기** — `closeTabClean`(`PiecePoolApp.tsx:334`). `useInboxDraftStore.clear(id)` 직전에 draft 를 읽어:
 
 ```
-draft.refSource 가 있고 && draft.savedFile 이 없으면
-  → deleteSource(draft.targetSpace ?? 탭의 space, draft.refSource)
+draft.savedFile 이 없으면
+  → draft.uploads 의 각 파일에 deleteSource(draft.targetSpace ?? 탭의 space, file)
 ```
 
 `savedFile` 이 있으면 archive 노트가 그 원본을 참조 중이다 — **이것이 유일한 안전장치다.** 절대 지우지 않는다.
+
+**삭제·이동 대상은 본문 파싱이 아니라 `InboxDraft.uploads`(이 초안이 실제로 업로드한 파일 목록)다.** 본문의 `![[...]]` 를 파싱해 대상으로 삼으면, 사용자가 손으로 친(또는 `.md` 를 드롭해 딸려 들어온) `![[남의노트.pdf]]` 까지 삭제·이동 대상이 되어 **다른 노트가 소유한 원본을 지운다.** `uploads` 는 `saveSourceFile` 이 반환한 최종 파일명을 쌓고, 이동으로 이름이 바뀌면 함께 갱신된다.
 
 **(b) 노트 삭제** — `applyDelete`(`PiecePoolApp.tsx:599`). `deleteNote` 성공 직후, 그 노트 본문의 첫 pdf/image 임베드를 파싱해 같은 공간에서 `deleteSource`.
 
