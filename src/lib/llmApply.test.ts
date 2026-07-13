@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { normalizeTitle, slugOrHash, toSourceRefs, embedSourceFiles, synthesisPage, isSynthesisPage, applyLlmResult } from "./llmApply";
+import { normalizeTitle, slugOrHash, toSourceRefs, embedSourceFiles, synthesisPage, isSynthesisPage, applyLlmResult, toExistingConcepts } from "./llmApply";
 import type { LlmConcept } from "../llm/provider";
 import type { ArchiveNote, SourceRef, WikiPage } from "./types";
 
@@ -136,7 +136,7 @@ describe("근거 섹션 — 이중 래핑 금지", () => {
       "sp-1",
       [],
       result,
-      { sourceId: NOTE.sourceId, archivePath: `archive/${NOTE.path}` },
+      { sourceId: NOTE.sourceId, archivePath: `archive/${NOTE.path}`, title: NOTE.title },
       [],
     );
     expect(applied.pages[0].markdown).toContain("![[a.pdf]]");
@@ -156,12 +156,135 @@ describe("applyLlmResult 클로버 가드", () => {
       "sp-1",
       ["subj-1"],
       result,
-      { sourceId: NOTE.sourceId, archivePath: `archive/${NOTE.path}` },
+      { sourceId: NOTE.sourceId, archivePath: `archive/${NOTE.path}`, title: NOTE.title },
       [synPage],
     );
     expect(applied.merged).toBe(0); // 병합 안 됨 — 새 개념 페이지로 생성
     expect(applied.pages[0].path).not.toBe(synPage.path);
     expect(applied.pages[0].conceptId).not.toBe(synPage.conceptId);
+  });
+});
+
+// ── 병합 경로 — 기존 위키가 있는 과목에 새 노트가 들어올 때 지식이 축적되는가 ──
+// 이 경로(llmApply.ts 의 `ex` truthy 분기)는 지금까지 테스트가 0개였다.
+const existingPage = (over: Partial<WikiPage> = {}): WikiPage => ({
+  id: "wiki-old",
+  spaceId: "sp-1",
+  conceptId: "concept-old",
+  title: "교착 상태",
+  path: "old.md",
+  subjectIds: ["subj-os"],
+  sourceIds: ["source-week1"],
+  sourceRefs: [],
+  markdown: "# 교착 상태\n\n1주차에 배운 내용",
+  createdAt: "2026-07-01T10:00:00+09:00",
+  updatedAt: "2026-07-01T10:00:00+09:00",
+  ...over,
+});
+
+const conceptNamed = (title: string): LlmConcept => ({
+  title,
+  summary: "3주차 요약",
+  explanation: "3주차 설명",
+  examples: [],
+  sourceRefs: [],
+  sourceEmbeds: [],
+});
+
+const SRC = { sourceId: "source-week3", archivePath: "archive/2026-07-15-os.md", title: "OS 5주차" };
+
+const applyOnto = (
+  existing: WikiPage[],
+  title: string,
+  subjectIds: string[] = ["subj-os"],
+  deps?: Parameters<typeof applyLlmResult>[6],
+) =>
+  applyLlmResult("space", "sp-1", subjectIds, { concepts: [conceptNamed(title)], relations: [] }, SRC, existing, deps);
+
+describe("applyLlmResult 병합 — 기존 개념에 새 노트가 얹힐 때", () => {
+  it("같은 개념이면 새 파일을 만들지 않고 기존 파일에 병합한다 (id·path·conceptId·생성시각 보존)", async () => {
+    const ex = existingPage();
+    const applied = await applyOnto([ex], "교착 상태");
+    expect(applied.merged).toBe(1);
+    const p = applied.pages[0];
+    expect(p.id).toBe(ex.id);
+    expect(p.path).toBe(ex.path);
+    expect(p.conceptId).toBe(ex.conceptId);
+    expect(p.createdAt).toBe(ex.createdAt);
+  });
+
+  it("출처(sourceIds)는 합집합으로 누적된다", async () => {
+    const applied = await applyOnto([existingPage()], "교착 상태");
+    expect(applied.pages[0].sourceIds).toEqual(["source-week1", "source-week3"]);
+  });
+
+  it("과목(subjectIds)도 합집합으로 누적된다 — 기존 태그를 덮지 않는다", async () => {
+    const ex = existingPage({ subjectIds: ["subj-os", "subj-ml"] });
+    const applied = await applyOnto([ex], "교착 상태", ["subj-os"]);
+    expect(applied.pages[0].subjectIds).toEqual(["subj-os", "subj-ml"]);
+  });
+
+  // ── 본문 축적(방식 A: LLM 통합 재작성) ──
+  it("병합이면 mergeMarkdown 에 기존 본문과 새 개념을 넘기고, 그 결과를 본문으로 쓴다", async () => {
+    const ex = existingPage();
+    let seenExisting = "";
+    let seenTitle = "";
+    const applied = await applyOnto([ex], "교착 상태", ["subj-os"], {
+      mergeMarkdown: async (existingMd, c, source) => {
+        seenExisting = existingMd;
+        seenTitle = source.title;
+        return `${existingMd}\n\n[통합] ${c.summary}`;
+      },
+    });
+    expect(seenExisting).toBe("# 교착 상태\n\n1주차에 배운 내용"); // 기존 본문이 LLM 에 간다
+    expect(seenTitle).toBe("OS 5주차");
+    expect(applied.pages[0].markdown).toBe("# 교착 상태\n\n1주차에 배운 내용\n\n[통합] 3주차 요약");
+  });
+
+  it("새 개념(병합 아님)에는 mergeMarkdown 을 호출하지 않는다 — 통합할 기존 본문이 없다", async () => {
+    let called = 0;
+    const applied = await applyOnto([], "새 개념", ["subj-os"], {
+      mergeMarkdown: async () => {
+        called++;
+        return "쓰이면 안 됨";
+      },
+    });
+    expect(called).toBe(0);
+    expect(applied.pages[0].markdown).toContain("3주차 요약");
+  });
+
+  it("mergeMarkdown 이 실패하면 기존 본문을 유지한다 — 빈 본문·덮어쓰기로 지식을 잃지 않는다", async () => {
+    const ex = existingPage();
+    const applied = await applyOnto([ex], "교착 상태", ["subj-os"], {
+      mergeMarkdown: async () => {
+        throw new Error("[mergeWiki] HTTP 429");
+      },
+    });
+    expect(applied.pages[0].markdown).toBe(ex.markdown); // 기존 본문 그대로
+    expect(applied.pages[0].sourceIds).toEqual(["source-week1", "source-week3"]); // 출처·관계는 그대로 누적
+  });
+
+  it("mergeMarkdown 미주입이면 기존 본문을 유지한다 (본문 교체 금지)", async () => {
+    const ex = existingPage();
+    const applied = await applyOnto([ex], "교착 상태");
+    expect(applied.pages[0].markdown).toBe(ex.markdown);
+  });
+});
+
+// LLM 입력의 existingConcepts — normalizedTitle 이 validate.normTitle 과 다른 규칙으로 만들어지면
+// known 집합 비교가 영영 실패해 그 기존 개념으로 향하는 관계가 전부 조용히 드롭된다(droppedTitle).
+describe("toExistingConcepts", () => {
+  it("normalizedTitle 은 normalizeTitle 규칙(NFC·소문자·공백정규화)을 따른다 — 엣지 드롭 방지", () => {
+    const pages = [existingPage({ conceptId: "concept-cnn", title: "합성곱  신경망" })];
+    expect(toExistingConcepts(pages)).toEqual([
+      { id: "concept-cnn", title: "합성곱  신경망", normalizedTitle: "합성곱 신경망" },
+    ]);
+  });
+
+  it("정리 글(합성) 페이지는 개념이 아니므로 제외한다", () => {
+    const syn = synthesisPage("sp-1", NOTE, "정리 글", []);
+    expect(toExistingConcepts([syn, existingPage()])).toHaveLength(1);
+    expect(toExistingConcepts([syn, existingPage()])[0].id).toBe("concept-old");
   });
 });
 

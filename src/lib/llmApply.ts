@@ -114,6 +114,16 @@ export function synthesisPage(spaceId: string, note: ArchiveNote, markdown: stri
   };
 }
 
+// 기존 위키 → LlmWikiInput.existingConcepts.
+// normalizedTitle 은 반드시 normalizeTitle 규칙이어야 한다 — validate.normTitle 이 관계의
+// 제목을 같은 규칙으로 정규화해 known 집합과 대조하므로, 규칙이 어긋나면 그 개념으로 향하는
+// 관계가 전부 droppedTitle 로 조용히 사라진다.
+export function toExistingConcepts(pages: WikiPage[]): NonNullable<LlmWikiInput["existingConcepts"]> {
+  return pages
+    .filter((w) => !isSynthesisPage(w)) // 정리 글은 개념이 아니다 — 중복 힌트에서 제외
+    .map((w) => ({ id: w.conceptId, title: w.title, normalizedTitle: normalizeTitle(w.title) }));
+}
+
 function toEvidence(e: LlmEvidence): Evidence {
   return {
     sourceId: e.sourceId,
@@ -132,14 +142,44 @@ export interface ApplyResult {
   merged: number;
 }
 
+/** 이 위키/관계를 만든 원본 노트. */
+export interface ImportSource {
+  sourceId: string;
+  archivePath: string;
+  title: string;
+}
+
+export interface ApplyDeps {
+  /**
+   * 본문 축적(방식 A) — 기존 본문과 새 개념을 한 편으로 통합해 돌려준다(LLM 2차 호출).
+   * 병합이 실제로 일어나는 개념에만 호출된다. 미주입이거나 실패하면 기존 본문을 유지한다 —
+   * 새 내용을 못 얹을지언정 이미 쌓인 지식을 덮지는 않는다.
+   */
+  mergeMarkdown?: (existingMarkdown: string, c: LlmConcept, source: ImportSource) => Promise<string>;
+}
+
+// 병합 본문 결정. 통합에 실패하면 기존 본문을 그대로 둔다 — 새 내용을 못 얹는 것보다
+// 이미 쌓인 지식을 덮는 것이 훨씬 나쁘다(원본 불가침과 같은 철학). 출처·관계는 그래도 누적된다.
+async function mergeMarkdown(ex: WikiPage, c: LlmConcept, source: ImportSource, deps?: ApplyDeps): Promise<string> {
+  if (!deps?.mergeMarkdown) return ex.markdown;
+  try {
+    const md = await deps.mergeMarkdown(ex.markdown, c, source);
+    return md.trim() ? md : ex.markdown;
+  } catch (e) {
+    console.warn(`[llmApply] 본문 통합 실패 — 기존 본문 유지: ${String(e)}`);
+    return ex.markdown;
+  }
+}
+
 /** source = 이 위키/관계를 만든 원본 노트(evidence 근거). existing = 현재 공간의 위키(dedup 대상). */
 export async function applyLlmResult(
   space: string,
   spaceId: string,
   subjectIds: string[],
   result: LlmWikiResult,
-  source: { sourceId: string; archivePath: string },
+  source: ImportSource,
   existing: WikiPage[],
+  deps?: ApplyDeps,
 ): Promise<ApplyResult> {
   const now = new Date().toISOString();
   const byNorm = new Map<string, WikiPage>();
@@ -157,16 +197,17 @@ export async function applyLlmResult(
     const cid = ex ? ex.conceptId : `concept-${slugOrHash(c.title)}`;
     // 허용 sourceId = 이번 입력 소스 ∪ 기존 페이지가 이미 참조하던 소스
     const allowed = new Set([source.sourceId, ...(ex?.sourceIds ?? [])]);
+    const markdown = ex ? await mergeMarkdown(ex, c, source, deps) : conceptMarkdown(c);
     const page: WikiPage = {
       id: ex ? ex.id : `wiki-${slugOrHash(c.title)}`,
       spaceId,
       conceptId: cid,
       title: c.title,
       path: ex ? ex.path : `${slugOrHash(c.title)}.md`,
-      subjectIds,
+      subjectIds: ex ? Array.from(new Set([...ex.subjectIds, ...subjectIds])) : subjectIds,
       sourceIds: ex ? Array.from(new Set([...ex.sourceIds, source.sourceId])) : [source.sourceId],
       sourceRefs: toSourceRefs(c, allowed, slugOrHash(c.title), ex?.sourceRefs),
-      markdown: conceptMarkdown(c),
+      markdown,
       createdAt: ex ? ex.createdAt : now, // 병합 시 생성시각 보존
       updatedAt: now,
     };

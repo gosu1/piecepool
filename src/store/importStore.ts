@@ -2,8 +2,9 @@ import { create } from "zustand";
 import type { ImportJobStatus, WikiPage, ArchiveNote } from "../lib/types";
 import * as ipc from "../lib/ipc";
 import { runWikiGeneration } from "../llm/generate";
+import { runWikiMerge } from "../llm/mergeWiki";
 import type { LlmWikiInput, LlmWikiResult } from "../llm/provider";
-import { applyLlmResult, embedSourceFiles, isSynthesisPage } from "../lib/llmApply";
+import { applyLlmResult, embedSourceFiles, toExistingConcepts } from "../lib/llmApply";
 import { maybeFactCheck } from "../lib/factCheck";
 import { chunkOpts } from "../lib/settings";
 import { useFeynmanStore, type SectionStatus } from "./feynmanStore";
@@ -94,10 +95,7 @@ function buildInput(note: ArchiveNote, existing: WikiPage[]): LlmWikiInput {
     // 노트가 참조하는 원본 파일 — 없으면 sanitizeSourceRefs 가 모든 sourceRefs 를 제거한다.
     sourceFiles: embedSourceFiles(note.sourceId, note.markdown),
     subjects: note.subjectIds.map((id) => ({ id, name: id })),
-    // 정리 글(합성) 페이지는 개념이 아니다 — 중복 힌트에서 제외.
-    existingConcepts: existing
-      .filter((w) => !isSynthesisPage(w))
-      .map((w) => ({ id: w.conceptId, title: w.title, normalizedTitle: w.title.toLowerCase() })),
+    existingConcepts: toExistingConcepts(existing),
   };
 }
 
@@ -124,8 +122,10 @@ export const useImportStore = create<ImportState>((set) => {
       p.spaceId,
       note.subjectIds,
       fc.result,
-      { sourceId: note.sourceId, archivePath: `archive/${note.path}` },
+      { sourceId: note.sourceId, archivePath: `archive/${note.path}`, title: note.title },
       p.existing,
+      // 본문 축적(방식 A) — 기존 개념에 얹힐 때만 2차 LLM 호출로 통합한다.
+      { mergeMarkdown: (md, c, src) => runWikiMerge(md, c, src, apiKey()) },
     );
     const done = commit({
       ...job,

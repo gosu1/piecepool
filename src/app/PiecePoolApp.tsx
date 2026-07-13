@@ -5,8 +5,9 @@ import type { KnowledgeSpace, WikiPage as WikiPageT, ArchiveNote, GraphData, Wor
 import * as ipc from "../lib/ipc";
 import { startFileDragOut } from "../lib/dragOut";
 import { runWikiGeneration } from "../llm/generate";
+import { runWikiMerge } from "../llm/mergeWiki";
 import type { LlmWikiInput } from "../llm/provider";
-import { applyLlmResult, embedSourceFiles, isSynthesisPage, synthesisConceptId } from "../lib/llmApply";
+import { applyLlmResult, embedSourceFiles, isSynthesisPage, synthesisConceptId, toExistingConcepts } from "../lib/llmApply";
 import { buildGaps } from "../llm/gaps";
 import type { GapReport } from "../llm/gaps";
 import { maybeFactCheck } from "../lib/factCheck";
@@ -825,10 +826,7 @@ export default function PiecePoolApp() {
       // 노트가 참조하는 원본 파일 — 없으면 sanitizeSourceRefs 가 모든 sourceRefs 를 제거한다.
       sourceFiles: embedSourceFiles(note.sourceId, note.markdown),
       subjects: note.subjectIds.map((id) => ({ id, name: id })),
-      // 정리 글(합성) 페이지는 개념이 아니다 — 중복 힌트에서 제외.
-      existingConcepts: (wikiBySlug[space] ?? [])
-        .filter((w) => !isSynthesisPage(w))
-        .map((w) => ({ id: w.conceptId, title: w.title, normalizedTitle: w.title.toLowerCase() })),
+      existingConcepts: toExistingConcepts(wikiBySlug[space] ?? []),
     };
     const apiKey = (typeof localStorage !== "undefined" && localStorage.getItem("gemini-key")) || "";
     const { result, engine, warning, promotion, nodeTypes } = await runWikiGeneration(input, apiKey, { chunk: chunkOpts() });
@@ -839,8 +837,10 @@ export default function PiecePoolApp() {
       sp?.id ?? "",
       note.subjectIds,
       fc.result,
-      { sourceId: note.sourceId, archivePath: `archive/${note.path}` },
+      { sourceId: note.sourceId, archivePath: `archive/${note.path}`, title: note.title },
       wikiBySlug[space] ?? [],
+      // 본문 축적(방식 A) — 기존 개념에 얹힐 때만 2차 LLM 호출로 통합한다.
+      { mergeMarkdown: (md, c, src) => runWikiMerge(md, c, src, apiKey) },
     );
     const mergedNote = applied.merged > 0 ? ` (기존 ${applied.merged}개 병합)` : "";
     // [E] 연결성 게이트 advisory — 이번 추출에서 어디에도 안 붙은(고립) 개념 수 표시.
