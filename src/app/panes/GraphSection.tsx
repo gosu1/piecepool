@@ -155,16 +155,46 @@ export function GraphSection({
     return out;
   }, [graphBySlug]);
 
-  // 전체 과목 = 전 space 병합. concept id 가 ULID(전역 유일)라 concat 안전. cross-space 엣지는 없음(분리 섬).
-  const merged = useMemo<GraphData>(
-    () => ({
-      nodes: Object.values(taggedBySlug).flatMap((g) => g.nodes),
-      relations: Object.values(taggedBySlug).flatMap((g) => g.relations),
-    }),
-    [taggedBySlug],
-  );
+  // 전체 과목 = 전 space 병합.
+  // conceptId 는 제목에서 파생되므로(concept-{제목slug}) 같은 개념이 여러 공간에 있으면 id 가 겹친다.
+  // 그대로 concat 하면 Cytoscape 가 중복 id 로 깨지므로 노드를 접는다(먼저 만난 공간의 색을 쓴다).
+  // 교차 관계(cross-space)는 저장된 공간의 relations 에 들어 있고, 여기서 양끝 노드가 모두 살아
+  // 있으므로 폴더 사이 다리로 그려진다.
+  const merged = useMemo<GraphData>(() => {
+    const nodes: GraphData["nodes"] = [];
+    const ids = new Set<string>();
+    for (const g of Object.values(taggedBySlug)) {
+      for (const n of g.nodes) {
+        if (ids.has(n.id)) continue;
+        ids.add(n.id);
+        nodes.push(n);
+      }
+    }
+    const seen = new Set<string>();
+    const relations = Object.values(taggedBySlug)
+      .flatMap((g) => g.relations)
+      // 양끝이 다 있는 관계만 (한쪽 공간이 안 열렸을 때의 dangling 방지)
+      .filter((r) => ids.has(r.sourceNodeId) && ids.has(r.targetNodeId))
+      // 양쪽 공간이 같은 교차 관계를 각자 저장했을 수 있다 — 한 건으로 접는다.
+      .filter((r) => {
+        const k = `${r.sourceNodeId}|${r.targetNodeId}|${r.relationType}`;
+        if (seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      });
+    return { nodes, relations };
+  }, [taggedBySlug]);
 
-  const graph = view ? taggedBySlug[view] : merged;
+  // 단일 공간 뷰 — 이 공간 노드만 그리므로, 타 공간을 가리키는 교차 관계는 끊긴 엣지가 된다. 숨긴다.
+  // (관계 자체는 지우지 않는다. "전체 과목" 뷰에서 다리로 보인다.)
+  const single = useMemo<GraphData | undefined>(() => {
+    const g = view ? taggedBySlug[view] : undefined;
+    if (!g) return undefined;
+    const ids = new Set(g.nodes.map((n) => n.id));
+    return { ...g, relations: g.relations.filter((r) => ids.has(r.sourceNodeId) && ids.has(r.targetNodeId)) };
+  }, [taggedBySlug, view]);
+
+  const graph = view ? single : merged;
   const viewName = view ? spaces.find((s) => s.slug === view)?.name ?? view : "전체 과목";
 
   const spaceColors = useMemo(() => {
