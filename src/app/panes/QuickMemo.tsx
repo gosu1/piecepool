@@ -2,8 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, Icons, cn } from "../../ds";
 import { Markdown } from "../../lib/markdown";
 import {
-  getMemoDraft,
-  setMemoDraft,
   getMemoPos,
   setMemoPos,
   clampPos,
@@ -12,14 +10,18 @@ import {
   clampSize,
   MEMO_DEFAULT_SIZE,
 } from "../../lib/quickMemo";
+import { useInboxDraftStore, EMPTY_DRAFT } from "../../store/inboxDraftStore";
 import { runTidy, TidyNoKeyError, TidyStreamError } from "../../llm/tidy";
 
 // ══ Quick Memo — 강의 중 파편을 흘려 담는 플로팅 메모장 ══
-// SSOT: docs/superpowers/specs/2026-07-11-quick-memo-design.md
+// SSOT: docs/superpowers/specs/2026-07-13-quickmemo-per-note-design.md
 //
 // 화면에 보이는 것은 글 + 버튼뿐이다. 탭도 분할선도 목록도 없다 ("번잡하면 안 된다"가 최우선 제약).
 // [정리] 를 누르면 같은 자리에서 결과로 바뀌고, [원문] 으로 언제든 돌아온다.
 // 원문(draft)과 정리본(tidied)은 각각 별개로 들고 화면만 전환한다 — 정리본이 원문을 덮어쓰는 경로는 없다.
+//
+// 원문은 노트 초안(InboxDraft.memo)에 산다 — 노트 하나 = 메모 하나. 탭을 닫으면 함께 사라진다.
+// 정리본(tidied)은 컴포넌트 상태다 — 탭을 옮기면 사라지고 원문만 남는다(파생물이므로 다시 만들면 된다).
 
 const SAVE_DEBOUNCE_MS = 400;
 const SAVED_HOLD_MS = 1200; // "자동 저장됨"을 띄워 두는 시간 — 이후 페이드아웃
@@ -37,8 +39,10 @@ function apiKey(): string {
   return (typeof localStorage !== "undefined" && localStorage.getItem("gemini-key")) || "";
 }
 
-export function QuickMemo({ onClose }: { onClose: () => void }) {
-  const [draft, setDraft] = useState(getMemoDraft);
+export function QuickMemo({ draftKey, onClose }: { draftKey: string; onClose: () => void }) {
+  const draft = useInboxDraftStore((s) => s.drafts[draftKey]?.memo ?? EMPTY_DRAFT.memo);
+  const write = useInboxDraftStore((s) => s.write);
+  const setDraft = useCallback((memo: string) => write(draftKey, { memo }), [write, draftKey]);
   const [tidied, setTidied] = useState("");
   const [phase, setPhase] = useState<Phase>("edit");
   const [error, setError] = useState<string | null>(null);
@@ -58,13 +62,12 @@ export function QuickMemo({ onClose }: { onClose: () => void }) {
   });
   const abortRef = useRef<AbortController | null>(null);
 
-  // 자동 저장 — 타이핑이 멎으면 기록. 원문은 이 경로로만 바뀐다.
+  // 저장 자체는 타이핑 즉시 스토어로 간다(노트 본문과 같다). 여기 타이머는 "방금 저장됐다"는
+  // 표시를 띄우는 용도다 — 타이핑이 멎은 순간에만 보여야 신호가 된다.
   // saveTick 을 올려 표시를 다시 띄운다(boolean 이면 연속 저장 때 재점화가 안 된다).
   useEffect(() => {
-    const t = setTimeout(() => {
-      setMemoDraft(draft);
-      setSaveTick((n) => n + 1);
-    }, SAVE_DEBOUNCE_MS);
+    if (!draft) return;
+    const t = setTimeout(() => setSaveTick((n) => n + 1), SAVE_DEBOUNCE_MS);
     return () => clearTimeout(t);
   }, [draft]);
 

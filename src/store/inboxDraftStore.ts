@@ -33,6 +33,10 @@ export interface InboxDraft {
   // 이 초안이 실제로 업로드한 원본 파일명들 — 이동·삭제 대상의 진실.
   // 본문 파싱(noteOriginalFiles)으로 대신하면 손으로 친 ![[남의파일.pdf]] 하나에 남의 원본이 딸려 지워진다.
   uploads: string[];
+  // 퀵메모 — 이 노트를 쓰기 위한 작업대다. 전역 하나였을 땐 다른 과목 노트로 옮겨도 남의 파편이
+  // 그대로 떠 있었다. 창 위치·크기는 여전히 전역(quickMemo.ts) — 그건 내용이 아니라 취향이다.
+  memo: string;
+  memoOpen: boolean;
 }
 
 export const EMPTY_DRAFT: InboxDraft = {
@@ -46,6 +50,8 @@ export const EMPTY_DRAFT: InboxDraft = {
   refWikiPath: "",
   targetSpace: "",
   uploads: [],
+  memo: "",
+  memoOpen: false,
 };
 
 interface InboxDraftState {

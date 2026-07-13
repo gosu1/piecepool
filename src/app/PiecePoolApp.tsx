@@ -80,8 +80,6 @@ export default function PiecePoolApp() {
   const [gapBusy, setGapBusy] = useState<string>("");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  // 퀵메모 — 셸이 소유한다. 탭을 바꿔도 창이 살아있어야 하기 때문(스티커 메모의 성질).
-  const [memoOpen, setMemoOpen] = useState(false);
 
   // 셸 오버레이 — 트리 컨텍스트 메뉴 · 페인 "…" 메뉴 · 확인/입력 다이얼로그 · 상태바 알림
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
@@ -197,9 +195,14 @@ export default function PiecePoolApp() {
         const id = activeTabIdRef.current;
         if (id) requestCloseTabRef.current(id);
       } else if (k === "m") {
-        // 강의 중 급하게 부르는 키다 — 어느 화면에 있든, 메모장에 포커스가 있어도 여닫힌다.
+        // 퀵메모는 노트에 종속된다 — 붙을 노트가 없으면 열 수 없다(그래프·홈엔 없다).
+        // 메모장에 포커스가 있어도 닫히도록 window 에 건다(강의 중 급하게 부르는 키다).
         e.preventDefault();
-        setMemoOpen((v) => !v);
+        const id = activeTabIdRef.current;
+        const tab = useWorkspaceStore.getState().openTabs.find((t) => t.id === id);
+        if (tab?.kind !== "inbox") return;
+        const s = useInboxDraftStore.getState();
+        s.write(tab.id, { memoOpen: !(s.drafts[tab.id]?.memoOpen ?? false) });
       }
     };
     window.addEventListener("keydown", onKey);
@@ -234,6 +237,12 @@ export default function PiecePoolApp() {
   const inboxTargetSpace = useInboxDraftStore((s) =>
     activeTabId?.startsWith("inbox:") ? (s.drafts[activeTabId]?.targetSpace ?? "") : "",
   );
+  // 퀵메모도 노트에 종속된다(InboxDraft.memo / .memoOpen). 셸이 전역으로 들고 있었더니 다른 과목
+  // 노트로 옮겨도 남의 파편이 그대로 떠 있었다 — 노트 하나 = 작업대 하나.
+  const memoOpen = useInboxDraftStore((s) =>
+    activeTabId?.startsWith("inbox:") ? (s.drafts[activeTabId]?.memoOpen ?? false) : false,
+  );
+  const writeDraft = useInboxDraftStore((s) => s.write);
   // Graph 탭이 보고 있는 과목도 같은 이유로 셸이 소유한다(탭 id key). GraphSection 의 useState 면
   // 탭을 오갈 때 unmount 되어 선택이 탭의 원래 과목으로 리셋됐고, 상태바 경로도 따라가지 못했다.
   // 값이 없으면 = 아직 안 고름(탭의 과목), 빈 문자열이면 = 전체 과목(둘은 다른 상태다).
@@ -1315,7 +1324,7 @@ export default function PiecePoolApp() {
             onRefresh={(s) => refreshSpace(s)}
             onNotice={setNotice}
             quickMemoOpen={memoOpen}
-            onToggleQuickMemo={() => setMemoOpen((v) => !v)}
+            onToggleQuickMemo={() => writeDraft(tabId, { memoOpen: !memoOpen })}
           />
         );
       }
@@ -1424,7 +1433,10 @@ export default function PiecePoolApp() {
 
       {paletteOpen && <SearchPalette items={allFiles} onPick={pickSearch} onClose={() => setPaletteOpen(false)} />}
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} workspacePath={workspace?.rootPath} />}
-      {memoOpen && <QuickMemo onClose={() => setMemoOpen(false)} />}
+      {/* 퀵메모는 그것을 연 노트에만 붙어 있다 — 다른 탭으로 가면 창째로 사라진다. */}
+      {memoOpen && activeTabId && (
+        <QuickMemo draftKey={activeTabId} onClose={() => writeDraft(activeTabId, { memoOpen: false })} />
+      )}
 
       {menu && menuItems.length > 0 && <ContextMenu x={menu.x} y={menu.y} items={menuItems} onClose={() => setMenu(null)} />}
 

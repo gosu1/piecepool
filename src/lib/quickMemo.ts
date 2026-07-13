@@ -1,10 +1,12 @@
-// Quick Memo 저장 — localStorage 기반(settings.ts 와 동형, 이 기기에만 저장).
-// SSOT: docs/superpowers/specs/2026-07-11-quick-memo-design.md §4
+// Quick Memo 창 상태 — localStorage 기반(settings.ts 와 동형, 이 기기에만 저장).
+// SSOT: docs/superpowers/specs/2026-07-13-quickmemo-per-note-design.md
 //
-// 원문(draft)과 창 위치만 저장한다. 정리본은 저장하지 않는다 — 원문에서 언제든 다시 만들 수 있는
-// 파생물이고, 저장하면 "원문과 정리본이 어긋난 상태"를 관리해야 한다.
+// 여기 남는 것은 창의 위치·크기뿐이다. 그것은 메모의 *내용*이 아니라 *창을 어디에 두고 싶은가* 라는
+// 취향이라 전역이다 — 노트마다 창이 다른 자리에서 튀어나오면 더 나쁘다.
+// 메모 원문은 노트에 종속된다(InboxDraft.memo) — 노트가 죽으면 메모도 죽는다.
+// 정리본은 아무 데도 저장하지 않는다 — 원문에서 다시 만들 수 있는 파생물이고, 저장하면
+// "원문과 정리본이 어긋난 상태"를 관리해야 한다.
 
-const DRAFT_KEY = "quickmemo-draft";
 const POS_KEY = "quickmemo-pos";
 const SIZE_KEY = "quickmemo-size";
 
@@ -24,14 +26,6 @@ const MIN_H = 200;
 
 function ls(): Storage | null {
   return typeof localStorage !== "undefined" ? localStorage : null;
-}
-
-export function getMemoDraft(): string {
-  return ls()?.getItem(DRAFT_KEY) ?? "";
-}
-
-export function setMemoDraft(text: string): void {
-  ls()?.setItem(DRAFT_KEY, text);
 }
 
 export function getMemoPos(): MemoPos | null {
