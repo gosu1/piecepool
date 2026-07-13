@@ -1,7 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
-  getMemoDraft,
-  setMemoDraft,
   getMemoPos,
   setMemoPos,
   clampPos,
@@ -41,17 +39,8 @@ afterEach(() => {
   delete g.localStorage;
 });
 
-describe("quickMemo — 원문 저장", () => {
-  it("왕복한다", () => {
-    setMemoDraft("어텐션 = 걍 어디를 볼지 정하는거");
-    expect(getMemoDraft()).toBe("어텐션 = 걍 어디를 볼지 정하는거");
-  });
-
-  it("저장된 적 없으면 빈 문자열", () => {
-    expect(getMemoDraft()).toBe("");
-  });
-});
-
+// 메모 원문은 여기 없다 — 노트 초안(InboxDraft.memo)에 산다(inboxDraftStore.test.ts).
+// 이 파일에 남는 것은 창의 위치·크기, 즉 "창을 어디에 두고 싶은가" 라는 전역 취향뿐이다.
 describe("quickMemo — 창 위치", () => {
   it("왕복한다(정수로 반올림)", () => {
     setMemoPos({ x: 120.4, y: 96.6 });

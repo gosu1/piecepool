@@ -29,6 +29,25 @@ describe("draft 슬라이스", () => {
     expect(useInboxDraftStore.getState().drafts["inbox:os:t2"].targetSpace).toBe("statistics");
   });
 
+  // 퀵메모가 전역 하나였을 땐, 다른 과목 노트로 옮겨 메모장을 켜면 남의 파편이 그대로 떠 있었다.
+  // 메모는 "지금 이 노트를 쓰기 위한 작업대"다 — 노트에 종속돼야 한다.
+  it("퀵메모는 노트 탭마다 따로다 — 다른 탭엔 남의 메모가 새지 않는다", () => {
+    const s = useInboxDraftStore.getState();
+    s.write("inbox:deep-learning:t1", { memo: "어텐션 걍 가중평균임", memoOpen: true });
+    const other = useInboxDraftStore.getState().drafts["inbox:economics:t9"];
+    expect(other).toBeUndefined(); // 아직 안 열어본 노트엔 초안 자체가 없다
+    s.write("inbox:economics:t9", { title: "한계비용" });
+    expect(useInboxDraftStore.getState().drafts["inbox:economics:t9"]).toMatchObject({ memo: "", memoOpen: false });
+    expect(useInboxDraftStore.getState().drafts["inbox:deep-learning:t1"].memo).toBe("어텐션 걍 가중평균임");
+  });
+
+  it("탭을 닫으면 그 노트의 퀵메모도 사라진다", () => {
+    const s = useInboxDraftStore.getState();
+    s.write(KEY, { memo: "파편", memoOpen: true });
+    s.clear(KEY);
+    expect(useInboxDraftStore.getState().drafts[KEY]).toBeUndefined();
+  });
+
   it("setTitle/setBody 는 노트 탭별로 저장한다", () => {
     const s = useInboxDraftStore.getState();
     s.setTitle(KEY, "제목");
