@@ -74,9 +74,27 @@ mod tests {
     #[test]
     fn ranks_and_clamps() {
         let raw = vec![
-            RawFactors { centrality: 10.0, edge_quality: 5.0, clicks: 100, recency: 1.0, source_backing: 3.0 },
-            RawFactors { centrality: 1.0,  edge_quality: 0.0, clicks: 0,   recency: 0.0, source_backing: 0.0 },
-            RawFactors { centrality: 5.0,  edge_quality: 2.0, clicks: 10,  recency: 0.5, source_backing: 1.0 },
+            RawFactors {
+                centrality: 10.0,
+                edge_quality: 5.0,
+                clicks: 100,
+                recency: 1.0,
+                source_backing: 3.0,
+            },
+            RawFactors {
+                centrality: 1.0,
+                edge_quality: 0.0,
+                clicks: 0,
+                recency: 0.0,
+                source_backing: 0.0,
+            },
+            RawFactors {
+                centrality: 5.0,
+                edge_quality: 2.0,
+                clicks: 10,
+                recency: 0.5,
+                source_backing: 1.0,
+            },
         ];
         let p = compute_priorities(&raw);
         assert_eq!(p.len(), 3);
@@ -89,7 +107,16 @@ mod tests {
     /// max==min 분모 0 처리 규약을 강제하는 가드: 동일 입력은 전부 0, NaN 없음.
     #[test]
     fn degenerate_all_equal_no_nan() {
-        let raw = vec![RawFactors { centrality: 3.0, edge_quality: 3.0, clicks: 5, recency: 0.5, source_backing: 2.0 }; 4];
+        let raw = vec![
+            RawFactors {
+                centrality: 3.0,
+                edge_quality: 3.0,
+                clicks: 5,
+                recency: 0.5,
+                source_backing: 2.0
+            };
+            4
+        ];
         let p = compute_priorities(&raw);
         assert!(p.iter().all(|&x| x.is_finite()), "0/0 NaN 방지");
         assert!(p.iter().all(|&x| x == 0.0), "동일 입력 → 전부 0");
@@ -99,14 +126,35 @@ mod tests {
     #[test]
     fn clicks_log_scale_compresses() {
         let raw = vec![
-            RawFactors { centrality: 1.0, edge_quality: 1.0, clicks: 0,   recency: 0.0, source_backing: 0.0 },
-            RawFactors { centrality: 1.0, edge_quality: 1.0, clicks: 10,  recency: 0.0, source_backing: 0.0 },
-            RawFactors { centrality: 1.0, edge_quality: 1.0, clicks: 100, recency: 0.0, source_backing: 0.0 },
+            RawFactors {
+                centrality: 1.0,
+                edge_quality: 1.0,
+                clicks: 0,
+                recency: 0.0,
+                source_backing: 0.0,
+            },
+            RawFactors {
+                centrality: 1.0,
+                edge_quality: 1.0,
+                clicks: 10,
+                recency: 0.0,
+                source_backing: 0.0,
+            },
+            RawFactors {
+                centrality: 1.0,
+                edge_quality: 1.0,
+                clicks: 100,
+                recency: 0.0,
+                source_backing: 0.0,
+            },
         ];
         let p = compute_priorities(&raw);
         // 구조 팩터는 전부 동일 → 0. 오직 클릭항만 기여. ratio = ln(11)/ln(101) ≈ 0.52.
         let ratio = p[1] / p[2];
-        assert!(ratio > 0.4 && ratio < 0.6, "로그스케일 압축(ratio={ratio}, 선형이면 0.1)");
+        assert!(
+            ratio > 0.4 && ratio < 0.6,
+            "로그스케일 압축(ratio={ratio}, 선형이면 0.1)"
+        );
     }
 
     #[test]
