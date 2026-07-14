@@ -3,6 +3,7 @@ import { Button, FileDropzone, Icons, cn } from "../../ds";
 import type { KnowledgeSpace, WikiPage as WikiPageT } from "../../lib/types";
 import * as ipc from "../../lib/ipc";
 import { useImportStore } from "../../store/importStore";
+import { isSynthesisPage } from "../../lib/llmApply";
 import { draftNoteId } from "../../store/feynmanStore";
 import { useFeynmanEditor } from "./useFeynmanEditor";
 import { useInboxDraftStore, EMPTY_DRAFT, type InboxDraft, type PdfSummaryJob } from "../../store/inboxDraftStore";
@@ -106,6 +107,15 @@ export function InboxSection({
     spaceId: slug === space ? spaceId : (spaces.find((s) => s.slug === slug)?.id ?? spaceId),
     existing: slug === space ? existing : (wikiBySlug[slug] ?? []),
     subjectIds: slug === space ? subjectIdsDefault : (wikiBySlug[slug]?.[0]?.subjectIds ?? []),
+    // 다른 공간의 개념 — LLM 에게 함께 넘겨 폴더 간(CV↔LLM↔VLM) 관계를 만들게 한다.
+    // 저장 대상 공간은 건드리지 않는다(병합 대상 아님). 그래프 "전체 과목" 뷰가 다리를 그려 준다.
+    crossConcepts: Object.entries(wikiBySlug)
+      .filter(([s]) => s !== slug)
+      .flatMap(([s, pages]) =>
+        (pages ?? [])
+          .filter((w) => !isSynthesisPage(w))
+          .map((w) => ({ id: w.conceptId, title: w.title, space: s })),
+      ),
   });
   // ── 작성 상태 — 스토어 소유(탭 전환 언마운트에도 초안·PDF요약 스트림 생존). key = 이 노트 탭 id(draftKey) ──
   // 노트 = 탭 하나. 제목·본문·바인딩·패널·PDF·위키선택을 전부 draftKey 로 보존한다.
@@ -422,6 +432,7 @@ export function InboxSection({
       subjectIds: t.subjectIds,
       withLlm,
       existing: t.existing,
+      crossConcepts: t.crossConcepts,
       noteFile: reuse,
       feynmanNoteId: draftNoteId(draftKey),
     });

@@ -4,7 +4,7 @@ import * as ipc from "../lib/ipc";
 import { runWikiGeneration } from "../llm/generate";
 import { runWikiMerge } from "../llm/mergeWiki";
 import type { LlmWikiInput, LlmWikiResult } from "../llm/provider";
-import { applyLlmResult, embedSourceFiles, toExistingConcepts } from "../lib/llmApply";
+import { applyLlmResult, embedSourceFiles, toExistingConcepts, normalizeTitle } from "../lib/llmApply";
 import { maybeFactCheck } from "../lib/factCheck";
 import { chunkOpts } from "../lib/settings";
 import { useFeynmanStore, type SectionStatus } from "./feynmanStore";
@@ -36,6 +36,13 @@ export interface ImportJobView {
   feynmanUsed?: boolean; // 초안에서 한 파인만의 설명을 위키 생성 재료로 함께 넣었다
 }
 
+/** 다른 지식 공간의 개념 — 폴더 간(cross-space) 관계를 만들기 위한 LLM 힌트. */
+export interface CrossConcept {
+  id: string; // conceptId
+  title: string;
+  space: string; // 소속 공간 slug (디버그/표시용)
+}
+
 export interface RunImportParams {
   space: string;
   spaceId: string;
@@ -44,6 +51,12 @@ export interface RunImportParams {
   subjectIds: string[];
   withLlm: boolean;
   existing: WikiPage[];
+  /**
+   * 다른 공간의 개념들. LLM 입력에 함께 넣어 폴더를 넘나드는 관계를 만들게 한다.
+   * existing 과 달리 병합(merge) 대상이 아니다 — 저장은 언제나 이 공간에만 한다.
+   * 그래프 "전체 과목" 뷰가 전 공간 관계를 병합해 그리므로, 여기 저장된 교차 관계가 다리로 보인다.
+   */
+  crossConcepts?: CrossConcept[];
   /** 살아있는 노트 — 이미 저장된 노트의 파일명. 있으면 새로 만들지 않고 그 노트를 갱신한다(재저장 중복 방지). */
   noteFile?: string;
   /** 저장 전 초안에서 한 파인만의 노트 id (inbox:<space>) — 저장되면 진짜 sourceId 로 옮긴다 */
@@ -88,14 +101,23 @@ function loadLast(): ImportJobView | null {
 function apiKey(): string {
   return (typeof localStorage !== "undefined" && localStorage.getItem("gemini-key")) || "";
 }
-function buildInput(note: ArchiveNote, existing: WikiPage[]): LlmWikiInput {
+function buildInput(note: ArchiveNote, existing: WikiPage[], cross?: CrossConcept[]): LlmWikiInput {
+  // 이 공간의 기존 개념 — 중복 병합(dedup) 힌트이자 관계 대상.
+  const own = toExistingConcepts(existing);
+  // 다른 공간의 개념 — 폴더 간 관계를 만들라고 함께 넘긴다. 같은 제목이면 conceptId 가 같으므로
+  // (concept-{제목slug}) normalizedTitle 로 중복을 접는다. resolve 와 같은 normalizeTitle 을 써야 매칭된다.
+  const seen = new Set(own.map((c) => c.normalizedTitle));
+  const foreign = (cross ?? [])
+    .map((c) => ({ id: c.id, title: c.title, normalizedTitle: normalizeTitle(c.title) }))
+    .filter((c) => c.normalizedTitle && !seen.has(c.normalizedTitle) && seen.add(c.normalizedTitle));
+
   return {
     sourceTitle: note.title,
     sourceText: note.markdown,
     // 노트가 참조하는 원본 파일 — 없으면 sanitizeSourceRefs 가 모든 sourceRefs 를 제거한다.
     sourceFiles: embedSourceFiles(note.sourceId, note.markdown),
     subjects: note.subjectIds.map((id) => ({ id, name: id })),
-    existingConcepts: toExistingConcepts(existing),
+    existingConcepts: [...own, ...foreign],
   };
 }
 
@@ -124,8 +146,12 @@ export const useImportStore = create<ImportState>((set) => {
       fc.result,
       { sourceId: note.sourceId, archivePath: `archive/${note.path}`, title: note.title },
       p.existing,
-      // 본문 축적(방식 A) — 기존 개념에 얹힐 때만 2차 LLM 호출로 통합한다.
-      { mergeMarkdown: (md, c, src) => runWikiMerge(md, c, src, apiKey()) },
+      {
+        // 본문 축적(방식 A) — 기존 개념에 얹힐 때만 2차 LLM 호출로 통합한다.
+        mergeMarkdown: (md, c, src) => runWikiMerge(md, c, src, apiKey()),
+        // 폴더 간 관계용 타 공간 개념 — 관계 resolve 에만 쓰이고 위키 저장/병합엔 영향 없다.
+        cross: p.crossConcepts,
+      },
     );
     const done = commit({
       ...job,
@@ -169,7 +195,7 @@ export const useImportStore = create<ImportState>((set) => {
         }
 
         job = commit({ ...job, status: "llm_processing" });
-        const input = buildInput(note, p.existing);
+        const input = buildInput(note, p.existing, p.crossConcepts);
         // 사용자가 자기 말로 쓴 설명을 위키의 재료로 넣는다 — 원문(archive)은 건드리지 않는다.
         const transcript = feynmanTranscript(adopted);
         if (transcript) input.sourceText = `${input.sourceText}\n\n${transcript}`;

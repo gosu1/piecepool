@@ -1,11 +1,12 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { normalizeTitle, slugOrHash, toSourceRefs, embedSourceFiles, synthesisPage, isSynthesisPage, applyLlmResult, toExistingConcepts } from "./llmApply";
-import type { LlmConcept } from "../llm/provider";
-import type { ArchiveNote, SourceRef, WikiPage } from "./types";
+import type { LlmConcept, LlmRelation } from "../llm/provider";
+import type { ArchiveNote, Relation, SourceRef, WikiPage } from "./types";
+import * as ipc from "./ipc";
 
 vi.mock("./ipc", () => ({
   saveWiki: vi.fn(async (_space: string, page: unknown) => page),
-  appendRelations: vi.fn(async () => 0),
+  appendRelations: vi.fn(async (_space: string, relations: unknown[] = []) => relations.length),
 }));
 
 describe("concept dedup key (normalizedTitle)", () => {
@@ -298,5 +299,61 @@ describe("embedSourceFiles", () => {
   });
   it("embed 없으면(순수 텍스트 노트) 빈 배열", () => {
     expect(embedSourceFiles("s1", "# 그냥 텍스트\n[[위키링크]]는 embed 아님")).toEqual([]);
+  });
+});
+
+// ── 폴더 간(cross-space) 관계 ──
+// 관계는 개념 제목을 conceptId 로 해석(resolve)해 저장한다. 대상 개념이 이 공간에 없으면(다른 폴더)
+// resolve 가 null 을 반환해 그 관계가 조용히 버려진다. 이것이 "CV·LLM·VLM 폴더가 서로 안 이어지던" 원인.
+// deps.cross 로 타 공간 개념을 넘기면 그쪽을 가리키는 관계가 살아남는다.
+describe("applyLlmResult 폴더 간(cross-space) 관계", () => {
+  beforeEach(() => vi.mocked(ipc.appendRelations).mockClear());
+
+  // 이 공간의 새 개념(비전 트랜스포머)이 다른 공간의 개념(어텐션)을 used_in 으로 가리킨다.
+  const rel: LlmRelation = {
+    sourceConceptTitle: "비전 트랜스포머",
+    targetConceptTitle: "어텐션",
+    relationType: "used_in",
+    strength: 0.8,
+    confidence: 0.9,
+    explanation: "ViT 는 어텐션을 활용한다",
+    evidence: [],
+  };
+  const result = { concepts: [conceptNamed("비전 트랜스포머")], relations: [rel] };
+  const savedRelations = (): Relation[] => (vi.mocked(ipc.appendRelations).mock.calls[0]?.[1] as Relation[]) ?? [];
+
+  it("cross 없으면 타 공간 개념을 가리키는 관계는 버려진다 (회귀 이전 동작)", async () => {
+    const applied = await applyLlmResult("space", "sp-1", ["subj"], result, SRC, []);
+    // resolve 실패 → 관계 0건 → appendRelations 아예 호출 안 됨(relations.length ? 호출 : 0)
+    expect(vi.mocked(ipc.appendRelations)).not.toHaveBeenCalled();
+    expect(applied.relationCount).toBe(0);
+  });
+
+  it("cross 로 타 공간 개념을 주면 그 개념을 가리키는 관계가 살아남는다", async () => {
+    const applied = await applyLlmResult("space", "sp-1", ["subj"], result, SRC, [], {
+      cross: [{ id: "concept-attention", title: "어텐션" }],
+    });
+    const rels = savedRelations();
+    expect(rels).toHaveLength(1);
+    expect(rels[0].targetNodeId).toBe("concept-attention"); // 타 공간 conceptId 로 해석됨
+    expect(rels[0].sourceNodeId).toBe(`concept-${slugOrHash("비전 트랜스포머")}`); // 이 공간 새 개념
+    expect(applied.relationCount).toBe(1);
+  });
+
+  it("cross 개념은 위키로 저장되지 않는다 — 관계 해석에만 쓰고 이 공간 개념만 만든다", async () => {
+    const applied = await applyLlmResult("space", "sp-1", ["subj"], result, SRC, [], {
+      cross: [{ id: "concept-attention", title: "어텐션" }],
+    });
+    // 저장된 위키는 이 공간의 '비전 트랜스포머' 하나뿐 — '어텐션'은 만들지 않는다.
+    expect(applied.pages).toHaveLength(1);
+    expect(applied.pages[0].title).toBe("비전 트랜스포머");
+  });
+
+  it("제목 정규화(NFC·대소문자·공백)를 넘어 매칭된다 — 'Attention' 로 나와도 'attention' 개념에 붙는다", async () => {
+    const upper = { concepts: [conceptNamed("비전 트랜스포머")], relations: [{ ...rel, targetConceptTitle: "  ATTENTION " }] };
+    await applyLlmResult("space", "sp-1", ["subj"], upper, SRC, [], {
+      cross: [{ id: "concept-attention", title: "attention" }],
+    });
+    expect(savedRelations()[0]?.targetNodeId).toBe("concept-attention");
   });
 });

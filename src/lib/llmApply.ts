@@ -156,6 +156,14 @@ export interface ApplyDeps {
    * 새 내용을 못 얹을지언정 이미 쌓인 지식을 덮지는 않는다.
    */
   mergeMarkdown?: (existingMarkdown: string, c: LlmConcept, source: ImportSource) => Promise<string>;
+  /**
+   * 다른 공간(폴더)의 개념 — 폴더 간(cross-space) 관계를 만들기 위한 것.
+   * **병합 대상이 아니다** — 위키는 언제나 이 공간에만 저장하고, cross 는 관계의 source/target 제목을
+   * conceptId 로 해석(resolve)할 때만 참조한다. 이걸 넣어야 CV 의 개념이 LLM 의 개념을 가리키는 관계가
+   * 살아남는다(안 넣으면 resolve 가 null 을 반환해 조용히 버려진다). 그래프 "전체 과목" 뷰가 전 공간
+   * 관계를 병합해 그리므로, 여기서 저장된 교차 관계가 폴더 사이 다리로 보인다.
+   */
+  cross?: Array<{ id: string; title: string }>;
 }
 
 // 병합 본문 결정. 통합에 실패하면 기존 본문을 그대로 둔다 — 새 내용을 못 얹는 것보다
@@ -216,10 +224,17 @@ export async function applyLlmResult(
   }
   for (const p of pages) await ipc.saveWiki(space, p);
 
-  // 관계: 개념 제목 → conceptId (이번 결과 ∪ 기존). 미해결이면 스킵.
+  // 관계: 개념 제목 → conceptId (이번 결과 ∪ 이 공간 기존 ∪ 다른 공간). 미해결이면 스킵.
+  // 다른 공간까지 보는 이유: LLM 에게 타 공간 개념을 힌트로 줬으므로 그쪽을 가리키는 관계가 나온다.
+  // 여기서 해석해 주지 않으면 그 관계가 전부 조용히 버려져 폴더 간 다리가 영영 안 생긴다.
+  const crossByNorm = new Map<string, string>();
+  for (const c of deps?.cross ?? []) {
+    const n = normalizeTitle(c.title);
+    if (n && !crossByNorm.has(n)) crossByNorm.set(n, c.id);
+  }
   const resolve = (title: string): string | null => {
     const norm = normalizeTitle(title);
-    return conceptMap.get(norm) ?? byNorm.get(norm)?.conceptId ?? null;
+    return conceptMap.get(norm) ?? byNorm.get(norm)?.conceptId ?? crossByNorm.get(norm) ?? null;
   };
   const relations: Relation[] = [];
   result.relations.forEach((r, i) => {
