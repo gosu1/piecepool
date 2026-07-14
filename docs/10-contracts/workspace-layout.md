@@ -152,11 +152,16 @@ Wiki에서 `[[파일명]]` / `![[파일명]]` 문법으로 참조하는 대상�
 
 | 대상 | 규약 | 예시 |
 |---|---|---|
-| 지식 영역 폴더 slug | kebab-case, ASCII 소문자 | `deeplearning`, `operating-systems` |
+| 지식 영역 폴더명(`slug`) | **표시 이름 그대로** (한글 등 유니코드 허용). 경로 위험 문자(`/` `\` `:` NUL·제어문자)만 `-` 로 치환, 연속 공백 축약, 앞 `.` 제거. 빈 값이면 `untitled`. 충돌 시 `이름 2`, `이름 3` … | `운영체제`, `AI 딥러닝` |
 | archive 파일명 | `YYYY-MM-DD-slug.md` | `2026-05-28-transformer-lecture.md` |
 | wiki 파일명 | concept slug `.md` (소문자 영문/숫자/하이픈) | `self-attention.md` |
 | sources/original-files 파일명 | 원본 파일명 보존 (가능 시) | `transformer-week3.pdf` |
 | `relations.json` 인코딩 | UTF-8, LF 줄바꿈, 2-space indent | — |
+
+- **지식 영역 폴더명은 사용자가 화면에서 본 이름과 항상 같다.** 사용자가 Finder/탐색기로 워크스페이스를 열었을 때 앱 사이드바와 폴더명이 일치해야 한다. 따라서 표시 이름을 바꾸면 **디스크 폴더도 함께 옮기고** `slug`·`rootPath` 를 갱신한다. (폴더 이동이 실패하면 `spaces.json` 은 건드리지 않는다.)
+- 폴더명이 곧 `slug` 이므로 `slug` 는 표시 이름을 따라 바뀐다. 노트·위키 파일은 지식 영역 `slug` 를 참조하지 않으므로(frontmatter 에 없음) 이름 변경이 파일 내용을 무효화하지 않는다.
+- `config` 는 Workspace 설정 디렉토리라 지식 영역 폴더명으로 쓸 수 없다(충돌 시 `config 2`).
+- archive/wiki **파일명**은 종전대로 ASCII slug 를 유지한다 — 위 규칙은 지식 영역 **폴더**에만 적용된다.
 
 ---
 

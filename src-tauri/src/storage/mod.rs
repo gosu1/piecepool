@@ -333,14 +333,61 @@ pub fn name_hash(input: &str) -> String {
 }
 
 /// slugify 하되, ASCII 영숫자가 하나도 없으면(순수 한글 등) 이름 해시로 유니크 ASCII slug 를 만든다.
-/// slugify 는 비ASCII 를 전부 버려 한글 폴더/파일이 모두 "untitled" 로 겹치므로, 공간 slug 와
-/// 원본 파일명 stem 에서 이 함수를 쓴다. (계약: slug = ASCII kebab 유지)
+/// slugify 는 비ASCII 를 전부 버려 한글 폴더/파일이 모두 "untitled" 로 겹치므로,
+/// 원본 파일명 stem 에서 이 함수를 쓴다. (계약: 파일명 slug = ASCII kebab 유지)
 pub fn slug_or_hash(input: &str) -> String {
     if input.chars().any(|c| c.is_ascii_alphanumeric()) {
         slugify(input)
     } else {
         name_hash(input)
     }
+}
+
+/// Workspace 루트에서 지식 영역이 쓸 수 없는 이름(설정 디렉토리와 충돌).
+pub const RESERVED_SPACE_DIR: &[&str] = &["config"];
+
+/// 지식 영역 폴더명. 표시 이름을 그대로 쓴다(한글 보존) — Finder 에서 본 이름과 같게.
+/// 경로에 위험한 문자만 `-` 로 치환하고, 연속 공백을 접고, 숨김 파일이 되지 않게 앞 `.` 을 떼어낸다.
+/// 계약: docs/10-contracts/workspace-layout.md §4.
+pub fn space_dir_name(input: &str) -> String {
+    let mut out = String::new();
+    let mut prev_space = false;
+    for ch in input.trim().chars() {
+        if ch.is_whitespace() {
+            if !prev_space && !out.is_empty() {
+                out.push(' ');
+                prev_space = true;
+            }
+            continue;
+        }
+        prev_space = false;
+        match ch {
+            '/' | '\\' | ':' | '\0' => out.push('-'),
+            c if c.is_control() => out.push('-'),
+            c => out.push(c),
+        }
+    }
+    let s = out.trim().trim_start_matches('.').trim().to_string();
+    if s.is_empty() {
+        "untitled".into()
+    } else {
+        s
+    }
+}
+
+/// 지식 영역 폴더를 옮긴다(표시 이름 변경 시). 대상이 이미 있으면 실패한다.
+pub fn rename_space_dir(old: &str, new: &str) -> Result<()> {
+    let (from, to) = (space_dir(old), space_dir(new));
+    if from == to {
+        return Ok(());
+    }
+    if to.exists() {
+        return Err(AppError {
+            kind: "conflict".into(),
+            message: format!("이미 있는 폴더입니다: {}", to.display()),
+        });
+    }
+    fs::rename(&from, &to).map_err(|e| io_err(&format!("rename {}", from.display()), e))
 }
 
 /// 간단한 안정 식별자(시간 기반). ULID 대체(contract 허용: "ULID 또는 안정 식별자").
