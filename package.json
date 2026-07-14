@@ -43,6 +43,7 @@
     "classify": "tsx --env-file-if-exists=.env scripts/classify-preview.ts",
     "provenance": "tsx --env-file-if-exists=.env scripts/provenance-preview.ts",
     "tauri": "tauri",
+    "icon": "tauri icon app-icon.svg",
     "eval:feynman": "tsx --env-file-if-exists=.env scripts/feynman-eval.ts"
   },
   "dependencies": {
