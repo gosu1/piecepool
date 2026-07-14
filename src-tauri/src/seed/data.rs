@@ -83,7 +83,7 @@ fn os(now: &str) -> SpaceSeed {
         ),
     ];
     SpaceSeed {
-        space: space("space-os", "운영체제", "operating-systems", now),
+        space: space("space-os", "운영체제", "운영체제", now),
         subjects: vec![
             subject("subject-os", "space-os", "운영체제론", "#0075de", now),
         ],
@@ -140,7 +140,7 @@ fn ai(now: &str) -> SpaceSeed {
         ),
     ];
     SpaceSeed {
-        space: space("space-ai", "AI 딥러닝", "deeplearning", now),
+        space: space("space-ai", "AI 딥러닝", "AI 딥러닝", now),
         subjects: vec![
             subject("subject-ai", "space-ai", "AI 딥러닝", "#2a9d99", now),
         ],
@@ -174,7 +174,7 @@ fn statistics(now: &str) -> SpaceSeed {
         rel("space-stats", "gradient-descent", "linear-regression", RelationType::UsedIn, 0.8, 0.9, "선형회귀의 가중치 학습에서 손실을 최소화하는 방법으로 경사하강법이 활용된다.", now),
     ];
     SpaceSeed {
-        space: space("space-stats", "통계학", "statistics", now),
+        space: space("space-stats", "통계학", "통계학", now),
         subjects: vec![
             subject("subject-stats", "space-stats", "통계학", "#8a5cf6", now),
             subject("subject-ml", "space-stats", "머신러닝", "#0075de", now),
@@ -308,7 +308,7 @@ fn economics(now: &str) -> SpaceSeed {
         ),
     ];
     SpaceSeed {
-        space: space("space-econ", "경제학", "economics", now),
+        space: space("space-econ", "경제학", "경제학", now),
         subjects: vec![
             subject("subject-econ", "space-econ", "경제원론", "#e8590c", now),
             subject("subject-calculus", "space-econ", "미적분학", "#0075de", now),
@@ -432,7 +432,7 @@ fn physiology(now: &str) -> SpaceSeed {
         ),
     ];
     SpaceSeed {
-        space: space("space-physio", "생리학", "physiology", now),
+        space: space("space-physio", "생리학", "생리학", now),
         subjects: vec![
             subject("subject-physio", "space-physio", "인체생리학", "#2a9d99", now),
             subject("subject-chem", "space-physio", "일반화학", "#0075de", now),

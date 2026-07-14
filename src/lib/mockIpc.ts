@@ -16,7 +16,7 @@ import { groupOf } from "./relationMeta";
 
 const NOW = "2026-07-01T00:00:00Z";
 let memNotes: Record<string, ArchiveNote[]> = {
-  "operating-systems": [
+  "운영체제": [
     {
       id: "source-os-overview",
       spaceId: "space-os",
@@ -30,24 +30,24 @@ let memNotes: Record<string, ArchiveNote[]> = {
       updatedAt: NOW,
     },
   ],
-  deeplearning: [],
-  "statistics": [
+  "AI 딥러닝": [],
+  "통계학": [
     { id: "source-stats-lecture", spaceId: "space-stats", sourceId: "source-stats-lecture", path: "2026-07-01-statistics.md", title: "확률과 통계 3주차 — 가설검정", markdown: "가설검정 = 표본에서 얻은 증거로 모집단에 대한 주장을 판정하는 절차. 귀무가설 H₀ 세우고 유의수준 α(보통 0.05)를 미리 정함 — α는 제1종 오류(참인데 기각) 허용 확률이고, 제2종 오류(거짓인데 못 기각)랑은 트레이드오프!! p-값이 α보다 작으면 H₀ 기각. 검정통계량 계산하려면 표본분포를 알아야 하는데, 표본분포도 결국 통계량이 따르는 확률분포의 일종이고, 모분산 모르면 정규분포 대신 t-분포 씀(자유도 커지면 정규 근사). 교수님 왈: 회귀분석에서 회귀계수 유의성 따질 때도 이 가설검정을 그대로 쓴다 — 머신러닝 수업에서 배운 선형회귀랑 사실상 같은 모형인데, 거긴 같은 최소제곱 목적함수를 정규방정식 대신 경사하강법으로 최적화해서 파라미터를 학습한다고 함.", subjectIds: ["subject-stats"], createdAt: NOW, updatedAt: NOW },
   ],
-  "economics": [
+  "경제학": [
     { id: "source-econ-lecture", spaceId: "space-econ", sourceId: "source-econ-lecture", path: "2026-07-01-economics.md", title: "경제원론 2장 — 시장의 작동 (강의 필기)", markdown: "수요곡선이랑 공급곡선이 만나는 점에서 **시장균형** — 균형가격에선 초과수요·초과공급 0. 가격이 변하면 수요량이 얼마나 반응하는지가 **가격탄력성**(수요량 변화율 ÷ 가격 변화율), 이게 수요·공급 이론의 핵심 파트라고 하심. **한계비용** MC는 총비용을 생산량으로 미분한 값 dTC/dQ — 미적분학에서 배운 **미분(도함수)** 그대로 나와서 놀람, 탄력성 계산도 점탄력성은 도함수 쓴다고. 거시 맛보기: **기준금리** 올리면 자금 비용 올라서 **투자** 줄고, 그걸로 **인플레이션** 잡는다 — **디플레이션**은 반대로 물가가 계속 떨어지는 거니까 헷갈리지 말 것. **국내총생산** GDP = C+I+G+NX 라서 투자도 그 한 항목이고, **명목GDP**는 그 해 가격으로 잰 거라 실질GDP랑 구분해야 함.", subjectIds: ["subject-econ"], createdAt: NOW, updatedAt: NOW },
   ],
-  "physiology": [
+  "생리학": [
     { id: "source-physio-endocrine", spaceId: "space-physio", sourceId: "source-physio-endocrine", path: "2026-07-01-physiology.md", title: "인체생리학 7장 내분비 · 세포 구성단계 필기", markdown: "7/10 생리학 7장 내분비\n- 몸 구성 단계: 세포 → 조직 → 기관 → 기관계 (작은 게 모여 큰 거 이룸!). 조직 = 비슷한 세포들 모임, 기관 = 여러 조직, 기관계 = 여러 기관.\n- 인슐린: 이자 β세포에서 분비. 포도당을 세포 안으로 넣어서 혈당 낮춤. 반대로 글루카곤(α세포)은 혈당 올림 → 둘이 길항!!\n- 인슐린 부족/작용저하 → 고혈당 → 당뇨. 그래서 인슐린으로 고혈당을 잡는다.\n- 물질 이동: 확산 = 농도 높은 데→낮은 데, 에너지 필요 X. 화학 시간에 배운 '농도 기울기'가 확산의 원인. 삼투는 물(용매) 버전 (반투막) — 확산이랑 헷갈리지 말기!\n- 자율신경: 교감(긴장·투쟁도피) vs 부교감(안정·휴식) 서로 반대로 작용.", subjectIds: ["subject-physio"], createdAt: NOW, updatedAt: NOW },
   ],
 };
 
 const SPACES: KnowledgeSpace[] = [
-  { id: "space-os", name: "운영체제", slug: "operating-systems", rootPath: "", createdAt: NOW, updatedAt: NOW },
-  { id: "space-ai", name: "AI 딥러닝", slug: "deeplearning", rootPath: "", createdAt: NOW, updatedAt: NOW },
-  { id: "space-stats", name: "통계학", slug: "statistics", rootPath: "", createdAt: NOW, updatedAt: NOW },
-  { id: "space-econ", name: "경제학", slug: "economics", rootPath: "", createdAt: NOW, updatedAt: NOW },
-  { id: "space-physio", name: "생리학", slug: "physiology", rootPath: "", createdAt: NOW, updatedAt: NOW },
+  { id: "space-os", name: "운영체제", slug: "운영체제", rootPath: "", createdAt: NOW, updatedAt: NOW },
+  { id: "space-ai", name: "AI 딥러닝", slug: "AI 딥러닝", rootPath: "", createdAt: NOW, updatedAt: NOW },
+  { id: "space-stats", name: "통계학", slug: "통계학", rootPath: "", createdAt: NOW, updatedAt: NOW },
+  { id: "space-econ", name: "경제학", slug: "경제학", rootPath: "", createdAt: NOW, updatedAt: NOW },
+  { id: "space-physio", name: "생리학", slug: "생리학", rootPath: "", createdAt: NOW, updatedAt: NOW },
 ];
 
 // 공간별 원본 노트 — Rust seed/data.rs 의 with_source 와 같은 매핑.
@@ -79,19 +79,19 @@ function wiki(space: string, concept: string, title: string, body: string, subje
 }
 
 const WIKI: Record<string, WikiPage[]> = {
-  "operating-systems": [
+  "운영체제": [
     wiki("space-os", "process", "프로세스", "# 프로세스\n\n프로세스는 실행 중인 프로그램의 인스턴스다. 코드·데이터·스택·PCB로 구성된다.\n\n## 상태\n\n생성 → 준비 → 실행 → 대기 → 종료.\n\n## 관련 개념\n\n실행 단위는 [[스레드]], 실행 순서는 [[CPU 스케줄링]]이 결정한다."),
     wiki("space-os", "thread", "스레드", "# 스레드\n\n스레드는 프로세스 내부의 실행 단위다. 같은 프로세스의 스레드는 코드·데이터·힙을 공유한다."),
     wiki("space-os", "cpu-scheduling", "CPU 스케줄링", "# CPU 스케줄링\n\n실행 가능한 프로세스들 사이에서 CPU를 할당한다. 선점형/비선점형.\n\n- FCFS, SJF, Round Robin, Priority"),
     wiki("space-os", "synchronization", "동기화", "# 동기화\n\n공유 자원 동시 접근을 조율한다. 임계 구역 문제를 뮤텍스·세마포어·모니터로 해결한다.\n\n여러 [[스레드]]가 경쟁할 때 잘못 다루면 [[교착상태]]가 발생한다."),
     wiki("space-os", "deadlock", "교착상태", "# 교착상태 (Deadlock)\n\n둘 이상의 프로세스가 서로의 자원을 기다리며 진행하지 못하는 상태.\n\n## 발생 조건\n\n상호 배제, 점유와 대기, 비선점, 순환 대기."),
   ],
-  deeplearning: [
+  "AI 딥러닝": [
     wiki("space-ai", "transformer", "트랜스포머", "# 트랜스포머\n\nself-attention 만으로 시퀀스를 처리하는 신경망 구조. 인코더-디코더."),
     wiki("space-ai", "self-attention", "셀프 어텐션", "# 셀프 어텐션\n\n토큰들이 서로의 관계를 계산해 문맥 표현을 만든다. Query·Key·Value 내적."),
     wiki("space-ai", "embedding", "임베딩", "# 임베딩\n\n토큰을 연속 벡터 공간으로 사상한다. 의미가 가까우면 벡터도 가깝다."),
   ],
-  "statistics": [
+  "통계학": [
     wiki("space-stats", "hypothesis-testing", "가설검정", "# 가설검정\n\n표본에서 얻은 증거로 모집단에 대한 주장을 통계적으로 판정하는 절차. 귀무가설을 세우고, 정한 유의수준 아래에서 기각 여부를 결정한다.", "subject-stats"),
     wiki("space-stats", "probability-distribution", "확률분포", "# 확률분포\n\n확률변수가 가질 수 있는 각 값(또는 구간)에 확률을 대응시키는 규칙. 이산형은 확률질량함수, 연속형은 확률밀도함수로 기술하며, 정규분포·이항분포 등이 대표적이다. [[표본분포]]를 비롯한 추론통계의 모든 계산이 확률분포 위에서 이루어진다.", "subject-stats"),
     wiki("space-stats", "sampling-distribution", "표본분포", "# 표본분포\n\n표본평균 같은 통계량이 표본추출을 반복할 때 따르는 확률분포. 중심극한정리에 의해 모집단의 분산이 유한하면, 표본 크기가 클 때 표본평균의 분포는 모집단 분포의 형태와 무관하게 정규분포에 근사한다. [[가설검정]]과 신뢰구간 추정의 이론적 기반이 된다.", "subject-stats"),
@@ -104,7 +104,7 @@ const WIKI: Record<string, WikiPage[]> = {
     wiki("space-stats", "linear-regression", "선형회귀", "# 선형회귀\n\n입력 특성들의 선형결합으로 연속적인 목표값을 예측하는 지도학습 모델. 평균제곱오차(MSE) 손실을 최소화하도록 가중치를 학습하며, 정규방정식으로 닫힌 해를 구하거나 [[경사하강법]]으로 반복 최적화한다. 통계학의 [[회귀분석]]과 본질적으로 같은 모형을 다른 관점에서 다룬다.", "subject-ml"),
     wiki("space-stats", "gradient-descent", "경사하강법", "# 경사하강법\n\n손실함수의 기울기(gradient) 반대 방향으로 파라미터를 반복 갱신하여 최솟값을 찾아가는 최적화 알고리즘. 학습률이 한 번에 이동하는 스텝 크기를 결정한다. [[선형회귀]]부터 신경망까지 미분 가능한 모델의 학습에 널리 쓰인다.", "subject-ml"),
   ],
-  "economics": [
+  "경제학": [
     wiki("space-econ", "supply-and-demand", "수요·공급", "# 수요·공급\n\n시장에서 가격과 거래량이 결정되는 기본 원리. 수요곡선과 공급곡선이 만나는 점에서 시장이 균형에 이르고, 그 반응 정도를 탄력성으로 잰다.", "subject-econ"),
     wiki("space-econ", "market-equilibrium", "시장균형", "# 시장균형\n\n수요량과 공급량이 일치하여 가격이 더 움직일 유인이 없는 상태. 이때의 가격을 균형가격, 거래량을 균형거래량이라 하며 초과수요와 초과공급이 모두 0이다. 가격이 균형보다 높으면 초과공급으로 하락 압력이, 낮으면 초과수요로 상승 압력이 생겨 시장은 균형으로 수렴한다. [[수요·공급]]의 틀 위에서 정의되는 개념이다.", "subject-econ"),
     wiki("space-econ", "price-elasticity", "가격탄력성", "# 가격탄력성\n\n가격이 1% 변할 때 수요량(또는 공급량)이 몇 % 변하는지를 나타내는 지표. 수요의 가격탄력성은 수요량 변화율을 가격 변화율로 나눈 값으로, 절댓값이 1보다 크면 탄력적, 작으면 비탄력적이라 한다. [[수요·공급]] 이론에서 시장이 가격 변화에 얼마나 민감하게 반응하는지를 재는 도구이며, 기업의 가격 전략이나 조세 부담의 귀착 분석에 쓰인다. 한 점에서의 점탄력성은 [[미분(도함수)]]를 이용해 계산한다.", "subject-econ"),
@@ -117,7 +117,7 @@ const WIKI: Record<string, WikiPage[]> = {
     wiki("space-econ", "nominal-gdp", "명목GDP", "# 명목GDP\n\n해당 연도의 시장가격(경상가격)으로 계산한 [[국내총생산]]. 생산량 변화와 물가 변화가 함께 섞여 있어, 물가가 오르기만 해도 커질 수 있다. 그래서 실제 생산의 변화를 보려면 기준연도 가격으로 계산한 실질GDP와 비교해야 하며, 두 값의 비율(명목GDP ÷ 실질GDP × 100)이 물가지표인 GDP 디플레이터가 된다.", "subject-econ"),
     wiki("space-econ", "derivative", "미분(도함수)", "# 미분(도함수)\n\n함수의 순간 변화율을 나타내는 개념. 도함수 f′(x)는 x가 아주 조금 변할 때 f(x)가 얼마나 변하는지의 극한값으로 정의된다. 경제학의 '한계(marginal)' 개념 — [[한계비용]], 한계수입, 한계효용 — 은 모두 해당 함수의 도함수이며, [[가격탄력성]] 같은 반응도 지표 계산에도 쓰인다. 미적분학에서 배우지만 경제 분석 전반의 수학적 언어 역할을 한다.", "subject-calculus"),
   ],
-  "physiology": [
+  "생리학": [
     wiki("space-physio", "organ-system", "기관계", "# 기관계\n공통된 생리 기능을 수행하기 위해 여러 [[기관]]이 모여 이룬 상위 구조 단위다. 소화계·순환계·내분비계처럼 하나의 통합된 기능을 담당한다. 인체는 여러 기관계가 서로 협력하며 항상성을 유지한다.", "subject-physio"),
     wiki("space-physio", "organ", "기관", "# 기관\n서로 다른 [[조직]]들이 모여 특정 기능을 수행하는 구조 단위다. 위·심장·이자처럼 뚜렷한 형태와 기능을 가진다. 여러 기관이 모여 [[기관계]]를 이룬다.", "subject-physio"),
     wiki("space-physio", "tissue", "조직", "# 조직\n비슷한 형태와 기능을 가진 [[세포]]들이 모여 이룬 단위다. 상피·결합·근육·신경 조직의 네 가지 기본 유형으로 나뉜다. 조직이 모여 [[기관]]을 구성한다.", "subject-physio"),
@@ -150,19 +150,19 @@ function rel(space: string, s: string, t: string, type: string, strength: number
 }
 
 const RELATIONS: Record<string, Relation[]> = {
-  "operating-systems": [
+  "운영체제": [
     rel("space-os", "thread", "process", "part_of", 0.9),
     rel("space-os", "cpu-scheduling", "process", "used_in", 0.8),
     rel("space-os", "synchronization", "process", "related_to", 0.6),
     rel("space-os", "synchronization", "thread", "prerequisite", 0.5),
     rel("space-os", "synchronization", "deadlock", "causes", 0.85),
   ],
-  deeplearning: [
+  "AI 딥러닝": [
     rel("space-ai", "self-attention", "transformer", "part_of", 0.9),
     rel("space-ai", "embedding", "transformer", "prerequisite", 0.7),
     rel("space-ai", "embedding", "self-attention", "used_in", 0.6),
   ],
-  "statistics": [
+  "통계학": [
     rel("space-stats", "sampling-distribution", "probability-distribution", "prerequisite", 0.9, "표본분포는 통계량이 따르는 확률분포이므로, 확률분포 개념을 먼저 알아야 이해할 수 있다."),
     rel("space-stats", "hypothesis-testing", "sampling-distribution", "prerequisite", 0.9, "검정통계량의 기각역과 p-값은 표본분포를 알아야 계산할 수 있으므로 표본분포가 가설검정의 선수 개념이다."),
     rel("space-stats", "t-distribution", "hypothesis-testing", "used_in", 0.85, "모분산을 모르는 평균 검정에서 검정통계량이 t-분포를 따르므로 가설검정에 t-분포가 활용된다."),
@@ -173,7 +173,7 @@ const RELATIONS: Record<string, Relation[]> = {
     rel("space-stats", "regression-analysis", "linear-regression", "related_to", 0.85, "통계학의 회귀분석과 머신러닝의 선형회귀는 사실상 같은 모형을 서로 다른 과목의 관점에서 다룬다."),
     rel("space-stats", "gradient-descent", "linear-regression", "used_in", 0.8, "선형회귀의 가중치 학습에서 손실을 최소화하는 방법으로 경사하강법이 활용된다."),
   ],
-  "economics": [
+  "경제학": [
     rel("space-econ", "price-elasticity", "supply-and-demand", "part_of", 0.8, "가격탄력성은 수요·공급 이론에서 가격 변화에 대한 반응 정도를 재는 한 부분이다."),
     rel("space-econ", "market-equilibrium", "supply-and-demand", "prerequisite", 0.9, "수요·공급의 원리를 먼저 알아야 두 곡선이 만나 이루는 시장균형을 이해할 수 있다."),
     rel("space-econ", "marginal-cost", "market-equilibrium", "used_in", 0.7, "한계비용은 기업의 공급 결정(P=MC)을 통해 시장균형 분석에서 활용된다."),
@@ -185,7 +185,7 @@ const RELATIONS: Record<string, Relation[]> = {
     rel("space-econ", "investment", "gdp", "part_of", 0.85, "투자는 국내총생산의 지출 구성(C+I+G+NX) 가운데 한 항목이다."),
     rel("space-econ", "nominal-gdp", "gdp", "prerequisite", 0.8, "국내총생산 개념을 먼저 알아야 그것을 경상가격으로 잰 명목GDP를 이해할 수 있다."),
   ],
-  "physiology": [
+  "생리학": [
     rel("space-physio", "cell", "tissue", "part_of", 0.9, "세포는 조직을 이루는 한 부분이에요."),
     rel("space-physio", "tissue", "organ", "part_of", 0.9, "조직은 기관을 이루는 한 부분이에요."),
     rel("space-physio", "organ", "organ-system", "part_of", 0.9, "기관은 기관계를 이루는 한 부분이에요."),
@@ -199,11 +199,11 @@ const RELATIONS: Record<string, Relation[]> = {
 };
 
 const SUBJECTS: Record<string, Subject[]> = {
-  "operating-systems": [{ id: "subject-os", spaceId: "space-os", name: "운영체제론", color: "#0075de", createdAt: NOW, updatedAt: NOW }],
-  deeplearning: [{ id: "subject-ai", spaceId: "space-ai", name: "AI 딥러닝", color: "#2a9d99", createdAt: NOW, updatedAt: NOW }],
-  "statistics": [{ id: "subject-stats", spaceId: "space-stats", name: "통계학", color: "#8a5cf6", createdAt: NOW, updatedAt: NOW }, { id: "subject-ml", spaceId: "space-stats", name: "머신러닝", color: "#0075de", createdAt: NOW, updatedAt: NOW }],
-  "economics": [{ id: "subject-econ", spaceId: "space-econ", name: "경제원론", color: "#e8590c", createdAt: NOW, updatedAt: NOW }, { id: "subject-calculus", spaceId: "space-econ", name: "미적분학", color: "#0075de", createdAt: NOW, updatedAt: NOW }],
-  "physiology": [{ id: "subject-physio", spaceId: "space-physio", name: "인체생리학", color: "#2a9d99", createdAt: NOW, updatedAt: NOW }, { id: "subject-chem", spaceId: "space-physio", name: "일반화학", color: "#0075de", createdAt: NOW, updatedAt: NOW }],
+  "운영체제": [{ id: "subject-os", spaceId: "space-os", name: "운영체제론", color: "#0075de", createdAt: NOW, updatedAt: NOW }],
+  "AI 딥러닝": [{ id: "subject-ai", spaceId: "space-ai", name: "AI 딥러닝", color: "#2a9d99", createdAt: NOW, updatedAt: NOW }],
+  "통계학": [{ id: "subject-stats", spaceId: "space-stats", name: "통계학", color: "#8a5cf6", createdAt: NOW, updatedAt: NOW }, { id: "subject-ml", spaceId: "space-stats", name: "머신러닝", color: "#0075de", createdAt: NOW, updatedAt: NOW }],
+  "경제학": [{ id: "subject-econ", spaceId: "space-econ", name: "경제원론", color: "#e8590c", createdAt: NOW, updatedAt: NOW }, { id: "subject-calculus", spaceId: "space-econ", name: "미적분학", color: "#0075de", createdAt: NOW, updatedAt: NOW }],
+  "생리학": [{ id: "subject-physio", spaceId: "space-physio", name: "인체생리학", color: "#2a9d99", createdAt: NOW, updatedAt: NOW }, { id: "subject-chem", spaceId: "space-physio", name: "일반화학", color: "#0075de", createdAt: NOW, updatedAt: NOW }],
 };
 
 const delay = <T>(v: T) => new Promise<T>((r) => setTimeout(() => r(v), 60));

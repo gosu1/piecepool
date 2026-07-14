@@ -16,8 +16,22 @@ pub fn list_spaces() -> Result<Vec<KnowledgeSpace>, String> {
     storage::read_json(&storage::config_dir().join("spaces.json")).map_err(|e| e.to_string())
 }
 
-/// 새 지식 영역(공간)을 만든다. 이름을 slug 로 변환(충돌 시 접미사)하고 표준 디렉토리 트리를
-/// 생성한 뒤 config/spaces.json 에 추가한다. 생성된 KnowledgeSpace 를 반환.
+/// 이름과 충돌하지 않는 지식 영역 폴더명을 고른다. 이미 있으면 `이름 2`, `이름 3` … 접미사.
+fn unique_dir_name(name: &str, spaces: &[KnowledgeSpace]) -> String {
+    let base = storage::space_dir_name(name);
+    let taken =
+        |c: &str| spaces.iter().any(|s| s.slug == c) || storage::RESERVED_SPACE_DIR.contains(&c);
+    let mut slug = base.clone();
+    let mut n = 2;
+    while taken(&slug) {
+        slug = format!("{base} {n}");
+        n += 1;
+    }
+    slug
+}
+
+/// 새 지식 영역(공간)을 만든다. 표시 이름을 그대로 폴더명으로 쓰고(충돌 시 접미사) 표준 디렉토리
+/// 트리를 생성한 뒤 config/spaces.json 에 추가한다. 생성된 KnowledgeSpace 를 반환.
 #[tauri::command]
 pub fn create_space(name: String) -> Result<KnowledgeSpace, String> {
     seed::ensure_seed().map_err(|e| e.to_string())?;
@@ -30,15 +44,7 @@ pub fn create_space(name: String) -> Result<KnowledgeSpace, String> {
     let mut spaces: Vec<KnowledgeSpace> =
         storage::read_json(&spaces_path).map_err(|e| e.to_string())?;
 
-    // slug 충돌 방지 — 이미 있으면 slug-2, slug-3 …
-    // 순수 한글 등 비ASCII 이름은 slugify 가 "untitled" 로 뭉개지므로 이름 해시로 유니크화한다.
-    let base = storage::slug_or_hash(name);
-    let mut slug = base.clone();
-    let mut n = 2;
-    while spaces.iter().any(|s| s.slug == slug) {
-        slug = format!("{base}-{n}");
-        n += 1;
-    }
+    let slug = unique_dir_name(name, &spaces);
 
     storage::ensure_space_tree(&slug).map_err(|e| e.to_string())?;
 
@@ -56,7 +62,8 @@ pub fn create_space(name: String) -> Result<KnowledgeSpace, String> {
     Ok(space)
 }
 
-/// 지식 영역(공간)의 표시 이름을 바꾼다. slug/폴더는 그대로 유지 — 참조 안정(rename_note 와 동일 규칙).
+/// 지식 영역(공간)의 표시 이름을 바꾼다. 폴더명은 표시 이름과 같아야 하므로(계약 §4) 디스크 폴더도
+/// 함께 옮기고 slug/rootPath 를 갱신한다. 폴더 이동이 실패하면 spaces.json 은 건드리지 않는다.
 #[tauri::command]
 pub fn rename_space(slug: String, new_name: String) -> Result<KnowledgeSpace, String> {
     let name = new_name.trim();
@@ -66,11 +73,23 @@ pub fn rename_space(slug: String, new_name: String) -> Result<KnowledgeSpace, St
     let spaces_path = storage::config_dir().join("spaces.json");
     let mut spaces: Vec<KnowledgeSpace> =
         storage::read_json(&spaces_path).map_err(|e| e.to_string())?;
+    if !spaces.iter().any(|s| s.slug == slug) {
+        return Err(format!("unknown space: {slug}"));
+    }
+
+    // 자기 자신은 충돌 후보에서 뺀다 — 대소문자만 바꾸는 rename 이 "이름 2" 가 되지 않게.
+    let others: Vec<KnowledgeSpace> = spaces.iter().filter(|s| s.slug != slug).cloned().collect();
+    let new_slug = unique_dir_name(name, &others);
+
+    storage::rename_space_dir(&slug, &new_slug).map_err(|e| e.to_string())?;
+
     let sp = spaces
         .iter_mut()
         .find(|s| s.slug == slug)
-        .ok_or_else(|| format!("unknown space: {slug}"))?;
+        .expect("존재 확인 완료");
     sp.name = name.to_string();
+    sp.slug = new_slug.clone();
+    sp.root_path = storage::space_dir(&new_slug).to_string_lossy().to_string();
     sp.updated_at = storage::now_iso();
     let updated = sp.clone();
     storage::write_json(&spaces_path, &spaces).map_err(|e| e.to_string())?;

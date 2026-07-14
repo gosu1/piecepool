@@ -23,13 +23,29 @@ mod tests {
             "operating-systems"
         );
         assert_eq!(storage::slug_or_hash("CS 자료구조"), "cs");
-        // 순수 한글은 untitled 로 뭉개지지 않고 유니크 해시 slug (폴더·파일명 공용)
+        // 순수 한글은 untitled 로 뭉개지지 않고 유니크 해시 slug (원본 파일명 stem 용)
         let a = storage::slug_or_hash("자료구조");
         let b = storage::slug_or_hash("알고리즘");
         assert_ne!(a, "untitled");
         assert!(a.chars().all(|c| c.is_ascii_alphanumeric()));
         assert_ne!(a, b, "다른 한글 이름은 다른 slug");
         assert_eq!(a, storage::slug_or_hash("자료구조"), "같은 이름은 안정적");
+    }
+
+    #[test]
+    fn space_dir_name_keeps_display_name() {
+        // 계약 §4 — 폴더명 = 사용자가 화면에서 본 이름 그대로.
+        assert_eq!(storage::space_dir_name("운영체제"), "운영체제");
+        assert_eq!(storage::space_dir_name("AI 딥러닝"), "AI 딥러닝");
+        assert_eq!(storage::space_dir_name("  미적분학  "), "미적분학");
+        assert_eq!(storage::space_dir_name("선형   대수"), "선형 대수");
+        // 경로 위험 문자만 치환한다
+        assert_eq!(storage::space_dir_name("운영/체제"), "운영-체제");
+        assert_eq!(storage::space_dir_name("a:b\\c"), "a-b-c");
+        // 숨김 폴더가 되지 않는다
+        assert_eq!(storage::space_dir_name(".hidden"), "hidden");
+        // 비면 untitled
+        assert_eq!(storage::space_dir_name("   "), "untitled");
     }
 
     #[test]
@@ -45,7 +61,7 @@ mod tests {
             &storage::config_dir().join("workspace.json")
         ));
         assert!(storage::exists(
-            &storage::space_subdir("operating-systems", "wiki").join("process.md")
+            &storage::space_subdir("운영체제", "wiki").join("process.md")
         ));
 
         // 2) 공간 목록 — 운영체제·AI 딥러닝 + 데모 3과목(통계학·경제학·생리학)
@@ -56,13 +72,13 @@ mod tests {
         //      (공간을 넘는 엣지는 계약상 불가 — 크로스 "과목"은 같은 relations.json 안에 산다)
         for (slug, a, b) in [
             (
-                "statistics",
+                "통계학",
                 "concept-regression-analysis",
                 "concept-linear-regression",
             ),
-            ("economics", "concept-marginal-cost", "concept-derivative"),
+            ("경제학", "concept-marginal-cost", "concept-derivative"),
             (
-                "physiology",
+                "생리학",
                 "concept-diffusion",
                 "concept-concentration-gradient",
             ),
@@ -97,7 +113,7 @@ mod tests {
         }
 
         // 3) 위키 5개 (운영체제)
-        let wikis = commands::wiki::list_wiki("operating-systems".into()).expect("wiki");
+        let wikis = commands::wiki::list_wiki("운영체제".into()).expect("wiki");
         assert_eq!(wikis.len(), 5);
         assert!(wikis.iter().any(|w| w.title == "프로세스"));
         // 모든 시드 위키는 출처(원본 노트)를 갖는다 — "모든 개념은 출처를 갖는다"(vision §6).
@@ -111,7 +127,7 @@ mod tests {
         );
 
         // 4) 그래프: 노드 5, 교착상태는 result
-        let g = commands::graph::get_graph("operating-systems".into()).expect("graph");
+        let g = commands::graph::get_graph("운영체제".into()).expect("graph");
         assert_eq!(g.nodes.len(), 5);
         assert_eq!(g.relations.len(), 5);
         let deadlock = g.nodes.iter().find(|n| n.title == "교착상태").unwrap();
@@ -132,21 +148,21 @@ mod tests {
 
         // 5) 노트 생성 → archive 파일 + 재조회
         let note = commands::notes::create_note(
-            "operating-systems".into(),
+            "운영체제".into(),
             "테스트 노트".into(),
             "# 본문\n\n내용".into(),
             vec!["subject-os".into()],
         )
         .expect("create");
-        let notes = commands::notes::list_notes("operating-systems".into()).expect("list");
+        let notes = commands::notes::list_notes("운영체제".into()).expect("list");
         assert!(notes.iter().any(|n| n.id == note.id));
-        let reread = commands::notes::read_note("operating-systems".into(), note.path.clone())
-            .expect("read");
+        let reread =
+            commands::notes::read_note("운영체제".into(), note.path.clone()).expect("read");
         assert!(reread.markdown.contains("내용"));
 
         // 6) 같은 제목 재생성 → 충돌 접미사로 별도 파일 (silent overwrite 없음)
         let note2 = commands::notes::create_note(
-            "operating-systems".into(),
+            "운영체제".into(),
             "테스트 노트".into(),
             "두 번째".into(),
             vec!["subject-os".into()],
@@ -183,7 +199,7 @@ mod tests {
                 created_at: "2026-07-01T00:00:00Z".into(),
                 updated_at: "2026-07-01T00:00:00Z".into(),
             };
-            let sp = "operating-systems".to_string();
+            let sp = "운영체제".to_string();
             assert!(commands::graph::append_relations(
                 sp.clone(),
                 vec![mk(RelationType::PartOf, ev(), 0.8)]
@@ -210,7 +226,7 @@ mod tests {
         //      계약(relation-types.md §review_needed): LLM 자동 부여 금지, 사용자만 지정.
         {
             use crate::models::RelationType;
-            let sp = || "operating-systems".to_string();
+            let sp = || "운영체제".to_string();
             let cid = "concept-deadlock";
             let src = "source-os-overview".to_string();
             let q = || vec!["둘이 서로 기다리는 거...".to_string()];
@@ -231,13 +247,13 @@ mod tests {
             assert!(
                 commands::graph::mark_review_needed(sp(), cid.into(), src.clone(), q()).is_ok()
             );
-            assert_eq!(review_loops("operating-systems"), 1, "self-loop 1개 기록");
+            assert_eq!(review_loops("운영체제"), 1, "self-loop 1개 기록");
 
             // 멱등 — 두 번 눌러도 중복 엣지가 생기지 않는다
             assert!(
                 commands::graph::mark_review_needed(sp(), cid.into(), src.clone(), q()).is_ok()
             );
-            assert_eq!(review_loops("operating-systems"), 1, "중복 기록 없음");
+            assert_eq!(review_loops("운영체제"), 1, "중복 기록 없음");
 
             // evidence 없이는 거부 — 설명 시도가 곧 근거다
             assert!(
@@ -265,18 +281,18 @@ mod tests {
 
             // 거두면 사라진다 (멱등)
             assert!(commands::graph::unmark_review_needed(sp(), cid.into()).is_ok());
-            assert_eq!(review_loops("operating-systems"), 0, "표시 해제됨");
+            assert_eq!(review_loops("운영체제"), 0, "표시 해제됨");
             assert!(commands::graph::unmark_review_needed(sp(), cid.into()).is_ok());
 
             // 해제 후 다시 표시할 수 있어야 한다 — 시연 촬영을 반복하려면 왕복이 성립해야 한다.
             assert!(
                 commands::graph::mark_review_needed(sp(), cid.into(), src.clone(), q()).is_ok()
             );
-            assert_eq!(review_loops("operating-systems"), 1, "재표시됨");
+            assert_eq!(review_loops("운영체제"), 1, "재표시됨");
             assert!(commands::graph::unmark_review_needed(sp(), cid.into()).is_ok());
 
             // 해제는 무관한 관계를 건드리지 않는다 (블록 7 이 넣은 concept-a→concept-b PartOf 는 남아야 한다)
-            let rels = commands::graph::get_graph("operating-systems".to_string())
+            let rels = commands::graph::get_graph("운영체제".to_string())
                 .unwrap()
                 .relations;
             assert!(
@@ -293,11 +309,10 @@ mod tests {
         //      LLM 이 양방향 두 건을 뱉어도 엣지는 하나여야 한다.
         {
             use crate::models::{Evidence, Relation, RelationType};
-            let sp = || "operating-systems".to_string();
+            let sp = || "운영체제".to_string();
             // 이 블록은 관계를 여럿 넣는다. 뒤 블록들(특히 15번 delete_wiki)이 관계 개수를 세므로
             // 끝에서 relations.json 을 원상복구한다.
-            let path =
-                storage::space_subdir("operating-systems", "relations").join("relations.json");
+            let path = storage::space_subdir("운영체제", "relations").join("relations.json");
             let snapshot: Vec<Relation> = storage::read_json(&path).unwrap();
             let mk = |id: &str, s: &str, t: &str, rt: RelationType| Relation {
                 id: id.into(),
@@ -443,7 +458,7 @@ mod tests {
         // 7-3) 대칭 엣지는 한 방향만 저장되므로, 차수만 보는 kind 판정이 상대편을
         //      "결과 개념"(흐린 회색)으로 오분류하면 안 된다. 시드: 교감신경 --contrasts--> 부교감신경.
         {
-            let g = commands::graph::get_graph("physiology".into()).expect("graph");
+            let g = commands::graph::get_graph("생리학".into()).expect("graph");
             let para = g
                 .nodes
                 .iter()
@@ -457,12 +472,11 @@ mod tests {
 
         // 8) PDF 추출: 비-PDF 파일 → pdf_extract 오류, 원본은 보존
         {
-            let src_dir = storage::space_subdir("operating-systems", "sources/original-files");
+            let src_dir = storage::space_subdir("운영체제", "sources/original-files");
             storage::ensure_dir(&src_dir).unwrap();
             let bad = src_dir.join("bad.pdf");
             storage::write_text(&bad, "이건 PDF 가 아닙니다").unwrap();
-            let r =
-                commands::workspace::extract_pdf_text("operating-systems".into(), "bad.pdf".into());
+            let r = commands::workspace::extract_pdf_text("운영체제".into(), "bad.pdf".into());
             assert!(r.is_err(), "비-PDF 는 추출 실패해야 함");
             assert!(
                 storage::exists(&bad),
@@ -472,23 +486,21 @@ mod tests {
 
         // 9) rename_note: 제목만 변경(trim), 파일명 유지, 빈 제목 거부
         let renamed = commands::notes::rename_note(
-            "operating-systems".into(),
+            "운영체제".into(),
             note2.path.clone(),
             "  이름 변경  ".into(),
         )
         .expect("rename");
         assert_eq!(renamed.title, "이름 변경");
         assert_eq!(renamed.path, note2.path, "파일명은 유지");
-        assert!(commands::notes::rename_note(
-            "operating-systems".into(),
-            note2.path.clone(),
-            "   ".into()
-        )
-        .is_err());
+        assert!(
+            commands::notes::rename_note("운영체제".into(), note2.path.clone(), "   ".into())
+                .is_err()
+        );
 
         // 9-1) update_note_subjects: 실재 과목만 허용, 파일명·본문 유지
         let subj = commands::notes::update_note_subjects(
-            "operating-systems".into(),
+            "운영체제".into(),
             note2.path.clone(),
             vec!["subject-os".into()],
         )
@@ -497,7 +509,7 @@ mod tests {
         assert_eq!(subj.path, note2.path, "파일명은 유지");
         assert!(
             commands::notes::update_note_subjects(
-                "operating-systems".into(),
+                "운영체제".into(),
                 note2.path.clone(),
                 vec!["subject-없는-과목".into()],
             )
@@ -507,20 +519,13 @@ mod tests {
 
         // 10) move_note: os → deeplearning (같은 공간 거부, subject 필터, 원래 파일 삭제, 대상 생성)
         assert!(
-            commands::notes::move_note(
-                "operating-systems".into(),
-                note.path.clone(),
-                "operating-systems".into()
-            )
-            .is_err(),
+            commands::notes::move_note("운영체제".into(), note.path.clone(), "운영체제".into())
+                .is_err(),
             "같은 공간 이동 거부"
         );
-        let moved = commands::notes::move_note(
-            "operating-systems".into(),
-            note.path.clone(),
-            "deeplearning".into(),
-        )
-        .expect("move");
+        let moved =
+            commands::notes::move_note("운영체제".into(), note.path.clone(), "AI 딥러닝".into())
+                .expect("move");
         assert_eq!(moved.space_id, "space-ai");
         assert_eq!(moved.id, note.id, "id 보존");
         assert_eq!(moved.created_at, note.created_at, "createdAt 보존");
@@ -530,18 +535,18 @@ mod tests {
         );
         assert_eq!(moved.path, note.path, "충돌 없으면 파일명 유지");
         assert!(!storage::exists(
-            &storage::space_subdir("operating-systems", "archive").join(&note.path)
+            &storage::space_subdir("운영체제", "archive").join(&note.path)
         ));
         assert!(storage::exists(
-            &storage::space_subdir("deeplearning", "archive").join(&moved.path)
+            &storage::space_subdir("AI 딥러닝", "archive").join(&moved.path)
         ));
-        let moved_read = commands::notes::read_note("deeplearning".into(), moved.path.clone())
-            .expect("read moved");
+        let moved_read =
+            commands::notes::read_note("AI 딥러닝".into(), moved.path.clone()).expect("read moved");
         assert!(moved_read.markdown.contains("내용"));
 
         // 11) move 충돌: 대상에 같은 파일명 존재 → -2 접미사
         let dl_note = commands::notes::create_note(
-            "deeplearning".into(),
+            "AI 딥러닝".into(),
             "테스트 노트".into(),
             "dl".into(),
             vec![],
@@ -551,23 +556,20 @@ mod tests {
             dl_note.path, note2.path,
             "대상에 같은 파일명이 준비돼야 충돌 테스트 성립"
         );
-        let moved2 = commands::notes::move_note(
-            "operating-systems".into(),
-            note2.path.clone(),
-            "deeplearning".into(),
-        )
-        .expect("move2");
+        let moved2 =
+            commands::notes::move_note("운영체제".into(), note2.path.clone(), "AI 딥러닝".into())
+                .expect("move2");
         assert_ne!(moved2.path, note2.path, "충돌 시 파일명 접미사");
         assert!(storage::exists(
-            &storage::space_subdir("deeplearning", "archive").join(&moved2.path)
+            &storage::space_subdir("AI 딥러닝", "archive").join(&moved2.path)
         ));
 
         // 12) move: pdf 원본 파일 동반 이동 (+ 원본 충돌 접미사, 원본 부재 시 관용)
         {
             use crate::models::{ArchiveNote, SourceType};
             use crate::storage::frontmatter as fm;
-            let src_files = storage::space_subdir("operating-systems", "sources/original-files");
-            let dst_files = storage::space_subdir("deeplearning", "sources/original-files");
+            let src_files = storage::space_subdir("운영체제", "sources/original-files");
+            let dst_files = storage::space_subdir("AI 딥러닝", "sources/original-files");
             storage::write_bytes(&src_files.join("lecture.pdf"), b"PDFDATA").unwrap();
             storage::write_bytes(&dst_files.join("lecture.pdf"), b"OTHER").unwrap(); // 대상 충돌 유발
             let mk_pdf = |id: &str, path: &str| ArchiveNote {
@@ -587,14 +589,14 @@ mod tests {
                 Some("lecture.pdf"),
             );
             storage::write_text(
-                &storage::space_subdir("operating-systems", "archive").join("pdf-note.md"),
+                &storage::space_subdir("운영체제", "archive").join("pdf-note.md"),
                 &md,
             )
             .unwrap();
             let moved_pdf = commands::notes::move_note(
-                "operating-systems".into(),
+                "운영체제".into(),
                 "pdf-note.md".into(),
-                "deeplearning".into(),
+                "AI 딥러닝".into(),
             )
             .expect("move pdf");
             assert!(
@@ -606,7 +608,7 @@ mod tests {
                 "원본 충돌 → lecture-2.pdf"
             );
             let target_md = storage::read_text(
-                &storage::space_subdir("deeplearning", "archive").join(&moved_pdf.path),
+                &storage::space_subdir("AI 딥러닝", "archive").join(&moved_pdf.path),
             )
             .unwrap();
             assert!(
@@ -621,15 +623,15 @@ mod tests {
                 Some("ghost.pdf"),
             );
             storage::write_text(
-                &storage::space_subdir("operating-systems", "archive").join("ghost-note.md"),
+                &storage::space_subdir("운영체제", "archive").join("ghost-note.md"),
                 &md,
             )
             .unwrap();
             assert!(
                 commands::notes::move_note(
-                    "operating-systems".into(),
+                    "운영체제".into(),
                     "ghost-note.md".into(),
-                    "deeplearning".into()
+                    "AI 딥러닝".into()
                 )
                 .is_ok(),
                 "원본 부재 시에도 노트 이동은 성공"
@@ -637,40 +639,37 @@ mod tests {
         }
 
         // 13) delete_note: 파일 제거, 없는 파일은 오류
-        commands::notes::delete_note("deeplearning".into(), moved2.path.clone()).expect("delete");
+        commands::notes::delete_note("AI 딥러닝".into(), moved2.path.clone()).expect("delete");
         assert!(!storage::exists(
-            &storage::space_subdir("deeplearning", "archive").join(&moved2.path)
+            &storage::space_subdir("AI 딥러닝", "archive").join(&moved2.path)
         ));
         assert!(
-            commands::notes::delete_note("deeplearning".into(), moved2.path.clone()).is_err(),
+            commands::notes::delete_note("AI 딥러닝".into(), moved2.path.clone()).is_err(),
             "없는 파일 → 오류"
         );
 
         // 14) rename_wiki: 제목 변경, 빈 제목 거부
         let rw = commands::wiki::rename_wiki(
-            "operating-systems".into(),
+            "운영체제".into(),
             "process.md".into(),
             "프로세스 개념".into(),
         )
         .expect("rename wiki");
         assert_eq!(rw.title, "프로세스 개념");
         assert_eq!(rw.path, "process.md");
-        assert!(commands::wiki::rename_wiki(
-            "operating-systems".into(),
-            "process.md".into(),
-            " ".into()
-        )
-        .is_err());
+        assert!(
+            commands::wiki::rename_wiki("운영체제".into(), "process.md".into(), " ".into())
+                .is_err()
+        );
 
         // 15) delete_wiki: 파일 제거 + 해당 개념 관계 정리 (시드 5 + 7에서 추가 1 = 6 → 3 정리)
-        let pruned =
-            commands::wiki::delete_wiki("operating-systems".into(), "synchronization.md".into())
-                .expect("delete wiki");
+        let pruned = commands::wiki::delete_wiki("운영체제".into(), "synchronization.md".into())
+            .expect("delete wiki");
         assert_eq!(pruned, 3, "synchronization 이 걸린 관계 3개 정리");
         assert!(!storage::exists(
-            &storage::space_subdir("operating-systems", "wiki").join("synchronization.md")
+            &storage::space_subdir("운영체제", "wiki").join("synchronization.md")
         ));
-        let g2 = commands::graph::get_graph("operating-systems".into()).expect("graph2");
+        let g2 = commands::graph::get_graph("운영체제".into()).expect("graph2");
         assert_eq!(g2.relations.len(), 3);
         assert!(g2
             .relations
@@ -682,7 +681,7 @@ mod tests {
         let data: Vec<u8> = (0u8..=255).collect();
         let b64 = storage::to_base64(&data);
         let saved = commands::workspace::save_source_file(
-            "operating-systems".into(),
+            "운영체제".into(),
             "My Lecture.PDF".into(),
             b64.clone(),
         )
@@ -690,7 +689,7 @@ mod tests {
         assert_eq!(saved, "my-lecture.pdf", "stem slugify + 확장자 소문자");
         // 한글 파일명은 stem 이 untitled 로 뭉개지지 않고 해시 stem 으로 저장된다
         let ko = commands::workspace::save_source_file(
-            "operating-systems".into(),
+            "운영체제".into(),
             "확률과 통계 3주차.pdf".into(),
             b64.clone(),
         )
@@ -699,64 +698,50 @@ mod tests {
             ko.ends_with(".pdf") && !ko.starts_with("untitled"),
             "한글 stem → 해시, untitled 아님: {ko}"
         );
-        let back = commands::workspace::read_file_bytes("operating-systems".into(), saved.clone())
+        let back = commands::workspace::read_file_bytes("운영체제".into(), saved.clone())
             .expect("read back");
         assert_eq!(back, b64, "저장/조회 roundtrip");
         let saved2 = commands::workspace::save_source_file(
-            "operating-systems".into(),
+            "운영체제".into(),
             "My Lecture.PDF".into(),
             b64.clone(),
         )
         .expect("save src 2");
         assert_eq!(saved2, "my-lecture-2.pdf", "충돌 접미사");
         assert!(
-            commands::workspace::save_source_file(
-                "operating-systems".into(),
-                "x.pdf".into(),
-                "abc".into()
-            )
-            .is_err(),
+            commands::workspace::save_source_file("운영체제".into(), "x.pdf".into(), "abc".into())
+                .is_err(),
             "base64 길이 오류 거부"
         );
         assert!(
-            commands::workspace::save_source_file(
-                "operating-systems".into(),
-                "x.pdf".into(),
-                "@@@@".into()
-            )
-            .is_err(),
+            commands::workspace::save_source_file("운영체제".into(), "x.pdf".into(), "@@@@".into())
+                .is_err(),
             "base64 문자 오류 거부"
         );
         assert!(
-            commands::workspace::save_source_file(
-                "operating-systems".into(),
-                "noext".into(),
-                "TWFu".into()
-            )
-            .is_err(),
+            commands::workspace::save_source_file("운영체제".into(), "noext".into(), "TWFu".into())
+                .is_err(),
             "확장자 없는 파일명 거부"
         );
 
         // 17) delete_source: 파일 제거 후 목록에서 사라짐, 없는 파일·경로 탈출 거부
-        commands::workspace::delete_source("operating-systems".into(), saved2.clone())
+        commands::workspace::delete_source("운영체제".into(), saved2.clone())
             .expect("delete source");
-        let sources =
-            commands::workspace::list_sources("operating-systems".into()).expect("list sources");
+        let sources = commands::workspace::list_sources("운영체제".into()).expect("list sources");
         assert!(!sources.contains(&saved2), "삭제된 원본은 목록에 없음");
         assert!(
-            commands::workspace::delete_source("operating-systems".into(), saved2).is_err(),
+            commands::workspace::delete_source("운영체제".into(), saved2).is_err(),
             "없는 파일 삭제는 오류"
         );
         assert!(
-            commands::workspace::delete_source("operating-systems".into(), "../evil.pdf".into())
-                .is_err(),
+            commands::workspace::delete_source("운영체제".into(), "../evil.pdf".into()).is_err(),
             "경로 탈출 거부"
         );
 
         // 18) move_source: 공간 간 이동 + 충돌 접미사 + no-op + 없는 파일 거부
         let b64_m = storage::to_base64(&[1u8, 2, 3]);
         let src = commands::workspace::save_source_file(
-            "operating-systems".into(),
+            "운영체제".into(),
             "lecture.pdf".into(),
             b64_m.clone(),
         )
@@ -764,66 +749,84 @@ mod tests {
         assert_eq!(src, "lecture.pdf");
 
         // 18-1) 이동: from 에서 사라지고 to 에 생긴다
-        let moved = commands::workspace::move_source(
-            "operating-systems".into(),
-            "statistics".into(),
-            src.clone(),
-        )
-        .expect("move");
+        let moved =
+            commands::workspace::move_source("운영체제".into(), "통계학".into(), src.clone())
+                .expect("move");
         assert_eq!(moved, "lecture.pdf", "충돌 없으면 이름 유지");
         assert!(!storage::exists(
-            &storage::space_subdir("operating-systems", "sources/original-files")
-                .join("lecture.pdf")
+            &storage::space_subdir("운영체제", "sources/original-files").join("lecture.pdf")
         ));
-        let back = commands::workspace::read_file_bytes("statistics".into(), moved.clone())
+        let back = commands::workspace::read_file_bytes("통계학".into(), moved.clone())
             .expect("read moved");
         assert_eq!(back, b64_m, "이동 후 내용 동일");
 
         // 18-2) 대상에 동명 파일이 있으면 접미사가 붙고 그 이름이 반환된다
         let src2 = commands::workspace::save_source_file(
-            "operating-systems".into(),
+            "운영체제".into(),
             "lecture.pdf".into(),
             b64_m.clone(),
         )
         .expect("save for move 2");
-        let moved2 =
-            commands::workspace::move_source("operating-systems".into(), "statistics".into(), src2)
-                .expect("move 2");
+        let moved2 = commands::workspace::move_source("운영체제".into(), "통계학".into(), src2)
+            .expect("move 2");
         assert_eq!(moved2, "lecture-2.pdf", "대상 충돌 접미사");
 
         // 18-3) from == to 는 no-op — 파일명 그대로, 파일도 그대로
         let same = commands::workspace::move_source(
-            "statistics".into(),
-            "statistics".into(),
+            "통계학".into(),
+            "통계학".into(),
             "lecture.pdf".into(),
         )
         .expect("no-op move");
         assert_eq!(same, "lecture.pdf");
         assert!(storage::exists(
-            &storage::space_subdir("statistics", "sources/original-files").join("lecture.pdf")
+            &storage::space_subdir("통계학", "sources/original-files").join("lecture.pdf")
         ));
 
         // 18-4) 없는 파일 → 오류
         assert!(
-            commands::workspace::move_source(
-                "operating-systems".into(),
-                "statistics".into(),
-                "nope.pdf".into()
-            )
-            .is_err(),
+            commands::workspace::move_source("운영체제".into(), "통계학".into(), "nope.pdf".into())
+                .is_err(),
             "없는 원본 거부"
         );
 
         // 18-5) 없는 공간 → 오류
         assert!(
             commands::workspace::move_source(
-                "statistics".into(),
+                "통계학".into(),
                 "no-such-space".into(),
                 "lecture.pdf".into()
             )
             .is_err(),
             "없는 대상 공간 거부"
         );
+
+        // 19) 계약 §4 — 폴더명 = 표시 이름. Finder 에서 본 이름과 앱 사이드바가 같아야 한다.
+        // 19-1) 새 공간: 한글 이름이 해시/untitled 로 뭉개지지 않고 그대로 폴더가 된다.
+        let sp = commands::workspace::create_space("미적분학".into()).expect("create");
+        assert_eq!(sp.slug, "미적분학");
+        assert!(storage::space_dir("미적분학").is_dir(), "한글 폴더가 실재");
+        assert!(storage::exists(&storage::space_subdir(
+            "미적분학",
+            "archive"
+        )));
+
+        // 19-2) 이름 충돌 → "이름 2" (해시가 아니라 사람이 읽는 접미사)
+        let dup = commands::workspace::create_space("미적분학".into()).expect("dup");
+        assert_eq!(dup.slug, "미적분학 2");
+
+        // 19-3) 이름을 바꾸면 디스크 폴더도 따라 옮겨진다 — 안 그러면 Finder 와 어긋난다.
+        let renamed =
+            commands::workspace::rename_space("미적분학".into(), "해석학".into()).expect("rename");
+        assert_eq!(renamed.slug, "해석학");
+        assert_eq!(renamed.name, "해석학");
+        assert!(storage::space_dir("해석학").is_dir(), "새 폴더로 이동");
+        assert!(!storage::space_dir("미적분학").exists(), "옛 폴더는 사라짐");
+        assert!(renamed.root_path.ends_with("해석학"), "rootPath 갱신");
+
+        // 19-4) config 는 Workspace 설정 디렉토리라 공간 폴더명으로 쓸 수 없다.
+        let cfg = commands::workspace::create_space("config".into()).expect("config space");
+        assert_eq!(cfg.slug, "config 2");
 
         let _ = std::fs::remove_dir_all(storage::workspace_root());
     }
