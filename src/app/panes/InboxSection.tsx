@@ -591,6 +591,12 @@ export function InboxSection({
     const t = resolveTarget(curSpace);
     // 재저장(saveNote)은 savedFile 이 그 공간에 있을 때만 — 대상 공간을 바꿨으면 새 노트로(다른 공간 노트 덮어쓰기 방지).
     const reuse = d.savedFile && d.savedSpace === curSpace ? d.savedFile : undefined;
+    // 위키를 만드는 동안 진행 오버레이는 위키 패널 위에 뜬다 — 패널을 목록 뷰로 미리 열어 둔다.
+    // 완료되면 같은 자리가 방금 만든 개념 목록으로 채워져 시선이 옮겨다니지 않는다.
+    if (withLlmRef.current) {
+      setRefWikiPath("");
+      togglePanel("wiki", true);
+    }
     const res = await runImport({
       space: curSpace,
       spaceId: t.spaceId,
@@ -715,13 +721,9 @@ export function InboxSection({
           </Button>
         </div>
 
-        {/* 저장+AI 정리 진행 오버레이 — 단계는 AI 켰을 때만(끄면 원본 저장 한 단계뿐이라 라벨로 충분) */}
-        {busy && (
-          <LoadingOverlay
-            label={`${IMPORT_STATUS_LABEL[job!.status]} 중…`}
-            steps={withLlm ? importSteps(job!.status) : undefined}
-          />
-        )}
+        {/* 원본 저장 진행 오버레이 — AI 껐을 때만(한 단계뿐이라 라벨로 충분).
+            AI 켜면 위키를 만드는 동안이라 오버레이는 위키 패널이 진다 — 노트는 계속 필기할 수 있게 둔다. */}
+        {busy && !withLlm && <LoadingOverlay label={`${IMPORT_STATUS_LABEL[job!.status]} 중…`} />}
         {fy.overlay}
         </div>
 
@@ -795,7 +797,11 @@ export function InboxSection({
           ) : undefined
         }
       />
-      <div className="min-h-0 flex-1 overflow-y-auto p-4">
+      <div className="relative min-h-0 flex-1 overflow-y-auto p-4">
+        {/* 저장+AI 정리 진행 오버레이 — 위키가 만들어지는 자리에서 기다린다 */}
+        {busy && withLlm && (
+          <LoadingOverlay label={`${IMPORT_STATUS_LABEL[job!.status]} 중…`} steps={importSteps(job!.status)} />
+        )}
         {refWiki ? (
           <>
             <h2 className="mb-3 text-[17px] font-bold text-ink">{refWiki.title}</h2>
