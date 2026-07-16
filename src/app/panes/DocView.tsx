@@ -361,10 +361,7 @@ export function ConvertPanel({
           {streaming && !job.text ? (
             <div className="space-y-5">
               <SkeletonText lines={3} />
-              {/* min-h 로 명언 길이 차이에 따른 카드 높이 출렁임을 줄인다 */}
-              <div className="flex min-h-[150px] items-center justify-center py-2">
-                <LoadingQuote quotes={LOADING_QUOTES} />
-              </div>
+              <LoadingQuote quotes={LOADING_QUOTES} className="mx-auto py-2" />
             </div>
           ) : (
             <>

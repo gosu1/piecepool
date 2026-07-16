@@ -74,16 +74,11 @@ const LOADING_TIPS = [
   "직접 만들어 보고, 자기 말로 설명해 보기 — 파인만과 카파시가 말하는 진짜 이해의 기준이에요.",
 ];
 
-/** 5초마다 다음 문구로 로테이션. 시작 위치는 랜덤 — 열 때마다 다른 문구부터. */
+/** 로딩 한 번에 한 문구 — 열 때 랜덤으로 하나 골라 로딩이 끝날 때까지 바뀌지 않는다. */
 function LoadingTip() {
-  const [i, setI] = useState(() => Math.floor(Math.random() * LOADING_TIPS.length));
-  useEffect(() => {
-    const t = setInterval(() => setI((v) => (v + 1) % LOADING_TIPS.length), 5000);
-    return () => clearInterval(t);
-  }, []);
+  const [i] = useState(() => Math.floor(Math.random() * LOADING_TIPS.length));
   return (
     <p
-      key={i}
       style={{ animation: "pp-fade-in 0.5s ease" }}
       className="max-w-[360px] px-6 text-center text-[12.5px] leading-relaxed text-ink-muted"
     >
