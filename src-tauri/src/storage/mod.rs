@@ -25,8 +25,17 @@ pub fn workspace_root() -> PathBuf {
     Path::new(&home).join("PiecePool")
 }
 
+/// Workspace 설정 디렉토리 이름. 사용자가 Finder/탐색기로 `~/PiecePool` 을 열면 과목 폴더만
+/// 보여야 하므로 닷 프리픽스로 숨긴다. macOS·Windows 가 **같은 이름**을 쓴다 — OS 별로 이름이
+/// 갈리면 워크스페이스를 zip 으로 옮길 때 깨지고 경로 SSOT 가 둘이 된다.
+/// (Windows 탐색기는 닷 이름을 숨기지 않으므로 `ensure_config_dir` 이 숨김 속성을 따로 건다.)
+pub const CONFIG_DIR: &str = ".config";
+
+/// 구버전(닷 프리픽스 도입 전) 설정 디렉토리 이름. `migrate_legacy_config` 의 이관 대상.
+const LEGACY_CONFIG_DIR: &str = "config";
+
 pub fn config_dir() -> PathBuf {
-    workspace_root().join("config")
+    workspace_root().join(CONFIG_DIR)
 }
 
 pub fn space_dir(slug: &str) -> PathBuf {
@@ -38,9 +47,92 @@ pub fn space_subdir(slug: &str, sub: &str) -> PathBuf {
     space_dir(slug).join(sub)
 }
 
+/// Workspace 설정 디렉토리를 만든다(이미 있으면 무시). 생성 직후 숨김 처리까지 책임진다 —
+/// 설정 디렉토리를 만드는 경로는 반드시 이 함수를 거쳐야 숨김이 빠지지 않는다.
+pub fn ensure_config_dir() -> Result<()> {
+    let dir = config_dir();
+    ensure_dir(&dir)?;
+    hide_dir(&dir);
+    Ok(())
+}
+
+/// 디렉토리를 파일 탐색기에서 숨긴다.
+/// macOS·Linux: 닷 프리픽스(`CONFIG_DIR`)만으로 숨겨지므로 no-op.
+/// Windows: 탐색기가 닷 이름을 숨기지 않아 FILE_ATTRIBUTE_HIDDEN 을 따로 걸어야 한다.
+/// 숨김은 부가 기능이라 실패해도 앱은 그대로 동작해야 한다 — 오류는 로그만 남기고 삼킨다.
+#[cfg(not(windows))]
+fn hide_dir(_dir: &Path) {}
+
+#[cfg(windows)]
+fn hide_dir(dir: &Path) {
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::Storage::FileSystem::{
+        GetFileAttributesW, SetFileAttributesW, FILE_ATTRIBUTE_HIDDEN, INVALID_FILE_ATTRIBUTES,
+    };
+
+    let wide: Vec<u16> = dir
+        .as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
+
+    // SAFETY: wide 는 널 종단 UTF-16 이고 호출이 끝날 때까지 살아 있다.
+    let attrs = unsafe { GetFileAttributesW(wide.as_ptr()) };
+    if attrs == INVALID_FILE_ATTRIBUTES {
+        eprintln!("[storage] 숨김 실패(속성 조회): {}", dir.display());
+        return;
+    }
+    if attrs & FILE_ATTRIBUTE_HIDDEN != 0 {
+        return; // 이미 숨김 — 멱등
+    }
+    // SetFileAttributesW 는 속성 집합을 통째로 덮으므로 기존 속성에 HIDDEN 만 더한다.
+    // SAFETY: 위와 동일.
+    if unsafe { SetFileAttributesW(wide.as_ptr(), attrs | FILE_ATTRIBUTE_HIDDEN) } == 0 {
+        eprintln!("[storage] 숨김 실패(속성 설정): {}", dir.display());
+    }
+}
+
+/// 구버전 워크스페이스의 설정 디렉토리(`config`)를 숨김 이름(`.config`)으로 이관한다.
+/// 설정 파일을 읽거나 시드 여부를 판정하기 **전에** 호출해야 한다(seed::ensure_seed 맨 앞).
+///
+/// legacy 가 있고 `.config` 가 없을 때만 rename 한다. 둘 다 있으면 어느 쪽이 최신인지 알 수 없으므로
+/// 아무것도 지우지 않고 로그만 남긴다(사용자 데이터 파괴 금지). 없으면 no-op — 멱등하다.
+/// 이관 실패도 앱을 막지 않는다(에러 삼킴) — 그래서 Result 가 아니라 unit 을 반환한다.
+///
+/// legacy `config` 가 사용자 과목 폴더일 가능성은 없다: `RESERVED_SPACE_DIR` 이 처음부터
+/// "config" 를 과목 이름으로 못 쓰게 막아 왔으므로 루트의 `config` 는 언제나 설정 디렉토리다.
+pub fn migrate_legacy_config() {
+    migrate_config_at(&workspace_root());
+}
+
+/// `migrate_legacy_config` 의 본체. 루트를 인자로 받아 테스트가 HOME 을 건드리지 않게 한다
+/// (HOME 은 프로세스 전역 — 병렬 테스트끼리 서로의 워크스페이스를 덮어쓴다).
+pub(crate) fn migrate_config_at(root: &Path) {
+    let legacy = root.join(LEGACY_CONFIG_DIR);
+    let target = root.join(CONFIG_DIR);
+    if !legacy.is_dir() {
+        return; // 구버전 워크스페이스가 아니다(이관 완료 후 재호출 포함)
+    }
+    if target.exists() {
+        eprintln!(
+            "[storage] {} 와 {} 가 모두 있어 이관을 건너뛴다 — 수동 확인 필요",
+            legacy.display(),
+            target.display()
+        );
+        return;
+    }
+    match fs::rename(&legacy, &target) {
+        Ok(()) => hide_dir(&target),
+        Err(e) => eprintln!(
+            "[storage] 설정 디렉토리 이관 실패({}): {e}",
+            legacy.display()
+        ),
+    }
+}
+
 /// Workspace + 지식 영역 표준 트리를 생성한다(이미 있으면 무시).
 pub fn ensure_space_tree(slug: &str) -> Result<()> {
-    ensure_dir(&config_dir())?;
+    ensure_config_dir()?;
     for sub in [
         "inbox",
         "archive",
@@ -344,7 +436,11 @@ pub fn slug_or_hash(input: &str) -> String {
 }
 
 /// Workspace 루트에서 지식 영역이 쓸 수 없는 이름(설정 디렉토리와 충돌).
-pub const RESERVED_SPACE_DIR: &[&str] = &["config"];
+/// 레거시 "config" 도 계속 예약한다 — 아직 이관되지 않은 구버전 워크스페이스에서 과목 폴더가
+/// 설정 디렉토리를 덮어쓰는 것을 막고, 이관이 실패한 워크스페이스에서도 legacy 를 보호한다.
+/// ".config" 는 `space_dir_name` 이 앞 `.` 을 떼므로 실제로 도달하지 않지만, 폴더명 규칙이
+/// 바뀌어도 설정 디렉토리가 뚫리지 않게 함께 예약한다.
+pub const RESERVED_SPACE_DIR: &[&str] = &[CONFIG_DIR, LEGACY_CONFIG_DIR];
 
 /// 지식 영역 폴더명. 표시 이름을 그대로 쓴다(한글 보존) — Finder 에서 본 이름과 같게.
 /// 경로에 위험한 문자만 `-` 로 치환하고, 연속 공백을 접고, 숨김 파일이 되지 않게 앞 `.` 을 떼어낸다.

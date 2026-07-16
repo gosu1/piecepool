@@ -162,12 +162,17 @@ fn seed_space(
 
 /// 첫 실행 시드. 이미 초기화돼 있으면(workspace.json 존재) 아무 것도 하지 않는다.
 pub fn ensure_seed() -> R {
+    // 구버전 config/ → .config/ 이관. 시드 완료 마커(workspace.json)를 찾기 전에 돌아야
+    // 이미 시드된 워크스페이스를 새 워크스페이스로 오인하지 않는다. 프로덕션 진입점
+    // (get_workspace/list_spaces/create_space)이 모두 ensure_seed 를 거치므로 여기가 유일한 관문이다.
+    storage::migrate_legacy_config();
+
     let ws_json = storage::config_dir().join("workspace.json");
     if storage::exists(&ws_json) {
         return Ok(());
     }
     let now = storage::now_iso();
-    storage::ensure_dir(&storage::config_dir())?;
+    storage::ensure_config_dir()?;
 
     let workspace = Workspace {
         id: "ws-piecepool".into(),
