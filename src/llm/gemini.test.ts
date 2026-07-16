@@ -1,8 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { buildMessages, getGeminiModel, setGeminiModel, GEMINI_MODEL } from "./gemini";
-import type { LlmWikiInput } from "./provider";
+import { describe, it, expect, afterEach } from "vitest";
+import { buildMessages, GEMINI_MODEL, GeminiProvider } from "./gemini";
+import type { LlmConcept, LlmWikiInput } from "./provider";
 
 const INPUT = { sourceId: "s1", sourceTitle: "T", sourceText: "본문" } as unknown as LlmWikiInput;
+
+// @types/node 없이 process.env 접근 (readEnv 와 같은 캐스트).
+const nodeEnv = (globalThis as unknown as { process: { env: Record<string, string | undefined> } }).process.env;
 
 describe("buildMessages — 위키 생성 언어 directive", () => {
   it("ko(기본) — system에 혼용 규칙 + JSON 지시 유지", () => {
@@ -20,42 +23,72 @@ describe("buildMessages — 위키 생성 언어 directive", () => {
   });
 });
 
-// Map 백엔드 fake localStorage — node vitest 환경엔 없으므로 주입 (settings.test.ts와 동형).
-class FakeStorage {
-  private m = new Map<string, string>();
-  getItem(k: string) {
-    return this.m.has(k) ? this.m.get(k)! : null;
-  }
-  setItem(k: string, v: string) {
-    this.m.set(k, v);
-  }
+// ── GeminiProvider 단일 구조화 호출 — fetch mock 이 요청 body(model·messages)를 기록한다 ──
+
+const WIKI_INPUT: LlmWikiInput = {
+  sourceTitle: "OS 노트",
+  sourceText: "프로세스와 스레드",
+  subjects: [],
+  existingConcepts: [],
+};
+
+function concept(title: string): LlmConcept {
+  return { title, summary: `${title} 요약`, explanation: "설명", examples: [], sourceRefs: [], sourceEmbeds: [] };
 }
 
-describe("getGeminiModel — 설정 모델 선택", () => {
-  const g = globalThis as { localStorage?: Storage };
-  beforeEach(() => {
-    g.localStorage = new FakeStorage() as unknown as Storage;
-  });
+function chatJson(result: unknown): Response {
+  return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(result) } }] }), { status: 200 });
+}
+
+type SentBody = { model: string; messages: Array<{ role: string; content: string }> };
+
+function fetchMock(respond: (call: number) => Response) {
+  const bodies: SentBody[] = [];
+  const fetchFn = (async (_url: unknown, init?: { body?: unknown }) => {
+    bodies.push(JSON.parse(String(init?.body)) as SentBody);
+    return respond(bodies.length - 1);
+  }) as unknown as typeof fetch;
+  return { bodies, fetchFn };
+}
+
+function makeProvider(fetchFn: typeof fetch, config?: Record<string, unknown>) {
+  return new GeminiProvider({ config: { apiKey: "k", backoffMs: 0, ...config }, fetchFn });
+}
+
+describe("GeminiProvider — 구조화 호출", () => {
+  const RESULT = { concepts: [concept("프로세스")], relations: [] };
+
   afterEach(() => {
-    delete g.localStorage;
+    delete nodeEnv.PIECEPOOL_LLM_MODEL;
   });
 
-  it("미설정이면 기본값(3.5 flash)", () => {
-    expect(getGeminiModel()).toBe(GEMINI_MODEL);
+  it("기본 모델로 1회 호출, 응답을 정규화해 돌려준다", async () => {
+    const { bodies, fetchFn } = fetchMock(() => chatJson(RESULT));
+    const r = await makeProvider(fetchFn).generateWikiStructured(WIKI_INPUT);
+    expect(bodies).toHaveLength(1);
+    expect(bodies[0].model).toBe(GEMINI_MODEL); // 하드코딩 금지 — 단종 시 거짓 실패
+    expect(r.concepts.map((c) => c.title)).toEqual(["프로세스"]);
   });
 
-  it("설정하면 그 모델, 재조회도 유지", () => {
-    setGeminiModel("gemini-3.1-flash-lite");
-    expect(getGeminiModel()).toBe("gemini-3.1-flash-lite");
+  it("PIECEPOOL_LLM_MODEL(env) 이 모델을 덮는다 (CLI·eval)", async () => {
+    nodeEnv.PIECEPOOL_LLM_MODEL = "gemini-env-pinned";
+    const { bodies, fetchFn } = fetchMock(() => chatJson(RESULT));
+    await makeProvider(fetchFn).generateWikiStructured(WIKI_INPUT);
+    expect(bodies[0].model).toBe("gemini-env-pinned");
   });
 
-  it("목록에 없는 값(옛 단종 모델 등)은 기본값으로 폴백", () => {
-    localStorage.setItem("gemini-model", "gemini-2.5-flash");
-    expect(getGeminiModel()).toBe(GEMINI_MODEL);
+  it("스키마 위반 응답은 재시도 후 성공", async () => {
+    const { bodies, fetchFn } = fetchMock((call) => (call === 0 ? chatJson({}) : chatJson(RESULT)));
+    const r = await makeProvider(fetchFn, { maxRetries: 1 }).generateWikiStructured(WIKI_INPUT);
+    expect(bodies).toHaveLength(2);
+    expect(r.concepts).toHaveLength(1);
   });
 
-  it("localStorage 없는 환경(CLI·eval)에서도 기본값", () => {
-    delete g.localStorage;
-    expect(getGeminiModel()).toBe(GEMINI_MODEL);
+  it("전부 실패면 throw — 호출부(runWikiGeneration)가 휴리스틱 폴백", async () => {
+    const { bodies, fetchFn } = fetchMock(() => new Response("boom", { status: 500 }));
+    await expect(makeProvider(fetchFn, { maxRetries: 0 }).generateWikiStructured(WIKI_INPUT)).rejects.toThrow(
+      "HTTP 500",
+    );
+    expect(bodies).toHaveLength(1);
   });
 });

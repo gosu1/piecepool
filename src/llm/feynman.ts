@@ -1,4 +1,4 @@
-import { extractChatJson, GEMINI_OPENAI_ENDPOINT, getGeminiModel } from "./gemini";
+import { extractChatJson, GEMINI_OPENAI_ENDPOINT, GEMINI_MODEL } from "./gemini";
 import { languageDirective, getOutputLanguage, type OutputLanguage } from "./language";
 
 // 파인만 — 사용자가 개념을 자기 말로 설명하면, LLM 이 그 설명의 구멍을 짚어 되묻는다.
@@ -109,7 +109,7 @@ export async function probeExplanation(
   const lang = deps?.lang ?? getOutputLanguage();
 
   const body = JSON.stringify({
-    model: deps?.model ?? getGeminiModel(),
+    model: deps?.model ?? GEMINI_MODEL,
     messages: [
       { role: "system", content: buildSystem(lang) },
       {

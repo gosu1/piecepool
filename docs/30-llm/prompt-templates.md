@@ -189,7 +189,7 @@ paper-recall-kit "검색 키워드 + 다시읽기 트리거"를 1급 필드로 �
 
 ## 11. PDF 한국어 번역·요약 프롬프트 (pdfsummary)
 
-PDF 추출 영어 텍스트 → 한국어 번역·요약 학습 노트. 스트리밍(`streamChatText`), 순수 마크다운, `LlmWikiResult` 미준수 (부가 호출). 코드: [`src/llm/pdfsummary.ts`](../../src/llm/pdfsummary.ts). 렌더 문법(수식·콜아웃)은 [`../40-frontend/markdown-callout-math.md`](../40-frontend/markdown-callout-math.md).
+PDF 추출 영어 텍스트 → 한국어 번역·요약 학습 노트. 스트리밍(`streamChatText`), 순수 마크다운, `LlmWikiResult` 미준수 (부가 호출). 모델: `GEMINI_SUMMARY_MODEL` = `gemini-3.1-flash-lite` 고정 — 앱에서 유일한 lite 호출(속도). 코드: [`src/llm/pdfsummary.ts`](../../src/llm/pdfsummary.ts). 렌더 문법(수식·콜아웃)은 [`../40-frontend/markdown-callout-math.md`](../40-frontend/markdown-callout-math.md).
 
 ### System Prompt
 

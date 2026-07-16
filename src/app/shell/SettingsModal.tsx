@@ -17,7 +17,6 @@ import {
   BODY_FONT_MAX,
 } from "../../lib/settings";
 import type { OutputLanguage } from "../../lib/settings";
-import { getGeminiModel, setGeminiModel, type GeminiModelId } from "../../llm/gemini";
 
 // ══ 설정 모달 (§I) ══
 export function SettingsModal({ onClose, workspacePath }: { onClose: () => void; workspacePath?: string }) {
@@ -42,11 +41,6 @@ export function SettingsModal({ onClose, workspacePath }: { onClose: () => void;
     setFontSize(next);
     setBodyFontSize(next);
     applyBodyFontSize(next);
-  };
-  const [model, setModel] = useState<GeminiModelId>(getGeminiModel());
-  const changeModel = (m: GeminiModelId) => {
-    setGeminiModel(m);
-    setModel(m);
   };
   const saveLiner = () => {
     setLinerKey(liner);
@@ -119,30 +113,6 @@ export function SettingsModal({ onClose, workspacePath }: { onClose: () => void;
             <span className={cn("rounded-full px-2 py-0.5 text-[12px] font-semibold", hasKey ? "bg-primary text-on-primary" : "bg-surface-soft text-ink-muted")}>
               {hasKey ? "Gemini" : "휴리스틱(오프라인)"}
             </span>
-          </div>
-          <div className="flex items-center justify-between rounded-md border border-hairline p-3">
-            <div>
-              <span className="text-[14px] text-ink-2">Gemini 모델</span>
-              <p className="text-[12px] text-ink-muted">모든 AI 생성(위키·요약·파인만)에 쓰는 모델. Flash-Lite는 더 빠르고 무료 티어 여유가 큽니다.</p>
-            </div>
-            <div className="flex shrink-0 gap-1">
-              <Button
-                variant={model === "gemini-3.5-flash" ? "solid" : "utility"}
-                size="sm"
-                className="whitespace-nowrap"
-                onClick={() => changeModel("gemini-3.5-flash")}
-              >
-                3.5 Flash
-              </Button>
-              <Button
-                variant={model === "gemini-3.1-flash-lite" ? "solid" : "utility"}
-                size="sm"
-                className="whitespace-nowrap"
-                onClick={() => changeModel("gemini-3.1-flash-lite")}
-              >
-                3.1 Flash-Lite
-              </Button>
-            </div>
           </div>
           <div className="flex items-center justify-between rounded-md border border-hairline p-3">
             <div>

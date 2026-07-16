@@ -1,5 +1,5 @@
 import { LinerClient, type LinerSource } from "./liner";
-import { extractChatJson, GEMINI_OPENAI_ENDPOINT, getGeminiModel } from "./gemini";
+import { extractChatJson, GEMINI_OPENAI_ENDPOINT, GEMINI_MODEL } from "./gemini";
 import { languageDirective, getOutputLanguage, type OutputLanguage } from "./language";
 
 // 정보 간극 메우기 (README §LLM ③, feature 3). 정답(label)과 사용자 필기 사이 간극을
@@ -139,7 +139,7 @@ async function geminiGaps(title: string, text: string, apiKey: string, deps?: Bu
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
-      model: getGeminiModel(),
+      model: GEMINI_MODEL,
       messages: [
         { role: "system", content: system },
         { role: "user", content: JSON.stringify({ title, note: text.slice(0, 6000) }) },
