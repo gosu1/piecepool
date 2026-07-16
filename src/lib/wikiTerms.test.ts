@@ -48,6 +48,14 @@ describe("findTermMatches — 경계 규칙", () => {
     expect(findTermMatches("운영체제 스케줄러 개념", m)).toEqual([{ from: 0, to: 9, title: "운영체제 스케줄러" }]);
   });
 
+  it("최장 후보가 경계에서 실패해도 같은 위치의 짧은 제목을 살린다", () => {
+    const m = M(["스레드", "스레드 풀"]);
+    // "스레드 풀링" — "스레드 풀"은 뒤에 "링"(조사 아님)이라 탈락, 하지만 "스레드"는 유효
+    expect(findTermMatches("스레드 풀링 얘기", m)).toEqual([{ from: 0, to: 3, title: "스레드" }]);
+    const m2 = M(["운영체제", "운영체제 스케줄러"]);
+    expect(findTermMatches("운영체제 스케줄러들 개념", m2)).toEqual([{ from: 0, to: 4, title: "운영체제" }]);
+  });
+
   it("대소문자 무시 매치, canonical 제목 반환", () => {
     const m = M(["Transformer"]);
     expect(findTermMatches("transformer 구조", m)[0].title).toBe("Transformer");

@@ -254,8 +254,13 @@ export function InboxSection({
   const [pdfTitle, setPdfTitle] = useState("");
   // 자동 트리거는 렌더 사이 마이크로태스크에서 발화한다 — 최신 클로저·마운트 여부를 ref 로 본다.
   const mountedRef = useRef(true);
-  useEffect(() => () => {
-    mountedRef.current = false; // 탭 이탈 시 자동 저장 중단(스펙 §1 MVP 한계 — 요약 병합은 스토어가 계속한다)
+  useEffect(() => {
+    // StrictMode(dev)는 mount→cleanup→remount 를 돌린다 — 본문에서 true 로 복원해야
+    // cleanup 이 남긴 false 가 영구화되지 않는다(안 하면 dev 에서 자동 트리거가 절대 안 발화).
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false; // 탭 이탈 시 자동 저장 중단(스펙 §1 MVP 한계 — 요약 병합은 스토어가 계속한다)
+    };
   }, []);
   const withLlmRef = useRef(true);
   const runRef = useRef<() => Promise<void>>(async () => {});
@@ -463,6 +468,12 @@ export function InboxSection({
         // cancelled/failed 는 부분 텍스트만 남기고 수동 저장 폴백. 탭 이탈 시(unmount) 트리거 중단.
         void summaryDone.then((outcome) => {
           if (outcome !== "done" || !mountedRef.current) return;
+          // 다른 저장이 돌고 있으면 자동 저장은 조용히 죽는다(run 의 게이트) — 무통보 대신 안내하고 수동 폴백.
+          const otherJob = useImportStore.getState().job;
+          if (otherJob && !["completed", "failed"].includes(otherJob.status)) {
+            onNotice?.("다른 저장이 진행 중이라 자동 저장을 건너뛰었어요 — 저장 버튼으로 이어가세요");
+            return;
+          }
           void runRef.current();
         });
       } catch {
@@ -564,7 +575,10 @@ export function InboxSection({
     const curSpace = d.targetSpace || space;
     const importJob = useImportStore.getState().job;
     const importBusy = !!importJob && !["completed", "failed"].includes(importJob.status);
-    const summaryStreaming = ds.getState().job?.status === "streaming";
+    // 이 탭의 요약만 본다 — 전역 job 으로 막으면 다른 탭 요약 중에 이 탭 저장이 조용히 무시된다
+    // (버튼 disabled 도 탭 기준 summarizing 이라 눌리는데 아무 일도 안 일어난다).
+    const sj = ds.getState().job;
+    const summaryStreaming = sj?.noteKey === draftKey && sj.status === "streaming";
     const pdfWorking = (ds.getState().pdfJobs[draftKey] ?? 0) > 0;
     // pdfBusy/summarizing 게이트: 요약 완료 전 저장하면 아카이브에 PDF 요약이 빠진 채 저장되고
     // 뒤늦은 요약이 비워진 에디터에 고아로 삽입된다.
@@ -853,6 +867,7 @@ export function InboxSection({
               value={pdfTitle}
               onChange={(e) => setPdfTitle(e.target.value)}
               onKeyDown={(e) => {
+                if (e.nativeEvent.isComposing) return; // 한글 조합 확정 Enter 가 파이프라인을 쏘면 안 된다
                 if (e.key === "Enter") confirmPdfImport();
                 if (e.key === "Escape") setPendingPdf(null);
               }}

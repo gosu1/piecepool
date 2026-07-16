@@ -83,9 +83,10 @@ export function DocView({
     handlers: feynman?.handlers,
   });
   // 자기 자신 링크 방지 — 위키 문서 안에서 그 문서 제목은 강조하지 않는다.
+  // archive 노트는 제외하지 않는다: 노트 제목이 어떤 위키와 같아도 그 노트가 그 위키는 아니다.
   const termsKey = terms?.join("\n") ?? "";
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const docTerms = useMemo(() => terms?.filter((t) => t !== title), [termsKey, title]);
+  const docTerms = useMemo(() => (docType === "wiki" ? terms?.filter((t) => t !== title) : terms), [termsKey, title, docType]);
   // 읽기 모드 본문 — 카드 없이 페이지에 바로. 빈 페이지는 클릭해서 작성 시작.
   const readBody = savedMd.trim() ? (
     <div className="px-1">

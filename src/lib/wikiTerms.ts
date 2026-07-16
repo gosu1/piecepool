@@ -9,8 +9,8 @@ export interface TermMatch {
 }
 
 export interface TermMatcher {
-  regex: RegExp;
-  byKey: Map<string, string>; // lowercase 표면형 → canonical 제목
+  regex: RegExp; // 후보 "위치" 탐색용 — 확정은 titles 를 같은 위치에서 긴 것부터 대조
+  titles: string[]; // canonical 제목, 길이 내림차순
 }
 
 // 제목 뒤에 붙어도 매치로 인정하는 한국어 조사 — 긴 것 먼저("에서"가 "에"보다 먼저 걸리게).
@@ -33,7 +33,7 @@ export function buildTermMatcher(titles: string[]): TermMatcher | null {
     .sort((a, b) => b.length - a.length); // alternation 은 앞이 이긴다 — 최장 일치 우선
   if (!list.length) return null;
   const esc = list.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-  return { regex: new RegExp(`(?:${esc.join("|")})`, "gi"), byKey: new Map(list.map((t) => [t.toLowerCase(), t])) };
+  return { regex: new RegExp(`(?:${esc.join("|")})`, "gi"), titles: list };
 }
 
 /** 매치 뒤 경계 — 비단어문자면 OK, 한글이면 조사(+비단어문자)일 때만 OK. */
@@ -58,17 +58,29 @@ export function findTermMatches(
 ): TermMatch[] {
   const out: TermMatch[] = [];
   const re = new RegExp(matcher.regex.source, "gi"); // 호출마다 독립 — 공유 lastIndex 오염 방지
+  const lower = text.toLowerCase();
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
     const from = m.index;
-    const to = from + m[0].length;
     const prev = text[from - 1];
-    const boundaryOk = (prev === undefined || !WORD.test(prev)) && okAfter(text, to);
-    const hitExcluded = excluded.some((r) => from < r.to && to > r.from);
-    if (boundaryOk && !hitExcluded) {
-      out.push({ from, to, title: matcher.byKey.get(m[0].toLowerCase()) ?? m[0] });
+    let hit: TermMatch | null = null;
+    if (prev === undefined || !WORD.test(prev)) {
+      // 정규식은 이 위치의 최장 후보만 알려준다 — 그 후보가 경계·제외에서 떨어져도
+      // 같은 위치의 더 짧은 제목("스레드 풀링" 속 "스레드")은 유효할 수 있어 전부 대조한다.
+      for (const t of matcher.titles) {
+        const to = from + t.length;
+        if (to > text.length || lower.slice(from, to) !== t.toLowerCase()) continue;
+        if (!okAfter(text, to)) continue;
+        if (excluded.some((r) => from < r.to && to > r.from)) continue;
+        hit = { from, to, title: t };
+        break; // titles 는 길이 내림차순 — 첫 통과가 최장 일치
+      }
+    }
+    if (hit) {
+      out.push(hit);
+      re.lastIndex = hit.to;
     } else {
-      re.lastIndex = from + 1; // 이 자리 실패 — 한 글자 뒤부터 다시(안쪽 짧은 제목 기회)
+      re.lastIndex = from + 1;
     }
   }
   return out;
