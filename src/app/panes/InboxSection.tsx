@@ -12,6 +12,7 @@ import { ConfirmDialog } from "../shell/Dialogs";
 import { Markdown } from "../../lib/markdown";
 import { stripEvidenceSection } from "../../lib/noteSections";
 import { stripFeynmanSection } from "../../lib/feynmanSection";
+import { FeynmanPanel } from "./FeynmanPanel";
 import { conceptRelationGroups } from "../../lib/conceptGraph";
 import { MiniRelationGraph } from "../../lib/MiniGraph";
 import { FilePreview } from "../../lib/FilePreview";
@@ -155,6 +156,7 @@ export function InboxSection({
   graphBySlug,
   onCreateSpace,
   onOpenWiki,
+  onWikiSaved,
   onRefresh,
   onNotice,
   onDirtyChange,
@@ -177,6 +179,8 @@ export function InboxSection({
   // 저장 위치 드롭다운에서 바로 새 과목 폴더 만들기 — 만든 slug 를 돌려주면 그 과목으로 대상이 옮겨간다.
   onCreateSpace: (name: string) => Promise<string | null>;
   onOpenWiki: (space: string, file: string) => void;
+  /** 파인만 판정 저장 직후 — 앱의 메모리 사본(wikiBySlug)을 갱신한다. 없으면 카드가 안 나타난다. */
+  onWikiSaved: (space: string, saved: WikiPageT) => void;
   onRefresh: (space: string) => Promise<void> | void;
   // 저장 실패 등 사용자 알림(상태바 토스트). 성공은 노트 초기화·위키 패널로 암시.
   onNotice?: (msg: string) => void;
@@ -814,6 +818,10 @@ export function InboxSection({
                 </section>
               ) : null;
             })()}
+            {/* 정리 글은 학습자 본인 노트에서 나온 글이라 파인만 대상이 아니다 */}
+            {!isSynthesisPage(refWiki) && (
+              <FeynmanPanel space={targetSpace} page={refWiki} onSaved={(saved) => onWikiSaved(targetSpace, saved)} />
+            )}
           </>
         ) : listWikis.length ? (
           <>

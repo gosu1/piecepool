@@ -105,3 +105,68 @@ test("진행 중인 세션은 다른 위키를 열어도 파괴되지 않는다"
   await openWiki(page);
   await expect(page.getByText("쓰다 만 설명")).toBeVisible();
 });
+
+// ── Task 10: 인박스 위키 참조 패널에도 파인만 (수동 전용) ──────────────────────────
+
+/** 인박스 탭을 새로 열고 → 위키 패널을 켜고 → 목록에서 개념을 고른다.
+ *  "이 공간의 개념" 목록(잡 없이 공간 전체 브라우징 시)은 refCandidates 에서
+ *  isSynthesisPage 를 걸러낸 것이라, 시드 위키(프로세스 등)는 항상 여기로 뜬다. */
+async function openInboxWiki(page: Page, title: string) {
+  await page.getByRole("button", { name: "새 노트 작성" }).click();
+  await page.getByRole("button", { name: "위키 패널", exact: true }).click();
+  await page
+    .locator("text=이 공간의 개념")
+    .locator("xpath=following-sibling::ul[1]")
+    .getByRole("button", { name: title, exact: true })
+    .click();
+}
+
+test("인박스 위키 패널 — 수동 버튼으로 시작하고 판정하면 카드가 남는다", async ({ page }) => {
+  await openInboxWiki(page, "프로세스");
+  // 인박스는 자동으로 안 열린다 — 노트 쓰는 중에 방해하지 않는다
+  await expect(box(page)).toHaveCount(0);
+  await page.getByRole("button", { name: "이 개념을 설명해보기" }).click();
+  await box(page).fill("프로세스는 실행 중인 프로그램이에요");
+  await page.getByRole("button", { name: "설명 보내기" }).click();
+  await expect(page.getByText("실행 중이라는 게 정확히 무슨 뜻인가요?")).toBeVisible();
+  await page.getByRole("button", { name: "네, 이해했어요" }).click();
+  // onWikiSaved 가 없으면 여기서 카드가 안 나타난다(wikiBySlug 사본이 stale 로 남아 refWiki 가 안 바뀜)
+  await expect(page.getByRole("button", { name: /이해함/ })).toBeVisible();
+});
+
+/**
+ * 정리 글(합성 페이지, convertStore.runConvert 산출물)엔 파인만이 없다.
+ *
+ * 이 앱에는 정리 글을 만드는 UI 진입점이 아직 없다(runConvert 가 StatusBar 표시 말고는
+ * 어디서도 호출되지 않는다) — 그래서 시드에도 정리 글이 없고, 있다 해도 인박스 위키 패널의
+ * 두 선택 경로(기본 목록 refCandidates.filter(!isSynthesisPage) · 본문 키워드 termTitles)가
+ * 둘 다 isSynthesisPage 를 걸러내 절대 선택될 수 없다. 유일하게 그 필터를 타지 않는 경로는
+ * "방금 이 노트를 AI 정리해서 만든 개념" 목록(jobWikiPaths, applyLlmResult 는 병합 대상에서만
+ * 합성 페이지를 제외하고 신규 생성 시엔 안 본다)뿐이다. isSynthesisPage 는 conceptId 접두사만
+ * 보므로(llmApply.ts, 이 PR에서 안 건드림), 그 접두사와 겹치는 제목("Syn ...")의 개념을 실제
+ * AI 정리 파이프라인으로 만들어 가드를 재현한다.
+ */
+test("인박스 위키 패널 — 정리 글엔 파인만이 없다", async ({ page }) => {
+  await page.route("**generativelanguage.googleapis.com**", (route) =>
+    route.fulfill(
+      chat({
+        concepts: [
+          { title: "Syn X", summary: "테스트용 합성 대역", explanation: "테스트용 합성 대역", examples: [], sourceRefs: [], sourceEmbeds: [] },
+        ],
+        relations: [],
+      }),
+    ),
+  );
+  await page.getByRole("button", { name: "새 노트 작성" }).click();
+  await page.getByPlaceholder("새 페이지").fill("정리 글 가드 테스트");
+  await page.locator(".cm-content").click();
+  await page.keyboard.type("본문");
+  await page.getByRole("button", { name: /AI 정리/ }).click();
+  await expect(page.getByText("완료", { exact: false }).first()).toBeVisible();
+  await page
+    .locator("text=이 노트의 개념")
+    .locator("xpath=following-sibling::ul[1]")
+    .getByRole("button", { name: "Syn X", exact: true })
+    .click();
+  await expect(page.getByRole("button", { name: "이 개념을 설명해보기" })).toHaveCount(0);
+});

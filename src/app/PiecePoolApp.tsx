@@ -1217,6 +1217,9 @@ export default function PiecePoolApp() {
             graphBySlug={graphBySlug}
             onCreateSpace={createNewSpace}
             onOpenWiki={openWiki}
+            onWikiSaved={(sp, saved) =>
+              setWikiBySlug((m) => ({ ...m, [sp]: (m[sp] ?? []).map((x) => (x.path === saved.path ? saved : x)) }))
+            }
             onRefresh={(s) => refreshSpace(s)}
             onNotice={setNotice}
             quickMemoOpen={memoOpen}
