@@ -1726,23 +1726,28 @@ session 가드가 없으면 다른 페이지에서 진행 중이던 설명이 �
 
 - [ ] **Step 1: 편집기에 기록을 안 보여준다**
 
-`src/app/PiecePoolApp.tsx:936`:
+`wikiReader` 안, `DocView` 를 반환하기 전에 **한 번만** 계산해 네 곳이 같은 값을 쓰게 한다:
 
 ```tsx
-        draft={drafts[key] ?? stripFeynmanSection(page.markdown)}
+    // 편집기는 기록을 모른다 — draft·dirty·저장 폴백이 전부 이 값을 기준으로 움직인다.
+    const savedBody = stripFeynmanSection(page.markdown);
 ```
 
-`:944` dirty 판정도 같은 기준으로 (안 맞추면 열자마자 dirty 로 뜬다):
+네 곳을 그 값으로 바꾼다:
 
 ```tsx
-          setTabDirty(tabId, md !== stripFeynmanSection(page.markdown));
+        draft={drafts[key] ?? savedBody}
+        onToggleEdit={() => toggleEdit(key, savedBody)}
+        onChangeDraft={(md) => {
+          setDraft(key, md);
+          setTabDirty(tabId, md !== savedBody);   // strip 기준 — 안 맞추면 열자마자 dirty 로 뜬다
+        }}
+        onSave={() => saveWikiDoc(space, page, drafts[key] ?? savedBody)}
 ```
 
-`:937` `onToggleEdit` 은 seed 를 넘긴다 — strip 한 것을 넘긴다:
+**`onSave` 의 폴백이 특히 중요하다.** `drafts[key]` 는 `editing.has(key)` 인 한 항상 정의돼 있어 폴백은 도달하지 않는다(`toggleEdit`/`clearDocState` 가 두 state 를 같은 배치에서 건드린다). 그래도 `page.markdown`(원문)을 폴백으로 두면 안 된다 — 도달하는 순간 `saveWikiDoc` 이 기록 있는 본문에 기록을 **또** 붙여 `## 파인만 기록` 이 두 개가 되고, 다음 `splitFeynmanSection` 이 같은 세션을 **두 번** 읽는다. 에러도 배지도 없이 기록이 불어나고, 기록 섹션은 SSOT 라 복구 원본이 없다.
 
-```tsx
-        onToggleEdit={() => toggleEdit(key, stripFeynmanSection(page.markdown))}
-```
+> 불변식이 React 배치 의미론에 매달려 있고 `toggleEdit` 은 `setEditing` updater 안에서 `setDrafts` 를 부른다. **미도달 방어 코드의 실패 모드가 no-op 이 아니라 SSOT 오염이면, 그 방어 코드는 안전한 값을 써야 한다.**
 
 > `sourceReader`(archive) 의 `toggleEdit` 은 **건드리지 마라** — 노트에는 기록이 없다.
 
