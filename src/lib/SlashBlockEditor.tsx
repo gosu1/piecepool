@@ -17,7 +17,7 @@ import { wikiTermExtension, refreshWikiTerms } from "./cmWikiTerm";
 // CM6 캡처 에디터: "/" 슬래시 메뉴 + 마크다운 리스트 자동 이어짐 + ⌘Enter 제출.
 // 테마는 DS 토큰 참조(라이트/다크 자동). 한글-first라 슬래시는 ASCII "/"에서만 트리거(IME 안전).
 const theme = EditorView.theme({
-  "&": { color: "var(--ds-ink)", fontSize: "15px" },
+  "&": { color: "var(--ds-ink)", fontSize: "var(--pp-body-font-size, 15px)" },
   ".cm-content": { fontFamily: "var(--font-sans)", caretColor: "var(--ds-ink)", lineHeight: "1.6" },
   "&.cm-focused": { outline: "none" },
   // CM6 기본 테마는 포커스 시 `&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground` 로

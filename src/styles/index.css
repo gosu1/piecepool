@@ -76,6 +76,7 @@
 /* ── 라이트(기본): 따뜻한 페이퍼 데이라이트 ─────────────────── */
 :root,
 [data-theme="light"] {
+  --pp-body-font-size: 15px; /* 본문 글자 크기 — settings.ts applyBodyFontSize 가 덮어쓴다 */
   --ds-canvas: #f6f5f4;
   --ds-surface: #ffffff;
   --ds-surface-soft: #f0eeea;

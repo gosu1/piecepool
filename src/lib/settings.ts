@@ -117,8 +117,9 @@ export function setBodyFontSize(px: number): void {
   ls()?.setItem(BODY_FONT_KEY, String(px));
 }
 
-/** documentElement 에 --pp-body-font-size 주입 — 앱 시작(PiecePoolApp)·설정 변경 공용. */
+/** documentElement 에 --pp-body-font-size 주입 — 앱 시작(PiecePoolApp)·설정 변경 공용.
+ *  Node(check:scripts, DOM lib 없음)에서도 타입체크되므로 globalThis 캐스트(gemini.ts:180 패턴). */
 export function applyBodyFontSize(px: number): void {
-  if (typeof document === "undefined") return;
-  document.documentElement.style.setProperty("--pp-body-font-size", `${px}px`);
+  const g = globalThis as { document?: { documentElement: { style: { setProperty(name: string, value: string): void } } } };
+  g.document?.documentElement.style.setProperty("--pp-body-font-size", `${px}px`);
 }
