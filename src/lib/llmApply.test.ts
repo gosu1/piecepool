@@ -9,6 +9,11 @@ vi.mock("./ipc", () => ({
   saveWiki: vi.fn(async (_space: string, page: unknown) => page),
   saveWikiBatch: vi.fn(async (_space: string, pages: unknown[]) => pages),
   appendRelations: vi.fn(async (_space: string, relations: unknown[] = []) => relations.length),
+  // 기본값: 디스크 재읽기 실패 → mergeMarkdown 이 스냅샷(ex)으로 폴백. 개별 테스트가
+  // mockResolvedValueOnce 로 "디스크가 스냅샷보다 최신" 시나리오를 덮어쓴다.
+  readWiki: vi.fn(async () => {
+    throw new Error("readWiki not mocked for this test");
+  }),
 }));
 
 describe("concept dedup key (normalizedTitle)", () => {
@@ -379,6 +384,34 @@ describe("applyLlmResult 병합 — 기존 개념에 새 노트가 얹힐 때", 
     const { body, sessions } = splitFeynmanSection(md);
     expect(sessions).toEqual([FEYNMAN]);
     expect(body).toBe("# 교착 상태\n\n새 본문");
+  });
+
+  // ── 디스크 재읽기 — ex 는 저장 버튼 누른 시점의 wikiBySlug 스냅샷인데, 쓰이는 건
+  // runWikiGeneration(LLM 30초+) 을 지난 뒤다. 그 사이 사용자가 위키 탭에서 끝낸 파인만
+  // 세션은 스냅샷엔 없다 — mergeMarkdown 은 디스크 최신본(cur)을 읽어 기준으로 삼아야 한다.
+  it("병합 성공 시 디스크 최신본을 기준으로 삼는다 — 스냅샷(ex)에 없는 세션도 살아남는다", async () => {
+    const staleEx = existingPage({ markdown: OLD_BODY }); // 스냅샷: 세션 없음
+    const freshOnDisk = { ...staleEx, markdown: joinFeynmanSection(OLD_BODY, [FEYNMAN]) }; // 디스크: 그 사이 세션 추가됨
+    vi.mocked(ipc.readWiki).mockResolvedValueOnce(freshOnDisk);
+    const applied = await applyOnto([staleEx], "교착 상태", ["subj-os"], {
+      mergeMarkdown: async () => "# 교착 상태\n\n통합된 새 본문",
+    });
+    expect(vi.mocked(ipc.readWiki)).toHaveBeenCalledWith("space", staleEx.path);
+    const { body, sessions } = splitFeynmanSection(applied.pages[0].markdown);
+    expect(sessions).toEqual([FEYNMAN]); // 스냅샷엔 없던 세션이 살아 있다
+    expect(body).toBe("# 교착 상태\n\n통합된 새 본문");
+  });
+
+  it("병합 실패 폴백도 디스크 최신본을 쓴다 — 스냅샷으로 되돌리면 그 사이의 세션을 잃는다", async () => {
+    const staleEx = existingPage({ markdown: OLD_BODY });
+    const freshOnDisk = { ...staleEx, markdown: joinFeynmanSection(OLD_BODY, [FEYNMAN]) };
+    vi.mocked(ipc.readWiki).mockResolvedValueOnce(freshOnDisk);
+    const applied = await applyOnto([staleEx], "교착 상태", ["subj-os"], {
+      mergeMarkdown: async () => {
+        throw new Error("[mergeWiki] HTTP 429");
+      },
+    });
+    expect(splitFeynmanSection(applied.pages[0].markdown).sessions).toEqual([FEYNMAN]);
   });
 });
 

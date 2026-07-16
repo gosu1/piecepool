@@ -180,20 +180,26 @@ export interface ApplyDeps {
 // 파인만 기록은 LLM 에 보내지 않고 코드로 되붙인다. mergeWiki 는 기존 본문을 통째로 넣고
 // 통째로 다시 쓰게 하는 구조라(mergeWiki.ts:5-6 이 인정하듯) 프롬프트 지시로는 못 지킨다.
 // 사용자가 자기 말로 쓴 설명이 "정답"으로 둔갑해 되물음에 인용되는 것도 함께 막는다.
-async function mergeMarkdown(ex: WikiPage, c: LlmConcept, source: ImportSource, deps?: ApplyDeps): Promise<string> {
+async function mergeMarkdown(space: string, ex: WikiPage, c: LlmConcept, source: ImportSource, deps?: ApplyDeps): Promise<string> {
   if (!deps?.mergeMarkdown) return ex.markdown;
-  const { body, sessions, unparsed } = splitFeynmanSection(ex.markdown);
+  // 디스크 최신본 기준. `ex` 는 저장 버튼 누른 시점의 wikiBySlug 스냅샷인데, 여기 오기까지
+  // LLM 호출(30초+)을 지난다 — 그 사이 사용자가 위키 탭에서 끝낸 파인만 세션이 이 스냅샷엔 없다.
+  // 그대로 쓰면 saveWikiBatch 가 그 세션을 덮어 없앤다(에러도 배지도 없이, 복구 원본도 없이).
+  // finish·saveWikiDoc·toggleWikiSubject 는 전부 이 원칙을 지킨다 — 위키 writer 중 여기만 예외였다.
+  // 읽기 실패는 치명적이지 않다: 스냅샷으로 진행하되 새 세션을 잃을 뿐이므로 조용히 폴백한다.
+  const cur = await ipc.readWiki(space, ex.path).catch(() => ex);
+  const { body, sessions, unparsed } = splitFeynmanSection(cur.markdown);
   try {
     const md = await deps.mergeMarkdown(body, c, source);
-    // 폴백 두 경로는 기록 포함 원본(ex.markdown)을 그대로 돌려준다 — 여기서만 되붙여야 중복이 없다.
+    // 폴백 두 경로는 기록 포함 원본(cur.markdown)을 그대로 돌려준다 — 여기서만 되붙여야 중복이 없다.
     // LLM 출력을 한 번 훑는 이유: 돌려준 본문에 `## 파인만 기록` 이 섞여 있으면 재부착 뒤 그 헤딩이
     // 두 번 나타나고, 다음 split 의 locate() 가 앞선 가짜를 잡아 **진짜 기록을 body 로 흘려보낸다**.
     // 그러면 사용자 발화가 다음 병합의 LLM 입력이 된다 — 이 함수가 막으려던 바로 그 유출이다.
     // 우리는 기록 없는 body 만 보냈으므로 LLM 이 그 헤딩을 뱉었다면 그건 창작이다. 버려도 된다.
-    return md.trim() ? joinFeynmanSection(splitFeynmanSection(md).body, sessions, unparsed) : ex.markdown;
+    return md.trim() ? joinFeynmanSection(splitFeynmanSection(md).body, sessions, unparsed) : cur.markdown;
   } catch (e) {
     console.warn(`[llmApply] 본문 통합 실패 — 기존 본문 유지: ${String(e)}`);
-    return ex.markdown;
+    return cur.markdown;
   }
 }
 
@@ -225,7 +231,7 @@ export async function applyLlmResult(
       const cid = ex ? ex.conceptId : `concept-${slugOrHash(c.title)}`;
       // 허용 sourceId = 이번 입력 소스 ∪ 기존 페이지가 이미 참조하던 소스
       const allowed = new Set([source.sourceId, ...(ex?.sourceIds ?? [])]);
-      const markdown = ex ? await mergeMarkdown(ex, c, source, deps) : conceptMarkdown(c);
+      const markdown = ex ? await mergeMarkdown(space, ex, c, source, deps) : conceptMarkdown(c);
       conceptMap.set(norm, cid);
       return {
         id: ex ? ex.id : `wiki-${slugOrHash(c.title)}`,
