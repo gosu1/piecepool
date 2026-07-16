@@ -117,7 +117,7 @@ export function SettingsModal({ onClose, workspacePath }: { onClose: () => void;
           <div className="flex items-center justify-between rounded-md border border-hairline p-3">
             <div>
               <span className="text-[14px] text-ink-2">Gemini 모델</span>
-              <p className="text-[12px] text-ink-muted">모든 AI 생성(위키·요약·파인만)에 쓰는 모델. Flash-Lite는 더 빠르고 무료 티어 여유가 큽니다.</p>
+              <p className="text-[12px] text-ink-muted">파인만·되묻기·OCR·메모 정리 등에 쓰는 모델. PDF 임포트(요약·위키·관계추출)는 속도를 위해 태스크별 고정 모델을 씁니다. Flash-Lite는 더 빠르고 무료 티어 여유가 큽니다.</p>
             </div>
             <div className="flex shrink-0 gap-1">
               <Button

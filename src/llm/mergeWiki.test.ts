@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { buildMergeBody, runWikiMerge } from "./mergeWiki";
-import { GEMINI_MODEL } from "./gemini";
+import { TASK_MODELS } from "./gemini";
 import type { LlmConcept } from "./provider";
 
 const EXISTING = "# 교착 상태\n\n1주차: 둘 이상의 프로세스가 서로를 기다리며 멈춘 상태.\n\n## 내 메모\n시험에 나온다고 하심";
@@ -19,7 +19,7 @@ const SOURCE = { sourceId: "source-week3", archivePath: "archive/2026-07-15-os.m
 describe("buildMergeBody — 기존 본문 + 새 내용을 한 편으로 통합하는 요청", () => {
   it("기존 본문과 새 개념을 모두 프롬프트에 싣는다", () => {
     const b = buildMergeBody(EXISTING, NEW, SOURCE);
-    expect(b.model).toBe(GEMINI_MODEL); // 모델명 하드코딩 금지 — 단종 시 거짓 실패
+    expect(b.model).toBe(TASK_MODELS.wikiMerge); // 모델명 하드코딩 금지 — 단종 시 거짓 실패
     const user = b.messages[1].content;
     expect(user).toContain("1주차: 둘 이상의 프로세스"); // 기존 본문
     expect(user).toContain("네 가지 필요조건"); // 새 요약
