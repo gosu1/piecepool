@@ -189,7 +189,7 @@ paper-recall-kit "검색 키워드 + 다시읽기 트리거"를 1급 필드로 �
 
 ## 11. PDF 한국어 번역·요약 프롬프트 (pdfsummary)
 
-PDF 추출 영어 텍스트 → 한국어 번역·요약 학습 노트. 스트리밍(`streamChatText`), 순수 마크다운, `LlmWikiResult` 미준수 (부가 호출). 모델: `TASK_MODELS.summary` = `gemini-3.1-flash-lite` 고정 (§12). 코드: [`src/llm/pdfsummary.ts`](../../src/llm/pdfsummary.ts). 렌더 문법(수식·콜아웃)은 [`../40-frontend/markdown-callout-math.md`](../40-frontend/markdown-callout-math.md).
+PDF 추출 영어 텍스트 → 한국어 번역·요약 학습 노트. 스트리밍(`streamChatText`), 순수 마크다운, `LlmWikiResult` 미준수 (부가 호출). 모델: `GEMINI_SUMMARY_MODEL` = `gemini-3.1-flash-lite` 고정 — 앱에서 유일한 lite 호출(속도). 코드: [`src/llm/pdfsummary.ts`](../../src/llm/pdfsummary.ts). 렌더 문법(수식·콜아웃)은 [`../40-frontend/markdown-callout-math.md`](../40-frontend/markdown-callout-math.md).
 
 ### System Prompt
 
@@ -228,43 +228,3 @@ PDF에서 추출한 영어 원문을 읽고, 한국어로 번역·요약된 학�
 
 - `temperature: 0.2`, `max_tokens: 8192`, 비스트리밍 폴백 없음 — 번역은 휴리스틱 불가라 키 없거나 스트림 시작 전 실패면 throw(호출부가 안내). 도중 실패는 부분 텍스트 유지(`PdfSummaryStreamError`).
 - 결과는 Inbox 노트 초안(`inboxDraftStore`)에 스트리밍 병합 → 사용자가 마크다운으로 직접 편집. archive/ 계약 불변(사전 저장 초안은 사용자 소유).
-
-## 12. 임포트 2단 호출 · 태스크 모델 라우팅
-
-위키 생성(§2~§5)은 어댑터([`src/llm/gemini.ts`](../../src/llm/gemini.ts)) 내부에서 **2단 호출**로 나뉜다 — 속도가 목적: 출력 토큰이 많은 글 생성은 빠른 lite, 추론이 필요한 관계추출만 3.5. `LlmProvider.generateWikiStructured` 인터페이스와 `LlmWikiResult` 계약([llm-output-schema.md](../10-contracts/llm-output-schema.md))은 무변경 — 두 응답을 합쳐 §5 정규화를 그대로 1회 통과한다.
-
-| 태스크 | 모델 | 코드 |
-|---|---|---|
-| PDF 요약+쉬운설명 (§11) | `gemini-3.1-flash-lite` | `pdfsummary.ts` (`summary`) |
-| 위키 개념/본문 — 호출 ① | `gemini-3.1-flash-lite` | `gemini.ts` (`wikiConcepts`) |
-| 12종 관계추출 — 호출 ② | `gemini-3.5-flash` | `gemini.ts` (`wikiRelations`) |
-| 위키 본문 축적 병합 | `gemini-3.1-flash-lite` | `mergeWiki.ts` (`wikiMerge`) |
-
-우선순위: `PIECEPOOL_LLM_MODEL`(env — CLI·eval 전역 강제) > `TASK_MODELS`. 설정 모달 피커(`localStorage["gemini-model"]`)는 파이프라인 밖 기능(파인만·되묻기·OCR·정리글·퀵메모 정리)만 지배한다.
-
-### 단계 규칙 (system 에 한 줄 삽입)
-
-두 호출 모두 §2 system prompt 를 쓰되, 단계 규칙이 추가된다:
-
-```text
-① wikiConcepts:
-This call extracts CONCEPTS only. Return "relations": [] (an empty array).
-
-② wikiRelations:
-This call extracts RELATIONS only, between the concepts given in input.newConcepts and
-input.existingConcepts. Use those exact titles as sourceConceptTitle/targetConceptTitle.
-Return "concepts": [] (an empty array). Ground every relation's evidence in
-input.sourceText (quote or location).
-```
-
-### ② wire 입력 — `newConcepts`
-
-②의 user 메시지는 `LlmWikiInput`에 ①이 방금 뽑은 개념(제목+요약)을 얹은 확장 객체다. **어댑터 내부 wire 형식**이며 계약(`LlmWikiInput`) 확장이 아니다:
-
-```jsonc
-{ ...LlmWikiInput, "newConcepts": [{ "title": "...", "summary": "..." }] }
-```
-
-- ①의 응답 `relations`, ②의 응답 `concepts` 는 버린다(지시 위반 무해) — phantom 제목을 참조한 관계는 §5(2) 정규화가 제거한다.
-- 실패는 단계별 재시도 후 throw — 호출부(`runWikiGeneration`)의 휴리스틱 폴백은 현행 그대로.
-- 청킹(README §C, opt-in) 경로는 조각당 2단이 자동 적용된다.

@@ -4,7 +4,7 @@
 //  - 재시도는 첫 delta 이전 실패만. 도중 실패는 부분 텍스트를 유지한 채 PdfSummaryStreamError.
 
 import { streamChatText } from "./stream";
-import { taskModel } from "./gemini";
+import { GEMINI_SUMMARY_MODEL } from "./gemini";
 import { getOutputLanguage, type OutputLanguage } from "./language";
 
 export interface PdfSummaryInput {
@@ -84,7 +84,7 @@ const systemPrompt = (lang: OutputLanguage) => (lang === "en" ? SYSTEM_PROMPT_EN
 
 export function buildPdfSummaryBody(
   input: PdfSummaryInput,
-  model: string = taskModel("summary"),
+  model: string = GEMINI_SUMMARY_MODEL,
   lang: OutputLanguage = getOutputLanguage(),
 ) {
   const clipped =

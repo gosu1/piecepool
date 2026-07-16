@@ -10,7 +10,7 @@
 // 사용자는 AI가 돌지 않았다는 걸 모른다 — gemini-2.5-flash 단종을 팀이 몇 주간 몰랐던 전례가 있다.
 
 import { streamChatText } from "./stream";
-import { getGeminiModel } from "./gemini";
+import { GEMINI_MODEL } from "./gemini";
 
 export interface TidyOptions {
   onDelta?: (full: string) => void;
@@ -47,7 +47,7 @@ const SYSTEM_PROMPT =
 
 const MAX_OUTPUT_TOKENS = 4096;
 
-export function buildTidyBody(memo: string, model: string = getGeminiModel()) {
+export function buildTidyBody(memo: string, model: string = GEMINI_MODEL) {
   return {
     model,
     messages: [

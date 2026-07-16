@@ -40,7 +40,7 @@ interface LlmWikiInput {
 
 | 변수 | 기본값 | 설명 |
 |---|---|---|
-| `PIECEPOOL_LLM_MODEL` | (없음 — §3.1 라우팅) | 모델명 강제 (CLI·eval 용) — 임포트 파이프라인(태스크 라우팅·provider)에 우선 적용. 피커 경유 기능(파인만 등)은 env 를 읽지 않음 |
+| `PIECEPOOL_LLM_MODEL` | `GEMINI_MODEL` (§3.1) | 모델명 override (CLI·eval 용) — provider 경유 위키 생성에 적용 |
 | `GEMINI_API_KEY` | (CLI 필수) | Gemini 호출 키 (LLM). CLI/eval 스크립트 전용 — 데스크톱 앱은 설정 모달 → `localStorage["gemini-key"]` 사용, `.env` 안 읽음 |
 | `LINER_API_KEY` | (feature 3 필수) | Liner 출처 검색·검증 키 |
 | `LINER_API_ENDPOINT` | 기본 endpoint | Liner API endpoint override |
@@ -63,9 +63,8 @@ if feature 3 활성 && LINER_API_KEY is empty
 
 ### 3.1 Gemini
 
-- 모델 (생성): 임포트 파이프라인은 태스크별 고정 라우팅 `TASK_MODELS`([`src/llm/gemini.ts`](../../src/llm/gemini.ts)) — 속도 목적. 요약·위키 개념·본문 병합 = `gemini-3.1-flash-lite`(글 생성, 빠름), 12종 관계추출 = `gemini-3.5-flash`(추론). 파이프라인 밖 기능(파인만·되묻기·OCR·정리글·퀵메모 정리)은 설정 모달 피커(`localStorage["gemini-model"]`, 기본 `gemini-3.5-flash`)
-- 임베딩: `gemini-embedding-001` (라우팅 무관)
-- 위키 생성은 어댑터 내부 **2단 호출**: ① 개념(lite) → ② 관계(3.5, ①의 개념을 `newConcepts`로 전달) → 합쳐 `LlmWikiResult` 정규화 1회. 인터페이스(`generateWikiStructured`) 무변경. 프롬프트: [`prompt-templates.md`](prompt-templates.md) §12
+- 모델 (생성): 기본 `gemini-3.5-flash`(`GEMINI_MODEL`, [`src/llm/gemini.ts`](../../src/llm/gemini.ts)). 예외 하나 — PDF 요약+쉬운설명(pdfsummary.ts)만 `gemini-3.1-flash-lite`(`GEMINI_SUMMARY_MODEL`) 고정, 속도 목적. 사용자 모델 선택 UI 없음
+- 임베딩: `gemini-embedding-001`
 - 호출: **Chat Completions** — Gemini의 OpenAI 호환 엔드포인트(`https://generativelanguage.googleapis.com/v1beta/openai`)의 `/chat/completions`, 스트리밍은 `delta.content`
 - structured output: `response_format: { type: "json_schema", json_schema: { name: "LlmWikiResult", strict: false, schema: ... } }`
 - Gemini는 `strict: true`를 거부 → `strict: false` + 다운스트림 파싱(ajv)으로 schema 위반 차단
@@ -125,10 +124,10 @@ Backend import-pipeline
   → validate GEMINI_API_KEY (§2.1)
   → create LlmProvider instance
   → generateWikiStructured(input)
-    → ① 개념 호출(lite) → ② 관계 호출(3.5) — 태스크 라우팅 (§3.1)
-    → raw responses → 병합 → LlmWikiResult 변환
-    → JSON Schema 검증 (SSOT, 호출별)
-    → schema 위반 시 재시도 (§4.1, 단계별)
+    → Gemini HTTP call (§3)
+    → raw response → LlmWikiResult 변환
+    → JSON Schema 검증 (SSOT)
+    → schema 위반 시 재시도 (§4.1)
   → return LlmWikiResult to Backend
 ```
 
@@ -156,7 +155,7 @@ Backend import-pipeline
 | 항목 | 위치 |
 |---|---|
 | Anthropic Claude provider | 본 문서 §3에 신규 절 추가. `LlmProvider.id` 확장 |
-| 모델 라우팅 | **구현됨 (2026-07-16)** — `TASK_MODELS` 태스크별 고정 라우팅(§3.1). adapter 내부 model 선택, 인터페이스 무변경 |
+| 모델 라우팅 (작은 입력 → 작은 모델) | adapter 내부에서 model 선택. 인터페이스 무변경. 현재 PDF 요약만 lite 고정(§3.1) |
 
 세부 우선순위: [`../70-roadmap/post-mvp.md`](../70-roadmap/post-mvp.md) §9.
 
@@ -167,5 +166,5 @@ Backend import-pipeline
 - 본 문서는 신규 작성이다. 초안 = [Phase 4 tracking #3 (LLM)](https://github.com/gosu1/piecepool/issues/3) + [sub-issue #29](https://github.com/gosu1/piecepool/issues/29) 기반.
 - OpenAI 단일 LLM provider + Liner 출처 검색(feature 3) 결정을 반영.
 - SSOT `LlmWikiResult` 타입은 [llm-output-schema.md](../10-contracts/llm-output-schema.md)만 정의. 본 문서는 어댑터 interface만 정의 (SSOT 위반 아님).
-- 2026-07-16: 임포트 파이프라인 **태스크별 모델 라우팅**(`TASK_MODELS`) + 위키 생성 2단 호출(개념 lite → 관계 3.5) 도입 — 속도 목적. 인터페이스·계약 무변경 (§3.1, §5, prompt-templates.md §12).
+- 2026-07-16: PDF 요약+쉬운설명을 `gemini-3.1-flash-lite` 고정(속도) — 그 외 채팅 호출은 `gemini-3.5-flash` 단일. 설정 모달 모델 피커 제거. 계약 무변경 (§3.1).
 - 2026-07-10: LLM provider를 **Google Gemini 단일**로 전환 ([ADR-0009](../adr/0009-llm-provider-gemini.md), [ADR-0001](../adr/0001-llm-provider-openai.md) 대체). 호출은 Gemini의 OpenAI 호환 엔드포인트 Chat Completions(`/chat/completions`, `response_format`, `strict:false`) — 구 Responses API 폐기. 계약 무변경. Liner(feature 3) 역할 불변, 보조 되묻기만 Gemini로.

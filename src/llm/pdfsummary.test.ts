@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { runPdfSummary, buildPdfSummaryBody, SUMMARY_MAX_CHARS, PdfSummaryStreamError } from "./pdfsummary";
-import { TASK_MODELS } from "./gemini";
+import { GEMINI_SUMMARY_MODEL } from "./gemini";
 
 function frame(obj: unknown): string {
   return `data: ${JSON.stringify(obj)}\n\n`;
@@ -21,7 +21,7 @@ const INPUT = { sourceTitle: "Attention Is All You Need", sourceText: "The Trans
 describe("buildPdfSummaryBody", () => {
   it("번역·요약 규칙 + 콜아웃/수식/구조 지시 + 파라미터를 포함한다", () => {
     const b = buildPdfSummaryBody(INPUT);
-    expect(b.model).toBe(TASK_MODELS.summary); // 하드코딩 금지 — 단종 시 거짓 실패
+    expect(b.model).toBe(GEMINI_SUMMARY_MODEL); // 하드코딩 금지 — 단종 시 거짓 실패
     const sys = b.messages[0].content;
     expect(sys).toContain("한국어"); // 번역 지시
     expect(sys).toContain("지어내지 않는다"); // 반환각(anti-hallucination)
