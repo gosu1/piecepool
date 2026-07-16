@@ -788,9 +788,11 @@ Expected: `feynmanStore.test.ts` 는 아직 통과한다(스토어 미변경). `
 
 - [ ] **Step 9: 커밋**
 
+삭제는 `git rm` 으로 이미 스테이징돼 있다. 수정한 파일만 **경로를 명시해** 추가한다 — `git add -u` 는 추적 중인 **모든** 수정을 담으므로 무관한 `src/store/inboxDraftStore.ts` 가 딸려 들어간다.
+
 ```bash
-git add -u
 git add src/app/panes/DocView.tsx src/app/PiecePoolApp.tsx src/app/panes/InboxSection.tsx src/lib/SlashBlockEditor.tsx
+git status --short   # inboxDraftStore.ts 가 스테이징 안 됐는지 눈으로 확인
 git commit -m "refactor(feynman): 노트 파인만 진입점 제거
 
 파인만의 대상이 위키로 옮겨간다. 노트 헤딩(##/###)은 필기 구조지
