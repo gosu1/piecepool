@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import { cn } from "../ds";
 import * as ipc from "./ipc";
@@ -52,6 +52,9 @@ export function PdfViewer({
   const [parseErr, setParseErr] = useState<string | null>(null);
   const [numPages, setNumPages] = useState(0);
   const [cur, setCur] = useState(1);
+  const curRef = useRef(cur); // 모드 전환 effect 가 최신 페이지를 [mode] 만 보고 읽도록 미러
+  curRef.current = cur;
+  const restorePageRef = useRef<number | null>(null); // 연속 진입 시 복원할 페이지(줌 안정까지 유지)
   const [pageInput, setPageInput] = useState("1");
   const [zoom, setZoom] = useState(1);
   // 폭 맞춤 모드 — 켜지면 패널 폭에 맞춰 줌 자동 계산(리사이즈·페이지 이동 시 재계산). 수동 줌하면 해제.
@@ -99,6 +102,7 @@ export function PdfViewer({
     const el = bodyRef.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
+      restorePageRef.current = null; // 사용자가 스크롤/줌 시작 → 페이지 복원 무장 해제(재스냅 방지)
       if (!e.ctrlKey) return;
       e.preventDefault();
       setFitWidth(false); // 수동 줌 → 폭 맞춤 해제
@@ -203,6 +207,20 @@ export function PdfViewer({
   useEffect(() => {
     if (mode === "thumbs") curThumbRef.current?.scrollIntoView({ block: "nearest" });
   }, [mode, cur]);
+
+  // 썸네일→연속 전환 시 읽던 페이지 복원. 두 단계로 나눈다:
+  //  (1) 연속 진입 순간 대상 페이지를 무장(curRef). (2) [mode,zoom] 이 바뀔 때마다 그 페이지로 스크롤.
+  // 폭맞춤 줌은 연속 모드에서 레일 84px 만큼 커져 mode 변경 직후 한 박자 늦게 재계산된다 —
+  // 줌이 커지며 페이지가 밀리므로 한 번만 스크롤하면 어긋난다. zoom 이 안정될 때까지 다시 맞춘다.
+  // 사용자가 스크롤/줌을 시작하면(onWheel) 무장 해제해 이후 재스냅을 막는다.
+  useLayoutEffect(() => {
+    restorePageRef.current = mode === "scroll" ? curRef.current : null;
+  }, [mode]);
+  useLayoutEffect(() => {
+    const p = restorePageRef.current;
+    if (mode !== "scroll" || p == null || p <= 1) return;
+    pageEls.current[p - 1]?.scrollIntoView({ block: "start" });
+  }, [mode, zoom, numPages]);
 
   const goTo = (p: number) => {
     const t = clampPage(p, numPages);
