@@ -6,6 +6,7 @@ import * as ipc from "./ipc";
 
 vi.mock("./ipc", () => ({
   saveWiki: vi.fn(async (_space: string, page: unknown) => page),
+  saveWikiBatch: vi.fn(async (_space: string, pages: unknown[]) => pages),
   appendRelations: vi.fn(async (_space: string, relations: unknown[] = []) => relations.length),
 }));
 
