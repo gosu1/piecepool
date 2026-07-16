@@ -830,7 +830,6 @@ async function mergeMarkdown(space: string, ex: WikiPage, c: LlmConcept, source:
 ```ts
       const markdown = ex ? await mergeMarkdown(space, ex, c, source, deps) : conceptMarkdown(c);
 ```
-```
 
 파일 상단 import 에 추가 (`src/lib/llmApply.ts:4` 아래):
 
