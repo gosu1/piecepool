@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, FileDropzone, Icons, cn } from "../../ds";
 import type { KnowledgeSpace, WikiPage as WikiPageT, GraphData } from "../../lib/types";
 import * as ipc from "../../lib/ipc";
+import { extractPdfTextWithFallback } from "../../lib/pdfText";
 import { useImportStore } from "../../store/importStore";
 import { isSynthesisPage } from "../../lib/llmApply";
 import { draftNoteId } from "../../store/feynmanStore";
@@ -452,11 +453,15 @@ export function InboxSection({
       setTitleIfEmpty(f.name.replace(/\.[^.]+$/, ""));
       // 출처 연결용 임베드만 삽입(현재 출처 연결이 본문 ![[...]] 파싱에 의존 — 2단계에서 메타데이터로 이관 예정)
       appendBody(`![[${stored}]]`);
-      // PDF 내용 → 한국어 요약 스트리밍. 추출/키없음/타 요약 진행 중이면 embed 만 남기고 안내.
+      // PDF 내용 → 한국어 요약 스트리밍. Rust 추출이 인코딩으로 실패하면 pdf.js 폴백(ADR-0010).
+      // 추출/키없음/타 요약 진행 중이면 embed 만 남기고 안내.
       try {
-        const ext = await ipc.extractPdfText(targetSpace, stored);
+        const ext = await extractPdfTextWithFallback(targetSpace, stored);
         const text = ext.pages.map((p) => p.text).join("\n\n").trim();
-        if (!text) return;
+        if (!text) {
+          onNotice?.(`${f.name}에서 텍스트를 찾지 못했어요 — 스캔 이미지 PDF일 수 있어요. 내용을 직접 필기하면 됩니다`);
+          return;
+        }
         const apiKey = (typeof localStorage !== "undefined" && localStorage.getItem("gemini-key")) || "";
         if (!apiKey) {
           const langName = getOutputLanguage() === "en" ? "영어" : "한국어";
@@ -482,8 +487,10 @@ export function InboxSection({
           void runRef.current();
         });
       } catch {
-        // 추출 실패 — 사용자가 직접 필기하면 됨(embed 는 이미 들어감)
+        // Rust·pdf.js 둘 다 실패 — 원본 embed 는 남으니 직접 필기로 이어갈 수 있게 안내한다.
+        onNotice?.(`${f.name} 텍스트 추출에 실패했어요 — 내용을 직접 필기하면 됩니다 (원본은 남아 있어요)`);
       }
+
     } catch (e) {
       onNotice?.(`${f.name} 저장 실패: ${String(e)}`);
     } finally {
@@ -591,6 +598,12 @@ export function InboxSection({
     const t = resolveTarget(curSpace);
     // 재저장(saveNote)은 savedFile 이 그 공간에 있을 때만 — 대상 공간을 바꿨으면 새 노트로(다른 공간 노트 덮어쓰기 방지).
     const reuse = d.savedFile && d.savedSpace === curSpace ? d.savedFile : undefined;
+    // 위키를 만드는 동안 진행 오버레이는 위키 패널 위에 뜬다 — 패널을 목록 뷰로 미리 열어 둔다.
+    // 완료되면 같은 자리가 방금 만든 개념 목록으로 채워져 시선이 옮겨다니지 않는다.
+    if (withLlmRef.current) {
+      setRefWikiPath("");
+      togglePanel("wiki", true);
+    }
     const res = await runImport({
       space: curSpace,
       spaceId: t.spaceId,
@@ -715,13 +728,9 @@ export function InboxSection({
           </Button>
         </div>
 
-        {/* 저장+AI 정리 진행 오버레이 — 단계는 AI 켰을 때만(끄면 원본 저장 한 단계뿐이라 라벨로 충분) */}
-        {busy && (
-          <LoadingOverlay
-            label={`${IMPORT_STATUS_LABEL[job!.status]} 중…`}
-            steps={withLlm ? importSteps(job!.status) : undefined}
-          />
-        )}
+        {/* 원본 저장 진행 오버레이 — AI 껐을 때만(한 단계뿐이라 라벨로 충분).
+            AI 켜면 위키를 만드는 동안이라 오버레이는 위키 패널이 진다 — 노트는 계속 필기할 수 있게 둔다. */}
+        {busy && !withLlm && <LoadingOverlay label={`${IMPORT_STATUS_LABEL[job!.status]} 중…`} />}
         {fy.overlay}
         </div>
 
@@ -795,10 +804,14 @@ export function InboxSection({
           ) : undefined
         }
       />
-      <div className="min-h-0 flex-1 overflow-y-auto p-4">
+      <div className="relative min-h-0 flex-1 overflow-y-auto p-4">
+        {/* 저장+AI 정리 진행 오버레이 — 위키가 만들어지는 자리에서 기다린다 */}
+        {busy && withLlm && (
+          <LoadingOverlay label={`${IMPORT_STATUS_LABEL[job!.status]} 중…`} steps={importSteps(job!.status)} />
+        )}
         {refWiki ? (
           <>
-            {/* 제목은 본문 마크다운 첫 줄의 `# 제목`(H1)이 렌더한다 — 여기서 또 찍으면 두 번 나온다 */}
+            {/* 제목은 본문 첫 줄 `# {제목}`(mergeWiki 계약)이 담당 — 패널이 h2 로 또 넣으면 제목 중복. DocView 와 일치시켜 본문만 렌더. */}
             {/* 근거(`## 근거` PDF 임베드)는 표시에서 감춘다 — 대신 아래에 개념 중심 관계 그래프 */}
             <Markdown source={stripEvidenceSection(refWiki.markdown)} embedSpace={targetSpace} />
             {(() => {

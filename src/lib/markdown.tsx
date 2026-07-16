@@ -112,13 +112,15 @@ export const Markdown = memo(function Markdown({ source, className, onLink, link
             );
           },
           h1: ({ children }) => <div className="ds-h3 mt-1 text-ink">{children}</div>,
-          h2: ({ children }) => <div className="mt-3 text-[18px] font-bold text-ink">{children}</div>,
-          h3: ({ children }) => <div className="mt-2 text-[16px] font-semibold text-ink">{children}</div>,
-          p: ({ children }) => <p className="text-[15px] leading-relaxed text-ink-2">{children}</p>,
-          ul: ({ children }) => <ul className="ml-5 list-disc space-y-1 text-[15px] text-ink-2">{children}</ul>,
-          ol: ({ children }) => <ol className="ml-5 list-decimal space-y-1 text-[15px] text-ink-2">{children}</ol>,
+          // h2/h3 는 본문 연동 배율(기본 15px 에서 18/16px 로 종전과 동일) — 본문을 17px 로
+          // 키우면 고정 16px h3 가 본문보다 작아져 위계가 뒤집히므로 함께 움직인다. h1(22px)은 고정.
+          h2: ({ children }) => <div className="mt-3 text-[length:calc(var(--pp-body-font-size,15px)+3px)] font-bold text-ink">{children}</div>,
+          h3: ({ children }) => <div className="mt-2 text-[length:calc(var(--pp-body-font-size,15px)+1px)] font-semibold text-ink">{children}</div>,
+          p: ({ children }) => <p className="text-[length:var(--pp-body-font-size,15px)] leading-relaxed text-ink-2">{children}</p>,
+          ul: ({ children }) => <ul className="ml-5 list-disc space-y-1 text-[length:var(--pp-body-font-size,15px)] text-ink-2">{children}</ul>,
+          ol: ({ children }) => <ol className="ml-5 list-decimal space-y-1 text-[length:var(--pp-body-font-size,15px)] text-ink-2">{children}</ol>,
           strong: ({ children }) => <strong className="font-semibold text-ink">{children}</strong>,
-          blockquote: ({ children }) => <blockquote className="border-l-2 border-hairline pl-3 text-[15px] italic text-ink-muted">{children}</blockquote>,
+          blockquote: ({ children }) => <blockquote className="border-l-2 border-hairline pl-3 text-[length:var(--pp-body-font-size,15px)] italic text-ink-muted">{children}</blockquote>,
           code: ({ className: cls, children }: { className?: string; children?: ReactNode }) =>
             cls ? (
               <code className={cls}>{children}</code>
