@@ -9,6 +9,8 @@
 
 > Tauri + Rust · React/TypeScript · Tailwind · macOS
 
+> 🏃 **바로 실행해 보려면 → [RUN_GUIDE.md](RUN_GUIDE.md)** — 설치 파일 다운로드 · 실행 · 5분 데모 시나리오
+
 ## 목차
 
 - [핵심 기능](#핵심-기능)
