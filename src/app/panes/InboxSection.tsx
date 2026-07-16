@@ -805,7 +805,7 @@ export function InboxSection({
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         {refWiki ? (
           <>
-            <h2 className="mb-3 text-[17px] font-bold text-ink">{refWiki.title}</h2>
+            {/* 제목은 본문 첫 줄 `# {제목}`(mergeWiki 계약)이 담당 — 패널이 h2 로 또 넣으면 제목 중복. DocView 와 일치시켜 본문만 렌더. */}
             {/* 근거(`## 근거` PDF 임베드)는 표시에서 감춘다 — 대신 아래에 개념 중심 관계 그래프 */}
             <Markdown source={stripEvidenceSection(refWiki.markdown)} embedSpace={targetSpace} />
             {(() => {
