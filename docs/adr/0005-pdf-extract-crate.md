@@ -1,8 +1,10 @@
 # ADR-0005: PDF 텍스트 추출 — pdf-extract 0.10.0
 
-- 상태: 채택 (Accepted)
+- 상태: 대체됨 (Superseded) → [ADR-0010](0010-pdf-text-extraction-pdfjs-fallback.md)
 - 일자: 2026-07-01
 - 관련: [pdf-extraction](../20-backend/pdf-extraction.md) · [import-pipeline](../20-backend/import-pipeline.md)
+
+> **대체 사유**: `pdf-extract`가 `Identity-H`/`Identity-V` 외 predefined CMap(예: 한글 `UniKS-UTF16-H`)을 `panic!`으로 거부함이 측정으로 드러났다(사용자 PDF 14개 중 2개 실패, 둘 다 한글 학술 논문). 아래에서 "백엔드 경계 위반"으로 기각한 pdf.js 폴백을 [ADR-0010](0010-pdf-text-extraction-pdfjs-fallback.md)이 재도입한다.
 
 ## 배경
 

@@ -133,7 +133,9 @@ src-tauri/src/
                   Use tokio::fs for async ops; std::fs only in sync contexts.
   import/      ← Executes each import step (file I/O for parsing/archiving/writing) and records
                   ImportJob state. State-machine sequencing is owned by the TS service layer (ADR-0007), not Rust.
-  pdf/         ← PDF-to-text extraction only. Page indexing lives here.
+  pdf/         ← PDF-to-text extraction (1차). Page indexing lives here. 서드파티 pdf-extract 의
+                  내부 panic(미지원 CMap 인코딩)은 catch_unwind 로 AppError 변환. Identity-H/V 외
+                  인코딩은 프론트 pdf.js 가 2차 폴백으로 추출 (ADR-0010, src/lib/pdfText.ts).
   seed/        ← First-run demo data generation. Writes to archive/, wiki/, relations/.
                   Never hard-code demo content in the UI layer.
 ```
