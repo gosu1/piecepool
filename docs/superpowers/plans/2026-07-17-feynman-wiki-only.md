@@ -1620,10 +1620,12 @@ import { stripFeynmanSection } from "../../lib/feynmanSection";
 
 ```tsx
         conflicts={sections.conflicts}
-        {/* 정리 글(concept-syn-*)은 학습자 본인 노트에서 나온 글이라 파인만 대상이 아니다 */}
+        // 정리 글(concept-syn-*)은 학습자 본인 노트에서 나온 글이라 파인만 대상이 아니다
         bottomSlot={isSynthesisPage(page) ? undefined : <FeynmanPanel space={space} page={page} />}
       />
 ```
+
+> 속성 목록 안이라 `{/* … */}` 가 아니라 `//` 다 — JSX 주석은 자식 위치 전용이고 속성 사이에 쓰면 `TS1005` 다.
 
 `isSynthesisPage` 는 `PiecePoolApp.tsx` 가 이미 import 하고 있다(`wikiReader` 의 candidates 필터가 쓴다) — 확인하고 없으면 추가하라.
 
