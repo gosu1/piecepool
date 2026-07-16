@@ -12,6 +12,7 @@ import { mathPreview } from "./cmMath";
 import { calloutPreview, foldEasyCallouts } from "./cmCallout";
 import { headingAction as headingActionExt, type HeadingAction } from "./cmHeadingAction";
 import { toggleMark } from "./cmFormat";
+import { wikiTermExtension, refreshWikiTerms } from "./cmWikiTerm";
 
 // CM6 캡처 에디터: "/" 슬래시 메뉴 + 마크다운 리스트 자동 이어짐 + ⌘Enter 제출.
 // 테마는 DS 토큰 참조(라이트/다크 자동). 한글-first라 슬래시는 ASCII "/"에서만 트리거(IME 안전).
@@ -248,6 +249,8 @@ export function SlashBlockEditor({
   frameless = false,
   readOnly = false,
   foldEasyKey = 0,
+  wikiTerms,
+  onWikiTerm,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -265,6 +268,10 @@ export function SlashBlockEditor({
   readOnly?: boolean;
   /** 값이 바뀔 때마다 [!easy] 콜아웃을 일괄 접는다 — 스트림 완료 시 부모가 올린다 */
   foldEasyKey?: number;
+  /** 본문 속 개념 키워드 강조 — 위키 제목 목록(표시 전용, 문서 비파괴) */
+  wikiTerms?: string[];
+  /** 강조된 키워드 클릭 — canonical 위키 제목을 올린다 */
+  onWikiTerm?: (title: string) => void;
 }) {
   const submitRef = useRef(onSubmit);
   submitRef.current = onSubmit;
@@ -277,6 +284,15 @@ export function SlashBlockEditor({
   useEffect(() => {
     if (foldEasyKey && viewRef.current) foldEasyCallouts(viewRef.current);
   }, [foldEasyKey]);
+  const termsRef = useRef(wikiTerms);
+  termsRef.current = wikiTerms;
+  const onTermRef = useRef(onWikiTerm);
+  onTermRef.current = onWikiTerm;
+  // terms 는 내용 키로 비교 — 부모가 매 렌더 새 배열을 줘도 재데코 dispatch 는 내용 변경 때만.
+  const termsKey = (wikiTerms ?? []).join("\n");
+  useEffect(() => {
+    viewRef.current?.dispatch({ effects: refreshWikiTerms.of(null) });
+  }, [termsKey]);
 
   // extensions 가 렌더마다 새 배열이면 @uiw/react-codemirror 가 매 입력마다 에디터를
   // 재구성해 슬래시 팝업이 즉시 닫힌다 → 안정 참조로 memo(onSubmit 은 ref 로 우회).
@@ -302,6 +318,7 @@ export function SlashBlockEditor({
         ]),
       ),
       slashTrigger,
+      ...wikiTermExtension(() => termsRef.current ?? [], (t) => onTermRef.current?.(t)),
       // 드래그로 텍스트를 잡으면 그 범위를 부모에게 올린다 — 부모가 선택 위에 액션 버튼을 띄운다.
       EditorView.updateListener.of((u) => {
         const notify = selRef.current;
