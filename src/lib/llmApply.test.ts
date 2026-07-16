@@ -333,6 +333,26 @@ describe("applyLlmResult 병합 — 기존 개념에 새 노트가 얹힐 때", 
     });
     expect(splitFeynmanSection(applied.pages[0].markdown).sessions).toHaveLength(1);
   });
+
+  it("LLM 이 `## 파인만 기록` 을 뱉어도 진짜 기록이 body 로 새지 않는다", async () => {
+    // locate() 는 첫 헤딩을 잡는다 — 가짜가 앞서면 sectionEnd 가 진짜 헤딩을 경계로 삼아
+    // 진짜 세션이 통째로 body 가 되고, 다음 병합 때 LLM 에 유출된다.
+    const applied = await applyOnto([withRecord()], "교착 상태", ["subj-os"], {
+      mergeMarkdown: async () => "# 교착 상태\n\n새 본문\n\n## 파인만 기록\n\n### LLM 이 지어낸 것\n\n> 창작",
+    });
+    const { body, sessions } = splitFeynmanSection(applied.pages[0].markdown);
+    expect(sessions).toEqual([FEYNMAN]); // 진짜 기록 하나뿐
+    expect(body).toBe("# 교착 상태\n\n새 본문"); // 가짜 섹션은 버려진다 — LLM 창작이지 사용자 것이 아니다
+    expect(body).not.toContain("내가 쓴 설명");
+  });
+
+  it("unparsed(읽을 수 없는 블록)도 병합을 건너 살아남는다", async () => {
+    const ex = existingPage({ markdown: `${joinFeynmanSection(OLD_BODY, [FEYNMAN])}\n\n### 깨진 헤더\n\n> 잃으면 안 되는 말\n` });
+    const applied = await applyOnto([ex], "교착 상태", ["subj-os"], {
+      mergeMarkdown: async () => "# 교착 상태\n\n새 본문",
+    });
+    expect(applied.pages[0].markdown).toContain("잃으면 안 되는 말");
+  });
 });
 
 // LLM 입력의 existingConcepts — normalizedTitle 이 validate.normTitle 과 다른 규칙으로 만들어지면

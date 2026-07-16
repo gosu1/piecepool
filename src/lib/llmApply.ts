@@ -111,7 +111,9 @@ export function synthesisPage(spaceId: string, note: ArchiveNote, markdown: stri
     sourceIds: [note.sourceId],
     sourceRefs: refs,
     // 재변환은 기존 본문을 참조조차 하지 않고 새 출력으로 갈아탄다 — 파인만 기록만 되살린다.
-    markdown: joinFeynmanSection(markdown, keep?.sessions ?? [], keep?.unparsed ?? []),
+    // splitFeynmanSection(markdown).body: LLM 출력에 `## 파인만 기록` 이 섞이면 재부착 뒤 헤딩이
+    // 두 번 나타나 다음 split 이 진짜 기록을 body 로 흘려보낸다(mergeMarkdown 과 같은 함정).
+    markdown: joinFeynmanSection(splitFeynmanSection(markdown).body, keep?.sessions ?? [], keep?.unparsed ?? []),
     createdAt: ex?.createdAt ?? now, // 재변환 시 생성시각 보존
     updatedAt: now,
   };
@@ -157,6 +159,9 @@ export interface ApplyDeps {
    * 본문 축적(방식 A) — 기존 본문과 새 개념을 한 편으로 통합해 돌려준다(LLM 2차 호출).
    * 병합이 실제로 일어나는 개념에만 호출된다. 미주입이거나 실패하면 기존 본문을 유지한다 —
    * 새 내용을 못 얹을지언정 이미 쌓인 지식을 덮지는 않는다.
+   *
+   * `existingMarkdown` 은 `ex.markdown` 그대로가 아니라 `## 파인만 기록` 섹션을 걷어낸 body 다 —
+   * 사용자 발화·판정을 LLM 에 보내지 않기 위해서다. 재부착은 호출부(mergeMarkdown 함수)가 한다.
    */
   mergeMarkdown?: (existingMarkdown: string, c: LlmConcept, source: ImportSource) => Promise<string>;
   /**
@@ -181,7 +186,11 @@ async function mergeMarkdown(ex: WikiPage, c: LlmConcept, source: ImportSource, 
   try {
     const md = await deps.mergeMarkdown(body, c, source);
     // 폴백 두 경로는 기록 포함 원본(ex.markdown)을 그대로 돌려준다 — 여기서만 되붙여야 중복이 없다.
-    return md.trim() ? joinFeynmanSection(md, sessions, unparsed) : ex.markdown;
+    // LLM 출력을 한 번 훑는 이유: 돌려준 본문에 `## 파인만 기록` 이 섞여 있으면 재부착 뒤 그 헤딩이
+    // 두 번 나타나고, 다음 split 의 locate() 가 앞선 가짜를 잡아 **진짜 기록을 body 로 흘려보낸다**.
+    // 그러면 사용자 발화가 다음 병합의 LLM 입력이 된다 — 이 함수가 막으려던 바로 그 유출이다.
+    // 우리는 기록 없는 body 만 보냈으므로 LLM 이 그 헤딩을 뱉었다면 그건 창작이다. 버려도 된다.
+    return md.trim() ? joinFeynmanSection(splitFeynmanSection(md).body, sessions, unparsed) : ex.markdown;
   } catch (e) {
     console.warn(`[llmApply] 본문 통합 실패 — 기존 본문 유지: ${String(e)}`);
     return ex.markdown;
