@@ -1572,6 +1572,7 @@ git commit -m "feat(feynman): 위키용 파인만 패널
 - Modify: `src/app/PiecePoolApp.tsx` (`wikiReader` `:894-956`)
 - Modify: `src/app/panes/DocView.tsx:95`
 - Modify: `src/app/panes/InboxSection.tsx:809`
+- Modify: `src/app/panes/GraphSection.tsx` (위키 본문 미리보기 — strip 3번째 지점)
 
 **Interfaces:**
 - Consumes: `FeynmanPanel` (Task 6) · `useFeynmanStore`/`wikiKey`/`hasGeminiKey` (Task 5) · `stripFeynmanSection` (Task 1)
@@ -1603,7 +1604,15 @@ import { stripFeynmanSection } from "../../lib/feynmanSection";
           <Markdown source={stripFeynmanSection(stripEvidenceSection(refWiki.markdown))} embedSpace={targetSpace} />
 ```
 
-import 를 추가한다.
+`src/app/panes/GraphSection.tsx` — 그래프 노드 미리보기 패널이 `<Markdown source={page.markdown} />` 로 **원문을 그대로** 렌더한다. 여기가 위키 본문의 3번째 표시 지점이다. 안 걷으면 `## 파인만 기록` 이 날것으로 보인다.
+
+```tsx
+          <Markdown source={stripFeynmanSection(page.markdown)} … />
+```
+
+> 이 지점은 원래 `## 근거` 도 안 걷어내는 선재 상태다. **`stripEvidenceSection` 은 추가하지 마라** — 그건 이 PR 범위 밖의 기존 동작이고, 건드리면 그래프 미리보기에서 PDF 임베드가 사라지는 별개 변경이 된다. 파인만 기록만 걷는다.
+
+세 파일 모두 import 를 추가한다.
 
 - [ ] **Step 2: `wikiReader` 에 패널을 배선한다**
 
@@ -1611,9 +1620,12 @@ import 를 추가한다.
 
 ```tsx
         conflicts={sections.conflicts}
-        bottomSlot={<FeynmanPanel space={space} page={page} />}
+        {/* 정리 글(concept-syn-*)은 학습자 본인 노트에서 나온 글이라 파인만 대상이 아니다 */}
+        bottomSlot={isSynthesisPage(page) ? undefined : <FeynmanPanel space={space} page={page} />}
       />
 ```
+
+`isSynthesisPage` 는 `PiecePoolApp.tsx` 가 이미 import 하고 있다(`wikiReader` 의 candidates 필터가 쓴다) — 확인하고 없으면 추가하라.
 
 import 를 추가한다:
 
@@ -1636,12 +1648,16 @@ import { FeynmanPanel } from "./panes/FeynmanPanel";
   const autoSpace = activeTab?.kind === "wiki" ? activeTab.space : "";
   useEffect(() => {
     if (!autoWiki || !autoSpace) return;
+    // 정리 글은 학습자 본인 노트에서 나온 글이다. 자기가 방금 쓴 내용을 설명하라고 띄우는 건
+    // IOED 를 못 깨서 걷어낸 노트 파인만과 같은 것이다. 코드베이스도 정리 글을 개념으로 안 본다
+    // (llmApply 병합·toExistingConcepts 에서 제외).
+    if (isSynthesisPage(autoWiki)) return;
     const st = useFeynmanStore.getState();
     // 진행 중인 세션을 파괴하지 않는다 — session 은 앱 전역 싱글턴이고 메모리 전용이라
     // 다른 페이지에서 쓰던 설명이 여기서 조용히 증발한다.
     if (st.session) return;
     if (st.dismissed[wikiKey(autoSpace, autoWiki.path)]) return;
-    // 키가 없으면 begin 이 조용히 무시되어 빈 패널만 뜬다.
+    // 키가 없으면 probeExplanation 이 빈 키로 실패해 되물음이 안 온다 — 반응 없는 빈 패널이 뜬다.
     if (!hasGeminiKey()) return;
     if (splitFeynmanSection(autoWiki.markdown).sessions.length) return;
     st.start(autoSpace, autoWiki);
