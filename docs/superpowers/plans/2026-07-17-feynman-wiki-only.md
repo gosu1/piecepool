@@ -1676,8 +1676,10 @@ import { stripFeynmanSection } from "../../lib/feynmanSection";
             <FeynmanPanel
               space={space}
               page={page}
+              // 매칭 키는 저장 **전** path — saveWikiDoc·toggleWikiSubject 와 같다. saved.path 로
+              // 찾으면 저장 중 path 가 바뀌는 날 조용히 no-op 이 된다(행을 못 찾고 아무 일도 안 남).
               onSaved={(saved) =>
-                setWikiBySlug((m) => ({ ...m, [space]: (m[space] ?? []).map((x) => (x.path === saved.path ? saved : x)) }))
+                setWikiBySlug((m) => ({ ...m, [space]: (m[space] ?? []).map((x) => (x.path === page.path ? saved : x)) }))
               }
             />
           )
@@ -1913,6 +1915,17 @@ test.beforeEach(async ({ page }) => {
 /** seed 가 만든 위키 개념 문서를 연다. */
 const openWiki = (page: Page) => page.getByRole("button", { name: "프로세스", exact: true }).click();
 
+/**
+ * 다른 위키로 실제로 이동했는지 확인한다.
+ *
+ * 이 단언이 없으면 "재방문" 테스트가 거짓말이 된다 — 클릭이 조용히 no-op 이어도
+ * "박스 없음"·"수동 버튼 있음" 은 안 떠난 페이지에서도 참이라 통과해버린다.
+ */
+async function goElsewhere(page: Page) {
+  await page.getByRole("button", { name: "스레드", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "스레드" })).toBeVisible();
+}
+
 const box = (page: Page) => page.getByRole("textbox", { name: "개념 설명" });
 
 /** 설명 한 번 + 되물음 + 판정까지. */
@@ -1958,7 +1971,7 @@ test("[나중에] 를 누르면 재방문해도 자동으로 안 열린다", asy
   await expect(box(page)).toHaveCount(0);
 
   // 다른 문서로 갔다가 돌아온다 — DocView 인스턴스가 재사용되는 경로
-  await page.getByRole("button", { name: "스레드", exact: true }).click();
+  await goElsewhere(page);
   await openWiki(page);
   await expect(box(page)).toHaveCount(0);
   // 대신 수동 버튼이 있다
@@ -1972,7 +1985,7 @@ test("진행 중인 세션은 다른 위키를 열어도 파괴되지 않는다"
   await expect(page.getByText("실행 중이라는 게 정확히 무슨 뜻인가요?")).toBeVisible();
 
   // 다른 위키로 갔다 온다 — 자동 열기가 이 세션을 덮으면 안 된다
-  await page.getByRole("button", { name: "스레드", exact: true }).click();
+  await goElsewhere(page);
   await openWiki(page);
   await expect(page.getByText("쓰다 만 설명")).toBeVisible();
 });
