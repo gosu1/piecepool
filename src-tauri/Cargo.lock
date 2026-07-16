@@ -2685,6 +2685,7 @@ dependencies = [
  "tauri-plugin-drag",
  "tauri-plugin-opener",
  "ts-rs",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

@@ -110,7 +110,7 @@ conceptId → 노드 상태 맵:
 - **재평가 트리거 = 이벤트(import 라운드).** "새 문서 유입마다 재연결 시도"(§E)와 일치.
 - **ARCHIVED 판정 = 시간(wall-clock).** `now - stagedAt ≥ ttlDays`면 ARCHIVED. 기간 개념이라 시각 기반이 자연스럽고, ISO 8601은 엔티티 관례이며, 전역 라운드 카운터를 영속할 필요가 없다.
 - 프로토타입 `promote.ts`는 **시계 비의존**(round + ttl을 주입받음) — `round`에 "경과일", `ttlRounds`에 `ttlDays`를 넣으면 그대로 재사용된다. 코어 로직 변경 없음.
-- `ttlDays` 기본값은 실데이터 튜닝 대상(`npm run promote`) — 문서상 미결 파라미터. config(예: `config/workspace.json` 또는 앱 설정)에 두고 엔티티에는 넣지 않는다.
+- `ttlDays` 기본값은 실데이터 튜닝 대상(`npm run promote`) — 문서상 미결 파라미터. config(예: `.config/workspace.json` 또는 앱 설정)에 두고 엔티티에는 넣지 않는다.
 
 ---
 
