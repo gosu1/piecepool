@@ -179,8 +179,11 @@ export function InboxSection({
   // 저장 위치 드롭다운에서 바로 새 과목 폴더 만들기 — 만든 slug 를 돌려주면 그 과목으로 대상이 옮겨간다.
   onCreateSpace: (name: string) => Promise<string | null>;
   onOpenWiki: (space: string, file: string) => void;
-  /** 파인만 판정 저장 직후 — 앱의 메모리 사본(wikiBySlug)을 갱신한다. 없으면 카드가 안 나타난다. */
-  onWikiSaved: (space: string, saved: WikiPageT) => void;
+  /**
+   * 파인만 판정 저장 직후 — 앱의 메모리 사본(wikiBySlug)을 갱신한다. 없으면 카드가 안 나타난다.
+   * @param path 저장 **전** path (매칭 키). saved.path 로 찾으면 path 가 바뀌는 날 조용히 no-op 한다.
+   */
+  onWikiSaved: (space: string, path: string, saved: WikiPageT) => void;
   onRefresh: (space: string) => Promise<void> | void;
   // 저장 실패 등 사용자 알림(상태바 토스트). 성공은 노트 초기화·위키 패널로 암시.
   onNotice?: (msg: string) => void;
@@ -818,9 +821,19 @@ export function InboxSection({
                 </section>
               ) : null;
             })()}
-            {/* 정리 글은 학습자 본인 노트에서 나온 글이라 파인만 대상이 아니다 */}
+            {/* 정리 글은 학습자 본인 노트에서 나온 글이라 파인만 대상이 아니다.
+                단 여기선 이 가드가 그 목적으로는 절대 안 걸린다 — 선택 경로 셋(목록·키워드·jobWikiPaths)이
+                이미 isSynthesisPage 를 거르거나 concept-syn-* 를 만들 수 없다. 유일하게 걸리는 건
+                isSynthesisPage 의 접두사 충돌("SYN Flood" → concept-syn-flood)이고 거기선 이 가드가
+                오히려 해롭다. 그럼에도 남기는 이유: 같은 파일이 :207/:419/:439 에서 이미 같은 판정을
+                쓰고 wikiReader 도 그렇다 — 여기만 빼면 다음 사람이 비대칭을 보고 되돌린다.
+                충돌 자체는 이 PR 범위 밖(conceptId 스킴 변경 + 마이그레이션 필요) — 후속 이슈. */}
             {!isSynthesisPage(refWiki) && (
-              <FeynmanPanel space={targetSpace} page={refWiki} onSaved={(saved) => onWikiSaved(targetSpace, saved)} />
+              <FeynmanPanel
+                space={targetSpace}
+                page={refWiki}
+                onSaved={(saved) => onWikiSaved(targetSpace, refWiki.path, saved)}
+              />
             )}
           </>
         ) : listWikis.length ? (

@@ -135,18 +135,19 @@ test("인박스 위키 패널 — 수동 버튼으로 시작하고 판정하면 
 });
 
 /**
- * 정리 글(합성 페이지, convertStore.runConvert 산출물)엔 파인만이 없다.
+ * ⚠ 이건 정리 글(합성 페이지)이 아니라 isSynthesisPage 의 접두사 충돌이다("Syn X" → concept-syn-x).
  *
- * 이 앱에는 정리 글을 만드는 UI 진입점이 아직 없다(runConvert 가 StatusBar 표시 말고는
- * 어디서도 호출되지 않는다) — 그래서 시드에도 정리 글이 없고, 있다 해도 인박스 위키 패널의
- * 두 선택 경로(기본 목록 refCandidates.filter(!isSynthesisPage) · 본문 키워드 termTitles)가
- * 둘 다 isSynthesisPage 를 걸러내 절대 선택될 수 없다. 유일하게 그 필터를 타지 않는 경로는
- * "방금 이 노트를 AI 정리해서 만든 개념" 목록(jobWikiPaths, applyLlmResult 는 병합 대상에서만
- * 합성 페이지를 제외하고 신규 생성 시엔 안 본다)뿐이다. isSynthesisPage 는 conceptId 접두사만
- * 보므로(llmApply.ts, 이 PR에서 안 건드림), 그 접두사와 겹치는 제목("Syn ...")의 개념을 실제
- * AI 정리 파이프라인으로 만들어 가드를 재현한다.
+ * 진짜 정리 글(convertStore.runConvert 산출물)은 이 앱에 만드는 UI 진입점이 없을뿐더러,
+ * 있다 해도 인박스 위키 패널의 선택 경로 셋(목록 refCandidates.filter(!isSynthesisPage) ·
+ * 키워드 termTitles · jobWikiPaths)이 전부 isSynthesisPage 를 거르거나 애초에
+ * concept-syn-* 를 만들 수 없어 "정리 글이 파인만에 안 뜬다" 는 이 경로로 테스트할 수 없다.
+ * 여기서 실제로 걸리는 건 "SYN Flood" 같은 실재 개념이 정리 글로 오인되는 **버그**(후속 이슈,
+ * conceptId 스킴 변경 + 마이그레이션 필요라 이 PR 범위 밖)다. 그 버그를 고치는 사람이
+ * "정리 글엔 파인만이 없다" 라는 이름으로 이 테스트를 실패시켜 자신이 정리 글 처리를
+ * 깼다고 오도되면 안 된다 — 버그가 고쳐지는 날 이 테스트는 **없어지는 게 맞다**
+ * (가드의 진짜 목적은 그 시점에 이미 여기서 도달 불가하기 때문).
  */
-test("인박스 위키 패널 — 정리 글엔 파인만이 없다", async ({ page }) => {
+test("인박스 위키 패널 — conceptId 가 concept-syn-* 인 페이지엔 파인만이 안 붙는다", async ({ page }) => {
   await page.route("**generativelanguage.googleapis.com**", (route) =>
     route.fulfill(
       chat({
