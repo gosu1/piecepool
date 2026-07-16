@@ -205,7 +205,7 @@ export function InboxSection({
   // EMPTY_DRAFT 병합 — 없거나 옛 스키마(누락 필드) draft 여도 8필드가 항상 채워져 렌더가 안 깨진다.
   const noteDraft = { ...EMPTY_DRAFT, ...useInboxDraftStore((s) => s.drafts[draftKey]) };
   const summaryJob = useInboxDraftStore((s) => s.job);
-  const { title, body, savedFile, savedSpace, savedSnapshot, panels, refWikiPath, refSource } = noteDraft;
+  const { title, body, savedFile, savedSnapshot, panels, refWikiPath, refSource } = noteDraft;
   // 저장 대상 공간 = 이 노트가 속할 공간. 원본 PDF 도 여기 산다(노트↔원본은 같은 공간).
   // draft 에 persist — useState 면 탭 전환 언마운트에 리셋돼 원본과 노트가 어긋난다.
   const targetSpace = noteDraft.targetSpace || space;
@@ -224,7 +224,10 @@ export function InboxSection({
     const cur = ds.getState().drafts[draftKey]?.uploads ?? [];
     if (!cur.includes(file)) write({ uploads: [...cur, file] });
   };
-  const togglePanel = (key: InboxPanelKey, open?: boolean) => write({ panels: { ...panels, [key]: open ?? !panels[key] } });
+  const togglePanel = (key: InboxPanelKey, open?: boolean) => {
+    const cur = ds.getState().drafts[draftKey]?.panels ?? EMPTY_DRAFT.panels;
+    write({ panels: { ...cur, [key]: open ?? !cur[key] } });
+  };
   // 이 노트 탭에서 요약 스트리밍 중이면 편집 잠금 + body 뒤에 미확정 텍스트를 파생 렌더.
   const summarizing = summaryJob?.noteKey === draftKey && summaryJob.status === "streaming";
   const editorValue = summarizing && summaryJob.text ? (body ? `${body}\n\n${summaryJob.text}` : summaryJob.text) : body;
@@ -245,6 +248,19 @@ export function InboxSection({
   const beginPdfJob = () => ds.getState().beginPdfJob(draftKey);
   const endPdfJob = () => ds.getState().endPdfJob(draftKey);
   const [uploadOpen, setUploadOpen] = useState(false);
+  // ── PDF 원샷 파이프라인 (스펙 §1) ──
+  // 제목 모달 — PDF 드롭 시 노트 이름부터 받는다(자동 저장의 제목). 취소하면 업로드 자체를 안 한다.
+  const [pendingPdf, setPendingPdf] = useState<File | null>(null);
+  const [pdfTitle, setPdfTitle] = useState("");
+  // 자동 트리거는 렌더 사이 마이크로태스크에서 발화한다 — 최신 클로저·마운트 여부를 ref 로 본다.
+  const mountedRef = useRef(true);
+  useEffect(() => () => {
+    mountedRef.current = false; // 탭 이탈 시 자동 저장 중단(스펙 §1 MVP 한계 — 요약 병합은 스토어가 계속한다)
+  }, []);
+  const withLlmRef = useRef(true);
+  const runRef = useRef<() => Promise<void>>(async () => {});
+  // withLlm 선언(위)보다 뒤에 있어야 한다 — 매 렌더 최신 값을 ref 에 비춘다.
+  withLlmRef.current = withLlm;
   const [confirmDelSrc, setConfirmDelSrc] = useState(false);
   const [srcErr, setSrcErr] = useState<string | null>(null);
   // 삭제 = 이 노트의 원본을 무르는 유일한 수단(잘못 올림). 원본 파일 + 본문 임베드를 함께 걷어야
@@ -442,7 +458,13 @@ export function InboxSection({
           return;
         }
         const noteTitle = ds.getState().drafts[draftKey]?.title || f.name.replace(/\.[^.]+$/, "");
-        void ds.getState().runSummary({ noteKey: draftKey, file: stored, title: noteTitle, text });
+        const summaryDone = ds.getState().runSummary({ noteKey: draftKey, file: stored, title: noteTitle, text });
+        // 원샷 파이프라인(스펙 §1) — 요약이 정상 종결(done)했고 이 탭이 살아 있을 때만 자동 저장+위키.
+        // cancelled/failed 는 부분 텍스트만 남기고 수동 저장 폴백. 탭 이탈 시(unmount) 트리거 중단.
+        void summaryDone.then((outcome) => {
+          if (outcome !== "done" || !mountedRef.current) return;
+          void runRef.current();
+        });
       } catch {
         // 추출 실패 — 사용자가 직접 필기하면 됨(embed 는 이미 들어감)
       }
@@ -520,49 +542,70 @@ export function InboxSection({
       return;
     }
     if (pdfs.length > 1) onNotice?.("노트 하나에 PDF 하나예요 — 첫 파일만 올렸어요");
-    void importPdf(pdfs[0]);
+    // 업로드 전에 노트 이름부터 — 자동 저장(원샷 파이프라인)의 제목이 된다(스펙 §1).
+    setPdfTitle(ds.getState().drafts[draftKey]?.title || pdfs[0].name.replace(/\.[^.]+$/, ""));
+    setPendingPdf(pdfs[0]);
+  };
+
+  const confirmPdfImport = () => {
+    const f = pendingPdf;
+    const name = pdfTitle.trim();
+    if (!f || !name) return;
+    setPendingPdf(null);
+    setTitle(name);
+    void importPdf(f);
   };
 
   const run = async () => {
+    // 클로저가 아니라 스토어에서 지금 값을 읽는다 — 자동 트리거(.then)는 요약 병합 set 직후의
+    // 마이크로태스크라, 렌더 클로저 스냅샷(body 에 요약 미병합)이 한 렌더 뒤질 수 있다.
+    const d = { ...EMPTY_DRAFT, ...ds.getState().drafts[draftKey] };
+    const curTitle = d.title.trim();
+    const curSpace = d.targetSpace || space;
+    const importJob = useImportStore.getState().job;
+    const importBusy = !!importJob && !["completed", "failed"].includes(importJob.status);
+    const summaryStreaming = ds.getState().job?.status === "streaming";
+    const pdfWorking = (ds.getState().pdfJobs[draftKey] ?? 0) > 0;
     // pdfBusy/summarizing 게이트: 요약 완료 전 저장하면 아카이브에 PDF 요약이 빠진 채 저장되고
     // 뒤늦은 요약이 비워진 에디터에 고아로 삽입된다.
-    if (!title.trim() || busy || pdfBusy || summarizing) return;
-    const t = resolveTarget(targetSpace);
+    if (!curTitle || importBusy || pdfWorking || summaryStreaming) return;
+    const t = resolveTarget(curSpace);
     // 재저장(saveNote)은 savedFile 이 그 공간에 있을 때만 — 대상 공간을 바꿨으면 새 노트로(다른 공간 노트 덮어쓰기 방지).
-    const reuse = savedFile && savedSpace === targetSpace ? savedFile : undefined;
+    const reuse = d.savedFile && d.savedSpace === curSpace ? d.savedFile : undefined;
     const res = await runImport({
-      space: targetSpace,
+      space: curSpace,
       spaceId: t.spaceId,
-      title: title.trim(),
-      markdown: body,
+      title: curTitle,
+      markdown: d.body,
       subjectIds: t.subjectIds,
-      withLlm,
+      withLlm: withLlmRef.current,
       existing: t.existing,
       crossConcepts: t.crossConcepts,
       noteFile: reuse,
       feynmanNoteId: draftNoteId(draftKey),
     });
     // 생성/갱신된 노트에 바인딩(살아있는 노트) — 노트를 비우지 않고 이어서 필기.
-    if (res.noteFile) write({ savedFile: res.noteFile, savedSpace: targetSpace });
+    if (res.noteFile) write({ savedFile: res.noteFile, savedSpace: curSpace });
     if (res.status === "completed") {
-      write({ savedSnapshot: `${title.trim()} ${body}` });
-      await onRefresh(targetSpace);
+      write({ savedSnapshot: `${curTitle} ${d.body}` });
+      await onRefresh(curSpace);
       onNotice?.(
         res.feynmanUsed
           ? "파인만에서 쓴 설명까지 위키에 반영됐어요 ✓ — 이어서 필기하세요"
-          : withLlm
+          : withLlmRef.current
             ? "위키에 반영됐어요 ✓ — 이어서 필기하세요"
             : "저장됐어요 ✓ — 이어서 필기하세요",
       );
-      // 방금 만든 위키가 있을 때만 위키 패널을 연다 (참조 패널은 저장 대상 공간을 따르므로 다른 공간에 저장해도 뜬다)
-      if (withLlm && res.firstWikiPath) {
-        setRefWikiPath(res.firstWikiPath);
+      // 방금 만든 위키가 있으면 위키 패널을 개념 "목록"부터 연다(스펙 §3 — 전부 보이게).
+      if (withLlmRef.current && (res.wikiPaths?.length || res.firstWikiPath)) {
+        setRefWikiPath("");
         togglePanel("wiki", true);
       }
     } else if (res.status === "failed") {
       onNotice?.(`저장 실패: ${res.errorMessage ?? "알 수 없는 오류"}`);
     }
   };
+  runRef.current = run; // 자동 트리거(importPdf 의 .then)가 최신 클로저를 부른다
 
 
 
@@ -797,6 +840,35 @@ export function InboxSection({
           onConfirm={deleteSource}
           onCancel={() => setConfirmDelSrc(false)}
         />
+      )}
+
+      {/* PDF 노트 이름 모달 — 확인하면 업로드→추출→요약→자동 저장+위키까지 원샷(스펙 §1) */}
+      {pendingPdf && (
+        <div className="fixed inset-0 z-40 flex items-start justify-center bg-surface/60 backdrop-blur-md pt-[16vh]" onClick={() => setPendingPdf(null)}>
+          <div className="w-full max-w-sm rounded-xl border border-hairline bg-surface p-4 shadow-elevated" onClick={(e) => e.stopPropagation()}>
+            <p className="text-[15px] font-semibold text-ink">노트 이름</p>
+            <p className="mt-1 text-[13px] text-ink-muted">이 PDF로 만들 노트의 이름이에요 — 요약과 위키까지 자동으로 만들어요.</p>
+            <input
+              autoFocus
+              value={pdfTitle}
+              onChange={(e) => setPdfTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") confirmPdfImport();
+                if (e.key === "Escape") setPendingPdf(null);
+              }}
+              aria-label="노트 이름"
+              className="mt-3 w-full rounded-md border border-hairline bg-surface px-3 py-2 text-[14px] text-ink outline-none focus:border-primary"
+            />
+            <div className="mt-3 flex justify-end gap-2">
+              <Button size="sm" variant="utility" onClick={() => setPendingPdf(null)}>
+                취소
+              </Button>
+              <Button size="sm" variant="primary" disabled={!pdfTitle.trim()} onClick={confirmPdfImport}>
+                가져오기
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* 업로드 팝업 — 새 노트/PDF 패널 헤더 버튼으로 열림 */}
