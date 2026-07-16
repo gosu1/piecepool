@@ -1088,6 +1088,10 @@ export default function PiecePoolApp() {
         isEditing={editing.has(key)}
         draft={drafts[key] ?? page.markdown}
         onToggleEdit={() => toggleEdit(key, page.markdown)}
+        onCancel={() => {
+          clearDocState(key);
+          setTabDirty(tabId, false);
+        }}
         onChangeDraft={(md) => {
           setDraft(key, md);
           setTabDirty(tabId, md !== page.markdown);
@@ -1188,6 +1192,10 @@ export default function PiecePoolApp() {
         isEditing={editing.has(key)}
         draft={drafts[key] ?? note.markdown}
         onToggleEdit={() => toggleEdit(key, note.markdown)}
+        onCancel={() => {
+          clearDocState(key);
+          setTabDirty(tabId, false);
+        }}
         onChangeDraft={(md) => {
           setDraft(key, md);
           setTabDirty(tabId, md !== note.markdown);
