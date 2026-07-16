@@ -2,6 +2,7 @@ import type { LlmWikiResult, LlmConcept, LlmEvidence, LlmWikiInput } from "../ll
 import type { WikiPage, Relation, Evidence, SourceRef, ArchiveNote } from "./types";
 import { parseWikilinks, parseEmbedTarget, firstEmbedFile } from "./wikilink";
 import * as ipc from "./ipc";
+import { splitFeynmanSection, joinFeynmanSection } from "./feynmanSection";
 
 // LlmWikiResult → WikiPage[] + Relation[] 변환 후 백엔드에 저장.
 // 변환 파이프라인: docs/10-contracts/llm-output-schema.md (LlmConcept→Concept+WikiPage, LlmRelation→Relation).
@@ -88,6 +89,7 @@ export function synthesisPage(spaceId: string, note: ArchiveNote, markdown: stri
   const now = new Date().toISOString();
   const conceptId = synthesisConceptId(note.sourceId);
   const ex = existing.find((p) => p.conceptId === conceptId);
+  const keep = ex ? splitFeynmanSection(ex.markdown) : null;
   // 본문 embed → sourceRefs — 비우면 frontmatter↔본문 embed 충돌 배너가 뜬다(sourceRefConflicts).
   const refs: SourceRef[] = [];
   const seen = new Set<string>();
@@ -108,7 +110,8 @@ export function synthesisPage(spaceId: string, note: ArchiveNote, markdown: stri
     subjectIds: note.subjectIds,
     sourceIds: [note.sourceId],
     sourceRefs: refs,
-    markdown,
+    // 재변환은 기존 본문을 참조조차 하지 않고 새 출력으로 갈아탄다 — 파인만 기록만 되살린다.
+    markdown: joinFeynmanSection(markdown, keep?.sessions ?? [], keep?.unparsed ?? []),
     createdAt: ex?.createdAt ?? now, // 재변환 시 생성시각 보존
     updatedAt: now,
   };
@@ -168,11 +171,17 @@ export interface ApplyDeps {
 
 // 병합 본문 결정. 통합에 실패하면 기존 본문을 그대로 둔다 — 새 내용을 못 얹는 것보다
 // 이미 쌓인 지식을 덮는 것이 훨씬 나쁘다(원본 불가침과 같은 철학). 출처·관계는 그래도 누적된다.
+//
+// 파인만 기록은 LLM 에 보내지 않고 코드로 되붙인다. mergeWiki 는 기존 본문을 통째로 넣고
+// 통째로 다시 쓰게 하는 구조라(mergeWiki.ts:5-6 이 인정하듯) 프롬프트 지시로는 못 지킨다.
+// 사용자가 자기 말로 쓴 설명이 "정답"으로 둔갑해 되물음에 인용되는 것도 함께 막는다.
 async function mergeMarkdown(ex: WikiPage, c: LlmConcept, source: ImportSource, deps?: ApplyDeps): Promise<string> {
   if (!deps?.mergeMarkdown) return ex.markdown;
+  const { body, sessions, unparsed } = splitFeynmanSection(ex.markdown);
   try {
-    const md = await deps.mergeMarkdown(ex.markdown, c, source);
-    return md.trim() ? md : ex.markdown;
+    const md = await deps.mergeMarkdown(body, c, source);
+    // 폴백 두 경로는 기록 포함 원본(ex.markdown)을 그대로 돌려준다 — 여기서만 되붙여야 중복이 없다.
+    return md.trim() ? joinFeynmanSection(md, sessions, unparsed) : ex.markdown;
   } catch (e) {
     console.warn(`[llmApply] 본문 통합 실패 — 기존 본문 유지: ${String(e)}`);
     return ex.markdown;

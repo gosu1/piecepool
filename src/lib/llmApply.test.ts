@@ -3,6 +3,7 @@ import { normalizeTitle, slugOrHash, toSourceRefs, embedSourceFiles, synthesisPa
 import type { LlmConcept, LlmRelation } from "../llm/provider";
 import type { ArchiveNote, Relation, SourceRef, WikiPage } from "./types";
 import * as ipc from "./ipc";
+import { joinFeynmanSection, splitFeynmanSection, type FeynmanSession } from "./feynmanSection";
 
 vi.mock("./ipc", () => ({
   saveWiki: vi.fn(async (_space: string, page: unknown) => page),
@@ -119,6 +120,21 @@ describe("synthesisPage", () => {
 
   it("일반 추출 페이지는 isSynthesisPage 아님", () => {
     expect(isSynthesisPage({ conceptId: "concept-transformer" } as WikiPage)).toBe(false);
+  });
+
+  it("재변환해도 파인만 기록은 살아남는다 — 본문은 새 출력으로 갈아탄다", () => {
+    const session: FeynmanSession = {
+      at: "2026-07-16T12:00:00.000Z",
+      verdict: "understood",
+      bodyHash: "a1b2c3d4",
+      turns: [{ role: "user", text: "내가 쓴 설명" }],
+    };
+    const first = synthesisPage("sp-1", NOTE, "v1", []);
+    const withRec = { ...first, markdown: joinFeynmanSection("v1", [session]) };
+    const second = synthesisPage("sp-1", NOTE, "v2", [withRec]);
+    const { body, sessions } = splitFeynmanSection(second.markdown);
+    expect(sessions).toEqual([session]);
+    expect(body).toBe("v2");
   });
 });
 
@@ -270,6 +286,52 @@ describe("applyLlmResult 병합 — 기존 개념에 새 노트가 얹힐 때", 
     const ex = existingPage();
     const applied = await applyOnto([ex], "교착 상태");
     expect(applied.pages[0].markdown).toBe(ex.markdown);
+  });
+
+  // ── 파인만 기록 보존 — LLM 이 본문을 다시 써도 코드가 지킨다 ──
+  const FEYNMAN: FeynmanSession = {
+    at: "2026-07-16T12:00:00.000Z",
+    verdict: "understood",
+    bodyHash: "a1b2c3d4",
+    turns: [{ role: "user", text: "내가 쓴 설명" }],
+  };
+  const OLD_BODY = "# 교착 상태\n\n1주차에 배운 내용";
+  const withRecord = () => existingPage({ markdown: joinFeynmanSection(OLD_BODY, [FEYNMAN]) });
+
+  it("병합 후에도 파인만 기록이 글자 그대로 남는다", async () => {
+    const applied = await applyOnto([withRecord()], "교착 상태", ["subj-os"], {
+      mergeMarkdown: async () => "# 교착 상태\n\n통합된 새 본문",
+    });
+    const { body, sessions } = splitFeynmanSection(applied.pages[0].markdown);
+    expect(sessions).toEqual([FEYNMAN]);
+    expect(body).toBe("# 교착 상태\n\n통합된 새 본문");
+  });
+
+  it("LLM 에 넘기는 본문에 파인만 기록이 없다 — 답 유출·판정 누출 차단", async () => {
+    let seen = "";
+    await applyOnto([withRecord()], "교착 상태", ["subj-os"], {
+      mergeMarkdown: async (existingMd) => {
+        seen = existingMd;
+        return "# 교착 상태\n\n통합된 새 본문";
+      },
+    });
+    expect(seen).toBe(OLD_BODY); // 기록을 걷어낸 본문만 간다
+    expect(seen).not.toContain("내가 쓴 설명");
+    expect(seen).not.toContain("이해함");
+  });
+
+  it("mergeMarkdown 미주입 폴백 — 기록이 중복되지 않는다", async () => {
+    const applied = await applyOnto([withRecord()], "교착 상태");
+    expect(splitFeynmanSection(applied.pages[0].markdown).sessions).toHaveLength(1);
+  });
+
+  it("mergeMarkdown 실패 폴백 — 기록이 중복되지 않는다", async () => {
+    const applied = await applyOnto([withRecord()], "교착 상태", ["subj-os"], {
+      mergeMarkdown: async () => {
+        throw new Error("[mergeWiki] HTTP 429");
+      },
+    });
+    expect(splitFeynmanSection(applied.pages[0].markdown).sessions).toHaveLength(1);
   });
 });
 
