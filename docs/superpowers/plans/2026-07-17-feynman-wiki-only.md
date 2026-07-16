@@ -1451,10 +1451,6 @@ export function FeynmanPanel({ space, page }: { space: string; page: WikiPage })
   // 세션이 바뀌면 입력창을 비운다 — 이전 세션에 쓰던 설명이 다음 세션으로 새면 안 된다.
   useEffect(() => setDraft(""), [mine?.id ?? null]);
 
-  const { sessions } = splitFeynmanSection(page.markdown);
-  const now = bodyHash(page.markdown);
-  const keyed = hasGeminiKey();
-
   const send = async () => {
     const said = draft.trim();
     if (!said || mine?.probing) return;
@@ -1462,10 +1458,15 @@ export function FeynmanPanel({ space, page }: { space: string; page: WikiPage })
     await explain(said);
   };
 
+  // 본문 파싱은 이 분기에서만 필요하다 — 위로 올리면 진행 중 세션의 타이핑마다 위키 전체를 다시 판다.
   if (!mine) {
+    const { sessions } = splitFeynmanSection(page.markdown);
+    const now = bodyHash(page.markdown);
+    const keyed = hasGeminiKey();
     return (
       <div className="mt-4 space-y-2">
         {sessions.map((s, i) => (
+          // bodyHash 없는 세션(손편집·구버전)은 판정을 건너뛴다 — 모르면 배지를 안 띄운다.
           <SessionCard key={`${s.at}-${i}`} s={s} stale={!!s.bodyHash && s.bodyHash !== now} />
         ))}
         <Button size="sm" variant="utility" disabled={!keyed} onClick={() => start(space, page)}>
@@ -1475,7 +1476,7 @@ export function FeynmanPanel({ space, page }: { space: string; page: WikiPage })
     );
   }
 
-  const { history, probing, error } = mine;
+  const { history, probing, saving, error } = mine;
   const answered = history.some((t) => t.role === "user");
 
   return (
@@ -1496,6 +1497,8 @@ export function FeynmanPanel({ space, page }: { space: string; page: WikiPage })
       )}
 
       {probing && <p className="text-[13px] text-ink-faint">읽는 중…</p>}
+      {/* finish 는 디스크 왕복(readWiki→saveWiki)이다 — 피드백이 없으면 눌렀는지 모른다. */}
+      {saving && <p className="text-[13px] text-ink-faint">기록하는 중…</p>}
       {error && (
         // 설명은 history 에 남아 있다 — 다시 타이핑하지 않고 그대로 재시도한다.
         <div className="flex items-center gap-2">
@@ -1512,7 +1515,7 @@ export function FeynmanPanel({ space, page }: { space: string; page: WikiPage })
         onKeyDown={(e) => {
           if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void send();
         }}
-        disabled={probing}
+        disabled={probing || saving}
         rows={3}
         placeholder={history.length ? "이어서 설명해보세요… (⌘Enter 로 보내기)" : `"${page.title}" 을(를) 아는 대로 설명해보세요 (⌘Enter 로 보내기)`}
         aria-label="개념 설명"
@@ -1521,20 +1524,20 @@ export function FeynmanPanel({ space, page }: { space: string; page: WikiPage })
 
       <div className="flex items-center justify-between gap-2">
         <div className="flex gap-2">
-          <Button size="sm" variant="solid" disabled={!draft.trim() || probing} onClick={send}>
+          <Button size="sm" variant="solid" disabled={!draft.trim() || probing || saving} onClick={send}>
             {history.length ? "다시 설명" : "설명 보내기"}
           </Button>
-          <Button size="sm" variant="utility" disabled={probing} onClick={dismiss}>
+          <Button size="sm" variant="utility" disabled={probing || saving} onClick={dismiss}>
             나중에
           </Button>
         </div>
         {/* 이해 판정은 오직 사용자. LLM 은 채점하지 않는다(relation-types.md §review_needed).
             단 설명을 한 번도 안 했으면 판정할 근거가 없다 — [나중에] 로만 넘어간다. */}
         <div className="flex gap-2">
-          <Button size="sm" variant="utility" disabled={probing || !answered} onClick={() => void finish(false)}>
+          <Button size="sm" variant="utility" disabled={probing || saving || !answered} onClick={() => void finish(false)}>
             아직 모르겠어요
           </Button>
-          <Button size="sm" variant="utility" disabled={probing || !answered} onClick={() => void finish(true)}>
+          <Button size="sm" variant="utility" disabled={probing || saving || !answered} onClick={() => void finish(true)}>
             네, 이해했어요
           </Button>
         </div>
