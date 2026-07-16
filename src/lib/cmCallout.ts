@@ -74,10 +74,13 @@ class ChevronWidget extends WidgetType {
   toDOM(view: EditorView) {
     const el = document.createElement("span");
     el.className = "pp-callout-chevron" + (this.folded ? "" : " pp-open");
-    el.textContent = "›";
+    // 아래 방향 셰브론 — 펼치면 위로 회전(pp-open). 폰트 의존 줄이려 SVG.
+    el.innerHTML =
+      '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
     el.setAttribute("aria-label", this.folded ? "펼치기" : "접기");
     el.onmousedown = (e) => {
       e.preventDefault();
+      e.stopPropagation();
       const effect = this.folded ? unfoldEffect : foldEffect;
       view.dispatch({ effects: effect.of({ from: this.foldFrom, to: this.foldTo }) });
     };
@@ -165,24 +168,50 @@ const calloutTheme = EditorView.baseTheme({
     borderLeft: "2px solid var(--ds-primary)",
     paddingLeft: "10px",
   },
-  ".pp-callout-title-line": { fontWeight: "600" },
+  // 제목 줄 = 접기 바. 오른쪽 셰브론 자리를 padding 으로 비우고, 전체를 눌러 펼칠 수 있게 pointer.
+  ".pp-callout-title-line": { fontWeight: "600", position: "relative", paddingRight: "26px", cursor: "pointer" },
+  // 셰브론 — 오른쪽 끝, 히트영역 22px. 접힘=아래 방향, 펼침=위(180°).
   ".pp-callout-chevron": {
-    display: "inline-block",
-    width: "14px",
-    marginRight: "2px",
+    position: "absolute",
+    right: "4px",
+    top: "0",
+    bottom: "0",
+    width: "22px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
     color: "var(--ds-ink-faint)",
     cursor: "pointer",
-    transition: "transform 80ms ease",
+    transition: "transform 160ms ease, color 110ms ease",
     transform: "rotate(0deg)",
   },
-  ".pp-callout-chevron.pp-open": { transform: "rotate(90deg)" },
-  ".cm-foldPlaceholder": {
-    backgroundColor: "transparent",
-    border: "none",
-    color: "var(--ds-ink-faint)",
-    margin: "0 4px",
-    cursor: "pointer",
+  ".pp-callout-chevron.pp-open": { transform: "rotate(180deg)" },
+  // 제목 줄 호버 시 셰브론이 프라이머리로 — 누를 수 있다는 신호(테마 안전 토큰만 사용).
+  ".pp-callout-title-line:hover .pp-callout-chevron": { color: "var(--ds-primary)" },
+  ".cm-foldPlaceholder": { backgroundColor: "transparent", border: "none", padding: "0", margin: "0" },
+});
+
+// 접힌 자리의 "…" 기본 placeholder 를 없앤다 — 접힘 표시는 오른쪽 셰브론이 대신한다.
+const emptyFoldPlaceholder = codeFolding({ placeholderDOM: () => document.createElement("span") });
+
+// 제목 줄(=바) 전체가 접기 토글 — 어디를 눌러도 펼침↔접힘 양방향. 셰브론만 눌러야 했던
+// 비대칭·답답함 제거. 클릭 시 커서를 두지 않으므로 "편집 모드와 겹치는" 느낌도 사라진다
+// (편집이 필요한 본문은 별도 줄이라 영향 없다 — 제목은 자동 생성 라벨).
+const titleBarClick = EditorView.domEventHandlers({
+  mousedown(e, view) {
+    const t = e.target as HTMLElement | null;
+    if (!t || t.closest(".pp-callout-chevron")) return false; // 셰브론은 자기 핸들러가 토글(이중 처리 방지)
+    const lineEl = t.closest(".pp-callout-title-line") as HTMLElement | null;
+    if (!lineEl) return false;
+    const line = view.state.doc.lineAt(view.posAtDOM(lineEl));
+    const block = findCalloutBlocks(view).find((b) => b.titleLine.number === line.number);
+    if (!block) return false;
+    if (view.state.doc.lineAt(block.to).number <= block.titleLine.number) return false; // 접을 내용 없음
+    e.preventDefault();
+    const folded = isFolded(view, block.titleLine.to);
+    view.dispatch({ effects: (folded ? unfoldEffect : foldEffect).of({ from: block.titleLine.to, to: block.to }) });
+    return true;
   },
 });
 
-export const calloutPreview: Extension = [codeFolding(), calloutPlugin, calloutTheme];
+export const calloutPreview: Extension = [emptyFoldPlaceholder, calloutPlugin, calloutTheme, titleBarClick];
