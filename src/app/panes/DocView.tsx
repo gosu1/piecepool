@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { AIWritingBanner, Button, Card, SkeletonText, Icons, cn } from "../../ds";
 import { Markdown } from "../../lib/markdown";
+import { stripEvidenceSection } from "../../lib/noteSections";
 import { SlashBlockEditor } from "../../lib/SlashBlockEditor";
 import type { FeynmanHandlers } from "./FeynmanPanel";
 import { useFeynmanEditor } from "./useFeynmanEditor";
@@ -80,9 +81,12 @@ export function DocView({
     handlers: feynman?.handlers,
   });
   // 읽기 모드 본문 — 카드 없이 페이지에 바로. 빈 페이지는 클릭해서 작성 시작.
-  const readBody = savedMd.trim() ? (
+  // 위키는 본문의 `## 근거`(PDF 임베드)를 표시에서만 감춘다 — 관련 소스 섹션이 이미 출처를 담는다.
+  // 저장 데이터·편집 모드·conflicts 점검(원본 마크다운 기준)에는 영향 없다.
+  const displayMd = docType === "wiki" ? stripEvidenceSection(savedMd) : savedMd;
+  const readBody = displayMd.trim() ? (
     <div className="px-1">
-      <Markdown source={savedMd} onLink={onLink} linkExists={linkExists} embedSpace={embedSpace} />
+      <Markdown source={displayMd} onLink={onLink} linkExists={linkExists} embedSpace={embedSpace} />
     </div>
   ) : (
     <button
