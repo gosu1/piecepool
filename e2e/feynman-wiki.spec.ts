@@ -141,9 +141,48 @@ async function openInboxWiki(page: Page, title: string) {
     .click();
 }
 
+/** 노트 하나를 "저장 + AI 정리" 로 임포트하고, 방금 만들어진 개념을 위키 패널에서 연다. */
+async function importAndOpen(page: Page, title: string, concept: string) {
+  await page.route("**generativelanguage.googleapis.com**", (route) =>
+    route.fulfill(
+      chat({
+        concepts: [
+          { title: concept, summary: "요약", explanation: "설명", examples: [], sourceRefs: [], sourceEmbeds: [] },
+        ],
+        relations: [],
+      }),
+    ),
+  );
+  await page.getByRole("button", { name: "새 노트 작성" }).click();
+  await page.getByPlaceholder("새 페이지").fill(title);
+  await page.locator(".cm-content").click();
+  await page.keyboard.type("본문");
+  await page.getByRole("button", { name: /AI 정리/ }).click();
+  await expect(page.getByText("완료", { exact: false }).first()).toBeVisible();
+  await page
+    .locator("text=이 노트의 개념")
+    .locator("xpath=following-sibling::ul[1]")
+    .getByRole("button", { name: concept, exact: true })
+    .click();
+}
+
+test("인박스 위키 패널 — 방금 만들어진 개념이면 파인만이 자동으로 열린다", async ({ page }) => {
+  // 위키 개념은 학습자가 만든 게 아니다 — 막 생성된 걸 그냥 읽고 넘기면 이해했다는 착각만 남는다.
+  await importAndOpen(page, "자동 열기 테스트", "임계 구역");
+  await expect(box(page)).toBeVisible();
+});
+
+test("인박스 위키 패널 — 임포트와 무관하게 참고로 연 위키는 자동으로 안 열린다", async ({ page }) => {
+  // 노트 쓰다가 참고하려고 옛 위키를 열었을 뿐인데 "설명하세요" 가 뜨면 필기가 끊긴다.
+  // jobWikiPaths 가 비어 있는 게 "지금은 쓰는 시간" 신호다.
+  await openInboxWiki(page, "프로세스");
+  await expect(box(page)).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "이 개념을 설명해보기" })).toBeVisible();
+});
+
 test("인박스 위키 패널 — 수동 버튼으로 시작하고 판정하면 카드가 남는다", async ({ page }) => {
   await openInboxWiki(page, "프로세스");
-  // 인박스는 자동으로 안 열린다 — 노트 쓰는 중에 방해하지 않는다
+  // 임포트 직후가 아니라 참고로 연 것 — 자동으로 안 열린다
   await expect(box(page)).toHaveCount(0);
   await page.getByRole("button", { name: "이 개념을 설명해보기" }).click();
   await box(page).fill("프로세스는 실행 중인 프로그램이에요");

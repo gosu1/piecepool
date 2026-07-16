@@ -11,7 +11,8 @@ import { SlashBlockEditor } from "../../lib/SlashBlockEditor";
 import { ConfirmDialog } from "../shell/Dialogs";
 import { Markdown } from "../../lib/markdown";
 import { stripEvidenceSection } from "../../lib/noteSections";
-import { stripFeynmanSection } from "../../lib/feynmanSection";
+import { stripFeynmanSection, splitFeynmanSection } from "../../lib/feynmanSection";
+import { useFeynmanStore, wikiKey, hasGeminiKey } from "../../store/feynmanStore";
 import { FeynmanPanel } from "./FeynmanPanel";
 import { conceptRelationGroups } from "../../lib/conceptGraph";
 import { MiniRelationGraph } from "../../lib/MiniGraph";
@@ -440,6 +441,30 @@ export function InboxSection({
   const listWikis = jobWikiPaths.length
     ? jobWikiPaths.map((p) => refCandidates.find((w) => w.path === p)).filter((w): w is WikiPageT => !!w)
     : refCandidates.filter((w) => !isSynthesisPage(w));
+
+  // ── 방금 만들어진 개념이면 파인만을 자동으로 연다 ──
+  //
+  // 위키 개념은 학습자가 만든 것이 아니다. 막 생성된 걸 그냥 읽고 넘기면 이해했다는 착각만 남는다(IOED).
+  // 판정은 위키 문서 탭과 같다 — 기록 0개면 신규. 다만 여기엔 **임포트 직후** 조건이 하나 더 붙는다:
+  // 노트를 쓰다가 참고하려고 옛 위키를 열었을 뿐인데 "설명하세요" 가 뜨면 필기가 끊긴다.
+  // jobWikiPaths 는 이 노트의 임포트가 방금 끝났을 때만 채워지므로 그게 곧 "지금은 읽는 시간" 신호다.
+  const autoWiki = jobWikiPaths.length ? refWiki : null;
+  useEffect(() => {
+    if (!autoWiki || !targetSpace) return;
+    // 정리 글은 학습자 본인 노트에서 나온 글이라 대상이 아니다.
+    if (isSynthesisPage(autoWiki)) return;
+    const st = useFeynmanStore.getState();
+    // 진행 중인 세션을 파괴하지 않는다 — session 은 앱 전역 싱글턴이고 메모리 전용이라
+    // 다른 곳에서 쓰던 설명이 여기서 조용히 증발한다.
+    if (st.session) return;
+    if (st.dismissed[wikiKey(targetSpace, autoWiki.path)]) return;
+    // 키가 없으면 probeExplanation 이 빈 키로 실패해 되물음이 안 온다 — 반응 없는 빈 패널이 뜬다.
+    if (!hasGeminiKey()) return;
+    if (splitFeynmanSection(autoWiki.markdown).sessions.length) return;
+    st.start(targetSpace, autoWiki);
+    // 문서 정체성 기준 — 목록에서 다른 개념을 고르면 그때 다시 판정한다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetSpace, autoWiki?.path]);
 
   // PDF → sources/original-files 저장 + 패널 열람 + 출처 임베드 + 한국어 번역·요약 스트리밍.
   // 요약은 스토어가 소유(fire-and-forget) — 탭을 떠나도 계속 흐르고 종결 시 본문에 병합된다.
