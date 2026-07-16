@@ -269,6 +269,22 @@ describe("bodyHash", () => {
     expect(bodyHash(joinFeynmanSection(BODY, [S(), S({ at: "2026-01-01T00:00:00.000Z" })]))).toBe(h0);
   });
 
+  // 후행 개행은 병합·편집을 거친 .md 의 정상 형태다. split 이 조건부로만 다듬으면
+  // 기록 없는 페이지의 첫 세션에서 저장 전후 해시가 어긋나 배지가 상시 점등한다.
+  it("후행 개행이 해시를 바꾸지 않는다 — split 이 섹션 유무와 무관하게 정규화한다", () => {
+    expect(bodyHash(`${BODY}\n`)).toBe(bodyHash(BODY));
+    expect(bodyHash(`${BODY}\n\n\n`)).toBe(bodyHash(BODY));
+    expect(bodyHash(`${BODY}\r\n`)).toBe(bodyHash(BODY));
+  });
+
+  it("후행 개행 있는 본문의 첫 세션 — 저장 전후 해시가 같다", () => {
+    // finish 가 하는 그대로: split → 해시 → join. 이 둘이 어긋나면 배지가 저장하자마자 켜진다.
+    const withNl = `${BODY}\n`;
+    const { body, sessions, unparsed } = splitFeynmanSection(withNl);
+    const saved = joinFeynmanSection(body, [S({ bodyHash: bodyHash(body) }), ...sessions], unparsed);
+    expect(splitFeynmanSection(saved).sessions[0].bodyHash).toBe(bodyHash(saved));
+  });
+
   it("본문이 바뀌면 해시가 바뀐다", () => {
     expect(bodyHash(`${BODY} 추가`)).not.toBe(bodyHash(BODY));
   });
@@ -392,13 +408,20 @@ function parseTurns(lines: string[]): FeynmanTurn[] {
  */
 export function splitFeynmanSection(md: string): { body: string; sessions: FeynmanSession[]; unparsed: string[] } {
   const spans = locateAll(md);
-  if (!spans.length) return { body: md, sessions: [], unparsed: [] };
 
   // 섹션을 전부 걷어낸 나머지가 body. 뒤에서부터 잘라야 앞 구간 오프셋이 안 밀린다.
-  // CRLF: /\n+$/ 만 쓰면 잘린 자리가 `…\r\n\r\n` 일 때 \r 이 남는다.
   let body = md;
   for (const [from, to] of [...spans].reverse()) body = body.slice(0, from) + body.slice(to);
+
+  // 후행 개행은 섹션 유무와 **무관하게** 다듬는다. join 이 항상 다듬으므로 여기서 조건부로 두면
+  // split→join 왕복이 깨진다: 기록이 아직 없는 페이지의 첫 세션에서 finish 가 박는
+  // bodyHash(안 다듬은 body) 와 저장된 문서의 bodyHash(다듬은 body) 가 달라져 **저장하자마자
+  // "이후 문서 바뀜" 배지가 켜진다**. updatedAt 을 버리고 해시로 온 이유가 그 실패 모드인데
+  // 이 비대칭이 다른 문으로 같은 것을 들여놓는다. 후행 개행은 병합·편집을 거친 .md 의 정상 형태다.
+  // CRLF: /\n+$/ 만 쓰면 잘린 자리가 `…\r\n\r\n` 일 때 \r 이 남는다.
   body = body.replace(/(\r?\n)+$/, "");
+
+  if (!spans.length) return { body, sessions: [], unparsed: [] };
 
   const sessions: FeynmanSession[] = [];
   const unparsed: string[] = [];
@@ -926,6 +949,9 @@ Expected: PASS — 7개.
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useFeynmanStore, wikiKey } from "./feynmanStore";
 import { splitFeynmanSection, joinFeynmanSection, bodyHash } from "../lib/feynmanSection";
+// 주의: zustand persist 는 module-eval 시점에 window.localStorage 를 읽는다. vitest node 환경엔
+// 없으므로 store 모듈을 정적 import 하면 터진다 — FakeStorage 를 심은 뒤 동적 import 해야 한다.
+// (선례: 구 feynmanStore.test.ts. settings.test.ts 는 지연 조회라 정적이어도 됐다.)
 import type { WikiPage } from "../lib/types";
 
 vi.mock("../llm/feynman", () => ({ probeExplanation: vi.fn() }));
@@ -1056,6 +1082,39 @@ describe("finish — 기록을 위키 본문에 저장한다", () => {
     expect(s).not.toBeNull();
     expect(s!.error).toBeTruthy();
     expect(s!.history).toHaveLength(2);
+    expect(s!.saving).toBe(false); // 다시 시도할 수 있어야 한다
+  });
+
+  it("후행 개행 있는 본문에서도 배지가 안 뜬다", async () => {
+    // 병합·편집을 거친 .md 의 정상 형태. split 이 조건부로만 다듬으면 여기서 해시가 어긋난다.
+    vi.mocked(probeExplanation).mockResolvedValue({ probe: "왜요?", targetGap: "why" });
+    const nl = page({ markdown: `${BODY}\n` });
+    vi.mocked(ipc.readWiki).mockResolvedValue(nl);
+    useFeynmanStore.getState().start("sp", nl);
+    await useFeynmanStore.getState().explain("설명");
+    await useFeynmanStore.getState().finish(true);
+
+    const saved = vi.mocked(ipc.saveWiki).mock.calls[0][1];
+    expect(splitFeynmanSection(saved.markdown).sessions[0].bodyHash).toBe(bodyHash(saved.markdown));
+  });
+
+  it("읽을 수 없는 블록(unparsed)이 저장을 건너 살아남는다", async () => {
+    vi.mocked(probeExplanation).mockResolvedValue({ probe: "왜요?", targetGap: "why" });
+    const broken = page({ markdown: `${BODY}\n\n## 파인만 기록\n\n### 깨진 헤더\n\n> 잃으면 안 되는 말\n` });
+    vi.mocked(ipc.readWiki).mockResolvedValue(broken);
+    useFeynmanStore.getState().start("sp", broken);
+    await useFeynmanStore.getState().explain("설명");
+    await useFeynmanStore.getState().finish(true);
+
+    expect(vi.mocked(ipc.saveWiki).mock.calls[0][1].markdown).toContain("잃으면 안 되는 말");
+  });
+
+  it("판정 버튼 더블클릭이 저장을 두 번 태우지 않는다", async () => {
+    vi.mocked(probeExplanation).mockResolvedValue({ probe: "왜요?", targetGap: "why" });
+    useFeynmanStore.getState().start("sp", page());
+    await useFeynmanStore.getState().explain("설명");
+    await Promise.all([useFeynmanStore.getState().finish(true), useFeynmanStore.getState().finish(true)]);
+    expect(vi.mocked(ipc.saveWiki).mock.calls).toHaveLength(1);
   });
 });
 
@@ -1109,6 +1168,8 @@ interface WikiSession {
   body: string;
   history: Turn[];
   probing: boolean;
+  /** finish 진행 중 — 판정 버튼 더블클릭이 readWiki/saveWiki 왕복을 두 번 태우는 걸 막는다. */
+  saving?: boolean;
   error?: string;
 }
 
@@ -1196,7 +1257,8 @@ export const useFeynmanStore = create<FeynmanState>()(
 
         finish: async (understood) => {
           const s = get().session;
-          if (!s || s.probing) return;
+          if (!s || s.probing || s.saving) return;
+          set({ session: { ...s, saving: true } });
           // 디스크 최신본 기준 — 메모리 stale 본문이 그 사이 갱신된 본문을 덮지 않는다.
           try {
             const cur = await ipc.readWiki(s.space, s.path);
@@ -1211,7 +1273,7 @@ export const useFeynmanStore = create<FeynmanState>()(
             if (get().session?.id === s.id) set({ session: null });
           } catch (e) {
             // 설명을 잃지 않는다 — 세션을 유지하고 다시 시도하게 한다.
-            if (get().session?.id === s.id) set((c) => ({ session: c.session && { ...c.session, error: String(e) } }));
+            if (get().session?.id === s.id) set((c) => ({ session: c.session && { ...c.session, saving: false, error: String(e) } }));
           }
         },
 
