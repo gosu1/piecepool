@@ -4,10 +4,10 @@
 
 ```bash
 export GEMINI_API_KEY=...
-npm run eval:feynman -- --all              # probe + LLM judge, 게이트 적용
-npm run eval:feynman -- --all --dry        # judge 생략(cheap check 만) — 싸게 스모크
-npm run eval:feynman -- --all --repeat 3   # 케이스당 3회 — 비결정성 표본
-npm run eval:feynman -- --case trap-wrong-fact
+npm run eval:feynman                                          # probe + LLM judge, 게이트 적용(기본이 전체 실행)
+npm run eval:feynman -- --dry                                 # judge 생략(cheap check 만) — 싸게 스모크
+npm run eval:feynman -- --repeat 3                            # 케이스당 3회 — 비결정성 표본
+npm run eval:feynman -- --case clarify-03-wrong-pvalue-trap   # fixture 하나만
 ```
 
 ## 왜 단위 테스트가 아닌가
