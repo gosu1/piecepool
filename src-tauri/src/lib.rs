@@ -997,6 +997,7 @@ pub fn run() {
             commands::wiki::list_wiki,
             commands::wiki::read_wiki,
             commands::wiki::save_wiki,
+            commands::wiki::save_wiki_batch,
             commands::wiki::delete_wiki,
             commands::wiki::rename_wiki,
             commands::graph::get_graph,

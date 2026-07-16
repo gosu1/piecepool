@@ -41,6 +41,8 @@ const real = {
   listWiki: (space: string) => invoke<WikiPage[]>("list_wiki", { space }),
   readWiki: (space: string, file: string) => invoke<WikiPage>("read_wiki", { space, file }),
   saveWiki: (space: string, page: WikiPage) => invoke<WikiPage>("save_wiki", { space, page }),
+  // 임포트 writing 단계 전용 — 페이지마다 save_wiki 를 부르면 백엔드가 매번 archive 전체를 재스캔한다.
+  saveWikiBatch: (space: string, pages: WikiPage[]) => invoke<WikiPage[]>("save_wiki_batch", { space, pages }),
   deleteWiki: (space: string, file: string) => invoke<number>("delete_wiki", { space, file }),
   renameWiki: (space: string, file: string, newTitle: string) => invoke<WikiPage>("rename_wiki", { space, file, newTitle }),
   saveSourceFile: (space: string, name: string, dataBase64: string) => invoke<string>("save_source_file", { space, name, dataBase64 }),
@@ -79,6 +81,7 @@ export const updateNoteSubjects = api.updateNoteSubjects;
 export const listWiki = api.listWiki;
 export const readWiki = api.readWiki;
 export const saveWiki = api.saveWiki;
+export const saveWikiBatch = api.saveWikiBatch;
 export const deleteWiki = api.deleteWiki;
 export const renameWiki = api.renameWiki;
 export const saveSourceFile = api.saveSourceFile;

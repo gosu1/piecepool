@@ -143,37 +143,34 @@ export async function factCheckRelations(
   const maxQueries = opts?.maxQueries ?? 5;
   const maxUrls = opts?.maxUrls ?? 2;
   const targets = [...result.relations].sort((a, b) => a.confidence - b.confidence).slice(0, maxQueries);
-  const targetSet = new Set(targets);
 
   let checked = 0;
   let failed = 0;
-  const relations: LlmRelation[] = [];
-  for (const r of result.relations) {
-    if (!targetSet.has(r)) {
-      relations.push(r);
-      continue;
-    }
-    try {
-      const { sources } = await client.search(`${r.sourceConceptTitle} ${r.targetConceptTitle}: ${r.explanation}`.slice(0, 300));
-      const urls = sources.slice(0, maxUrls).map((s) => s.url);
-      if (urls.length === 0) {
-        relations.push(r);
-        continue;
+  // 검색은 관계별 독립 — 순차 대기하면 maxQueries 번 왕복이 합산되므로 병렬.
+  // 결과 순서는 아래 원본 배열 기준 map 이 보존한다.
+  const enriched = new Map<LlmRelation, LlmRelation>();
+  await Promise.all(
+    targets.map(async (r) => {
+      try {
+        const { sources } = await client.search(`${r.sourceConceptTitle} ${r.targetConceptTitle}: ${r.explanation}`.slice(0, 300));
+        const urls = sources.slice(0, maxUrls).map((s) => s.url);
+        if (urls.length === 0) return;
+        const suffix = ` · 출처: ${urls.join(" · ")}`;
+        checked++;
+        // evidence 가 있으면 각 reason 에 누적. 없으면 explanation 에 누적 —
+        // applyLlmResult 가 빈 evidence 를 explanation 기반으로 합성하므로 결국 evidence[].reason 에 도달한다.
+        enriched.set(
+          r,
+          r.evidence.length > 0
+            ? { ...r, evidence: r.evidence.map((e) => ({ ...e, reason: e.reason + suffix })) }
+            : { ...r, explanation: r.explanation + suffix },
+        );
+      } catch {
+        failed++;
       }
-      const suffix = ` · 출처: ${urls.join(" · ")}`;
-      checked++;
-      // evidence 가 있으면 각 reason 에 누적. 없으면 explanation 에 누적 —
-      // applyLlmResult 가 빈 evidence 를 explanation 기반으로 합성하므로 결국 evidence[].reason 에 도달한다.
-      relations.push(
-        r.evidence.length > 0
-          ? { ...r, evidence: r.evidence.map((e) => ({ ...e, reason: e.reason + suffix })) }
-          : { ...r, explanation: r.explanation + suffix },
-      );
-    } catch {
-      failed++;
-      relations.push(r);
-    }
-  }
+    }),
+  );
+  const relations = result.relations.map((r) => enriched.get(r) ?? r);
   return { result: { ...result, relations }, checked, failed };
 }
 

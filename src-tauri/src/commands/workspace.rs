@@ -131,7 +131,8 @@ pub fn list_sources(space: String) -> Result<Vec<String>, String> {
 }
 
 /// PDF 페이지별 텍스트 추출 (sources/original-files/<file>). page_count 는 #page=N 범위 SSOT.
-#[tauri::command]
+/// (async): CPU-heavy — 메인 스레드에서 돌리면 추출 내내 UI·IPC 전체가 멈춘다.
+#[tauri::command(async)]
 pub fn extract_pdf_text(
     space: String,
     file: String,
@@ -145,7 +146,8 @@ pub fn extract_pdf_text(
 }
 
 /// 원본 파일 바이트를 base64 로 반환 (FilePreview: 이미지/PDF data URL). sources/original-files/ 하위만.
-#[tauri::command]
+/// (async): 수십 MB 읽기+인코딩 — 메인 스레드 블록 방지.
+#[tauri::command(async)]
 pub fn read_file_bytes(space: String, file: String) -> Result<String, String> {
     let path = storage::safe_join(
         &storage::space_subdir(&space, "sources/original-files"),
@@ -170,7 +172,8 @@ pub fn delete_source(space: String, file: String) -> Result<(), String> {
 
 /// base64 원본 파일을 <space>/sources/original-files/ 에 저장하고 최종 파일명을 반환.
 /// 파일명 정리: stem 은 slug_or_hash(한글 등은 해시), 확장자는 slugify(소문자 영숫자). 충돌 시 base-2.ext … 접미사.
-#[tauri::command]
+/// (async): 최대 50MB 디코드+쓰기 — 메인 스레드 블록 방지.
+#[tauri::command(async)]
 pub fn save_source_file(
     space: String,
     name: String,
