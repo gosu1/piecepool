@@ -71,6 +71,12 @@ describe("findTermMatches — 경계 규칙", () => {
     expect(findTermMatches("프로세스", m, [{ from: 0, to: 4 }])).toEqual([]);
   });
 
+  it("toLowerCase 로 길이가 변하는 문자(İ) 뒤에서도 인덱스가 어긋나지 않는다", () => {
+    // 'İ'.toLowerCase() 는 2 code unit — 전체 소문자 사본의 인덱스 산술은 이 문자 뒤를 전부 어긋나게 했다
+    const m = M(["스레드"]);
+    expect(findTermMatches("İ 스레드 얘기", m)).toEqual([{ from: 2, to: 5, title: "스레드" }]);
+  });
+
   it("한 텍스트에서 여러 매치, 등장 순", () => {
     const m = M(["스레드", "프로세스"]);
     const r = findTermMatches("프로세스와 스레드의 차이", m);

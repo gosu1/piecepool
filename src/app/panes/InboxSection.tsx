@@ -867,7 +867,9 @@ export function InboxSection({
               value={pdfTitle}
               onChange={(e) => setPdfTitle(e.target.value)}
               onKeyDown={(e) => {
-                if (e.nativeEvent.isComposing) return; // 한글 조합 확정 Enter 가 파이프라인을 쏘면 안 된다
+                // 한글 조합 확정 Enter 가 파이프라인을 쏘면 안 된다. WebKit(macOS WKWebView)은
+                // 확정 Enter 를 isComposing=false·keyCode 229 로 주므로 둘 다 걸러야 한다.
+                if (e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229) return;
                 if (e.key === "Enter") confirmPdfImport();
                 if (e.key === "Escape") setPendingPdf(null);
               }}

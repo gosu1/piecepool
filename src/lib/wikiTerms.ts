@@ -9,8 +9,9 @@ export interface TermMatch {
 }
 
 export interface TermMatcher {
-  regex: RegExp; // 후보 "위치" 탐색용 — 확정은 titles 를 같은 위치에서 긴 것부터 대조
-  titles: string[]; // canonical 제목, 길이 내림차순
+  regex: RegExp; // 후보 "위치" 탐색용 — 확정은 같은 첫 글자의 후보만 긴 것부터 대조
+  // 첫 글자(소문자) → 후보들(길이 내림차순). 위치마다 전 제목을 돌면 대형 공간에서 수십 ms 로 퇴행한다.
+  byFirst: Map<string, Array<{ title: string; lower: string }>>;
 }
 
 // 제목 뒤에 붙어도 매치로 인정하는 한국어 조사 — 긴 것 먼저("에서"가 "에"보다 먼저 걸리게).
@@ -33,7 +34,15 @@ export function buildTermMatcher(titles: string[]): TermMatcher | null {
     .sort((a, b) => b.length - a.length); // alternation 은 앞이 이긴다 — 최장 일치 우선
   if (!list.length) return null;
   const esc = list.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-  return { regex: new RegExp(`(?:${esc.join("|")})`, "gi"), titles: list };
+  const byFirst = new Map<string, Array<{ title: string; lower: string }>>();
+  for (const t of list) {
+    const lower = t.toLowerCase();
+    const k = lower.charAt(0);
+    const arr = byFirst.get(k);
+    if (arr) arr.push({ title: t, lower });
+    else byFirst.set(k, [{ title: t, lower }]);
+  }
+  return { regex: new RegExp(`(?:${esc.join("|")})`, "gi"), byFirst };
 }
 
 /** 매치 뒤 경계 — 비단어문자면 OK, 한글이면 조사(+비단어문자)일 때만 OK. */
@@ -58,7 +67,6 @@ export function findTermMatches(
 ): TermMatch[] {
   const out: TermMatch[] = [];
   const re = new RegExp(matcher.regex.source, "gi"); // 호출마다 독립 — 공유 lastIndex 오염 방지
-  const lower = text.toLowerCase();
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
     const from = m.index;
@@ -66,14 +74,17 @@ export function findTermMatches(
     let hit: TermMatch | null = null;
     if (prev === undefined || !WORD.test(prev)) {
       // 정규식은 이 위치의 최장 후보만 알려준다 — 그 후보가 경계·제외에서 떨어져도
-      // 같은 위치의 더 짧은 제목("스레드 풀링" 속 "스레드")은 유효할 수 있어 전부 대조한다.
-      for (const t of matcher.titles) {
-        const to = from + t.length;
-        if (to > text.length || lower.slice(from, to) !== t.toLowerCase()) continue;
+      // 같은 위치의 더 짧은 제목("스레드 풀링" 속 "스레드")은 유효할 수 있어 첫 글자가 같은
+      // 후보만 대조한다. 원문 조각을 그때 소문자화한다 — text 전체 toLowerCase 는 İ(U+0130)
+      // 처럼 길이가 변하는 문자 뒤의 인덱스를 전부 어긋나게 한다.
+      const cands = matcher.byFirst.get(text.charAt(from).toLowerCase().charAt(0)) ?? [];
+      for (const c of cands) {
+        const to = from + c.title.length;
+        if (to > text.length || text.slice(from, to).toLowerCase() !== c.lower) continue;
         if (!okAfter(text, to)) continue;
         if (excluded.some((r) => from < r.to && to > r.from)) continue;
-        hit = { from, to, title: t };
-        break; // titles 는 길이 내림차순 — 첫 통과가 최장 일치
+        hit = { from, to, title: c.title };
+        break; // 후보는 길이 내림차순 — 첫 통과가 최장 일치
       }
     }
     if (hit) {
