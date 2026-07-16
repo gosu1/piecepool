@@ -21,13 +21,29 @@ type FetchFn = typeof fetch;
 // Gemini OpenAI 호환 base URL. /chat/completions · /embeddings 를 append 한다.
 export const GEMINI_OPENAI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/openai";
 
-// 모든 Gemini 채팅 호출(위키·파인만·되물을거리·OCR·목차·PDF요약·정리글)이 공유하는 단일 모델명.
-// 모델은 예고 없이 단종된다 — 여기 한 줄만 고치면 전부 따라오게 한다.
+// 모든 Gemini 채팅 호출(위키·파인만·되물을거리·OCR·목차·PDF요약·정리글)이 공유하는 모델.
+// 모델은 예고 없이 단종된다 — 목록·기본값을 여기서만 관리한다.
 //   gemini-2.5-flash    → 404 NOT_FOUND ("no longer available to new users", 2026-07)
 //   gemini-3.5-flash    → 블라인드 A/B 판정 승자로 승격 (`npm run eval:ab` 13케이스, 2026-07-12).
-//                         한때 503 UNAVAILABLE 지속이었음 — 재발하면 아래 폴백으로 임시 강등.
-//   gemini-3.1-flash-lite → 이전 선택. 무료 티어 여유가 크고 빠르다. 3.5 과부하 시 폴백 후보.
-export const GEMINI_MODEL = "gemini-3.5-flash";
+//                         한때 503 UNAVAILABLE 지속이었음 — 재발하면 flash-lite로 임시 강등.
+//   gemini-3.1-flash-lite → 이전 선택. 무료 티어 여유가 크고 빠르다.
+// 설정 모달에서 둘 중 하나를 고른다(gemini-key 와 동형, 이 기기 localStorage에만 저장).
+// 우선순위: PIECEPOOL_LLM_MODEL(env — CLI·eval 용) > 사용자 설정 > 기본값.
+export const GEMINI_MODELS = ["gemini-3.5-flash", "gemini-3.1-flash-lite"] as const;
+export type GeminiModelId = (typeof GEMINI_MODELS)[number];
+export const GEMINI_MODEL: GeminiModelId = "gemini-3.5-flash";
+
+const GEMINI_MODEL_KEY = "gemini-model";
+
+// 브라우저 밖(CLI·eval)엔 localStorage가 없다 — 그땐 항상 기본값.
+export function getGeminiModel(): GeminiModelId {
+  const v = typeof localStorage !== "undefined" ? localStorage.getItem(GEMINI_MODEL_KEY) : null;
+  return v && (GEMINI_MODELS as readonly string[]).includes(v) ? (v as GeminiModelId) : GEMINI_MODEL;
+}
+
+export function setGeminiModel(m: GeminiModelId): void {
+  if (typeof localStorage !== "undefined") localStorage.setItem(GEMINI_MODEL_KEY, m);
+}
 
 const DEFAULTS: Omit<GeminiProviderConfig, "apiKey"> = {
   endpoint: GEMINI_OPENAI_ENDPOINT,
@@ -168,7 +184,7 @@ function envConfig(): GeminiProviderConfig {
   return {
     apiKey: env.GEMINI_API_KEY || "",
     endpoint: DEFAULTS.endpoint,
-    model: env.PIECEPOOL_LLM_MODEL || DEFAULTS.model,
+    model: env.PIECEPOOL_LLM_MODEL || getGeminiModel(),
     timeoutMs: numEnv(env.PIECEPOOL_LLM_TIMEOUT_MS, DEFAULTS.timeoutMs),
     maxRetries: numEnv(env.PIECEPOOL_LLM_MAX_RETRIES, DEFAULTS.maxRetries),
     backoffMs: DEFAULTS.backoffMs,

@@ -4,7 +4,7 @@
 //  - 재시도는 첫 delta 이전 실패만 — 도중 실패는 부분 텍스트를 유지한 채 SynthesisStreamError.
 
 import { streamChatText } from "./stream";
-import { GEMINI_MODEL } from "./gemini";
+import { getGeminiModel } from "./gemini";
 import { languageDirective, getOutputLanguage, type OutputLanguage } from "./language";
 
 export interface SynthesisInput {
@@ -50,7 +50,7 @@ const MAX_OUTPUT_TOKENS = 8192;
 
 export function buildSynthesisBody(
   input: SynthesisInput,
-  model = GEMINI_MODEL,
+  model: string = getGeminiModel(),
   lang: OutputLanguage = getOutputLanguage(),
 ) {
   const ask =
