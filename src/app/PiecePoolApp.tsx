@@ -925,6 +925,8 @@ export default function PiecePoolApp() {
     const candidates = (wikiBySlug[space] ?? [])
       .filter((w) => !isSynthesisPage(w) && !neighborIds.has(w.conceptId))
       .map((w) => ({ key: w.path, label: w.title }));
+    // 편집기는 기록을 모른다 — draft·dirty·저장 폴백이 전부 이 값을 기준으로 움직인다.
+    const savedBody = stripFeynmanSection(page.markdown);
     return (
       <DocView
         docType="wiki"
@@ -967,17 +969,17 @@ export default function PiecePoolApp() {
         }
         savedMd={page.markdown}
         isEditing={editing.has(key)}
-        draft={drafts[key] ?? stripFeynmanSection(page.markdown)}
-        onToggleEdit={() => toggleEdit(key, stripFeynmanSection(page.markdown))}
+        draft={drafts[key] ?? savedBody}
+        onToggleEdit={() => toggleEdit(key, savedBody)}
         onCancel={() => {
           clearDocState(key);
           setTabDirty(tabId, false);
         }}
         onChangeDraft={(md) => {
           setDraft(key, md);
-          setTabDirty(tabId, md !== stripFeynmanSection(page.markdown));
+          setTabDirty(tabId, md !== savedBody);   // strip 기준 — 안 맞추면 열자마자 dirty 로 뜬다
         }}
-        onSave={() => saveWikiDoc(space, page, drafts[key] ?? page.markdown)}
+        onSave={() => saveWikiDoc(space, page, drafts[key] ?? savedBody)}
         onLink={(t) => resolveLink(space, t)}
         linkExists={linkExistsIn(space)}
         embedSpace={space}
