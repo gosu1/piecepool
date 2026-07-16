@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { buildTermMatcher, findTermMatches, findExcludedRanges } from "./wikiTerms";
+import { unified } from "unified";
+import remarkParse from "remark-parse";
+import remarkRehype from "remark-rehype";
+import { remarkWikilink } from "./wikilink";
+import { buildTermMatcher, findTermMatches, findExcludedRanges, remarkWikiTerm } from "./wikiTerms";
 
 const M = (titles: string[]) => {
   const m = buildTermMatcher(titles);
@@ -71,5 +75,76 @@ describe("findExcludedRanges", () => {
     const text = "본문 ![[a.pdf]] 과 [[개념]] 그리고 https://x.io/p `코드` 끝";
     const spans = findExcludedRanges(text).map((r) => text.slice(r.from, r.to));
     expect(spans).toEqual(["![[a.pdf]]", "[[개념]]", "https://x.io/p", "`코드`"]);
+  });
+});
+
+// ── remarkWikiTerm — markdown.tsx 와 같은 unified 체인으로 hast 검증(markdownRender.test.ts 패턴) ──
+interface HNode {
+  type: string;
+  tagName?: string;
+  value?: string;
+  properties?: { href?: string };
+  children?: HNode[];
+}
+
+function toHast(md: string, titles: string[]): HNode {
+  const p = unified()
+    .use(remarkParse)
+    .use(remarkWikilink as never) // markdown.tsx 와 같은 순서 — 위키링크 먼저 링크 노드가 된다
+    .use(remarkWikiTerm as never, { titles })
+    .use(remarkRehype);
+  return p.runSync(p.parse(md)) as unknown as HNode;
+}
+
+function findAllH(node: HNode, pred: (n: HNode) => boolean): HNode[] {
+  const out: HNode[] = [];
+  const walk = (n: HNode) => {
+    if (pred(n)) out.push(n);
+    n.children?.forEach(walk);
+  };
+  walk(node);
+  return out;
+}
+
+// remark-rehype 는 href 의 비ASCII 를 percent-encoding 한다 — markdown.tsx 의 a 렌더가
+// decodeURIComponent 로 되돌리는 것과 같은 규칙으로 비교한다.
+const href = (n: HNode) => {
+  const h = n.properties?.href ?? "";
+  try {
+    return decodeURIComponent(h);
+  } catch {
+    return h;
+  }
+};
+
+describe("remarkWikiTerm", () => {
+  it("본문 텍스트의 개념을 term: 링크로 치환한다", () => {
+    const tree = toHast("프로세스는 실행 단위다", ["프로세스"]);
+    const links = findAllH(tree, (n) => n.tagName === "a");
+    expect(links).toHaveLength(1);
+    expect(href(links[0])).toBe("term:프로세스");
+  });
+
+  it("헤딩 속 개념도 치환한다", () => {
+    const tree = toHast("## 프로세스 개요", ["프로세스"]);
+    const links = findAllH(tree, (n) => n.tagName === "a" && href(n) === "term:프로세스");
+    expect(links).toHaveLength(1);
+  });
+
+  it("[[위키링크]] 안은 건드리지 않는다 — 중첩 링크 금지", () => {
+    const tree = toHast("[[프로세스]] 참고", ["프로세스"]);
+    const links = findAllH(tree, (n) => n.tagName === "a");
+    expect(links).toHaveLength(1); // wiki: 링크 하나뿐
+    expect(href(links[0])).toBe("wiki:프로세스");
+  });
+
+  it("인라인 코드·코드블록은 건드리지 않는다", () => {
+    const tree = toHast("`프로세스`\n\n```\n프로세스\n```", ["프로세스"]);
+    expect(findAllH(tree, (n) => n.tagName === "a")).toHaveLength(0);
+  });
+
+  it("제목 목록이 비면 no-op", () => {
+    const tree = toHast("프로세스", []);
+    expect(findAllH(tree, (n) => n.tagName === "a")).toHaveLength(0);
   });
 });

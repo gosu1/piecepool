@@ -85,3 +85,56 @@ export function findExcludedRanges(text: string): Array<{ from: number; to: numb
   while ((m = EXCLUDE.exec(text)) !== null) out.push({ from: m.index, to: m.index + m[0].length });
   return out;
 }
+
+// ── remark 플러그인 (react-markdown 읽기 모드) — wikilink.ts 의 remarkWikilink 와 같은 결 ──
+// remarkWikilink **뒤에** 실행돼야 한다: [[..]] 가 이미 link 노드라 텍스트 스캔에 안 걸린다.
+
+interface MdNode {
+  type: string;
+  value?: string;
+  url?: string;
+  title?: string | null;
+  children?: MdNode[];
+  [k: string]: unknown;
+}
+
+function expandTerms(value: string, matcher: TermMatcher): MdNode[] {
+  const matches = findTermMatches(value, matcher);
+  if (!matches.length) return [{ type: "text", value }];
+  const out: MdNode[] = [];
+  let last = 0;
+  for (const m of matches) {
+    if (m.from > last) out.push({ type: "text", value: value.slice(last, m.from) });
+    out.push({
+      type: "link",
+      url: `term:${m.title}`,
+      title: null,
+      children: [{ type: "text", value: value.slice(m.from, m.to) }],
+    });
+    last = m.to;
+  }
+  if (last < value.length) out.push({ type: "text", value: value.slice(last) });
+  return out;
+}
+
+/** 텍스트 노드의 개념 제목을 `term:` 링크로 치환. link 내부·code 노드는 구조상 안 닿는다. */
+export function remarkWikiTerm(opts: { titles: string[] }) {
+  const matcher = buildTermMatcher(opts?.titles ?? []);
+  return (tree: MdNode) => {
+    if (!matcher) return;
+    const walk = (node: MdNode): void => {
+      if (!node.children || node.type === "link") return; // 링크 안을 또 링크로 감싸지 않는다
+      const next: MdNode[] = [];
+      for (const child of node.children) {
+        if (child.type === "text" && typeof child.value === "string") {
+          next.push(...expandTerms(child.value, matcher));
+        } else {
+          walk(child);
+          next.push(child);
+        }
+      }
+      node.children = next;
+    };
+    walk(tree);
+  };
+}
