@@ -997,8 +997,10 @@ export default function PiecePoolApp() {
             <FeynmanPanel
               space={space}
               page={page}
+              // 매칭 키는 저장 **전** path — saveWikiDoc·toggleWikiSubject 와 같다. saved.path 로
+              // 찾으면 저장 중 path 가 바뀌는 날 조용히 no-op 이 된다(행을 못 찾고 아무 일도 안 남).
               onSaved={(saved) =>
-                setWikiBySlug((m) => ({ ...m, [space]: (m[space] ?? []).map((x) => (x.path === saved.path ? saved : x)) }))
+                setWikiBySlug((m) => ({ ...m, [space]: (m[space] ?? []).map((x) => (x.path === page.path ? saved : x)) }))
               }
             />
           )
