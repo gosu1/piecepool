@@ -990,7 +990,19 @@ export default function PiecePoolApp() {
         confused={sections.confused}
         conflicts={sections.conflicts}
         // 정리 글(concept-syn-*)은 학습자 본인 노트에서 나온 글이라 파인만 대상이 아니다
-        bottomSlot={isSynthesisPage(page) ? undefined : <FeynmanPanel space={space} page={page} />}
+        bottomSlot={
+          isSynthesisPage(page) ? undefined : (
+            // onSaved 가 없으면 판정 후 page prop 이 stale 로 남아 접힌 카드가 영영 안 나타난다.
+            // saveWikiDoc·toggleWikiSubject 가 저장 후 setWikiBySlug 를 부르는 것과 같은 이유다.
+            <FeynmanPanel
+              space={space}
+              page={page}
+              onSaved={(saved) =>
+                setWikiBySlug((m) => ({ ...m, [space]: (m[space] ?? []).map((x) => (x.path === saved.path ? saved : x)) }))
+              }
+            />
+          )
+        }
       />
     );
   };

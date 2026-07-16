@@ -42,8 +42,15 @@ interface FeynmanState {
   start: (space: string, page: WikiPage) => void;
   explain: (text: string) => Promise<void>;
   retryProbe: () => Promise<void>;
-  /** 사용자 판정 → 위키 본문에 기록을 append 하고 저장. 저장 실패면 세션을 유지한다. */
-  finish: (understood: boolean) => Promise<void>;
+  /**
+   * 사용자 판정 → 위키 본문에 기록을 append 하고 저장. 저장 실패면 세션을 유지한다.
+   *
+   * **저장된 WikiPage 를 돌려준다** — 스토어는 디스크에만 쓰고 앱의 메모리 사본(`wikiBySlug`)은
+   * 모른다. 호출부가 이 반환값으로 그걸 갱신하지 않으면 판정 직후 접힌 카드가 같은 앱 세션에서
+   * **영영 안 나타난다**(패널의 page prop 이 stale 인 채로 남는다). saveWikiDoc·toggleWikiSubject
+   * 가 저장 후 setWikiBySlug 를 부르는 것과 같은 이유다.
+   */
+  finish: (understood: boolean) => Promise<WikiPage | null>;
   /** [나중에]·[닫기] — 세션을 닫고 이 페이지의 자동 열기를 끈다. */
   dismiss: () => void;
 }
@@ -117,7 +124,7 @@ export const useFeynmanStore = create<FeynmanState>()(
 
         finish: async (understood) => {
           const s = get().session;
-          if (!s || s.probing || s.saving) return;
+          if (!s || s.probing || s.saving) return null;
           set({ session: { ...s, saving: true } });
           // 디스크 최신본 기준 — 메모리 stale 본문이 그 사이 갱신된 본문을 덮지 않는다.
           try {
@@ -129,11 +136,14 @@ export const useFeynmanStore = create<FeynmanState>()(
               bodyHash: bodyHash(body),
               turns: s.history.map((t) => ({ role: t.role, text: t.text })),
             };
-            await ipc.saveWiki(s.space, { ...cur, markdown: joinFeynmanSection(body, [session, ...sessions], unparsed) });
+            const saved = await ipc.saveWiki(s.space, { ...cur, markdown: joinFeynmanSection(body, [session, ...sessions], unparsed) });
             if (get().session?.id === s.id) set({ session: null });
+            // 호출부가 이걸로 wikiBySlug 를 갱신해야 접힌 카드가 화면에 나타난다 — 스토어는 디스크만 안다.
+            return saved;
           } catch (e) {
             // 설명을 잃지 않는다 — 세션을 유지하고 다시 시도하게 한다.
             if (get().session?.id === s.id) set((c) => ({ session: c.session && { ...c.session, saving: false, error: String(e) } }));
+            return null;
           }
         },
 

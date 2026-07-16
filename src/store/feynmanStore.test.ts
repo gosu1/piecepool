@@ -190,6 +190,25 @@ describe("finish — 기록을 위키 본문에 저장한다", () => {
     expect(vi.mocked(ipc.saveWiki).mock.calls[0][1].markdown).toContain("잃으면 안 되는 말");
   });
 
+  // 스토어는 디스크만 안다. 이 반환값이 없으면 호출부가 wikiBySlug 를 못 갱신하고,
+  // 판정 직후 접힌 카드가 같은 앱 세션에서 영영 안 나타난다(e2e 가 실제로 잡은 버그).
+  it("finish 가 저장된 페이지를 돌려준다 — 호출부가 메모리 사본을 갱신할 수 있게", async () => {
+    vi.mocked(probeExplanation).mockResolvedValue({ probe: "왜요?", targetGap: "why" });
+    useFeynmanStore.getState().start("sp", page());
+    await useFeynmanStore.getState().explain("설명");
+    const saved = await useFeynmanStore.getState().finish(true);
+    expect(saved).not.toBeNull();
+    expect(splitFeynmanSection(saved!.markdown).sessions).toHaveLength(1);
+  });
+
+  it("저장 실패면 null 을 돌려준다 — 호출부가 stale 페이지로 덮지 않게", async () => {
+    vi.mocked(probeExplanation).mockResolvedValue({ probe: "왜요?", targetGap: "why" });
+    vi.mocked(ipc.saveWiki).mockRejectedValue(new Error("디스크 죽음"));
+    useFeynmanStore.getState().start("sp", page());
+    await useFeynmanStore.getState().explain("설명");
+    expect(await useFeynmanStore.getState().finish(true)).toBeNull();
+  });
+
   it("판정 버튼 더블클릭이 저장을 두 번 태우지 않는다", async () => {
     vi.mocked(probeExplanation).mockResolvedValue({ probe: "왜요?", targetGap: "why" });
     useFeynmanStore.getState().start("sp", page());

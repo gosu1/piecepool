@@ -56,7 +56,20 @@ function SessionCard({ s, stale }: { s: FeynmanSession; stale: boolean }) {
   );
 }
 
-export function FeynmanPanel({ space, page }: { space: string; page: WikiPage }) {
+export function FeynmanPanel({
+  space,
+  page,
+  onSaved,
+}: {
+  space: string;
+  page: WikiPage;
+  /**
+   * 판정 저장 직후 — 호출부가 앱의 메모리 사본(wikiBySlug)을 갱신한다.
+   * 없으면 page prop 이 stale 인 채로 남아 **접힌 카드가 같은 앱 세션에서 영영 안 나타난다.**
+   * 스토어는 디스크만 안다.
+   */
+  onSaved?: (saved: WikiPage) => void;
+}) {
   const session = useFeynmanStore((s) => s.session);
   const start = useFeynmanStore((s) => s.start);
   const explain = useFeynmanStore((s) => s.explain);
@@ -75,6 +88,12 @@ export function FeynmanPanel({ space, page }: { space: string; page: WikiPage })
     if (!said || mine?.probing) return;
     setDraft("");
     await explain(said);
+  };
+
+  // 저장된 페이지를 호출부에 올려보내야 카드가 화면에 나타난다 — 스토어는 디스크만 안다.
+  const done = async (understood: boolean) => {
+    const saved = await finish(understood);
+    if (saved) onSaved?.(saved);
   };
 
   // 본문 파싱은 이 분기에서만 필요하다 — 위로 올리면 진행 중 세션의 타이핑마다 위키 전체를 다시 판다.
@@ -153,10 +172,10 @@ export function FeynmanPanel({ space, page }: { space: string; page: WikiPage })
         {/* 이해 판정은 오직 사용자. LLM 은 채점하지 않는다(relation-types.md §review_needed).
             단 설명을 한 번도 안 했으면 판정할 근거가 없다 — [나중에] 로만 넘어간다. */}
         <div className="flex gap-2">
-          <Button size="sm" variant="utility" disabled={probing || saving || !answered} onClick={() => void finish(false)}>
+          <Button size="sm" variant="utility" disabled={probing || saving || !answered} onClick={() => void done(false)}>
             아직 모르겠어요
           </Button>
-          <Button size="sm" variant="utility" disabled={probing || saving || !answered} onClick={() => void finish(true)}>
+          <Button size="sm" variant="utility" disabled={probing || saving || !answered} onClick={() => void done(true)}>
             네, 이해했어요
           </Button>
         </div>
