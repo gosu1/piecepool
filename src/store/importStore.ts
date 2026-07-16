@@ -7,16 +7,10 @@ import type { LlmWikiInput, LlmWikiResult } from "../llm/provider";
 import { applyLlmResult, embedSourceFiles, toExistingConcepts, normalizeTitle } from "../lib/llmApply";
 import { maybeFactCheck } from "../lib/factCheck";
 import { chunkOpts } from "../lib/settings";
-import { useFeynmanStore, type SectionStatus } from "./feynmanStore";
 
 // ImportJob 상태머신 소유 = TS 오케스트레이터(결정 A). useImportStore 가 상태 전이 + Rust atomic-step
 // 커맨드(create_note/save_wiki/append_relations) + LLM 어댑터 호출을 조율한다.
 // 전이: parsing → archiving → llm_processing → writing → completed | failed.
-//
-// 파인만은 더 이상 이 파이프라인의 한 단계가 아니다 — 사용자가 에디터에서 언제든 여는 도구다
-// (섹션을 드래그하거나 [파인만] 을 눌러 글 전체를). 여기서 하는 일은 하나뿐이다:
-// 저장 시, 아직 노트가 아니던 초안(inbox:<space>)에서 한 파인만을 진짜 노트로 옮기고(adopt),
-// 사용자가 자기 말로 쓴 설명을 위키 생성의 재료로 함께 넣는다. 그러라고 쓰게 한 글이다.
 //
 // 마지막 job 은 localStorage 에 persist. config/import-jobs.json 디스크 persist 는 후속(쓰기 커맨드 필요).
 
@@ -34,7 +28,6 @@ export interface ImportJobView {
   firstWikiPath?: string; // 이번 임포트로 생성/갱신된 첫 위키 경로 — 위키 패널이 방금 만든 위키를 열도록
   wikiPaths?: string[]; // 이번 임포트로 생성/병합된 위키 경로 전부 — 위키 패널 개념 목록(스펙 §3)
   noteFile?: string; // 생성/갱신된 archive 노트 파일명 — Inbox 가 바인딩해 이어서 편집(살아있는 노트)
-  feynmanUsed?: boolean; // 초안에서 한 파인만의 설명을 위키 생성 재료로 함께 넣었다
 }
 
 /** 다른 지식 공간의 개념 — 폴더 간(cross-space) 관계를 만들기 위한 LLM 힌트. */
@@ -60,23 +53,12 @@ export interface RunImportParams {
   crossConcepts?: CrossConcept[];
   /** 살아있는 노트 — 이미 저장된 노트의 파일명. 있으면 새로 만들지 않고 그 노트를 갱신한다(재저장 중복 방지). */
   noteFile?: string;
-  /** 저장 전 초안에서 한 파인만의 노트 id (inbox:<space>) — 저장되면 진짜 sourceId 로 옮긴다 */
-  feynmanNoteId?: string;
 }
 
 interface ImportState {
   job: ImportJobView | null;
   runImport: (p: RunImportParams) => Promise<ImportJobView>;
   clear: () => void;
-}
-
-/** 파인만에서 사용자가 쓴 설명을 위키 생성 입력에 덧댈 블록으로 만든다. 없으면 null. */
-function feynmanTranscript(statuses: SectionStatus[]): string | null {
-  const said = statuses.filter((s) => s.explanations.length > 0);
-  if (!said.length) return null;
-  return said
-    .map((s) => `[내가 "${s.title}" 을(를) 설명해 본 기록]\n${s.explanations.map((e) => `나: ${e}`).join("\n")}`)
-    .join("\n\n");
 }
 
 const KEY = "piecepool-last-import";
@@ -136,7 +118,6 @@ export const useImportStore = create<ImportState>((set) => {
     engine: "gemini" | "heuristic",
     note: ArchiveNote,
     p: RunImportParams,
-    extra?: Partial<ImportJobView>,
   ): Promise<ImportJobView> => {
     commit({ ...job, status: "writing", engine });
     const fc = await maybeFactCheck(result);
@@ -164,7 +145,6 @@ export const useImportStore = create<ImportState>((set) => {
       factChecked: fc.checked,
       firstWikiPath: applied.pages[0]?.path,
       wikiPaths: applied.pages.map((pg) => pg.path),
-      ...extra,
     });
     return done;
   };
@@ -185,12 +165,6 @@ export const useImportStore = create<ImportState>((set) => {
         // 생성/갱신된 노트 파일명을 job 에 실어 Inbox 가 바인딩하게 한다(이후 모든 return 에 전파).
         job = { ...job, noteFile: note.path };
 
-        // 초안에서 한 파인만을 방금 생긴 노트로 옮긴다. 저장 여부와 무관하게 사용자의 판정은
-        // 그 글에 대한 것이었으므로, LLM 을 켰든 껐든 옮긴다.
-        const adopted = p.feynmanNoteId
-          ? useFeynmanStore.getState().adopt(p.feynmanNoteId, note.sourceId)
-          : [];
-
         if (!p.withLlm) {
           commit({ ...job, status: "writing" });
           return commit({ ...job, status: "completed" });
@@ -198,12 +172,9 @@ export const useImportStore = create<ImportState>((set) => {
 
         job = commit({ ...job, status: "llm_processing" });
         const input = buildInput(note, p.existing, p.crossConcepts);
-        // 사용자가 자기 말로 쓴 설명을 위키의 재료로 넣는다 — 원문(archive)은 건드리지 않는다.
-        const transcript = feynmanTranscript(adopted);
-        if (transcript) input.sourceText = `${input.sourceText}\n\n${transcript}`;
 
         const { result, engine } = await runWikiGeneration(input, apiKey(), { chunk: chunkOpts() });
-        return writeAndComplete(job, result, engine, note, p, transcript ? { feynmanUsed: true } : undefined);
+        return writeAndComplete(job, result, engine, note, p);
       } catch (e) {
         return commit({ ...job, status: "failed", errorMessage: String(e) });
       }

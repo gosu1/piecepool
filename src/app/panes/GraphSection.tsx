@@ -14,6 +14,7 @@ import {
   type RelationGroupId,
 } from "../../lib/relationMeta";
 import { Markdown } from "../../lib/markdown";
+import { stripFeynmanSection } from "../../lib/feynmanSection";
 import { PromptDialog } from "../shell/Dialogs";
 import { RelationQualityMeter } from "./RelationQuality";
 
@@ -620,7 +621,7 @@ export function GraphSection({
               />
             )}
             <div className="min-h-0 flex-1 overflow-y-auto">
-              <Markdown source={page.markdown} />
+              <Markdown source={stripFeynmanSection(page.markdown)} />
             </div>
           </Card>
         ) : (

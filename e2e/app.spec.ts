@@ -163,30 +163,45 @@ test("새 노트 — 노트마다 새 탭, 옛 노트는 탭으로 유지된다"
 });
 
 // 위키 패널을 열어도 아무 위키가 자동 선택되지 않는다 — 기본은 개념 목록, 고른 뒤에만 본문.
-test("Inbox 위키 패널 — 자동 선택 없음, 목록에서 고른 뒤에만 본문 표시", async ({ page }) => {
+// 위키 패널 목록은 **이 노트에서 파생된 개념**만 보여준다(WikiPage.sourceIds 기준).
+// 공간 전체를 훑는 브라우저가 아니다 — 아직 아무것도 안 만든 노트의 패널은 비어 있는 게 맞다.
+test("Inbox 위키 패널 — 아직 만든 게 없으면 비어 있고, 아무것도 자동 선택하지 않는다", async ({ page }) => {
   await page.getByRole("button", { name: "새 노트 작성" }).click();
   await page.getByRole("button", { name: "위키 패널" }).click();
-  const wikiPane = page.locator("section").filter({ hasText: "이 공간의 개념" });
+  // 공간에 위키가 있어도 이 노트에서 나온 게 아니면 안 뜬다.
+  // (사이드바 트리엔 그 위키가 여전히 있으므로 패널로 스코프해서 본다)
+  const wikiPane = page.locator("section").filter({ hasText: "아직 없음" });
   await expect(wikiPane).toBeVisible();
+  await expect(wikiPane.getByRole("button", { name: "CPU 스케줄링" })).toHaveCount(0);
   await expect(page.getByText(/선점형/)).not.toBeVisible();
-  // 목록에서 고르면 그제서야 본문이 뜬다
-  await wikiPane.getByRole("button", { name: "CPU 스케줄링" }).click();
-  await expect(page.getByText(/선점형/)).toBeVisible();
-  // ← 목록으로 돌아가면 다시 개념 목록
-  await page.getByRole("button", { name: "← 목록" }).click();
-  await expect(page.getByText("이 공간의 개념")).toBeVisible();
 });
 
-// 저장 위치 = 노트가 속할 과목. 바꾸면 위키 참조 패널도 그 과목을 따라간다.
-test("Inbox 저장 위치 — 과목 전환 시 위키 참조 후보도 바뀐다", async ({ page }) => {
+// 본문에 언급한 개념은 이 노트에서 파생되지 않았어도 눌러서 볼 수 있다(상호참조).
+// 목록이 좁아진 뒤로 남은 유일한 "남의 개념 열기" 경로다.
+test("Inbox 위키 패널 — 본문 키워드를 누르면 그 개념이 뜨고, ← 목록으로 돌아온다", async ({ page }) => {
   await page.getByRole("button", { name: "새 노트 작성" }).click();
-  await page.getByRole("button", { name: "위키 패널" }).click();
+  await page.locator(".cm-content").click();
+  await page.keyboard.type("CPU 스케줄링");
+  await page.locator('.cm-wiki-term[data-wiki-term="CPU 스케줄링"]').first().click();
+  await expect(page.getByText(/선점형/)).toBeVisible();
+  await page.getByRole("button", { name: "← 목록" }).click();
+  await expect(page.getByText(/선점형/)).not.toBeVisible();
+});
+
+// 저장 위치 = 노트가 속할 과목. 바꾸면 본문 키워드가 가리키는 위키도 그 과목을 따라간다.
+test("Inbox 저장 위치 — 과목 전환 시 본문 키워드 대상도 바뀐다", async ({ page }) => {
+  await page.getByRole("button", { name: "새 노트 작성" }).click();
+  await page.locator(".cm-content").click();
+  await page.keyboard.type("CPU 스케줄링 트랜스포머");
+  // 기본 대상은 운영체제 — CPU 스케줄링만 개념으로 잡힌다
+  await expect(page.locator('.cm-wiki-term[data-wiki-term="CPU 스케줄링"]')).toHaveCount(1);
+  await expect(page.locator('.cm-wiki-term[data-wiki-term="트랜스포머"]')).toHaveCount(0);
+
   await page.getByRole("button", { name: "저장 위치" }).click();
   await page.getByRole("option", { name: "AI 딥러닝" }).click();
-  // 후보 목록이 AI 딥러닝 위키로 교체된다 (운영체제 위키는 사라진다)
-  const wikiPane = page.locator("section").filter({ hasText: "이 공간의 개념" });
-  await expect(wikiPane.getByRole("button", { name: "트랜스포머" })).toBeVisible();
-  await expect(wikiPane.getByRole("button", { name: "CPU 스케줄링" })).toHaveCount(0);
+  // 대상이 바뀌면 그 과목 개념으로 갈아탄다
+  await expect(page.locator('.cm-wiki-term[data-wiki-term="트랜스포머"]')).toHaveCount(1);
+  await expect(page.locator('.cm-wiki-term[data-wiki-term="CPU 스케줄링"]')).toHaveCount(0);
 });
 
 // 과목 폴더를 인박스에서 바로 만든다 — 만들면 저장 위치가 그 과목으로 옮겨간다.

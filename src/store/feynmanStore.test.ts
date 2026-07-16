@@ -1,13 +1,15 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
-import type { SectionTopic } from "../lib/noteSections";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { splitFeynmanSection, joinFeynmanSection, bodyHash } from "../lib/feynmanSection";
+import type { WikiPage } from "../lib/types";
 
-const probeExplanation = vi.fn();
-vi.mock("../llm/feynman", () => ({
-  probeExplanation: (...a: unknown[]) => probeExplanation(...a),
-}));
+vi.mock("../llm/feynman", () => ({ probeExplanation: vi.fn() }));
+// finish 는 디스크 최신본 기준이라 readWiki 도 탄다.
+vi.mock("../lib/ipc", () => ({ saveWiki: vi.fn(), readWiki: vi.fn() }));
+import { probeExplanation } from "../llm/feynman";
+import * as ipc from "../lib/ipc";
 
 // Map 백엔드 fake localStorage — node vitest 환경엔 없다(settings.test.ts 와 동형).
-// persist 미들웨어가 import 시점에 읽으므로 스토어보다 먼저 심는다.
+// persist 미들웨어가 store 생성 시점에 window.localStorage 를 읽으므로 store import 보다 먼저 심는다.
 class FakeStorage {
   private m = new Map<string, string>();
   getItem(k: string) {
@@ -34,171 +36,221 @@ const fake = new FakeStorage() as unknown as Storage;
 g.localStorage = fake;
 g.window = { localStorage: fake }; // zustand persist 기본 storage 는 window.localStorage 를 본다
 
-const { useFeynmanStore, getSectionStatus, sectionKey, draftNoteId } = await import("./feynmanStore");
+// 주의: zustand persist 는 module-eval 시점에 window.localStorage 를 읽는다. vitest node 환경엔
+// 없으므로 store 모듈을 정적 import 하면 터진다 — FakeStorage 를 심은 뒤 동적 import 해야 한다.
+// (선례: 구 feynmanStore.test.ts. settings.test.ts 는 지연 조회라 정적이어도 됐다.)
+const { useFeynmanStore, wikiKey } = await import("./feynmanStore");
 
-const NOT_YET = { title: "", answered: false, understood: false, explanations: [], updatedAt: "" };
-
-const topic = (title: string, text = `## ${title}\n본문`, key = title.toLowerCase()): SectionTopic => ({
-  level: 2,
-  title,
-  slug: title.toLowerCase(),
-  key,
-  from: 0,
-  to: text.length,
-  text,
-});
-
-const NOTE = "src-note-1";
-const reset = () => useFeynmanStore.setState({ session: null, statuses: {} });
+const BODY = "# 스레드\n\n프로세스 안의 실행 단위.";
+const page = (over: Partial<WikiPage> = {}): WikiPage =>
+  ({
+    id: "wiki-1",
+    spaceId: "sp-1",
+    conceptId: "concept-thread",
+    title: "스레드",
+    path: "thread.md",
+    subjectIds: [],
+    sourceIds: ["src-1"],
+    sourceRefs: [],
+    markdown: BODY,
+    createdAt: "2026-07-01T00:00:00Z",
+    updatedAt: "2026-07-01T00:00:00Z",
+    ...over,
+  }) as WikiPage;
 
 beforeEach(() => {
-  probeExplanation.mockReset();
-  localStorage.clear();
-  localStorage.setItem("gemini-key", "k");
-  reset();
+  vi.clearAllMocks();
+  useFeynmanStore.setState({ session: null, dismissed: {} });
+  localStorage.setItem("gemini-key", "test-key");
+  vi.mocked(ipc.saveWiki).mockImplementation(async (_s, p) => p as WikiPage);
+  vi.mocked(ipc.readWiki).mockImplementation(async () => page());
 });
 
-describe("feynmanStore", () => {
-  it("설명을 보내면 섹션 본문으로 되묻는다 (노트 전체가 아니라)", async () => {
-    probeExplanation.mockResolvedValue({ probe: "왜 그렇죠?", targetGap: "why" });
-    const t = topic("attention", "## attention\n가중치를 만든다");
-    useFeynmanStore.getState().start(NOTE, "sp", [t]);
-
-    await useFeynmanStore.getState().explain("유사도로 가중치를 줘요");
-
-    expect(probeExplanation).toHaveBeenCalledWith("attention", t.text, expect.anything(), "k");
-    expect(useFeynmanStore.getState().session!.history).toEqual([
-      { role: "user", text: "유사도로 가중치를 줘요" },
-      { role: "probe", text: "왜 그렇죠?" },
-    ]);
+describe("start / explain", () => {
+  it("probe 입력에 위키 본문을 주되 파인만 기록은 뺀다", async () => {
+    vi.mocked(probeExplanation).mockResolvedValue({ probe: "스택은요?", targetGap: "why" });
+    const withRecord = page({
+      markdown: joinFeynmanSection(BODY, [
+        { at: "2026-07-01T00:00:00.000Z", verdict: "understood", bodyHash: "x", turns: [{ role: "user", text: "옛 설명" }] },
+      ]),
+    });
+    useFeynmanStore.getState().start("sp", withRecord);
+    await useFeynmanStore.getState().explain("스레드는…");
+    const noteArg = vi.mocked(probeExplanation).mock.calls[0][1];
+    expect(noteArg).toBe(BODY);
+    expect(noteArg).not.toContain("옛 설명");
+    expect(noteArg).not.toContain("이해함");
   });
 
-  it("되물음이 실패해도 사용자의 설명은 보존한다 — 재타이핑 없이 재시도", async () => {
-    probeExplanation.mockRejectedValueOnce(new Error("HTTP 503"));
-    useFeynmanStore.getState().start(NOTE, "sp", [topic("a")]);
+  it("LLM 실패 시 사용자 설명이 history 에 남는다", async () => {
+    vi.mocked(probeExplanation).mockRejectedValue(new Error("죽음"));
+    useFeynmanStore.getState().start("sp", page());
     await useFeynmanStore.getState().explain("내 설명");
-
     const s = useFeynmanStore.getState().session!;
     expect(s.history).toEqual([{ role: "user", text: "내 설명" }]);
-    expect(s.error).toContain("503");
+    expect(s.error).toBeTruthy();
     expect(s.probing).toBe(false);
-
-    probeExplanation.mockResolvedValueOnce({ probe: "질문", targetGap: "term" });
-    await useFeynmanStore.getState().retryProbe();
-    expect(useFeynmanStore.getState().session!.history).toHaveLength(2);
   });
 
-  it("패널을 닫은 뒤 늦게 온 응답은 세션을 되살리지 않는다", async () => {
-    let release!: (v: { probe: string; targetGap: string }) => void;
-    probeExplanation.mockReturnValueOnce(new Promise((r) => (release = r)));
-    useFeynmanStore.getState().start(NOTE, "sp", [topic("a")]);
-
-    const inflight = useFeynmanStore.getState().explain("a 설명");
-    useFeynmanStore.getState().cancel(); // 사용자가 되묻는 중에 패널을 닫았다
-    release({ probe: "늦은 되물음", targetGap: "why" });
-    await inflight;
-
-    expect(useFeynmanStore.getState().session).toBeNull(); // 유령 대화가 되살아나지 않는다
-  });
-
-  it("다른 노트에서 새로 시작하면 앞 노트의 늦은 응답이 끼어들지 않는다", async () => {
-    let release!: (v: { probe: string; targetGap: string }) => void;
-    probeExplanation.mockReturnValueOnce(new Promise((r) => (release = r)));
-    useFeynmanStore.getState().start(NOTE, "sp", [topic("a")]);
-    const inflight = useFeynmanStore.getState().explain("a 설명");
-
-    useFeynmanStore.getState().start("다른-노트", "sp", [topic("z")]);
-    release({ probe: "늦은 되물음", targetGap: "why" });
-    await inflight;
-
-    const s = useFeynmanStore.getState().session!;
-    expect(s.noteId).toBe("다른-노트");
-    expect(s.history).toEqual([]);
-  });
-
-  it("판정하면 기록하고 다음 주제로, 마지막이면 세션이 끝난다", () => {
-    useFeynmanStore.getState().start(NOTE, "sp", [topic("a"), topic("b")]);
-    useFeynmanStore.setState((s) => ({ session: { ...s.session!, history: [{ role: "user", text: "설명" }] } }));
-
-    const r = useFeynmanStore.getState().finishTopic(true);
-    expect(r).toEqual({ topic: expect.objectContaining({ title: "a" }), explanations: ["설명"] });
-    expect(getSectionStatus(NOTE, "a")).toMatchObject({ answered: true, understood: true });
-    expect(useFeynmanStore.getState().session).toMatchObject({ idx: 1, history: [] });
-
-    useFeynmanStore.getState().finishTopic(false);
-    expect(getSectionStatus(NOTE, "b")).toMatchObject({ answered: false, understood: false });
+  it("stale 응답 — 세션이 닫혔으면 대화를 되살리지 않는다", async () => {
+    let resolve!: (v: { probe: string; targetGap: string }) => void;
+    vi.mocked(probeExplanation).mockReturnValue(new Promise((r) => (resolve = r)) as never);
+    useFeynmanStore.getState().start("sp", page());
+    const p = useFeynmanStore.getState().explain("설명");
+    useFeynmanStore.getState().dismiss();
+    resolve({ probe: "늦은 되물음", targetGap: "why" });
+    await p;
     expect(useFeynmanStore.getState().session).toBeNull();
   });
 
-  it("설명 없이 [이해했어요] 를 눌러도 answered 는 사실대로 false 다", () => {
-    useFeynmanStore.getState().start(NOTE, "sp", [topic("a")]);
-    useFeynmanStore.getState().finishTopic(true);
-    expect(getSectionStatus(NOTE, "a")).toMatchObject({ answered: false, understood: true });
-  });
-
-  it("건너뛰면 아무것도 기록하지 않는다", () => {
-    useFeynmanStore.getState().start(NOTE, "sp", [topic("a"), topic("b")]);
-    useFeynmanStore.getState().skipTopic();
-    expect(useFeynmanStore.getState().statuses).toEqual({});
-  });
-
-  it("상태가 없으면 '아직 안 함' — 게이트는 fail-closed 로 읽는다", () => {
-    expect(getSectionStatus("모르는-노트", "모르는-주제")).toEqual(NOT_YET);
-  });
-
-  it("판정 결과만 영속한다 — 진행 중 대화는 복원하지 않는다", () => {
-    useFeynmanStore.getState().start(NOTE, "sp", [topic("a")]);
-    useFeynmanStore.getState().finishTopic(true);
-
-    const raw = JSON.parse(localStorage.getItem("pp-feynman-sections")!);
-    expect(raw.state.statuses[sectionKey(NOTE, "a")]).toMatchObject({ understood: true });
-    expect(raw.state.session).toBeUndefined();
-  });
-
-  it("닫았다 같은 노트에서 다시 열면, 닫힌 세션의 늦은 응답이 새 대화를 오염시키지 않는다", async () => {
-    let release!: (v: { probe: string; targetGap: string }) => void;
-    probeExplanation.mockReturnValueOnce(new Promise((r) => (release = r)));
-    useFeynmanStore.getState().start(NOTE, "sp", [topic("a")]);
-    const inflight = useFeynmanStore.getState().explain("옛 세션의 설명");
-
-    useFeynmanStore.getState().cancel();
-    useFeynmanStore.getState().start(NOTE, "sp", [topic("a")]); // 같은 노트·같은 주제·같은 idx
-    release({ probe: "옛 세션의 되물음", targetGap: "why" });
-    await inflight;
-
-    // noteId+idx 만 대조했다면 여기서 유령 되물음이 새 대화에 끼어든다.
+  it("stale 응답 — 다른 페이지로 갈아탄 세션을 오염시키지 않는다", async () => {
+    let resolve!: (v: { probe: string; targetGap: string }) => void;
+    vi.mocked(probeExplanation).mockReturnValue(new Promise((r) => (resolve = r)) as never);
+    useFeynmanStore.getState().start("sp", page());
+    const p = useFeynmanStore.getState().explain("설명");
+    useFeynmanStore.getState().start("sp", page({ path: "other.md", title: "다른 개념" }));
+    resolve({ probe: "늦은 되물음", targetGap: "why" });
+    await p;
     expect(useFeynmanStore.getState().session!.history).toEqual([]);
   });
+});
 
-  it("손상된 statuses 로도 게이트가 죽지 않는다 — 읽을 수 없으면 '아직 안 함'", () => {
-    useFeynmanStore.setState({ statuses: { [sectionKey(NOTE, "a")]: "쓰레기" } as never });
-    expect(getSectionStatus(NOTE, "a")).toEqual(NOT_YET);
-    useFeynmanStore.setState({ statuses: null as never });
-    expect(getSectionStatus(NOTE, "a")).toEqual(NOT_YET);
+describe("finish — 기록을 위키 본문에 저장한다", () => {
+  it("세션이 본문 최하단에 append 되고 최신이 위로 온다", async () => {
+    vi.mocked(probeExplanation).mockResolvedValue({ probe: "스택은요?", targetGap: "why" });
+    useFeynmanStore.getState().start("sp", page());
+    await useFeynmanStore.getState().explain("스레드는 실행 단위");
+    await useFeynmanStore.getState().finish(true);
+
+    const saved = vi.mocked(ipc.saveWiki).mock.calls[0][1];
+    const { body, sessions } = splitFeynmanSection(saved.markdown);
+    expect(body).toBe(BODY);
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0].verdict).toBe("understood");
+    // 답 없이 매달린 마지막 되물음은 안 남는다 — 기록은 내 답변으로 끝나야 복기가 된다.
+    expect(sessions[0].turns).toEqual([{ role: "user", text: "스레드는 실행 단위" }]);
   });
 
-  it("초안에서 한 파인만은 저장된 노트로 옮겨진다 — 설명이 고아가 되지 않는다", () => {
-    const DRAFT = draftNoteId("os");
-    useFeynmanStore.getState().start(DRAFT, "os", [topic("a"), topic("b")]);
-    useFeynmanStore.setState((s) => ({ session: { ...s.session!, history: [{ role: "user", text: "내 설명" }] } }));
-    useFeynmanStore.getState().finishTopic(true);
+  it("기록은 내 답변으로 끝난다 — 답 없이 매달린 되물음을 뗀다", async () => {
+    // 흐름이 나→되묻기→나→되묻기… 라 판정 버튼은 항상 되물음 직후에 눌린다.
+    // 그대로 저장하면 기록이 물음표로 끝나 "그래서 뭐라고 답했더라" 가 된다.
+    vi.mocked(probeExplanation)
+      .mockResolvedValueOnce({ probe: "스택도 공유되나요?", targetGap: "why" })
+      .mockResolvedValueOnce({ probe: "그럼 힙은요?", targetGap: "why" });
+    useFeynmanStore.getState().start("sp", page());
+    await useFeynmanStore.getState().explain("스레드는 실행 단위");
+    await useFeynmanStore.getState().explain("스택은 따로예요");
+    await useFeynmanStore.getState().finish(true);
 
-    const moved = useFeynmanStore.getState().adopt(DRAFT, "source-real");
-    expect(moved).toHaveLength(1);
-    expect(moved[0]).toMatchObject({ title: "a", explanations: ["내 설명"], understood: true });
-
-    // 초안 키는 사라지고 진짜 노트 키로 옮겨졌다
-    expect(getSectionStatus(DRAFT, "a")).toEqual(NOT_YET);
-    expect(getSectionStatus("source-real", "a")).toMatchObject({ answered: true, understood: true });
+    const { sessions } = splitFeynmanSection(vi.mocked(ipc.saveWiki).mock.calls[0][1].markdown);
+    expect(sessions[0].turns).toEqual([
+      { role: "user", text: "스레드는 실행 단위" },
+      { role: "probe", text: "스택도 공유되나요?" },
+      { role: "user", text: "스택은 따로예요" },
+    ]);
+    expect(sessions[0].turns[sessions[0].turns.length - 1].role).toBe("user");
   });
 
-  it("되묻는 중에는 판정·전환을 막는다 (늦은 응답이 판정을 뒤엎지 못하게)", async () => {
-    probeExplanation.mockReturnValue(new Promise(() => {})); // 영원히 대기
-    useFeynmanStore.getState().start(NOTE, "sp", [topic("a")]);
+  it("되물음이 실패해 이미 내 답변으로 끝나면 그대로 둔다", async () => {
+    vi.mocked(probeExplanation).mockRejectedValue(new Error("죽음"));
+    useFeynmanStore.getState().start("sp", page());
+    await useFeynmanStore.getState().explain("내 설명");
+    await useFeynmanStore.getState().finish(true);
+
+    const { sessions } = splitFeynmanSection(vi.mocked(ipc.saveWiki).mock.calls[0][1].markdown);
+    expect(sessions[0].turns).toEqual([{ role: "user", text: "내 설명" }]);
+  });
+
+  it("기록 직후에는 '문서 바뀜' 배지가 뜨지 않는다", async () => {
+    vi.mocked(probeExplanation).mockResolvedValue({ probe: "왜요?", targetGap: "why" });
+    useFeynmanStore.getState().start("sp", page());
+    await useFeynmanStore.getState().explain("설명");
+    await useFeynmanStore.getState().finish(true);
+
+    const saved = vi.mocked(ipc.saveWiki).mock.calls[0][1];
+    const { sessions } = splitFeynmanSection(saved.markdown);
+    // 배지 판정식과 동일한 비교. 이게 깨지면 배지가 상시 점등한다.
+    expect(sessions[0].bodyHash).toBe(bodyHash(saved.markdown));
+  });
+
+  it("probing 중에는 판정하지 않는다", async () => {
+    vi.mocked(probeExplanation).mockReturnValue(new Promise(() => {}) as never);
+    useFeynmanStore.getState().start("sp", page());
     void useFeynmanStore.getState().explain("설명");
+    await useFeynmanStore.getState().finish(true);
+    expect(ipc.saveWiki).not.toHaveBeenCalled();
+  });
 
-    expect(useFeynmanStore.getState().session!.probing).toBe(true);
-    expect(useFeynmanStore.getState().finishTopic(true)).toBeNull();
-    expect(useFeynmanStore.getState().statuses).toEqual({});
+  it("저장 실패 시 세션을 날리지 않는다", async () => {
+    vi.mocked(probeExplanation).mockResolvedValue({ probe: "왜요?", targetGap: "why" });
+    vi.mocked(ipc.saveWiki).mockRejectedValue(new Error("디스크 죽음"));
+    useFeynmanStore.getState().start("sp", page());
+    await useFeynmanStore.getState().explain("설명");
+    await useFeynmanStore.getState().finish(true);
+    const s = useFeynmanStore.getState().session;
+    expect(s).not.toBeNull();
+    expect(s!.error).toBeTruthy();
+    expect(s!.history).toHaveLength(2);
+    expect(s!.saving).toBe(false); // 다시 시도할 수 있어야 한다
+  });
+
+  it("후행 개행 있는 본문에서도 배지가 안 뜬다", async () => {
+    // 병합·편집을 거친 .md 의 정상 형태. split 이 조건부로만 다듬으면 여기서 해시가 어긋난다.
+    vi.mocked(probeExplanation).mockResolvedValue({ probe: "왜요?", targetGap: "why" });
+    const nl = page({ markdown: `${BODY}\n` });
+    vi.mocked(ipc.readWiki).mockResolvedValue(nl);
+    useFeynmanStore.getState().start("sp", nl);
+    await useFeynmanStore.getState().explain("설명");
+    await useFeynmanStore.getState().finish(true);
+
+    const saved = vi.mocked(ipc.saveWiki).mock.calls[0][1];
+    expect(splitFeynmanSection(saved.markdown).sessions[0].bodyHash).toBe(bodyHash(saved.markdown));
+  });
+
+  it("읽을 수 없는 블록(unparsed)이 저장을 건너 살아남는다", async () => {
+    vi.mocked(probeExplanation).mockResolvedValue({ probe: "왜요?", targetGap: "why" });
+    const broken = page({ markdown: `${BODY}\n\n## 파인만 기록\n\n### 깨진 헤더\n\n> 잃으면 안 되는 말\n` });
+    vi.mocked(ipc.readWiki).mockResolvedValue(broken);
+    useFeynmanStore.getState().start("sp", broken);
+    await useFeynmanStore.getState().explain("설명");
+    await useFeynmanStore.getState().finish(true);
+
+    expect(vi.mocked(ipc.saveWiki).mock.calls[0][1].markdown).toContain("잃으면 안 되는 말");
+  });
+
+  // 스토어는 디스크만 안다. 이 반환값이 없으면 호출부가 wikiBySlug 를 못 갱신하고,
+  // 판정 직후 접힌 카드가 같은 앱 세션에서 영영 안 나타난다(e2e 가 실제로 잡은 버그).
+  it("finish 가 저장된 페이지를 돌려준다 — 호출부가 메모리 사본을 갱신할 수 있게", async () => {
+    vi.mocked(probeExplanation).mockResolvedValue({ probe: "왜요?", targetGap: "why" });
+    useFeynmanStore.getState().start("sp", page());
+    await useFeynmanStore.getState().explain("설명");
+    const saved = await useFeynmanStore.getState().finish(true);
+    expect(saved).not.toBeNull();
+    expect(splitFeynmanSection(saved!.markdown).sessions).toHaveLength(1);
+  });
+
+  it("저장 실패면 null 을 돌려준다 — 호출부가 stale 페이지로 덮지 않게", async () => {
+    vi.mocked(probeExplanation).mockResolvedValue({ probe: "왜요?", targetGap: "why" });
+    vi.mocked(ipc.saveWiki).mockRejectedValue(new Error("디스크 죽음"));
+    useFeynmanStore.getState().start("sp", page());
+    await useFeynmanStore.getState().explain("설명");
+    expect(await useFeynmanStore.getState().finish(true)).toBeNull();
+  });
+
+  it("판정 버튼 더블클릭이 저장을 두 번 태우지 않는다", async () => {
+    vi.mocked(probeExplanation).mockResolvedValue({ probe: "왜요?", targetGap: "why" });
+    useFeynmanStore.getState().start("sp", page());
+    await useFeynmanStore.getState().explain("설명");
+    await Promise.all([useFeynmanStore.getState().finish(true), useFeynmanStore.getState().finish(true)]);
+    expect(vi.mocked(ipc.saveWiki).mock.calls).toHaveLength(1);
+  });
+});
+
+describe("dismiss — [닫기]", () => {
+  it("세션을 닫고 이 페이지를 dismissed 에 기록한다", () => {
+    useFeynmanStore.getState().start("sp", page());
+    useFeynmanStore.getState().dismiss();
+    expect(useFeynmanStore.getState().session).toBeNull();
+    expect(useFeynmanStore.getState().dismissed[wikiKey("sp", "thread.md")]).toBeTruthy();
   });
 });
