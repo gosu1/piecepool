@@ -30,7 +30,7 @@ export interface SectionTopic {
   text: string;
 }
 
-interface Heading {
+export interface Heading {
   level: number;
   title: string; // 빈 문자열일 수 있다(`## ` 만 있는 줄) — 주제는 아니지만 섹션 경계다
   key: string;
@@ -55,7 +55,7 @@ function cleanTitle(raw: string): string {
 }
 
 /** 문서의 모든 ATX 헤딩. 코드 펜스 안의 `#` 는 헤딩이 아니다. Setext(`===`)는 비지원. */
-function scanHeadings(md: string): Heading[] {
+export function scanHeadings(md: string): Heading[] {
   const out: Heading[] = [];
   const seen = new Map<string, number>(); // slug → 지금까지 몇 번 나왔나
   let offset = 0;
@@ -80,7 +80,7 @@ function scanHeadings(md: string): Heading[] {
 }
 
 /** 헤딩 h 의 섹션 끝 = level ≤ h.level 인 다음 헤딩의 시작. 없으면 EOF. */
-function sectionEnd(headings: Heading[], i: number, len: number): number {
+export function sectionEnd(headings: Heading[], i: number, len: number): number {
   for (let j = i + 1; j < headings.length; j++) {
     if (headings[j].level <= headings[i].level) return headings[j].from;
   }
