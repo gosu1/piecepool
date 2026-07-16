@@ -11,6 +11,7 @@ import { SlashBlockEditor } from "../../lib/SlashBlockEditor";
 import { ConfirmDialog } from "../shell/Dialogs";
 import { Markdown } from "../../lib/markdown";
 import { stripEvidenceSection } from "../../lib/noteSections";
+import { stripFeynmanSection } from "../../lib/feynmanSection";
 import { conceptRelationGroups } from "../../lib/conceptGraph";
 import { MiniRelationGraph } from "../../lib/MiniGraph";
 import { FilePreview } from "../../lib/FilePreview";
@@ -796,8 +797,8 @@ export function InboxSection({
         {refWiki ? (
           <>
             {/* 제목은 본문 첫 줄 `# {제목}`(mergeWiki 계약)이 담당 — 패널이 h2 로 또 넣으면 제목 중복. DocView 와 일치시켜 본문만 렌더. */}
-            {/* 근거(`## 근거` PDF 임베드)는 표시에서 감춘다 — 대신 아래에 개념 중심 관계 그래프 */}
-            <Markdown source={stripEvidenceSection(refWiki.markdown)} embedSpace={targetSpace} />
+            {/* 근거(`## 근거` PDF 임베드)·파인만 기록은 표시에서 감춘다 — 대신 아래에 개념 중심 관계 그래프 */}
+            <Markdown source={stripFeynmanSection(stripEvidenceSection(refWiki.markdown))} embedSpace={targetSpace} />
             {(() => {
               const groups = conceptRelationGroups(graphBySlug[targetSpace], refWiki.conceptId, (path) =>
                 onOpenWiki(targetSpace, path),

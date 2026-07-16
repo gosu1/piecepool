@@ -10,6 +10,7 @@ import { detectSourceRefConflicts } from "../lib/sourceRefConflicts";
 import { docKey } from "./types";
 import type { SearchItem } from "./types";
 import { DocView, ReviewBar } from "./panes/DocView";
+import { FeynmanPanel } from "./panes/FeynmanPanel";
 import { PageHeader } from "./panes/PageHeader";
 import type { LinkedItem } from "./panes/PageHeader";
 import { RelationQuality } from "./panes/RelationQuality";
@@ -29,6 +30,8 @@ import { ContextMenu, ConfirmDialog, PromptDialog } from "./shell/Dialogs";
 import { useWorkspaceStore, SIDEBAR_DEFAULT } from "../store/workspaceStore";
 import type { TabKind } from "../store/workspaceStore";
 import { useInboxDraftStore } from "../store/inboxDraftStore";
+import { useFeynmanStore, wikiKey, hasGeminiKey } from "../store/feynmanStore";
+import { splitFeynmanSection } from "../lib/feynmanSection";
 import { noteOriginalFiles } from "../lib/wikilink";
 import { getBodyFontSize, applyBodyFontSize } from "../lib/settings";
 
@@ -249,6 +252,28 @@ export default function PiecePoolApp() {
   }, [currentSpace]);
   const spaceName = spaces.find((s) => s.slug === currentSpace)?.name ?? "";
   const spaceNameOf = (slug: string) => spaces.find((s) => s.slug === slug)?.name ?? slug;
+
+  // 신규 개념(기록 0개)이면 파인만을 자동으로 연다 — 위키는 학습자가 만든 것이 아니므로
+  // 그냥 읽고 넘어가면 이해했다는 착각만 남는다(IOED).
+  //
+  // 마운트가 아니라 문서 정체성에 건다: DocView 에 key 가 없어 위키A→위키B 전환 시
+  // React 가 인스턴스를 재사용한다 → 마운트 훅은 열려야 할 때 안 열리고,
+  // 위키→그래프→위키 재마운트 때는 안 열려야 할 때 열린다.
+  const autoSpace = activeTab?.kind === "wiki" ? (activeTab.space ?? "") : "";
+  const autoWiki = activeTab?.kind === "wiki" ? (wikiBySlug[autoSpace] ?? []).find((w) => w.path === activeTab.file) : undefined;
+  useEffect(() => {
+    if (!autoWiki || !autoSpace) return;
+    const st = useFeynmanStore.getState();
+    // 진행 중인 세션을 파괴하지 않는다 — session 은 앱 전역 싱글턴이고 메모리 전용이라
+    // 다른 페이지에서 쓰던 설명이 여기서 조용히 증발한다.
+    if (st.session) return;
+    if (st.dismissed[wikiKey(autoSpace, autoWiki.path)]) return;
+    // 키가 없으면 begin 이 조용히 무시되어 빈 패널만 뜬다.
+    if (!hasGeminiKey()) return;
+    if (splitFeynmanSection(autoWiki.markdown).sessions.length) return;
+    st.start(autoSpace, autoWiki);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSpace, autoWiki?.path]);
 
   // ── 탭 열기(=네비게이션) ──
   const openWiki = (space: string, file: string) => {
@@ -953,6 +978,7 @@ export default function PiecePoolApp() {
         relationGroups={sections.relationGroups}
         confused={sections.confused}
         conflicts={sections.conflicts}
+        bottomSlot={<FeynmanPanel space={space} page={page} />}
       />
     );
   };

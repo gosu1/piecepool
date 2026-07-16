@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Button, Icons } from "../../ds";
 import { Markdown } from "../../lib/markdown";
 import { stripEvidenceSection } from "../../lib/noteSections";
+import { stripFeynmanSection } from "../../lib/feynmanSection";
 import { SlashBlockEditor } from "../../lib/SlashBlockEditor";
 import { MiniRelationGraph, type MiniGroup } from "../../lib/MiniGraph";
 import { RELATION_LABEL, REVIEW_COLOR, groupOf } from "../../lib/relationMeta";
@@ -79,8 +80,9 @@ export function DocView({
   const docTerms = useMemo(() => (docType === "wiki" ? terms?.filter((t) => t !== title) : terms), [termsKey, title, docType]);
   // 읽기 모드 본문 — 카드 없이 페이지에 바로. 빈 페이지는 클릭해서 작성 시작.
   // 위키는 본문의 `## 근거`(PDF 임베드)를 표시에서만 감춘다 — 관련 소스 섹션이 이미 출처를 담는다.
+  // 파인만 기록도 감춘다 — 하단 패널이 카드로 보여주므로 본문에 날것으로 찍히면 이중 노출이다.
   // 저장 데이터·편집 모드·conflicts 점검(원본 마크다운 기준)에는 영향 없다.
-  const displayMd = docType === "wiki" ? stripEvidenceSection(savedMd) : savedMd;
+  const displayMd = docType === "wiki" ? stripFeynmanSection(stripEvidenceSection(savedMd)) : savedMd;
   const readBody = displayMd.trim() ? (
     <div className="px-1">
       <Markdown source={displayMd} onLink={onLink} linkExists={linkExists} embedSpace={embedSpace} terms={docTerms} />
