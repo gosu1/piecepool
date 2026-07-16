@@ -231,6 +231,10 @@
   .pp-tagword { display: inline-block; animation: pp-word-in 0.9s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
   .pp-date-in { animation: pp-fade-in 0.8s ease 3s both; }
 
+  /* 로딩 명언 — 마운트 시 페이드인. 0.3s 딜레이라
+     순식간에 끝나는 부팅에선 아예 안 보인다(반쯤 페이드된 채 사라지는 플래시 방지). */
+  .pp-quote-in { animation: pp-fade-in 0.6s ease 0.3s both; }
+
   /* 개념 지도 프리뷰 = 북두칠성. 카드(.pp-map) hover 시 별이 엇갈려 반짝이고(pp-star) 별자리 선이 파랗게 켜짐(pp-cline). */
   @keyframes pp-twinkle { 0%, 100% { opacity: 1; } 50% { opacity: 0.32; } }
   .pp-cline { transition: stroke 0.35s ease, opacity 0.35s ease; }
