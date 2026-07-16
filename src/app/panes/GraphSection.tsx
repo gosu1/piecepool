@@ -565,8 +565,10 @@ export function GraphSection({
                   열기
                 </Button>
                 <div className="flex min-w-0 flex-1 items-center gap-2 rounded-md border border-dashed px-2 py-1.5" style={{ borderColor: REVIEW_COLOR }}>
-                  <p className="min-w-0 flex-1 text-[12px] leading-snug" style={{ color: REVIEW_COLOR }}>
-                    아직 모르겠다고 표시한 개념
+                  {/* 열기와 한 행을 나눠 쓰므로 배너에 남는 폭이 ~128px 뿐이다 — 문구를 짧게 두고
+                      nowrap 으로 못박아 줄바꿈으로 행 높이가 튀지 않게 한다. */}
+                  <p className="min-w-0 flex-1 truncate text-[12px] leading-snug" style={{ color: REVIEW_COLOR }}>
+                    아직 모르겠음
                   </p>
                   <Button
                     size="sm"
