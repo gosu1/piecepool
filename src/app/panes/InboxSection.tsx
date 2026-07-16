@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, FileDropzone, Icons, cn } from "../../ds";
 import type { KnowledgeSpace, WikiPage as WikiPageT } from "../../lib/types";
 import * as ipc from "../../lib/ipc";
@@ -387,6 +387,30 @@ export function InboxSection({
   // 고른 게 없으면 없는 것 — `?? existing[0]` 폴백은 빈 노트에 공간의 첫 위키(제목 정렬 1등)를 띄웠다.
   const refWiki = refCandidates.find((w) => w.path === refWikiPath) ?? null;
 
+  // ── 본문 키워드 강조·클릭 (스펙 §4) — 대상 공간의 위키 제목 전부(정리 글 제외) ──
+  const termTitles = useMemo(
+    () => refCandidates.filter((w) => !isSynthesisPage(w)).map((w) => w.title),
+    [refCandidates],
+  );
+  // 키워드 클릭 → 위키 패널 오픈 + 해당 위키 열람 (resolveLink 와 같은 제목 매칭: 정확 → 대소문자 무시)
+  const openWikiByTitle = (t: string) => {
+    const hit =
+      refCandidates.find((w) => w.title === t) ??
+      refCandidates.find((w) => w.title.toLowerCase() === t.toLowerCase());
+    if (!hit) return;
+    setRefWikiPath(hit.path);
+    togglePanel("wiki", true);
+  };
+
+  // ── 위키 패널 개념 목록 (스펙 §3) — 이번 임포트 개념이 있으면 그것만, 없으면 공간 전체 ──
+  const jobWikiPaths =
+    job?.status === "completed" && job.space === targetSpace && job.noteFile && job.noteFile === savedFile
+      ? (job.wikiPaths ?? [])
+      : [];
+  const listWikis = jobWikiPaths.length
+    ? jobWikiPaths.map((p) => refCandidates.find((w) => w.path === p)).filter((w): w is WikiPageT => !!w)
+    : refCandidates.filter((w) => !isSynthesisPage(w));
+
   // PDF → sources/original-files 저장 + 패널 열람 + 출처 임베드 + 한국어 번역·요약 스트리밍.
   // 요약은 스토어가 소유(fire-and-forget) — 탭을 떠나도 계속 흐르고 종결 시 본문에 병합된다.
   // 같은 PDF 를 다른 노트에서 또 올리면 백엔드가 `-2` 접미사로 별개 파일을 만든다 — 의도된 것이다.
@@ -612,6 +636,8 @@ export function InboxSection({
             height="100%"
             className="h-full"
             frameless
+            wikiTerms={termTitles}
+            onWikiTerm={openWikiByTitle}
           />
         </div>
         {summaryJob?.noteKey === draftKey && <SummaryStrip job={summaryJob} onCancel={() => ds.getState().cancelSummary()} onClose={() => ds.getState().clearJob()} />}
@@ -688,28 +714,23 @@ export function InboxSection({
     </section>
   );
 
-  // ── 위키 패널 (우측 보조) — 생성된 위키 참조 ──
+  // ── 위키 패널 (우측 보조) — 개념 목록(기본) ↔ 열람. 드롭다운 대신 본문 키워드·목록으로 연다 ──
   const wikiPane = (
     <section style={{ width: `${paneW.wiki}%`, minWidth: 280 }} className="flex min-w-0 shrink-0 flex-col border-l border-hairline">
       <PaneHeader
         label="위키"
         hint={refCandidates.length > 0 ? `${targetName}의 위키 ${refCandidates.length}개` : "위키 없음"}
         right={
-          <div className="flex min-w-0 items-center gap-1.5">
-            {refCandidates.length > 0 && (
-              <PaneSelect
-                value={refWiki?.path ?? ""}
-                onChange={setRefWikiPath}
-                options={refCandidates.map((w) => ({ value: w.path, label: w.title }))}
-                placeholder="위키 고르기…"
-              />
-            )}
-            {refWiki && (
+          refWiki ? (
+            <div className="flex min-w-0 items-center gap-1.5">
+              <Button size="sm" variant="utility" className="shrink-0 whitespace-nowrap" onClick={() => setRefWikiPath("")}>
+                ← 목록
+              </Button>
               <Button size="sm" variant="utility" className="shrink-0 whitespace-nowrap" onClick={() => onOpenWiki(targetSpace, refWiki.path)}>
                 열기
               </Button>
-            )}
-          </div>
+            </div>
+          ) : undefined
         }
       />
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
@@ -717,6 +738,24 @@ export function InboxSection({
           <>
             <h2 className="mb-3 text-[17px] font-bold text-ink">{refWiki.title}</h2>
             <Markdown source={refWiki.markdown} embedSpace={targetSpace} />
+          </>
+        ) : listWikis.length ? (
+          <>
+            <p className="ds-eyebrow mb-2 text-ink-faint">{jobWikiPaths.length ? "이 노트의 개념" : "이 공간의 개념"}</p>
+            <ul className="space-y-0.5">
+              {listWikis.map((w) => (
+                <li key={w.path}>
+                  <button
+                    type="button"
+                    onClick={() => setRefWikiPath(w.path)}
+                    className="flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-2 text-left text-[14px] text-ink-2 transition-colors hover:bg-surface-soft hover:text-ink"
+                  >
+                    <span className="truncate font-medium">{w.title}</span>
+                    <Icons.ChevronRightIcon size={14} className="shrink-0 text-ink-faint" />
+                  </button>
+                </li>
+              ))}
+            </ul>
           </>
         ) : (
           <p className="pt-8 text-center text-[14px] text-ink-muted">
@@ -944,34 +983,6 @@ function PaneDivider({ onPointerDown, onDoubleClick }: { onPointerDown: (e: Reac
       onDoubleClick={onDoubleClick}
       className="z-10 -mx-[3px] w-[6px] shrink-0 cursor-col-resize transition-colors hover:bg-primary/30 active:bg-primary/40"
     />
-  );
-}
-
-// value="" 일 때 placeholder 옵션이 없으면 브라우저가 첫 옵션을 고른 것처럼 그린다 — 자동 선택을 없앤 이상 반드시 필요.
-function PaneSelect({
-  value,
-  onChange,
-  options,
-  placeholder,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  options: { value: string; label: string }[];
-  placeholder?: string;
-}) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="min-w-0 max-w-[180px] truncate rounded-md border border-hairline bg-surface px-2 py-1 text-[12px] text-ink outline-none"
-    >
-      {!value && <option value="">{placeholder ?? "고르기…"}</option>}
-      {options.map((o) => (
-        <option key={o.value} value={o.value}>
-          {o.label}
-        </option>
-      ))}
-    </select>
   );
 }
 
