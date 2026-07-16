@@ -96,6 +96,33 @@ describe("stripFeynmanSection", () => {
     const md = joinFeynmanSection(BODY, [S()]).replace(/\n/g, "\r\n");
     expect(stripFeynmanSection(md).replace(/\r\n/g, "\n")).toBe(BODY);
   });
+
+  // 섹션이 두 개가 되는 경로: LLM 창작(mergeWiki 출력)과 손편집. 첫 섹션만 걷으면
+  // 남은 섹션이 다음 라운드에 진짜 기록을 body 로 흘려보낸다.
+  it("섹션이 여러 개여도 전부 걷어낸다 — strip 은 멱등이다", () => {
+    const md = `${BODY}\n\n## 파인만 기록\n\n### 가짜1\n\n> 창작1\n\n## 파인만 기록\n\n### 가짜2\n\n> 창작2\n`;
+    const once = stripFeynmanSection(md);
+    expect(once).toBe(BODY);
+    expect(stripFeynmanSection(once)).toBe(once); // 멱등
+  });
+
+  it("섹션이 여러 개면 기록을 문서 순서로 합친다 — 아무것도 잃지 않는다", () => {
+    const md = `${joinFeynmanSection(BODY, [S()])}\n\n## 파인만 기록\n\n### 가짜\n\n> 창작\n`;
+    const { body, sessions, unparsed } = splitFeynmanSection(md);
+    expect(body).toBe(BODY);
+    expect(sessions).toEqual([S()]);
+    expect(unparsed.join("\n")).toContain("창작");
+  });
+
+  it("split → join 이 섹션 하나로 정규화된다", () => {
+    const md = `${BODY}\n\n## 파인만 기록\n\n### 가짜1\n\n> 창작1\n\n## 파인만 기록\n\n### 가짜2\n\n> 창작2\n`;
+    const { body, sessions, unparsed } = splitFeynmanSection(md);
+    const out = joinFeynmanSection(body, sessions, unparsed);
+    expect(out.match(/^## 파인만 기록$/gm)).toHaveLength(1);
+    // 두 창작 모두 보존된다 — 읽을 수 없다고 지우지 않는다
+    expect(out).toContain("창작1");
+    expect(out).toContain("창작2");
+  });
 });
 
 describe("fail-closed — 파싱 못 한 기록을 조용히 삭제하지 않는다", () => {

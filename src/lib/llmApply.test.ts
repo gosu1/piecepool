@@ -335,7 +335,7 @@ describe("applyLlmResult 병합 — 기존 개념에 새 노트가 얹힐 때", 
   });
 
   it("LLM 이 `## 파인만 기록` 을 뱉어도 진짜 기록이 body 로 새지 않는다", async () => {
-    // locate() 는 첫 헤딩을 잡는다 — 가짜가 앞서면 sectionEnd 가 진짜 헤딩을 경계로 삼아
+    // 가짜 헤딩이 남으면 다음 split 의 경계 계산이 진짜 헤딩을 경계로 삼아
     // 진짜 세션이 통째로 body 가 되고, 다음 병합 때 LLM 에 유출된다.
     const applied = await applyOnto([withRecord()], "교착 상태", ["subj-os"], {
       mergeMarkdown: async () => "# 교착 상태\n\n새 본문\n\n## 파인만 기록\n\n### LLM 이 지어낸 것\n\n> 창작",
@@ -343,6 +343,21 @@ describe("applyLlmResult 병합 — 기존 개념에 새 노트가 얹힐 때", 
     const { body, sessions } = splitFeynmanSection(applied.pages[0].markdown);
     expect(sessions).toEqual([FEYNMAN]); // 진짜 기록 하나뿐
     expect(body).toBe("# 교착 상태\n\n새 본문"); // 가짜 섹션은 버려진다 — LLM 창작이지 사용자 것이 아니다
+    expect(body).not.toContain("내가 쓴 설명");
+  });
+
+  it("LLM 이 가짜 헤딩을 두 개 뱉어도 마찬가지다 — 소독이 멱등이어야 한다", async () => {
+    // 1회만 걷어내는 구현은 두 번째 가짜를 body 에 남기고, 재부착 후 헤딩이 다시 두 개가 되어
+    // 바로 다음 라운드에 진짜 기록이 유출된다. 실제로 재현된 경로다.
+    const applied = await applyOnto([withRecord()], "교착 상태", ["subj-os"], {
+      mergeMarkdown: async () =>
+        "# 교착 상태\n\n새 본문\n\n## 파인만 기록\n\n### 가짜1\n\n> 창작1\n\n## 파인만 기록\n\n### 가짜2\n\n> 창작2",
+    });
+    const md = applied.pages[0].markdown;
+    expect(md.match(/^## 파인만 기록$/gm)).toHaveLength(1);
+    const { body, sessions } = splitFeynmanSection(md);
+    expect(sessions).toEqual([FEYNMAN]);
+    expect(body).toBe("# 교착 상태\n\n새 본문");
     expect(body).not.toContain("내가 쓴 설명");
   });
 
