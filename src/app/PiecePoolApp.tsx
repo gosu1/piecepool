@@ -31,7 +31,7 @@ import { useWorkspaceStore, SIDEBAR_DEFAULT } from "../store/workspaceStore";
 import type { TabKind } from "../store/workspaceStore";
 import { useInboxDraftStore } from "../store/inboxDraftStore";
 import { useFeynmanStore, wikiKey, hasGeminiKey } from "../store/feynmanStore";
-import { splitFeynmanSection } from "../lib/feynmanSection";
+import { splitFeynmanSection, joinFeynmanSection, stripFeynmanSection } from "../lib/feynmanSection";
 import { noteOriginalFiles } from "../lib/wikilink";
 import { getBodyFontSize, applyBodyFontSize } from "../lib/settings";
 
@@ -757,8 +757,13 @@ export default function PiecePoolApp() {
   const setDraft = (key: string, md: string) => setDrafts((d) => ({ ...d, [key]: md }));
   // 저장 후에는 드래프트를 비운다 — 남겨두면 다음 편집 진입 시 stale 드래프트가 부활해
   // 그 사이 외부 갱신(AI 병합 등)된 내용을 덮어쓴다.
+  //
+  // 파인만 기록은 편집기에 안 보이므로(draft 는 strip 된 본문) 디스크 최신본에서 꺼내 되붙인다.
+  // 메모리의 page.markdown 을 쓰면 편집 중에 끝낸 세션이 사라진다 — 그 세션은 디스크에만 있다.
   const saveWikiDoc = async (space: string, page: WikiPageT, md: string) => {
-    const saved = await ipc.saveWiki(space, { ...page, markdown: md });
+    const cur = await ipc.readWiki(space, page.path);
+    const { sessions, unparsed } = splitFeynmanSection(cur.markdown);
+    const saved = await ipc.saveWiki(space, { ...cur, markdown: joinFeynmanSection(md, sessions, unparsed) });
     setWikiBySlug((m) => ({ ...m, [space]: (m[space] ?? []).map((x) => (x.path === page.path ? saved : x)) }));
     clearDocState(docKey(space, page.path));
     setTabDirty(`wiki:${space}:${page.path}`, false);
@@ -962,15 +967,15 @@ export default function PiecePoolApp() {
         }
         savedMd={page.markdown}
         isEditing={editing.has(key)}
-        draft={drafts[key] ?? page.markdown}
-        onToggleEdit={() => toggleEdit(key, page.markdown)}
+        draft={drafts[key] ?? stripFeynmanSection(page.markdown)}
+        onToggleEdit={() => toggleEdit(key, stripFeynmanSection(page.markdown))}
         onCancel={() => {
           clearDocState(key);
           setTabDirty(tabId, false);
         }}
         onChangeDraft={(md) => {
           setDraft(key, md);
-          setTabDirty(tabId, md !== page.markdown);
+          setTabDirty(tabId, md !== stripFeynmanSection(page.markdown));
         }}
         onSave={() => saveWikiDoc(space, page, drafts[key] ?? page.markdown)}
         onLink={(t) => resolveLink(space, t)}
