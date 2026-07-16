@@ -195,7 +195,7 @@ test("판정은 localStorage 에 남고, 노트 본문은 변하지 않는다", 
     [`source-os-overview::임베딩`]: { answered: true, understood: false },
   });
 
-  // 파인만은 노트를 고치지 않는다 — 저장하지 않았으므로 원문 그대로다
-  await page.getByRole("button", { name: "읽기" }).click();
+  // 파인만은 노트를 고치지 않는다 — 취소(저장 안 함)로 나가면 원문 그대로다
+  await page.getByRole("button", { name: "취소" }).click();
   await expect(page.getByText(/임계 구역|프로세스/).first()).toBeVisible();
 });

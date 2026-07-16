@@ -27,6 +27,7 @@ export function DocView({
   isEditing,
   draft,
   onToggleEdit,
+  onCancel,
   onChangeDraft,
   onSave,
   onLink,
@@ -50,6 +51,8 @@ export function DocView({
   isEditing: boolean;
   draft: string;
   onToggleEdit: () => void;
+  /** 편집 취소 — draft를 버리고 저장된 원본으로 되돌린다 */
+  onCancel: () => void;
   onChangeDraft: (md: string) => void;
   onSave: () => void | Promise<void>;
   onLink: (target: string) => void;
@@ -108,27 +111,26 @@ export function DocView({
             저장
           </Button>
         )}
-        <Button variant="utility" size="sm" onClick={onToggleEdit} leftIcon={<Icons.FileIcon size={14} />}>
-          {isEditing ? "읽기" : "편집"}
+        <Button
+          variant="utility"
+          size="sm"
+          onClick={isEditing ? onCancel : onToggleEdit}
+          leftIcon={isEditing ? <Icons.CloseIcon size={14} /> : <Icons.FileIcon size={14} />}
+        >
+          {isEditing ? "취소" : "편집"}
         </Button>
       </div>
 
       {isEditing ? (
-        <div className="grid gap-3 md:grid-cols-2">
-          <SlashBlockEditor
-            value={draft}
-            onChange={onChangeDraft}
-            onSubmit={onSave}
-            onSelect={feynman && fy.onSelect}
-            headingAction={feynman && fy.headingAction}
-            height="480px"
-            placeholder="'/' 로 블록 · ⌘Enter 로 저장"
-          />
-          <Card padding="lg" className="max-h-[480px] overflow-y-auto">
-            <p className="ds-eyebrow mb-2 text-ink-faint">미리보기</p>
-            <Markdown source={draft} onLink={onLink} linkExists={linkExists} embedSpace={embedSpace} />
-          </Card>
-        </div>
+        <SlashBlockEditor
+          value={draft}
+          onChange={onChangeDraft}
+          onSubmit={onSave}
+          onSelect={feynman && fy.onSelect}
+          headingAction={feynman && fy.headingAction}
+          height="480px"
+          placeholder="'/' 로 블록 · ⌘Enter 로 저장"
+        />
       ) : sideSlot ? (
         // 변환 중: 파편 원문(좌) | 정리 글 스트리밍(우) — 편집 모드 그리드와 동일 패턴
         <div className="grid items-start gap-3 md:grid-cols-2">
