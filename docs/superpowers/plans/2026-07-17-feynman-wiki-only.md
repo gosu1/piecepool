@@ -91,6 +91,37 @@ export function sectionEnd(headings: Heading[], i: number, len: number): number 
 export const FENCE = /^ {0,3}(```|~~~)/;
 ```
 
+**`scanHeadings` 의 펜스 판정을 마커 인식으로 고친다.** 지금은 FENCE 매치 줄이면 **무조건 토글**이라 마커가 섞인 문서를 잘못 판다:
+
+```ts
+    if (FENCE.test(text)) fenced = !fenced;   // ← 틀렸다
+```
+
+` ```md ` + `~~~` + ` ``` ` 는 CommonMark 상 **정상 닫힌** 문서다(`~~~` 는 코드블록 **내용**이다). 그런데 무조건 토글은 매치 줄 홀짝만 세서 열린 것으로 본다 → 그 뒤 `## 파인만 기록` 을 헤딩으로 안 봄 → **split 이 기록을 못 걷어 사용자 발화가 body 로 남아 LLM 입력이 된다.**
+
+CommonMark 대로 **여는 마커와 같은 종류만 닫는다**:
+
+```ts
+  let open: string | null = null;
+  for (const line of md.split("\n")) {
+    const text = line.endsWith("\r") ? line.slice(0, -1) : line;
+    const marker = FENCE.exec(text)?.[1];
+    if (marker) {
+      // 여는 마커와 같은 종류만 닫는다 — 다른 종류는 코드블록 안의 내용일 뿐이다.
+      if (!open) open = marker;
+      else if (marker === open) open = null;
+    } else if (!open) {
+      const m = ATX.exec(text);
+      if (m) out.push({ level: m[1].length, title: cleanTitle(m[2] ?? ""), from: offset });
+    }
+    offset += line.length + 1;
+  }
+```
+
+> `closeOpenFence`(`feynmanSection.ts`)가 같은 규칙을 쓴다. **두 함수의 "열림" 정의가 어긋나면** join 이 정상 문서에 쓸데없는 펜스를 덧붙이거나(정상 → 깨짐), 미닫힘을 못 닫아 유출이 남는다. 실제로 그렇게 터진 적이 있다.
+>
+> `stripEvidenceSection` 도 `scanHeadings` 를 쓰므로 함께 정확해진다 — 마커 섞인 위키에서 `## 근거` 를 못 걷던 기존 결함도 같이 죽는다.
+
 `interface Heading`(`:33`)도 export 한다 — `feynmanSection.ts` 가 반환 타입을 받으려면 필요하다:
 
 ```ts
@@ -331,6 +362,30 @@ describe("미닫힘 코드펜스 — 기록이 펜스 안으로 들어가면 안
   it("이미 닫힌 펜스는 안 건드린다", () => {
     const closed = "# 개념\n\n```js\nconst x = 1;\n```";
     expect(splitFeynmanSection(joinFeynmanSection(closed, [S()])).body).toBe(closed);
+  });
+
+  // 마커가 섞인 문서 — scanHeadings 가 무조건 토글이던 시절 여기서 유출이 났고,
+  // 테스트가 전부 동종 마커라 441개 통과하면서 유출이 살아있었다.
+  it("코드블록 안에 다른 마커가 있어도 닫힌 문서로 본다 — 쓸데없는 펜스를 안 붙인다", () => {
+    // ~~~ 는 ```md 블록의 **내용**이다. CommonMark 상 이 문서는 정상 닫혔다.
+    const closed = "# 개념\n\n```md\n~~~\n예시\n```";
+    const md = joinFeynmanSection(closed, [S()]);
+    expect(splitFeynmanSection(md).body).toBe(closed); // 원문 그대로
+    expect(splitFeynmanSection(md).sessions).toEqual([S()]);
+  });
+
+  it("마커 섞인 미닫힘도 닫는다 — 발화가 안 샌다", () => {
+    const open = "# 개념\n\n```md\n~~~\n예시";
+    const md = joinFeynmanSection(open, [S({ turns: [{ role: "user", text: "내 사적인 설명" }] })]);
+    expect(splitFeynmanSection(md).sessions).toHaveLength(1);
+    expect(stripFeynmanSection(md)).not.toContain("내 사적인 설명");
+  });
+
+  it("~~~ 블록 안의 ``` 도 마찬가지다 — 반대 조합", () => {
+    const closed = "# 개념\n\n~~~md\n```\n예시\n~~~";
+    const md = joinFeynmanSection(closed, [S()]);
+    expect(splitFeynmanSection(md).body).toBe(closed);
+    expect(splitFeynmanSection(md).sessions).toEqual([S()]);
   });
 
   it("펜스 미닫힘 본문에 append 해도 섹션이 중복되지 않는다", () => {
