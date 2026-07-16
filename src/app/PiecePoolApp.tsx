@@ -4,19 +4,11 @@ import type { TreeNode } from "../ds";
 import type { KnowledgeSpace, WikiPage as WikiPageT, ArchiveNote, GraphData, Workspace, Subject, Relation } from "../lib/types";
 import * as ipc from "../lib/ipc";
 import { startFileDragOut } from "../lib/dragOut";
-import { runWikiGeneration } from "../llm/generate";
-import { runWikiMerge } from "../llm/mergeWiki";
-import type { LlmWikiInput } from "../llm/provider";
-import { applyLlmResult, embedSourceFiles, isSynthesisPage, synthesisConceptId, toExistingConcepts } from "../lib/llmApply";
-import { buildGaps } from "../llm/gaps";
-import type { GapReport } from "../llm/gaps";
-import { maybeFactCheck } from "../lib/factCheck";
+import { isSynthesisPage } from "../lib/llmApply";
 import { detectSourceRefConflicts } from "../lib/sourceRefConflicts";
-import { chunkOpts, getLinerKey } from "../lib/settings";
-import { aggregateProvenance, tierFromSourceType, type SourceMeta } from "../llm/provenance";
 import { docKey } from "./types";
 import type { SearchItem } from "./types";
-import { DocView, AiBar, GapPanel, ConvertPanel, ReviewBar } from "./panes/DocView";
+import { DocView, ReviewBar } from "./panes/DocView";
 import { PageHeader } from "./panes/PageHeader";
 import type { LinkedItem } from "./panes/PageHeader";
 import { RelationQuality } from "./panes/RelationQuality";
@@ -35,7 +27,6 @@ import { QuickMemo } from "./panes/QuickMemo";
 import { ContextMenu, ConfirmDialog, PromptDialog } from "./shell/Dialogs";
 import { useWorkspaceStore, SIDEBAR_DEFAULT } from "../store/workspaceStore";
 import type { TabKind } from "../store/workspaceStore";
-import { useConvertStore } from "../store/convertStore";
 import { useInboxDraftStore } from "../store/inboxDraftStore";
 import { noteOriginalFiles } from "../lib/wikilink";
 
@@ -52,7 +43,6 @@ type ShellDialog =
   | { kind: "rename-note" | "rename-wiki"; space: string; file: string; title: string }
   | { kind: "delete-note" | "delete-wiki"; space: string; file: string; title: string }
   | { kind: "close-dirty"; tabId: string }
-  | { kind: "overwrite-syn"; space: string; file: string; title: string }
   | { kind: "new-space" }
   | { kind: "rename-space"; slug: string; name: string }
   | { kind: "delete-space"; slug: string; name: string };
@@ -82,10 +72,6 @@ export default function PiecePoolApp() {
   // 인라인 편집 / LLM / 검색 팔레트
   const [editing, setEditing] = useState<Set<string>>(new Set());
   const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const [aiBusy, setAiBusy] = useState<string>("");
-  const [aiStatus, setAiStatus] = useState<Record<string, string>>({});
-  const [gaps, setGaps] = useState<Record<string, GapReport & { v: number }>>({});
-  const [gapBusy, setGapBusy] = useState<string>("");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -117,11 +103,6 @@ export default function PiecePoolApp() {
   const togglePinned = useWorkspaceStore((s) => s.togglePinned);
   const treeSort = useWorkspaceStore((s) => s.treeSort);
   const recentDocs = useWorkspaceStore((s) => s.recentDocs);
-
-  // 정리 글 변환 job(convertStore) — 스트림은 스토어 소유라 탭 전환에도 계속된다 (ADR-0008)
-  const convertJob = useConvertStore((s) => s.job);
-  const cancelConvert = useConvertStore((s) => s.cancel);
-  const clearConvert = useConvertStore((s) => s.clear);
 
   // 부팅: 시드 → spaces → 각 공간 wiki/notes/graph → 복원된 탭이 없으면 Study Home
   useEffect(() => {
@@ -425,11 +406,6 @@ export default function PiecePoolApp() {
     setEditing((prev) => {
       const next = new Set(prev);
       next.delete(key);
-      return next;
-    });
-    setGaps((g) => {
-      const next = { ...g };
-      delete next[key];
       return next;
     });
   };
@@ -833,148 +809,6 @@ export default function PiecePoolApp() {
     };
   };
 
-  // ── LLM: 위키 생성 / 간극 점검 / 정리 글 변환 (Source 의 원본 노트에서) ──
-  // 추출 코어 — 상태줄만 반환. busy/리로드/탭 열기는 호출자 몫(genWiki 단독 · convertNote 병렬 공용).
-  const extractForNote = async (space: string, note: ArchiveNote): Promise<{ status: string; firstWikiPath?: string }> => {
-    const sp = spaces.find((s) => s.slug === space);
-    const input: LlmWikiInput = {
-      sourceTitle: note.title,
-      sourceText: note.markdown,
-      // 노트가 참조하는 원본 파일 — 없으면 sanitizeSourceRefs 가 모든 sourceRefs 를 제거한다.
-      sourceFiles: embedSourceFiles(note.sourceId, note.markdown),
-      subjects: note.subjectIds.map((id) => ({ id, name: id })),
-      existingConcepts: toExistingConcepts(wikiBySlug[space] ?? []),
-    };
-    const apiKey = (typeof localStorage !== "undefined" && localStorage.getItem("gemini-key")) || "";
-    const { result, engine, warning, promotion, nodeTypes } = await runWikiGeneration(input, apiKey, { chunk: chunkOpts() });
-    // feature 3: Liner fact-check — 관계 근거에 권위 출처 URL 누적(설정 게이트, advisory).
-    const fc = await maybeFactCheck(result);
-    const applied = await applyLlmResult(
-      space,
-      sp?.id ?? "",
-      note.subjectIds,
-      fc.result,
-      { sourceId: note.sourceId, archivePath: `archive/${note.path}`, title: note.title },
-      wikiBySlug[space] ?? [],
-      // 본문 축적(방식 A) — 기존 개념에 얹힐 때만 2차 LLM 호출로 통합한다.
-      { mergeMarkdown: (md, c, src) => runWikiMerge(md, c, src, apiKey) },
-    );
-    const mergedNote = applied.merged > 0 ? ` (기존 ${applied.merged}개 병합)` : "";
-    // [E] 연결성 게이트 advisory — 이번 추출에서 어디에도 안 붙은(고립) 개념 수 표시.
-    const isoNote = promotion && promotion.staging > 0 ? ` · 고립 ${promotion.staging}개` : "";
-    // [B] 청킹 켰을 때 조각 정보 유형 분포.
-    const TYPE_KO: Record<string, string> = { concept: "개념", fact: "사실", claim: "주장", example: "예시", method: "방법", question: "질문" };
-    const typeNote = nodeTypes ? ` · 유형 ${Object.entries(nodeTypes).map(([t, n]) => `${TYPE_KO[t] ?? t} ${n}`).join(", ")}` : "";
-    // [D] 출처 tier(Source.type→1차/2차) 레지스트리로 병합 개념의 신뢰도·교차검증 집계.
-    const srcTypes = await ipc.listSourceTypes(space);
-    const registry = new Map<string, SourceMeta>(srcTypes.map(([id, t]) => [id, { sourceId: id, tier: tierFromSourceType(t) }]));
-    const prov = aggregateProvenance(applied.pages.map((p) => p.sourceIds), registry);
-    const provNote =
-      prov.count > 0
-        ? ` · 출처신뢰 ${Math.round(prov.avgScore * 100)}%${prov.multiSource > 0 ? ` · 교차검증 ${prov.multiSource}개` : ""}`
-        : "";
-    const fcNote = fc.checked > 0 ? ` · 출처검증 ${fc.checked}건` : "";
-    return {
-      status: `${engine === "gemini" ? "Gemini" : "휴리스틱"}로 위키 ${applied.pages.length}개 · 관계 ${applied.relationCount}개${mergedNote}${isoNote}${typeNote}${provNote}${fcNote}${warning ? " · Gemini 실패→휴리스틱" : ""}`,
-      firstWikiPath: applied.pages[0]?.path,
-    };
-  };
-
-  const genWiki = async (space: string, note: ArchiveNote) => {
-    const key = docKey(space, note.path);
-    setAiBusy(key);
-    try {
-      const r = await extractForNote(space, note);
-      await refreshSpace(space);
-      setAiStatus((s) => ({ ...s, [key]: r.status }));
-      if (r.firstWikiPath) openWiki(space, r.firstWikiPath);
-    } catch (e) {
-      setAiStatus((s) => ({ ...s, [key]: `실패: ${String(e)}` }));
-    } finally {
-      setAiBusy("");
-    }
-  };
-
-  // ── 정리 글 변환 (ADR-0008) — 합성 스트리밍 + 개념 추출 병렬 실행, 실패 격리 ──
-  const startConvert = async (space: string, note: ArchiveNote) => {
-    const key = docKey(space, note.path);
-    setAiBusy(key);
-    try {
-      const [, extract] = await Promise.allSettled([
-        useConvertStore.getState().runConvert({
-          space,
-          spaceId: spaces.find((s) => s.slug === space)?.id ?? "",
-          note,
-          existing: wikiBySlug[space] ?? [],
-        }),
-        extractForNote(space, note),
-      ]);
-      await refreshSpace(space);
-      // 합성 결과는 ConvertPanel(convertStore)이 표시 — 상태줄은 추출 몫만.
-      setAiStatus((s) => ({
-        ...s,
-        [key]: extract.status === "fulfilled" ? extract.value.status : `추출 실패: ${String(extract.reason)}`,
-      }));
-    } finally {
-      setAiBusy("");
-    }
-  };
-
-  const convertNote = (space: string, note: ArchiveNote) => {
-    const j = useConvertStore.getState().job;
-    if (j && (j.status === "streaming" || j.status === "saving")) {
-      setNotice("이미 변환 중이에요");
-      return;
-    }
-    if (openTabs.find((t) => t.id === `archive:${space}:${note.path}`)?.dirty) {
-      setNotice("미저장 편집이 있어요 — 저장 후 변환하세요");
-      return;
-    }
-    // embed 뿐인 노트 방지 — 합성할 텍스트가 있어야 한다.
-    if (note.markdown.replace(/!\[\[[^\]]+\]\]/g, "").trim().length < 20) {
-      setNotice("내용이 부족해요 — 파편을 먼저 적어주세요");
-      return;
-    }
-    // 기존 정리본 존재 → 변환(토큰 소비) 전에 덮어쓰기 확인.
-    if ((wikiBySlug[space] ?? []).some((w) => w.conceptId === synthesisConceptId(note.sourceId))) {
-      setDialog({ kind: "overwrite-syn", space, file: note.path, title: note.title });
-      return;
-    }
-    void startConvert(space, note);
-  };
-  // 간극 점검 — Liner(주) → OpenAI 소크라테스(보조) → 휴리스틱(오프라인) 3단 폴백.
-  // 단일 진행(single-flight): 하나 도는 동안 다른 노트의 점검 시작 금지 + 소유자만 busy 해제.
-  const gapRunSeq = useRef(0);
-  const checkGaps = async (space: string, note: ArchiveNote) => {
-    if (gapBusy) return;
-    const key = docKey(space, note.path);
-    setGapBusy(key);
-    try {
-      const geminiKey = (typeof localStorage !== "undefined" && localStorage.getItem("gemini-key")) || "";
-      const report = await buildGaps(note.title, note.markdown, { liner: getLinerKey(), gemini: geminiKey });
-      // v(논스) — 같은 질문 목록이라도 재점검 시 GapPanel 을 리마운트(Liner 선택지는 비결정적).
-      setGaps((g) => ({ ...g, [key]: { ...report, v: ++gapRunSeq.current } }));
-    } finally {
-      setGapBusy((cur) => (cur === key ? "" : cur));
-    }
-  };
-  const clearGaps = (key: string) =>
-    setGaps((g) => {
-      const next = { ...g };
-      delete next[key];
-      return next;
-    });
-  // 간극 점검 응답을 노트 하단에 사용자 소유 텍스트로 덧붙인다(archive 는 사용자 원문 — 사용자 액션만 허용).
-  // 편집 중이면 열린 드래프트를 기준으로 저장(미저장 편집 유실 방지).
-  const appendGapAnswers = async (space: string, note: ArchiveNote, answers: { prompt: string; answer: string }[]) => {
-    const filled = answers.filter((a) => a.answer.trim());
-    if (filled.length === 0) return;
-    const key = docKey(space, note.path);
-    const base = drafts[key] ?? note.markdown;
-    const block = "\n\n## 간극 점검 메모\n\n" + filled.map((a) => `- **Q:** ${a.prompt}\n  **A:** ${a.answer.trim()}`).join("\n");
-    await saveArchiveDoc(space, note.path, base + block);
-    setNotice("간극 점검 응답을 노트에 저장했어요");
-  };
 
   // Import 완료 후 해당 공간의 notes/wiki/graph 재로딩
   const refreshSpace = async (space: string) => {
@@ -1096,6 +930,10 @@ export default function PiecePoolApp() {
         isEditing={editing.has(key)}
         draft={drafts[key] ?? page.markdown}
         onToggleEdit={() => toggleEdit(key, page.markdown)}
+        onCancel={() => {
+          clearDocState(key);
+          setTabDirty(tabId, false);
+        }}
         onChangeDraft={(md) => {
           setDraft(key, md);
           setTabDirty(tabId, md !== page.markdown);
@@ -1118,8 +956,6 @@ export default function PiecePoolApp() {
   const sourceReader = (space: string, note: ArchiveNote) => {
     const key = docKey(space, note.path);
     const tabId = `archive:${space}:${note.path}`;
-    // 변환 미리보기는 job 의 노트 화면에서만 렌더 (탭 전환 후 복귀 시 재부착)
-    const convertHere = !!convertJob && convertJob.space === space && convertJob.notePath === note.path;
     // 관계형(헤더) — 이 노트(Source)를 target 으로 갖는 개념들. ArchiveNote 는 관계 노드가 아니므로
     // 연결은 항상 개념 → Source(extracted_from) 방향으로 만든다 (relation-types.md 매트릭스).
     const g = graphBySlug[space];
@@ -1197,6 +1033,10 @@ export default function PiecePoolApp() {
         isEditing={editing.has(key)}
         draft={drafts[key] ?? note.markdown}
         onToggleEdit={() => toggleEdit(key, note.markdown)}
+        onCancel={() => {
+          clearDocState(key);
+          setTabDirty(tabId, false);
+        }}
         onChangeDraft={(md) => {
           setDraft(key, md);
           setTabDirty(tabId, md !== note.markdown);
@@ -1208,44 +1048,8 @@ export default function PiecePoolApp() {
         terms={termsBySlug[space]}
         // 파인만은 원본 노트에서만 — 위키는 LLM 이 쓴 글이라 "자기 말로 설명"의 대상이 아니다.
         feynman={{ noteId: note.sourceId, space }}
-        topSlot={
-          <AiBar
-            busy={aiBusy === key}
-            gapBusy={gapBusy === key}
-            status={aiStatus[key]}
-            onGen={() => genWiki(space, note)}
-            onGaps={() => checkGaps(space, note)}
-            convertBusy={!!convertJob && (convertJob.status === "streaming" || convertJob.status === "saving")}
-            convertStreaming={convertHere && convertJob?.status === "streaming"}
-            onConvert={() => convertNote(space, note)}
-            onCancelConvert={cancelConvert}
-          />
-        }
-        sideSlot={
-          convertHere && convertJob ? (
-            <ConvertPanel
-              job={convertJob}
-              onCancel={cancelConvert}
-              onClose={clearConvert}
-              onOpen={() => convertJob.wikiPath && openWiki(space, convertJob.wikiPath)}
-              onRetry={() => void startConvert(space, note)}
-              onLink={(t) => resolveLink(space, t)}
-              linkExists={linkExistsIn(space)}
-            />
-          ) : undefined
-        }
         bottomSlot={
           <>
-            {gaps[key] && (
-              <GapPanel
-                // 재점검마다 리마운트(v 논스) — 이전 선택이 새 질문/선택지에 매핑되는 것 방지
-                key={gaps[key].v}
-                questions={gaps[key].questions}
-                engine={gaps[key].engine}
-                onClose={() => clearGaps(key)}
-                onSubmit={(answers) => appendGapAnswers(space, note, answers)}
-              />
-            )}
             <ReviewBar
               concepts={reviewedHere}
               onOpen={(id) => {
@@ -1329,6 +1133,7 @@ export default function PiecePoolApp() {
             existing={wikiBySlug[sp] ?? []}
             spaces={spaces}
             wikiBySlug={wikiBySlug}
+            graphBySlug={graphBySlug}
             onCreateSpace={createNewSpace}
             onOpenWiki={openWiki}
             onRefresh={(s) => refreshSpace(s)}
@@ -1459,19 +1264,6 @@ export default function PiecePoolApp() {
           onConfirm={() => {
             discardAndClose(dialog.tabId);
             setDialog(null);
-          }}
-          onCancel={() => setDialog(null)}
-        />
-      )}
-      {dialog?.kind === "overwrite-syn" && (
-        <ConfirmDialog
-          title="기존 정리본을 덮어씁니다"
-          message="이 노트의 정리 글이 이미 있어요. 다시 변환하면 새 내용으로 교체됩니다 (직접 수정한 내용은 사라져요)."
-          confirmLabel="다시 변환"
-          onConfirm={() => {
-            const note = (notesBySlug[dialog.space] ?? []).find((n) => n.path === dialog.file);
-            setDialog(null);
-            if (note) void startConvert(dialog.space, note);
           }}
           onCancel={() => setDialog(null)}
         />

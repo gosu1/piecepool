@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, FileDropzone, Icons, cn } from "../../ds";
-import type { KnowledgeSpace, WikiPage as WikiPageT } from "../../lib/types";
+import type { KnowledgeSpace, WikiPage as WikiPageT, GraphData } from "../../lib/types";
 import * as ipc from "../../lib/ipc";
 import { useImportStore } from "../../store/importStore";
 import { isSynthesisPage } from "../../lib/llmApply";
@@ -11,6 +11,9 @@ import { runImageOcr } from "../../llm/ocr";
 import { SlashBlockEditor } from "../../lib/SlashBlockEditor";
 import { ConfirmDialog } from "../shell/Dialogs";
 import { Markdown } from "../../lib/markdown";
+import { stripEvidenceSection } from "../../lib/noteSections";
+import { conceptRelationGroups } from "../../lib/conceptGraph";
+import { MiniRelationGraph } from "../../lib/MiniGraph";
 import { FilePreview } from "../../lib/FilePreview";
 import { PdfViewer } from "../../lib/PdfViewer";
 import { renameRefs } from "../../lib/wikilink";
@@ -150,6 +153,7 @@ export function InboxSection({
   existing,
   spaces,
   wikiBySlug,
+  graphBySlug,
   onCreateSpace,
   onOpenWiki,
   onRefresh,
@@ -169,6 +173,8 @@ export function InboxSection({
   // 저장 대상 폴더 선택용 — 전체 지식 공간 목록과 공간별 위키(대상 폴더의 dedup 기준)
   spaces: KnowledgeSpace[];
   wikiBySlug: Record<string, WikiPageT[]>;
+  // 위키 참조 패널의 개념 중심 미니 그래프용 — 대상 공간 그래프(노드·관계)
+  graphBySlug: Record<string, GraphData>;
   // 저장 위치 드롭다운에서 바로 새 과목 폴더 만들기 — 만든 slug 를 돌려주면 그 과목으로 대상이 옮겨간다.
   onCreateSpace: (name: string) => Promise<string | null>;
   onOpenWiki: (space: string, file: string) => void;
@@ -794,7 +800,23 @@ export function InboxSection({
         {refWiki ? (
           <>
             <h2 className="mb-3 text-[17px] font-bold text-ink">{refWiki.title}</h2>
-            <Markdown source={refWiki.markdown} embedSpace={targetSpace} />
+            {/* 근거(`## 근거` PDF 임베드)는 표시에서 감춘다 — 대신 아래에 개념 중심 관계 그래프 */}
+            <Markdown source={stripEvidenceSection(refWiki.markdown)} embedSpace={targetSpace} />
+            {(() => {
+              const groups = conceptRelationGroups(graphBySlug[targetSpace], refWiki.conceptId, (path) =>
+                onOpenWiki(targetSpace, path),
+              );
+              return groups.length > 0 ? (
+                <section className="mt-4 space-y-2 border-t border-hairline pt-4">
+                  <p className="ds-eyebrow text-ink-faint">관계 그래프</p>
+                  <MiniRelationGraph
+                    centerTitle={refWiki.title}
+                    groups={groups}
+                    className="ds-dotgrid h-72 w-full rounded-lg border border-hairline bg-surface"
+                  />
+                </section>
+              ) : null;
+            })()}
           </>
         ) : listWikis.length ? (
           <>
