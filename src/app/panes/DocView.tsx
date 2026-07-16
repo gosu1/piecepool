@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import type { ReactNode } from "react";
 import { Button, Icons } from "../../ds";
 import { Markdown } from "../../lib/markdown";
@@ -39,6 +40,7 @@ export function DocView({
   sideSlot,
   embedSpace,
   feynman,
+  terms,
 }: {
   docType: "wiki" | "archive";
   title: string;
@@ -71,6 +73,8 @@ export function DocView({
   embedSpace?: string;
   /** 원본 노트에서만 — 에디터 우클릭으로 ##/### 섹션 파인만을 연다 */
   feynman?: { noteId: string; space: string; handlers?: FeynmanHandlers };
+  /** 본문 속 개념 키워드 강조 — 이 공간 위키 제목 목록. 클릭 시 onLink(제목) */
+  terms?: string[];
 }) {
   const hasConceptPanel = !!(sources?.length || relationGroups?.length || confused?.length);
   const fy = useFeynmanEditor({
@@ -80,13 +84,18 @@ export function DocView({
     noteTitle: title,
     handlers: feynman?.handlers,
   });
+  // 자기 자신 링크 방지 — 위키 문서 안에서 그 문서 제목은 강조하지 않는다.
+  // archive 노트는 제외하지 않는다: 노트 제목이 어떤 위키와 같아도 그 노트가 그 위키는 아니다.
+  const termsKey = terms?.join("\n") ?? "";
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const docTerms = useMemo(() => (docType === "wiki" ? terms?.filter((t) => t !== title) : terms), [termsKey, title, docType]);
   // 읽기 모드 본문 — 카드 없이 페이지에 바로. 빈 페이지는 클릭해서 작성 시작.
   // 위키는 본문의 `## 근거`(PDF 임베드)를 표시에서만 감춘다 — 관련 소스 섹션이 이미 출처를 담는다.
   // 저장 데이터·편집 모드·conflicts 점검(원본 마크다운 기준)에는 영향 없다.
   const displayMd = docType === "wiki" ? stripEvidenceSection(savedMd) : savedMd;
   const readBody = displayMd.trim() ? (
     <div className="px-1">
-      <Markdown source={displayMd} onLink={onLink} linkExists={linkExists} embedSpace={embedSpace} />
+      <Markdown source={displayMd} onLink={onLink} linkExists={linkExists} embedSpace={embedSpace} terms={docTerms} />
     </div>
   ) : (
     <button
@@ -130,6 +139,8 @@ export function DocView({
           headingAction={feynman && fy.headingAction}
           height="480px"
           placeholder="'/' 로 블록 · ⌘Enter 로 저장"
+          wikiTerms={docTerms}
+          onWikiTerm={onLink}
         />
       ) : sideSlot ? (
         // 변환 중: 파편 원문(좌) | 정리 글 스트리밍(우) — 편집 모드 그리드와 동일 패턴

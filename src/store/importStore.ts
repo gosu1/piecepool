@@ -32,6 +32,7 @@ export interface ImportJobView {
   mergedCount?: number;
   factChecked?: number; // Liner fact-check 로 출처가 붙은 관계 수
   firstWikiPath?: string; // 이번 임포트로 생성/갱신된 첫 위키 경로 — 위키 패널이 방금 만든 위키를 열도록
+  wikiPaths?: string[]; // 이번 임포트로 생성/병합된 위키 경로 전부 — 위키 패널 개념 목록(스펙 §3)
   noteFile?: string; // 생성/갱신된 archive 노트 파일명 — Inbox 가 바인딩해 이어서 편집(살아있는 노트)
   feynmanUsed?: boolean; // 초안에서 한 파인만의 설명을 위키 생성 재료로 함께 넣었다
 }
@@ -162,6 +163,7 @@ export const useImportStore = create<ImportState>((set) => {
       mergedCount: applied.merged,
       factChecked: fc.checked,
       firstWikiPath: applied.pages[0]?.path,
+      wikiPaths: applied.pages.map((pg) => pg.path),
       ...extra,
     });
     return done;

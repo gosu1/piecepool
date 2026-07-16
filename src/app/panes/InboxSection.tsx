@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, FileDropzone, Icons, cn } from "../../ds";
 import type { KnowledgeSpace, WikiPage as WikiPageT, GraphData } from "../../lib/types";
 import * as ipc from "../../lib/ipc";
@@ -210,7 +210,7 @@ export function InboxSection({
   // EMPTY_DRAFT 병합 — 없거나 옛 스키마(누락 필드) draft 여도 8필드가 항상 채워져 렌더가 안 깨진다.
   const noteDraft = { ...EMPTY_DRAFT, ...useInboxDraftStore((s) => s.drafts[draftKey]) };
   const summaryJob = useInboxDraftStore((s) => s.job);
-  const { title, body, savedFile, savedSpace, savedSnapshot, panels, refWikiPath, refSource } = noteDraft;
+  const { title, body, savedFile, savedSnapshot, panels, refWikiPath, refSource } = noteDraft;
   // 저장 대상 공간 = 이 노트가 속할 공간. 원본 PDF 도 여기 산다(노트↔원본은 같은 공간).
   // draft 에 persist — useState 면 탭 전환 언마운트에 리셋돼 원본과 노트가 어긋난다.
   const targetSpace = noteDraft.targetSpace || space;
@@ -229,7 +229,10 @@ export function InboxSection({
     const cur = ds.getState().drafts[draftKey]?.uploads ?? [];
     if (!cur.includes(file)) write({ uploads: [...cur, file] });
   };
-  const togglePanel = (key: InboxPanelKey, open?: boolean) => write({ panels: { ...panels, [key]: open ?? !panels[key] } });
+  const togglePanel = (key: InboxPanelKey, open?: boolean) => {
+    const cur = ds.getState().drafts[draftKey]?.panels ?? EMPTY_DRAFT.panels;
+    write({ panels: { ...cur, [key]: open ?? !cur[key] } });
+  };
   // 이 노트 탭에서 요약 스트리밍 중이면 편집 잠금 + body 뒤에 미확정 텍스트를 파생 렌더.
   const summarizing = summaryJob?.noteKey === draftKey && summaryJob.status === "streaming";
   const editorValue = summarizing && summaryJob.text ? (body ? `${body}\n\n${summaryJob.text}` : summaryJob.text) : body;
@@ -250,6 +253,24 @@ export function InboxSection({
   const beginPdfJob = () => ds.getState().beginPdfJob(draftKey);
   const endPdfJob = () => ds.getState().endPdfJob(draftKey);
   const [uploadOpen, setUploadOpen] = useState(false);
+  // ── PDF 원샷 파이프라인 (스펙 §1) ──
+  // 제목 모달 — PDF 드롭 시 노트 이름부터 받는다(자동 저장의 제목). 취소하면 업로드 자체를 안 한다.
+  const [pendingPdf, setPendingPdf] = useState<File | null>(null);
+  const [pdfTitle, setPdfTitle] = useState("");
+  // 자동 트리거는 렌더 사이 마이크로태스크에서 발화한다 — 최신 클로저·마운트 여부를 ref 로 본다.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    // StrictMode(dev)는 mount→cleanup→remount 를 돌린다 — 본문에서 true 로 복원해야
+    // cleanup 이 남긴 false 가 영구화되지 않는다(안 하면 dev 에서 자동 트리거가 절대 안 발화).
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false; // 탭 이탈 시 자동 저장 중단(스펙 §1 MVP 한계 — 요약 병합은 스토어가 계속한다)
+    };
+  }, []);
+  const withLlmRef = useRef(true);
+  const runRef = useRef<() => Promise<void>>(async () => {});
+  // withLlm 선언(위)보다 뒤에 있어야 한다 — 매 렌더 최신 값을 ref 에 비춘다.
+  withLlmRef.current = withLlm;
   const [confirmDelSrc, setConfirmDelSrc] = useState(false);
   const [srcErr, setSrcErr] = useState<string | null>(null);
   // 삭제 = 이 노트의 원본을 무르는 유일한 수단(잘못 올림). 원본 파일 + 본문 임베드를 함께 걷어야
@@ -392,6 +413,30 @@ export function InboxSection({
   // 고른 게 없으면 없는 것 — `?? existing[0]` 폴백은 빈 노트에 공간의 첫 위키(제목 정렬 1등)를 띄웠다.
   const refWiki = refCandidates.find((w) => w.path === refWikiPath) ?? null;
 
+  // ── 본문 키워드 강조·클릭 (스펙 §4) — 대상 공간의 위키 제목 전부(정리 글 제외) ──
+  const termTitles = useMemo(
+    () => refCandidates.filter((w) => !isSynthesisPage(w)).map((w) => w.title),
+    [refCandidates],
+  );
+  // 키워드 클릭 → 위키 패널 오픈 + 해당 위키 열람 (resolveLink 와 같은 제목 매칭: 정확 → 대소문자 무시)
+  const openWikiByTitle = (t: string) => {
+    const hit =
+      refCandidates.find((w) => w.title === t) ??
+      refCandidates.find((w) => w.title.toLowerCase() === t.toLowerCase());
+    if (!hit) return;
+    setRefWikiPath(hit.path);
+    togglePanel("wiki", true);
+  };
+
+  // ── 위키 패널 개념 목록 (스펙 §3) — 이번 임포트 개념이 있으면 그것만, 없으면 공간 전체 ──
+  const jobWikiPaths =
+    job?.status === "completed" && job.space === targetSpace && job.noteFile && job.noteFile === savedFile
+      ? (job.wikiPaths ?? [])
+      : [];
+  const listWikis = jobWikiPaths.length
+    ? jobWikiPaths.map((p) => refCandidates.find((w) => w.path === p)).filter((w): w is WikiPageT => !!w)
+    : refCandidates.filter((w) => !isSynthesisPage(w));
+
   // PDF → sources/original-files 저장 + 패널 열람 + 출처 임베드 + 한국어 번역·요약 스트리밍.
   // 요약은 스토어가 소유(fire-and-forget) — 탭을 떠나도 계속 흐르고 종결 시 본문에 병합된다.
   // 같은 PDF 를 다른 노트에서 또 올리면 백엔드가 `-2` 접미사로 별개 파일을 만든다 — 의도된 것이다.
@@ -423,7 +468,19 @@ export function InboxSection({
           return;
         }
         const noteTitle = ds.getState().drafts[draftKey]?.title || f.name.replace(/\.[^.]+$/, "");
-        void ds.getState().runSummary({ noteKey: draftKey, file: stored, title: noteTitle, text });
+        const summaryDone = ds.getState().runSummary({ noteKey: draftKey, file: stored, title: noteTitle, text });
+        // 원샷 파이프라인(스펙 §1) — 요약이 정상 종결(done)했고 이 탭이 살아 있을 때만 자동 저장+위키.
+        // cancelled/failed 는 부분 텍스트만 남기고 수동 저장 폴백. 탭 이탈 시(unmount) 트리거 중단.
+        void summaryDone.then((outcome) => {
+          if (outcome !== "done" || !mountedRef.current) return;
+          // 다른 저장이 돌고 있으면 자동 저장은 조용히 죽는다(run 의 게이트) — 무통보 대신 안내하고 수동 폴백.
+          const otherJob = useImportStore.getState().job;
+          if (otherJob && !["completed", "failed"].includes(otherJob.status)) {
+            onNotice?.("다른 저장이 진행 중이라 자동 저장을 건너뛰었어요 — 저장 버튼으로 이어가세요");
+            return;
+          }
+          void runRef.current();
+        });
       } catch {
         // 추출 실패 — 사용자가 직접 필기하면 됨(embed 는 이미 들어감)
       }
@@ -501,49 +558,73 @@ export function InboxSection({
       return;
     }
     if (pdfs.length > 1) onNotice?.("노트 하나에 PDF 하나예요 — 첫 파일만 올렸어요");
-    void importPdf(pdfs[0]);
+    // 업로드 전에 노트 이름부터 — 자동 저장(원샷 파이프라인)의 제목이 된다(스펙 §1).
+    setPdfTitle(ds.getState().drafts[draftKey]?.title || pdfs[0].name.replace(/\.[^.]+$/, ""));
+    setPendingPdf(pdfs[0]);
+  };
+
+  const confirmPdfImport = () => {
+    const f = pendingPdf;
+    const name = pdfTitle.trim();
+    if (!f || !name) return;
+    setPendingPdf(null);
+    setTitle(name);
+    void importPdf(f);
   };
 
   const run = async () => {
+    // 클로저가 아니라 스토어에서 지금 값을 읽는다 — 자동 트리거(.then)는 요약 병합 set 직후의
+    // 마이크로태스크라, 렌더 클로저 스냅샷(body 에 요약 미병합)이 한 렌더 뒤질 수 있다.
+    const d = { ...EMPTY_DRAFT, ...ds.getState().drafts[draftKey] };
+    const curTitle = d.title.trim();
+    const curSpace = d.targetSpace || space;
+    const importJob = useImportStore.getState().job;
+    const importBusy = !!importJob && !["completed", "failed"].includes(importJob.status);
+    // 이 탭의 요약만 본다 — 전역 job 으로 막으면 다른 탭 요약 중에 이 탭 저장이 조용히 무시된다
+    // (버튼 disabled 도 탭 기준 summarizing 이라 눌리는데 아무 일도 안 일어난다).
+    const sj = ds.getState().job;
+    const summaryStreaming = sj?.noteKey === draftKey && sj.status === "streaming";
+    const pdfWorking = (ds.getState().pdfJobs[draftKey] ?? 0) > 0;
     // pdfBusy/summarizing 게이트: 요약 완료 전 저장하면 아카이브에 PDF 요약이 빠진 채 저장되고
     // 뒤늦은 요약이 비워진 에디터에 고아로 삽입된다.
-    if (!title.trim() || busy || pdfBusy || summarizing) return;
-    const t = resolveTarget(targetSpace);
+    if (!curTitle || importBusy || pdfWorking || summaryStreaming) return;
+    const t = resolveTarget(curSpace);
     // 재저장(saveNote)은 savedFile 이 그 공간에 있을 때만 — 대상 공간을 바꿨으면 새 노트로(다른 공간 노트 덮어쓰기 방지).
-    const reuse = savedFile && savedSpace === targetSpace ? savedFile : undefined;
+    const reuse = d.savedFile && d.savedSpace === curSpace ? d.savedFile : undefined;
     const res = await runImport({
-      space: targetSpace,
+      space: curSpace,
       spaceId: t.spaceId,
-      title: title.trim(),
-      markdown: body,
+      title: curTitle,
+      markdown: d.body,
       subjectIds: t.subjectIds,
-      withLlm,
+      withLlm: withLlmRef.current,
       existing: t.existing,
       crossConcepts: t.crossConcepts,
       noteFile: reuse,
       feynmanNoteId: draftNoteId(draftKey),
     });
     // 생성/갱신된 노트에 바인딩(살아있는 노트) — 노트를 비우지 않고 이어서 필기.
-    if (res.noteFile) write({ savedFile: res.noteFile, savedSpace: targetSpace });
+    if (res.noteFile) write({ savedFile: res.noteFile, savedSpace: curSpace });
     if (res.status === "completed") {
-      write({ savedSnapshot: `${title.trim()} ${body}` });
-      await onRefresh(targetSpace);
+      write({ savedSnapshot: `${curTitle} ${d.body}` });
+      await onRefresh(curSpace);
       onNotice?.(
         res.feynmanUsed
           ? "파인만에서 쓴 설명까지 위키에 반영됐어요 ✓ — 이어서 필기하세요"
-          : withLlm
+          : withLlmRef.current
             ? "위키에 반영됐어요 ✓ — 이어서 필기하세요"
             : "저장됐어요 ✓ — 이어서 필기하세요",
       );
-      // 방금 만든 위키가 있을 때만 위키 패널을 연다 (참조 패널은 저장 대상 공간을 따르므로 다른 공간에 저장해도 뜬다)
-      if (withLlm && res.firstWikiPath) {
-        setRefWikiPath(res.firstWikiPath);
+      // 방금 만든 위키가 있으면 위키 패널을 개념 "목록"부터 연다(스펙 §3 — 전부 보이게).
+      if (withLlmRef.current && (res.wikiPaths?.length || res.firstWikiPath)) {
+        setRefWikiPath("");
         togglePanel("wiki", true);
       }
     } else if (res.status === "failed") {
       onNotice?.(`저장 실패: ${res.errorMessage ?? "알 수 없는 오류"}`);
     }
   };
+  runRef.current = run; // 자동 트리거(importPdf 의 .then)가 최신 클로저를 부른다
 
 
 
@@ -617,6 +698,8 @@ export function InboxSection({
             height="100%"
             className="h-full"
             frameless
+            wikiTerms={termTitles}
+            onWikiTerm={openWikiByTitle}
           />
         </div>
         {summaryJob?.noteKey === draftKey && <SummaryStrip job={summaryJob} onCancel={() => ds.getState().cancelSummary()} onClose={() => ds.getState().clearJob()} />}
@@ -693,28 +776,23 @@ export function InboxSection({
     </section>
   );
 
-  // ── 위키 패널 (우측 보조) — 생성된 위키 참조 ──
+  // ── 위키 패널 (우측 보조) — 개념 목록(기본) ↔ 열람. 드롭다운 대신 본문 키워드·목록으로 연다 ──
   const wikiPane = (
     <section style={{ width: `${paneW.wiki}%`, minWidth: 280 }} className="flex min-w-0 shrink-0 flex-col border-l border-hairline">
       <PaneHeader
         label="위키"
         hint={refCandidates.length > 0 ? `${targetName}의 위키 ${refCandidates.length}개` : "위키 없음"}
         right={
-          <div className="flex min-w-0 items-center gap-1.5">
-            {refCandidates.length > 0 && (
-              <PaneSelect
-                value={refWiki?.path ?? ""}
-                onChange={setRefWikiPath}
-                options={refCandidates.map((w) => ({ value: w.path, label: w.title }))}
-                placeholder="위키 고르기…"
-              />
-            )}
-            {refWiki && (
+          refWiki ? (
+            <div className="flex min-w-0 items-center gap-1.5">
+              <Button size="sm" variant="utility" className="shrink-0 whitespace-nowrap" onClick={() => setRefWikiPath("")}>
+                ← 목록
+              </Button>
               <Button size="sm" variant="utility" className="shrink-0 whitespace-nowrap" onClick={() => onOpenWiki(targetSpace, refWiki.path)}>
                 열기
               </Button>
-            )}
-          </div>
+            </div>
+          ) : undefined
         }
       />
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
@@ -738,6 +816,24 @@ export function InboxSection({
                 </section>
               ) : null;
             })()}
+          </>
+        ) : listWikis.length ? (
+          <>
+            <p className="ds-eyebrow mb-2 text-ink-faint">{jobWikiPaths.length ? "이 노트의 개념" : "이 공간의 개념"}</p>
+            <ul className="space-y-0.5">
+              {listWikis.map((w) => (
+                <li key={w.path}>
+                  <button
+                    type="button"
+                    onClick={() => setRefWikiPath(w.path)}
+                    className="flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-2 text-left text-[14px] text-ink-2 transition-colors hover:bg-surface-soft hover:text-ink"
+                  >
+                    <span className="truncate font-medium">{w.title}</span>
+                    <Icons.ChevronRightIcon size={14} className="shrink-0 text-ink-faint" />
+                  </button>
+                </li>
+              ))}
+            </ul>
           </>
         ) : (
           <p className="pt-8 text-center text-[14px] text-ink-muted">
@@ -779,6 +875,38 @@ export function InboxSection({
           onConfirm={deleteSource}
           onCancel={() => setConfirmDelSrc(false)}
         />
+      )}
+
+      {/* PDF 노트 이름 모달 — 확인하면 업로드→추출→요약→자동 저장+위키까지 원샷(스펙 §1) */}
+      {pendingPdf && (
+        <div className="fixed inset-0 z-40 flex items-start justify-center bg-surface/60 backdrop-blur-md pt-[16vh]" onClick={() => setPendingPdf(null)}>
+          <div className="w-full max-w-sm rounded-xl border border-hairline bg-surface p-4 shadow-elevated" onClick={(e) => e.stopPropagation()}>
+            <p className="text-[15px] font-semibold text-ink">노트 이름</p>
+            <p className="mt-1 text-[13px] text-ink-muted">이 PDF로 만들 노트의 이름이에요 — 요약과 위키까지 자동으로 만들어요.</p>
+            <input
+              autoFocus
+              value={pdfTitle}
+              onChange={(e) => setPdfTitle(e.target.value)}
+              onKeyDown={(e) => {
+                // 한글 조합 확정 Enter 가 파이프라인을 쏘면 안 된다. WebKit(macOS WKWebView)은
+                // 확정 Enter 를 isComposing=false·keyCode 229 로 주므로 둘 다 걸러야 한다.
+                if (e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229) return;
+                if (e.key === "Enter") confirmPdfImport();
+                if (e.key === "Escape") setPendingPdf(null);
+              }}
+              aria-label="노트 이름"
+              className="mt-3 w-full rounded-md border border-hairline bg-surface px-3 py-2 text-[14px] text-ink outline-none focus:border-primary"
+            />
+            <div className="mt-3 flex justify-end gap-2">
+              <Button size="sm" variant="utility" onClick={() => setPendingPdf(null)}>
+                취소
+              </Button>
+              <Button size="sm" variant="primary" disabled={!pdfTitle.trim()} onClick={confirmPdfImport}>
+                가져오기
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* 업로드 팝업 — 새 노트/PDF 패널 헤더 버튼으로 열림 */}
@@ -965,34 +1093,6 @@ function PaneDivider({ onPointerDown, onDoubleClick }: { onPointerDown: (e: Reac
       onDoubleClick={onDoubleClick}
       className="z-10 -mx-[3px] w-[6px] shrink-0 cursor-col-resize transition-colors hover:bg-primary/30 active:bg-primary/40"
     />
-  );
-}
-
-// value="" 일 때 placeholder 옵션이 없으면 브라우저가 첫 옵션을 고른 것처럼 그린다 — 자동 선택을 없앤 이상 반드시 필요.
-function PaneSelect({
-  value,
-  onChange,
-  options,
-  placeholder,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  options: { value: string; label: string }[];
-  placeholder?: string;
-}) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="min-w-0 max-w-[180px] truncate rounded-md border border-hairline bg-surface px-2 py-1 text-[12px] text-ink outline-none"
-    >
-      {!value && <option value="">{placeholder ?? "고르기…"}</option>}
-      {options.map((o) => (
-        <option key={o.value} value={o.value}>
-          {o.label}
-        </option>
-      ))}
-    </select>
   );
 }
 

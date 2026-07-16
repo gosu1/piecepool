@@ -5,6 +5,7 @@ import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
 import { memo, useMemo, type ReactNode } from "react";
 import { remarkWikilink, parseEmbedTarget } from "./wikilink";
+import { remarkWikiTerm } from "./wikiTerms";
 import { remarkCallout } from "./callout";
 import { FilePreview } from "./FilePreview";
 
@@ -19,6 +20,8 @@ export interface MarkdownProps {
   /** 위키링크 대상 존재 여부 — false 면 깨진 링크 표식(점선 + tooltip)으로 렌더(수용기준 §2.3). */
   linkExists?: (target: string) => boolean;
   embedSpace?: string; // 있으면 ![[파일]] 를 sources/original-files/ 에서 실제 렌더
+  /** 본문 속 개념 키워드 강조 — 위키 제목 목록. 매치 클릭은 onLink(제목)로 전달(DocView 전용). */
+  terms?: string[];
 }
 
 // ── embed: embedSpace 있으면 FilePreview, 없으면 placeholder ──
@@ -42,12 +45,21 @@ function Embed({ target, space }: { target: string; space?: string }) {
 // remarkMath: $...$/$$...$$ → math 노드, rehypeKatex 가 hast 에서 KaTeX 로. remarkCallout: > [!easy] → details.
 const REMARK_PLUGINS = [remarkGfm, remarkMath, remarkWikilink as never, remarkCallout as never];
 const REHYPE_PLUGINS = [rehypeKatex];
-// 커스텀 스킴(wiki:/embed:) 은 기본 sanitizer 가 제거하므로 보존 — 나머지는 기본 정화.
-const urlTransform = (url: string) => (url.startsWith("wiki:") || url.startsWith("embed:") ? url : defaultUrlTransform(url));
+// 커스텀 스킴(wiki:/embed:/term:) 은 기본 sanitizer 가 제거하므로 보존 — 나머지는 기본 정화.
+const urlTransform = (url: string) =>
+  url.startsWith("wiki:") || url.startsWith("embed:") || url.startsWith("term:") ? url : defaultUrlTransform(url);
 
 // memo + components useMemo: 부모(노트 에디터) 리렌더마다 components 신원이 바뀌면
 // react-markdown 이 embed(=FilePreview/PDF) 를 재마운트해 PDF 를 다시 로드한다 → 초기화·렉.
-export const Markdown = memo(function Markdown({ source, className, onLink, linkExists, embedSpace }: MarkdownProps) {
+export const Markdown = memo(function Markdown({ source, className, onLink, linkExists, embedSpace, terms }: MarkdownProps) {
+  // terms 는 내용 키로 memo — 부모가 매 렌더 새 배열을 줘도 파이프라인 재실행(임베드 재마운트) 없음.
+  const termsKey = terms?.join("\n") ?? "";
+  const remarkPlugins = useMemo(
+    () => (terms?.length ? [...REMARK_PLUGINS, [remarkWikiTerm, { titles: terms }] as never] : REMARK_PLUGINS),
+    // terms 배열 신원이 아니라 내용(termsKey)이 진실이다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [termsKey],
+  );
   const components = useMemo<Components>(
     () => ({
         a({ href, children }) {
@@ -60,6 +72,19 @@ export const Markdown = memo(function Markdown({ source, className, onLink, link
                 return s;
               }
             };
+            if (h.startsWith("term:")) {
+              const target = decode(h.slice(5));
+              // 은은한 키워드 강조 — 일반 위키링크(primary 밑줄)보다 조용하게, 배경 틴트 + 점선.
+              return (
+                <button
+                  type="button"
+                  onClick={() => onLink?.(target)}
+                  className="rounded-[3px] bg-primary/[0.08] px-0.5 text-ink underline decoration-primary/50 decoration-dotted underline-offset-[3px] hover:bg-primary/[0.16]"
+                >
+                  {children}
+                </button>
+              );
+            }
             if (h.startsWith("wiki:")) {
               const target = decode(h.slice(5));
               const broken = linkExists ? !linkExists(target) : false;
@@ -121,7 +146,7 @@ export const Markdown = memo(function Markdown({ source, className, onLink, link
 
   return (
     <div className={`ds-md space-y-3 ${className ?? ""}`}>
-      <ReactMarkdown remarkPlugins={REMARK_PLUGINS} rehypePlugins={REHYPE_PLUGINS} urlTransform={urlTransform} components={components}>
+      <ReactMarkdown remarkPlugins={remarkPlugins} rehypePlugins={REHYPE_PLUGINS} urlTransform={urlTransform} components={components}>
         {source}
       </ReactMarkdown>
     </div>
