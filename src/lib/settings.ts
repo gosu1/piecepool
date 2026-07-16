@@ -99,3 +99,26 @@ export function getOutputLanguage(): OutputLanguage {
 export function setOutputLanguage(v: OutputLanguage): void {
   ls()?.setItem(OUTPUT_LANGUAGE_KEY, v);
 }
+
+// ── 본문 글자 크기 — 에디터(CM6 테마)와 읽기 모드(markdown.tsx)가 공유하는 CSS 변수 ──
+// 스펙: docs/superpowers/specs/2026-07-16-body-font-size-design.md
+const BODY_FONT_KEY = "body-font-size";
+export const BODY_FONT_MIN = 13;
+export const BODY_FONT_MAX = 17;
+const BODY_FONT_DEFAULT = 15;
+
+export function getBodyFontSize(): number {
+  const raw = Number(ls()?.getItem(BODY_FONT_KEY) ?? NaN);
+  if (!Number.isInteger(raw)) return BODY_FONT_DEFAULT;
+  return Math.min(BODY_FONT_MAX, Math.max(BODY_FONT_MIN, raw));
+}
+
+export function setBodyFontSize(px: number): void {
+  ls()?.setItem(BODY_FONT_KEY, String(px));
+}
+
+/** documentElement 에 --pp-body-font-size 주입 — 앱 시작(PiecePoolApp)·설정 변경 공용. */
+export function applyBodyFontSize(px: number): void {
+  if (typeof document === "undefined") return;
+  document.documentElement.style.setProperty("--pp-body-font-size", `${px}px`);
+}
