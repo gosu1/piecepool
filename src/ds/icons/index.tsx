@@ -304,6 +304,12 @@ export const PinIcon = (p: IconProps) => (
   </Svg>
 );
 
+export const StarIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.7l5.9-.9L12 3.5Z" />
+  </Svg>
+);
+
 export const LinkIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M10 14a4 4 0 0 0 6 .4l3-3a4 4 0 1 0-5.7-5.7l-1.4 1.4" />

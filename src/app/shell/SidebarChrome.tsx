@@ -84,11 +84,29 @@ export function SidebarShortcuts({
   /** 우클릭 컨텍스트 메뉴 "고정 해제" */
   onUnpin?: (id: string) => void;
 }) {
-  // 우클릭 메뉴가 열린 고정 문서 id
+  // 우클릭 메뉴가 열린 북마크 문서 id
   const [menuFor, setMenuFor] = useState<string | null>(null);
+  // 북마크 섹션 접기 — 드롭다운. 기기에 상태 유지.
+  const [bmOpen, setBmOpen] = useState(() => {
+    try {
+      return localStorage.getItem("pp-sidebar-bm-collapsed") !== "1";
+    } catch {
+      return true;
+    }
+  });
+  const toggleBm = () =>
+    setBmOpen((v) => {
+      const nv = !v;
+      try {
+        localStorage.setItem("pp-sidebar-bm-collapsed", nv ? "0" : "1");
+      } catch {
+        /* ignore */
+      }
+      return nv;
+    });
   return (
     <div className="border-b border-hairline px-2 pb-1.5">
-      {/* 가운데 정렬 · 순서: 새 폴더 → 정렬 → 전체 여닫이. 아이콘 3개뿐이라 간격 여유 있게 */}
+      {/* 가운데 정렬 · 순서: 새 폴더 → 정렬 → 전체 여닫이 → 북마크(별). */}
       <div className="flex items-center justify-center gap-2.5">
         {/* 새 폴더(지식 공간) 추가. 홈은 좌측 리본 집 아이콘이 담당 */}
         <IconButton size="sm" aria-label="새 폴더 추가" onClick={onNewFolder}>
@@ -100,44 +118,63 @@ export function SidebarShortcuts({
         <IconButton size="sm" aria-label={allCollapsed ? "전체 펼치기" : "전체 접기"} onClick={onToggleCollapseAll}>
           {allCollapsed ? <Icons.ChevronsUpDownIcon size={19} /> : <Icons.ChevronsDownUpIcon size={19} />}
         </IconButton>
+        {/* 북마크 — 별 아이콘 토글. 누르면 아래로 목록 드롭다운. 펼치면 꽉 찬 별로. */}
+        {pinned.length > 0 && (
+          <IconButton size="sm" aria-label="북마크" onClick={toggleBm}>
+            {/* 펼치면 꽉 참, 접히면 빈 별 — 색은 다른 툴바 아이콘과 같은 기본색(모노크롬) */}
+            <Icons.StarIcon size={19} fill={bmOpen ? "currentColor" : "none"} />
+          </IconButton>
+        )}
       </div>
-      {pinned.length > 0 && (
-        <div className="pt-0.5">
+      {/* 북마크 드롭다운 — 별을 누르면 여기 펼쳐진다. 우클릭·hover X 로 해제. */}
+      {pinned.length > 0 && bmOpen && (
+        <div className="pt-1">
           {pinned.map((p) => (
-            <div key={p.id} className="relative">
-              <button
-                type="button"
-                onClick={() => onOpenPinned?.(p.id)}
-                onContextMenu={(e) => {
-                  if (!onUnpin) return;
-                  e.preventDefault();
-                  setMenuFor(p.id);
-                }}
-                className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-[13px] text-ink-2 hover:bg-surface-soft hover:text-ink"
-              >
-                <Icons.PinIcon size={13} className="shrink-0 text-ink-faint" />
-                <span className="truncate">{p.label}</span>
-              </button>
-              {menuFor === p.id && (
-                <>
-                  <div className="fixed inset-0 z-20" onClick={() => setMenuFor(null)} onContextMenu={(e) => { e.preventDefault(); setMenuFor(null); }} />
-                  <div className="absolute left-2 top-full z-30 mt-0.5 w-36 rounded-lg border border-hairline bg-surface p-1 shadow-elevated">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onUnpin?.(p.id);
-                        setMenuFor(null);
-                      }}
-                      className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-[13px] text-ink-2 hover:bg-surface-soft hover:text-ink"
-                    >
-                      <Icons.PinIcon size={13} className="shrink-0 text-ink-faint" />
-                      <span>고정 해제</span>
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          ))}
+              <div key={p.id} className="group relative">
+                <button
+                  type="button"
+                  onClick={() => onOpenPinned?.(p.id)}
+                  onContextMenu={(e) => {
+                    if (!onUnpin) return;
+                    e.preventDefault();
+                    setMenuFor(p.id);
+                  }}
+                  className="flex h-[28px] w-full items-center gap-2 rounded-md pl-1.5 pr-7 text-left text-[15px] text-ink-2 hover:bg-surface-soft hover:text-ink"
+                >
+                  <Icons.FileIcon size={14} className="shrink-0 text-ink-faint" />
+                  <span className="truncate">{p.label}</span>
+                </button>
+                {/* hover 시 X — 북마크 바로 해제(파일 자체는 그대로) */}
+                {onUnpin && (
+                  <button
+                    type="button"
+                    onClick={() => onUnpin(p.id)}
+                    aria-label="북마크 해제"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-0.5 text-ink-faint opacity-0 transition-opacity hover:text-ink group-hover:opacity-100"
+                  >
+                    <Icons.CloseIcon size={13} />
+                  </button>
+                )}
+                {menuFor === p.id && (
+                  <>
+                    <div className="fixed inset-0 z-20" onClick={() => setMenuFor(null)} onContextMenu={(e) => { e.preventDefault(); setMenuFor(null); }} />
+                    <div className="absolute left-2 top-full z-30 mt-0.5 w-36 rounded-lg border border-hairline bg-surface p-1 shadow-elevated">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onUnpin?.(p.id);
+                          setMenuFor(null);
+                        }}
+                        className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-[13px] text-ink-2 hover:bg-surface-soft hover:text-ink"
+                      >
+                        <Icons.StarIcon size={13} className="shrink-0 text-ink-faint" />
+                        <span>북마크 해제</span>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
         </div>
       )}
     </div>

@@ -28,6 +28,9 @@ export function StudyHome({
   notesBySlug,
   graphBySlug,
   currentSpace,
+  studyHomeItems,
+  onOpenDoc,
+  onRemoveFromHome,
   onOpenWiki,
   onNewNote,
   onNewFolder,
@@ -38,6 +41,10 @@ export function StudyHome({
   notesBySlug: Record<string, ArchiveNote[]>;
   graphBySlug: Record<string, GraphData>;
   currentSpace: string;
+  // "Study Home에 추가"(파일 우클릭)한 문서 — 홈에 큰 파일 카드로 뜬다. 북마크(사이드바)와 별개.
+  studyHomeItems: { id: string; title: string; kind: "wiki" | "archive"; space: string; file: string }[];
+  onOpenDoc: (kind: "wiki" | "archive", space: string, file: string) => void;
+  onRemoveFromHome: (id: string) => void;
   onOpenWiki: (space: string, file: string) => void;
   onNewNote: () => void;
   // 폴더(지식 공간) 0개일 때 첫 행동 — 노트가 아니라 폴더부터 만들게 유도한다.
@@ -110,7 +117,7 @@ export function StudyHome({
       <button
         type="button"
         onClick={onNewNote}
-        className="mt-9 flex w-full items-center justify-center gap-3 rounded-2xl bg-primary px-6 py-[18px] text-[17px] font-semibold text-on-primary shadow-[0_14px_32px_-12px_var(--color-primary)] dark:shadow-[0_10px_24px_-17px_var(--color-primary)] transition-transform hover:-translate-y-0.5"
+        className="mt-9 flex w-full items-center justify-center gap-3 rounded-2xl bg-primary px-6 py-[19px] text-[18px] font-semibold text-on-primary shadow-[0_14px_32px_-12px_var(--color-primary)] dark:shadow-[0_10px_24px_-17px_var(--color-primary)] transition-transform hover:-translate-y-0.5"
       >
         <Icons.PlusIcon size={22} /> 새 노트
       </button>
@@ -123,13 +130,44 @@ export function StudyHome({
       >
         <ConceptMapPreview empty={conceptCount < 2} />
         <div className="flex items-center gap-2.5 px-1 pt-4">
-          <span className="text-[17px] font-bold text-ink">개념 지도</span>
-          <span className="text-[13px] text-ink-faint">
+          <span className="text-[18px] font-bold text-ink">개념 지도</span>
+          <span className="text-[14px] text-ink-faint">
             {conceptCount}개 개념 · {relationCount}개 연결
           </span>
           <Icons.ArrowRightIcon size={18} className="ml-auto text-primary" />
         </div>
       </button>
+
+      {/* Study Home 타일 — 파일 우클릭 "Study Home에 추가"로 올린 것. 큰 파일 카드로 바로 연다. */}
+      {studyHomeItems.length > 0 && (
+        <section className="mt-10">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-3">
+            {studyHomeItems.map((x) => (
+              <div key={x.id} className="group relative">
+                <button
+                  type="button"
+                  onClick={() => onOpenDoc(x.kind, x.space, x.file)}
+                  title={x.title}
+                  className="flex w-full flex-col items-center gap-2.5 rounded-2xl border border-hairline bg-surface p-4 text-center shadow-soft transition-transform hover:-translate-y-0.5"
+                >
+                  <Icons.FileIcon size={38} className="text-ink-muted transition-colors group-hover:text-primary" />
+                  <span className="line-clamp-2 text-[13px] font-medium leading-snug text-ink">{x.title}</span>
+                  <span className="text-[11px] text-ink-faint">{nameOf(x.space)}</span>
+                </button>
+                {/* hover 시 X — Study Home 에서 바로 제거(파일 자체는 그대로) */}
+                <button
+                  type="button"
+                  onClick={() => onRemoveFromHome(x.id)}
+                  aria-label="Study Home에서 제거"
+                  className="absolute right-1.5 top-1.5 rounded-md bg-surface/80 p-1 text-ink-faint opacity-0 transition-opacity hover:bg-surface-soft hover:text-ink group-hover:opacity-100"
+                >
+                  <Icons.CloseIcon size={13} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* 최근 위키 — 이어서 학습(타임라인 피드) */}
       {recentWiki.length > 0 && (
