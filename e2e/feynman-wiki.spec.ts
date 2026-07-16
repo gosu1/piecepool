@@ -131,18 +131,22 @@ test("진행 중인 세션은 다른 위키를 열어도 파괴되지 않는다"
 /** 인박스 탭을 새로 열고 → 위키 패널을 켜고 → 목록에서 개념을 고른다.
  *  "이 공간의 개념" 목록(잡 없이 공간 전체 브라우징 시)은 refCandidates 에서
  *  isSynthesisPage 를 걸러낸 것이라, 시드 위키(프로세스 등)는 항상 여기로 뜬다. */
+/**
+ * 이 노트에서 파생되지 **않은** 위키를 인박스 패널에 띄운다.
+ *
+ * 목록은 이제 이 노트에서 파생된 개념(sourceIds)만 보여주므로, 새 노트에선 비어 있다.
+ * 남은 경로는 본문 키워드 클릭 하나뿐이다 — 다른 노트에서 나온 개념도 본문에 언급되면
+ * 하이라이트되고 눌러서 볼 수 있다(상호참조).
+ */
 async function openInboxWiki(page: Page, title: string) {
   await page.getByRole("button", { name: "새 노트 작성" }).click();
-  await page.getByRole("button", { name: "위키 패널", exact: true }).click();
-  await page
-    .locator("text=이 공간의 개념")
-    .locator("xpath=following-sibling::ul[1]")
-    .getByRole("button", { name: title, exact: true })
-    .click();
+  await page.locator(".cm-content").click();
+  await page.keyboard.type(title);
+  await page.locator(`.cm-wiki-term[data-wiki-term="${title}"]`).first().click();
 }
 
-/** 노트 하나를 "저장 + AI 정리" 로 임포트하고, 방금 만들어진 개념을 위키 패널에서 연다. */
-async function importAndOpen(page: Page, title: string, concept: string) {
+/** 노트 하나를 "저장 + AI 정리" 로 임포트한다. 위키 패널은 개념 **목록**이 열린 채로 끝난다. */
+async function importNote(page: Page, title: string, concept: string) {
   await page.route("**generativelanguage.googleapis.com**", (route) =>
     route.fulfill(
       chat({
@@ -159,11 +163,17 @@ async function importAndOpen(page: Page, title: string, concept: string) {
   await page.keyboard.type("본문");
   await page.getByRole("button", { name: /AI 정리/ }).click();
   await expect(page.getByText("완료", { exact: false }).first()).toBeVisible();
-  await page
-    .locator("text=이 노트의 개념")
-    .locator("xpath=following-sibling::ul[1]")
-    .getByRole("button", { name: concept, exact: true })
-    .click();
+  // exact 를 쓰지 않는다 — 목록 버튼의 접근성 이름에 "새 개념"/"얹힘" 배지가 함께 들어간다.
+  await expect(conceptList(page).getByRole("button", { name: concept })).toBeVisible();
+}
+
+/** 위키 패널의 "이 노트의 개념" 목록. 개념을 고르면 목록 대신 열람 뷰로 바뀐다. */
+const conceptList = (page: Page) => page.locator("text=이 노트의 개념").locator("xpath=following-sibling::ul[1]");
+
+/** 임포트하고 방금 만들어진 개념을 연다(목록 → 열람). */
+async function importAndOpen(page: Page, title: string, concept: string) {
+  await importNote(page, title, concept);
+  await conceptList(page).getByRole("button", { name: concept }).click();
 }
 
 test("인박스 위키 패널 — 방금 만들어진 개념이면 파인만이 자동으로 열린다", async ({ page }) => {
@@ -172,9 +182,19 @@ test("인박스 위키 패널 — 방금 만들어진 개념이면 파인만이 
   await expect(box(page)).toBeVisible();
 });
 
-test("인박스 위키 패널 — 임포트와 무관하게 참고로 연 위키는 자동으로 안 열린다", async ({ page }) => {
+test("인박스 위키 패널 — 이 노트에서 파생된 개념만 목록에 뜨고, 처음 만든 건지 얹힌 건지 표시한다", async ({ page }) => {
+  // 판정은 sourceIds 다(llmApply). job 은 휘발성이라 못 쓴다 — 재시작하면 사라진다.
+  await importNote(page, "목록 범위 테스트", "임계 구역"); // 목록에 머문다 — 개념을 클릭하면 열람 뷰로 바뀐다
+  const list = conceptList(page);
+  await expect(list.getByRole("button", { name: "임계 구역" })).toBeVisible();
+  await expect(list.getByText("새 개념")).toBeVisible(); // sourceIds[0] === 이 노트
+  // 이 노트와 무관한 seed 개념은 목록에 없다 — 공간 전체가 아니라 이 노트에서 나온 것만.
+  await expect(list.getByRole("button", { name: "프로세스" })).toHaveCount(0);
+});
+
+test("인박스 위키 패널 — 본문 키워드로 연 남의 개념은 자동으로 안 열린다", async ({ page }) => {
   // 노트 쓰다가 참고하려고 옛 위키를 열었을 뿐인데 "설명하세요" 가 뜨면 필기가 끊긴다.
-  // jobWikiPaths 가 비어 있는 게 "지금은 쓰는 시간" 신호다.
+  // justImported 가 거짓인 게 "지금은 쓰는 시간" 신호다.
   await openInboxWiki(page, "프로세스");
   await expect(box(page)).toHaveCount(0);
   await expect(page.getByRole("button", { name: "이 개념을 설명해보기" })).toBeVisible();
@@ -193,40 +213,16 @@ test("인박스 위키 패널 — 수동 버튼으로 시작하고 판정하면 
   await expect(page.getByRole("button", { name: /이해함/ })).toBeVisible();
 });
 
-/**
- * ⚠ 이건 정리 글(합성 페이지)이 아니라 isSynthesisPage 의 접두사 충돌이다("Syn X" → concept-syn-x).
- *
- * 진짜 정리 글(convertStore.runConvert 산출물)은 이 앱에 만드는 UI 진입점이 없을뿐더러,
- * 있다 해도 인박스 위키 패널의 선택 경로 셋(목록 refCandidates.filter(!isSynthesisPage) ·
- * 키워드 termTitles · jobWikiPaths)이 전부 isSynthesisPage 를 거르거나 애초에
- * concept-syn-* 를 만들 수 없어 "정리 글이 파인만에 안 뜬다" 는 이 경로로 테스트할 수 없다.
- * 여기서 실제로 걸리는 건 "SYN Flood" 같은 실재 개념이 정리 글로 오인되는 **버그**(후속 이슈,
- * conceptId 스킴 변경 + 마이그레이션 필요라 이 PR 범위 밖)다. 그 버그를 고치는 사람이
- * "정리 글엔 파인만이 없다" 라는 이름으로 이 테스트를 실패시켜 자신이 정리 글 처리를
- * 깼다고 오도되면 안 된다 — 버그가 고쳐지는 날 이 테스트는 **없어지는 게 맞다**
- * (가드의 진짜 목적은 그 시점에 이미 여기서 도달 불가하기 때문).
- */
-test("인박스 위키 패널 — conceptId 가 concept-syn-* 인 페이지엔 파인만이 안 붙는다", async ({ page }) => {
-  await page.route("**generativelanguage.googleapis.com**", (route) =>
-    route.fulfill(
-      chat({
-        concepts: [
-          { title: "Syn X", summary: "테스트용 합성 대역", explanation: "테스트용 합성 대역", examples: [], sourceRefs: [], sourceEmbeds: [] },
-        ],
-        relations: [],
-      }),
-    ),
-  );
-  await page.getByRole("button", { name: "새 노트 작성" }).click();
-  await page.getByPlaceholder("새 페이지").fill("정리 글 가드 테스트");
-  await page.locator(".cm-content").click();
-  await page.keyboard.type("본문");
-  await page.getByRole("button", { name: /AI 정리/ }).click();
-  await expect(page.getByText("완료", { exact: false }).first()).toBeVisible();
-  await page
-    .locator("text=이 노트의 개념")
-    .locator("xpath=following-sibling::ul[1]")
-    .getByRole("button", { name: "Syn X", exact: true })
-    .click();
-  await expect(page.getByRole("button", { name: "이 개념을 설명해보기" })).toHaveCount(0);
-});
+// ⚠ 삭제됨: "인박스 위키 패널 — conceptId 가 concept-syn-* 인 페이지엔 파인만이 안 붙는다"
+//
+// 이제 refWiki 로 정리 글이 **어느 경로로도** 도달할 수 없다 — 목록(derived)·키워드(termTitles)가
+// 둘 다 isSynthesisPage 를 거르고, 그것 말고 refWikiPath 를 세팅하는 길이 없다.
+// 그래서 패널의 !isSynthesisPage(refWiki) 가드는 도달 불가한 방어적 대칭으로만 남는다
+// (같은 파일의 다른 isSynthesisPage 호출부·wikiReader 와 모양을 맞춰, 다음 사람이 비대칭을
+// 보고 되돌리지 않게 하는 용도).
+//
+// 옛 테스트는 진짜 정리 글이 아니라 isSynthesisPage 의 접두사 충돌("Syn X" → concept-syn-x)을
+// 타고 그 가드를 재현했다. 이제 그 우회로마저 목록 필터에 막혔다. 억지로 되살리면 테스트가
+// 검증하는 건 가드가 아니라 **버그**("SYN Flood" 같은 실재 개념이 정리 글로 오인됨)이고,
+// 누가 그 버그를 고치는 날 정리 글과 무관한 이름으로 실패해 고치는 사람을 오도한다.
+// 충돌 버그는 후속 이슈(conceptId 스킴 변경 + 마이그레이션 필요).

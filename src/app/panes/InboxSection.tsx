@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, FileDropzone, Icons, cn } from "../../ds";
-import type { KnowledgeSpace, WikiPage as WikiPageT, GraphData } from "../../lib/types";
+import type { KnowledgeSpace, WikiPage as WikiPageT, ArchiveNote as ArchiveNoteT, GraphData } from "../../lib/types";
 import * as ipc from "../../lib/ipc";
 import { extractPdfTextWithFallback } from "../../lib/pdfText";
 import { useImportStore } from "../../store/importStore";
@@ -154,6 +154,7 @@ export function InboxSection({
   existing,
   spaces,
   wikiBySlug,
+  notesBySlug,
   graphBySlug,
   onCreateSpace,
   onOpenWiki,
@@ -175,6 +176,8 @@ export function InboxSection({
   // 저장 대상 폴더 선택용 — 전체 지식 공간 목록과 공간별 위키(대상 폴더의 dedup 기준)
   spaces: KnowledgeSpace[];
   wikiBySlug: Record<string, WikiPageT[]>;
+  /** 노트 sourceId 조회용 — 위키 패널 목록이 "이 노트에서 파생된 것" 을 sourceIds 로 가린다 */
+  notesBySlug: Record<string, ArchiveNoteT[]>;
   // 위키 참조 패널의 개념 중심 미니 그래프용 — 대상 공간 그래프(노드·관계)
   graphBySlug: Record<string, GraphData>;
   // 저장 위치 드롭다운에서 바로 새 과목 폴더 만들기 — 만든 slug 를 돌려주면 그 과목으로 대상이 옮겨간다.
@@ -413,7 +416,6 @@ export function InboxSection({
 
   // 참조 후보 = 저장 대상 공간의 위키. 대상이 바뀌면 이전 공간에서 고른 참조는 버린다(파일명이 공간 간 충돌한다).
   const refCandidates = resolveTarget(targetSpace).existing;
-  const targetName = spaces.find((s) => s.slug === targetSpace)?.name ?? targetSpace;
   useEffect(() => setRefWikiPath(""), [targetSpace]);
   // 고른 게 없으면 없는 것 — `?? existing[0]` 폴백은 빈 노트에 공간의 첫 위키(제목 정렬 1등)를 띄웠다.
   const refWiki = refCandidates.find((w) => w.path === refWikiPath) ?? null;
@@ -433,22 +435,39 @@ export function InboxSection({
     togglePanel("wiki", true);
   };
 
-  // ── 위키 패널 개념 목록 (스펙 §3) — 이번 임포트 개념이 있으면 그것만, 없으면 공간 전체 ──
-  const jobWikiPaths =
-    job?.status === "completed" && job.space === targetSpace && job.noteFile && job.noteFile === savedFile
-      ? (job.wikiPaths ?? [])
-      : [];
-  const listWikis = jobWikiPaths.length
-    ? jobWikiPaths.map((p) => refCandidates.find((w) => w.path === p)).filter((w): w is WikiPageT => !!w)
-    : refCandidates.filter((w) => !isSynthesisPage(w));
+  // ── 위키 패널 개념 목록 — 이 노트에서 파생된 것만 ──
+  //
+  // 판정은 sourceIds 다(llmApply.ts:243). 새 개념은 `[이 노트]`, 병합이면 `[...기존, 이 노트]` 로
+  // 쌓이므로 **includes = 이 노트에서 파생**, **[0] === 이 노트 = 이 노트가 처음 만듦** 이다.
+  // Set 이 삽입 순서를 지키고 기존 것이 앞에 오니 [0] 은 최초 생성자로 영원히 고정된다.
+  //
+  // job.wikiPaths 를 안 쓰는 이유: job 은 휘발성이라 탭을 떠나거나 앱을 껐다 켜면 사라진다.
+  // 그래서 임포트 직후에만 이 노트 것이 뜨고 그 뒤엔 공간 전체가 떴다. sourceIds 는 .md
+  // frontmatter 에 박혀 있어 재시작해도 산다.
+  //
+  // refCandidates(공간 전체)는 그대로 둔다 — 본문 키워드 클릭은 다른 노트에서 나온 개념도
+  // 열 수 있어야 한다(상호참조). 좁히는 건 훑어보는 **목록**뿐이다.
+  const noteSourceId = savedFile ? (notesBySlug[targetSpace] ?? []).find((n) => n.path === savedFile)?.sourceId : undefined;
+  const derived = useMemo(
+    () => (noteSourceId ? refCandidates.filter((w) => !isSynthesisPage(w) && w.sourceIds.includes(noteSourceId)) : []),
+    [refCandidates, noteSourceId],
+  );
+  /** 이 노트가 처음 만든 개념인가 — 아니면 이 노트가 얹힌(병합된) 것이다. */
+  const isNewHere = (w: WikiPageT) => w.sourceIds[0] === noteSourceId;
+  const listWikis = derived;
+
+  // 자동 열기 게이트는 여전히 job 이다 — "방금 임포트가 끝났다" = "지금은 읽는 시간" 신호이고,
+  // 그건 본질적으로 휘발성이다(재방문은 자동으로 열리면 안 된다). 목록 범위와는 다른 질문이다.
+  const justImported =
+    job?.status === "completed" && job.space === targetSpace && !!job.noteFile && job.noteFile === savedFile;
 
   // ── 방금 만들어진 개념이면 파인만을 자동으로 연다 ──
   //
   // 위키 개념은 학습자가 만든 것이 아니다. 막 생성된 걸 그냥 읽고 넘기면 이해했다는 착각만 남는다(IOED).
   // 판정은 위키 문서 탭과 같다 — 기록 0개면 신규. 다만 여기엔 **임포트 직후** 조건이 하나 더 붙는다:
   // 노트를 쓰다가 참고하려고 옛 위키를 열었을 뿐인데 "설명하세요" 가 뜨면 필기가 끊긴다.
-  // jobWikiPaths 는 이 노트의 임포트가 방금 끝났을 때만 채워지므로 그게 곧 "지금은 읽는 시간" 신호다.
-  const autoWiki = jobWikiPaths.length ? refWiki : null;
+  // justImported 는 이 노트의 임포트가 방금 끝났을 때만 참이므로 그게 곧 "지금은 읽는 시간" 신호다.
+  const autoWiki = justImported ? refWiki : null;
   useEffect(() => {
     if (!autoWiki || !targetSpace) return;
     // 정리 글은 학습자 본인 노트에서 나온 글이라 대상이 아니다.
@@ -807,7 +826,7 @@ export function InboxSection({
     <section style={{ width: `${paneW.wiki}%`, minWidth: 280 }} className="flex min-w-0 shrink-0 flex-col border-l border-hairline">
       <PaneHeader
         label="위키"
-        hint={refCandidates.length > 0 ? `${targetName}의 위키 ${refCandidates.length}개` : "위키 없음"}
+        hint={listWikis.length > 0 ? `이 노트에서 나온 개념 ${listWikis.length}개` : "아직 없음"}
         right={
           refWiki ? (
             <div className="flex min-w-0 items-center gap-1.5">
@@ -863,7 +882,7 @@ export function InboxSection({
           </>
         ) : listWikis.length ? (
           <>
-            <p className="ds-eyebrow mb-2 text-ink-faint">{jobWikiPaths.length ? "이 노트의 개념" : "이 공간의 개념"}</p>
+            <p className="ds-eyebrow mb-2 text-ink-faint">이 노트의 개념</p>
             <ul className="space-y-0.5">
               {listWikis.map((w) => (
                 <li key={w.path}>
@@ -873,6 +892,8 @@ export function InboxSection({
                     className="flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-2 text-left text-[14px] text-ink-2 transition-colors hover:bg-surface-soft hover:text-ink"
                   >
                     <span className="truncate font-medium">{w.title}</span>
+                    {/* 이 노트가 처음 만든 개념인지, 기존 개념에 이 노트가 얹힌 것인지(sourceIds[0]) */}
+                    <span className="ml-auto shrink-0 text-[11px] text-ink-faint">{isNewHere(w) ? "새 개념" : "얹힘"}</span>
                     <Icons.ChevronRightIcon size={14} className="shrink-0 text-ink-faint" />
                   </button>
                 </li>

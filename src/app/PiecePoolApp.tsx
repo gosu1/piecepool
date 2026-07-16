@@ -1214,6 +1214,7 @@ export default function PiecePoolApp() {
             existing={wikiBySlug[sp] ?? []}
             spaces={spaces}
             wikiBySlug={wikiBySlug}
+            notesBySlug={notesBySlug}
             graphBySlug={graphBySlug}
             onCreateSpace={createNewSpace}
             onOpenWiki={openWiki}
