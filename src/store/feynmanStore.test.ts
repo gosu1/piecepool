@@ -127,10 +127,38 @@ describe("finish — 기록을 위키 본문에 저장한다", () => {
     expect(body).toBe(BODY);
     expect(sessions).toHaveLength(1);
     expect(sessions[0].verdict).toBe("understood");
+    // 답 없이 매달린 마지막 되물음은 안 남는다 — 기록은 내 답변으로 끝나야 복기가 된다.
+    expect(sessions[0].turns).toEqual([{ role: "user", text: "스레드는 실행 단위" }]);
+  });
+
+  it("기록은 내 답변으로 끝난다 — 답 없이 매달린 되물음을 뗀다", async () => {
+    // 흐름이 나→되묻기→나→되묻기… 라 판정 버튼은 항상 되물음 직후에 눌린다.
+    // 그대로 저장하면 기록이 물음표로 끝나 "그래서 뭐라고 답했더라" 가 된다.
+    vi.mocked(probeExplanation)
+      .mockResolvedValueOnce({ probe: "스택도 공유되나요?", targetGap: "why" })
+      .mockResolvedValueOnce({ probe: "그럼 힙은요?", targetGap: "why" });
+    useFeynmanStore.getState().start("sp", page());
+    await useFeynmanStore.getState().explain("스레드는 실행 단위");
+    await useFeynmanStore.getState().explain("스택은 따로예요");
+    await useFeynmanStore.getState().finish(true);
+
+    const { sessions } = splitFeynmanSection(vi.mocked(ipc.saveWiki).mock.calls[0][1].markdown);
     expect(sessions[0].turns).toEqual([
       { role: "user", text: "스레드는 실행 단위" },
-      { role: "probe", text: "스택은요?" },
+      { role: "probe", text: "스택도 공유되나요?" },
+      { role: "user", text: "스택은 따로예요" },
     ]);
+    expect(sessions[0].turns[sessions[0].turns.length - 1].role).toBe("user");
+  });
+
+  it("되물음이 실패해 이미 내 답변으로 끝나면 그대로 둔다", async () => {
+    vi.mocked(probeExplanation).mockRejectedValue(new Error("죽음"));
+    useFeynmanStore.getState().start("sp", page());
+    await useFeynmanStore.getState().explain("내 설명");
+    await useFeynmanStore.getState().finish(true);
+
+    const { sessions } = splitFeynmanSection(vi.mocked(ipc.saveWiki).mock.calls[0][1].markdown);
+    expect(sessions[0].turns).toEqual([{ role: "user", text: "내 설명" }]);
   });
 
   it("기록 직후에는 '문서 바뀜' 배지가 뜨지 않는다", async () => {

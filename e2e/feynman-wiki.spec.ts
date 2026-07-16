@@ -52,14 +52,24 @@ async function runSession(page: Page, said: string) {
   await page.getByRole("button", { name: "네, 이해했어요" }).click();
 }
 
+/** 되물음에 답한 뒤 판정 — 기록에 되물음이 남는 유일한 흐름이다(끝 되물음은 트림된다). */
+async function runAnsweredSession(page: Page, said: string, answer: string) {
+  await box(page).fill(said);
+  await page.getByRole("button", { name: "설명 보내기" }).click();
+  await expect(page.getByText("실행 중이라는 게 정확히 무슨 뜻인가요?")).toBeVisible();
+  await box(page).fill(answer);
+  await page.getByRole("button", { name: "다시 설명" }).click();
+  await page.getByRole("button", { name: "네, 이해했어요" }).click();
+}
+
 test("기록 없는 위키를 열면 파인만이 자동으로 열린다", async ({ page }) => {
   await openWiki(page);
   await expect(box(page)).toBeVisible();
 });
 
-test("설명 → 되물음 → 판정 → 접힌 카드로 남고, 펼치면 대화 전문이 보인다", async ({ page }) => {
+test("설명 → 되물음 → 답변 → 판정 → 접힌 카드로 남고, 펼치면 대화 전문이 보인다", async ({ page }) => {
   await openWiki(page);
-  await runSession(page, "프로세스는 실행 중인 프로그램이에요");
+  await runAnsweredSession(page, "프로세스는 실행 중인 프로그램이에요", "메모리에 올라가서 CPU 를 받는 상태요");
 
   // 대화창은 닫히고 카드가 생긴다
   await expect(box(page)).toHaveCount(0);
@@ -72,6 +82,16 @@ test("설명 → 되물음 → 판정 → 접힌 카드로 남고, 펼치면 대
   await card.click();
   await expect(page.getByText("프로세스는 실행 중인 프로그램이에요")).toBeVisible();
   await expect(page.getByText("실행 중이라는 게 정확히 무슨 뜻인가요?")).toBeVisible();
+  await expect(page.getByText("메모리에 올라가서 CPU 를 받는 상태요")).toBeVisible();
+});
+
+test("기록은 내 답변으로 끝난다 — 답 없이 매달린 되물음은 안 남는다", async ({ page }) => {
+  // 되물음 직후 바로 판정하는 흐름. 그 되물음은 답이 없으니 기록에 안 남아야 한다.
+  await openWiki(page);
+  await runSession(page, "프로세스는 실행 중인 프로그램이에요");
+  await page.getByRole("button", { name: /이해함/ }).click();
+  await expect(page.getByText("프로세스는 실행 중인 프로그램이에요")).toBeVisible();
+  await expect(page.getByText("실행 중이라는 게 정확히 무슨 뜻인가요?")).toHaveCount(0);
 });
 
 test("위키 본문에 기록 원문이 노출되지 않는다", async ({ page }) => {

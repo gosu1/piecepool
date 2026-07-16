@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { probeExplanation, type Turn } from "../llm/feynman";
-import { splitFeynmanSection, joinFeynmanSection, bodyHash, type FeynmanSession } from "../lib/feynmanSection";
+import { splitFeynmanSection, joinFeynmanSection, bodyHash, type FeynmanSession, type FeynmanTurn } from "../lib/feynmanSection";
 import type { WikiPage } from "../lib/types";
 import * as ipc from "../lib/ipc";
 
@@ -56,6 +56,22 @@ interface FeynmanState {
 }
 
 export const wikiKey = (space: string, path: string) => `${space}::${path}`;
+
+/**
+ * 기록에 남길 발화 — 답 없이 매달린 마지막 되물음을 뗀다.
+ *
+ * 흐름이 `나 → 되묻기 → 나 → 되묻기…` 라 판정 버튼은 항상 되물음 직후에 눌린다. 그대로 저장하면
+ * 기록이 물음표로 끝나 복기할 때 "그래서 뭐라고 답했더라" 가 된다. 내 답변으로 끝나야
+ * "여기까지 말하고 이해했다고 했구나" 가 읽힌다.
+ *
+ * 첫 발화는 구조상 항상 사용자 것이고(feynman.ts 가 "질문은 설명 뒤에만" 을 강제한다) 판정 버튼은
+ * answered 일 때만 열리므로, 떼고 나도 사용자 발화가 최소 하나 남는다.
+ */
+function settledTurns(history: Turn[]): FeynmanTurn[] {
+  const out = history.map((t) => ({ role: t.role, text: t.text }));
+  while (out.length && out[out.length - 1].role === "probe") out.pop();
+  return out;
+}
 
 export function hasGeminiKey(): boolean {
   return !!(typeof localStorage !== "undefined" && localStorage.getItem("gemini-key"));
@@ -134,7 +150,7 @@ export const useFeynmanStore = create<FeynmanState>()(
               at: new Date().toISOString(),
               verdict: understood ? "understood" : "not_yet",
               bodyHash: bodyHash(body),
-              turns: s.history.map((t) => ({ role: t.role, text: t.text })),
+              turns: settledTurns(s.history),
             };
             const saved = await ipc.saveWiki(s.space, { ...cur, markdown: joinFeynmanSection(body, [session, ...sessions], unparsed) });
             if (get().session?.id === s.id) set({ session: null });
