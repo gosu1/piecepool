@@ -30,6 +30,7 @@ import { useWorkspaceStore, SIDEBAR_DEFAULT } from "../store/workspaceStore";
 import type { TabKind } from "../store/workspaceStore";
 import { useInboxDraftStore } from "../store/inboxDraftStore";
 import { noteOriginalFiles } from "../lib/wikilink";
+import { getBodyFontSize, applyBodyFontSize } from "../lib/settings";
 
 const KIND_LABEL: Record<TabKind, string> = { wiki: "Wiki", archive: "Source", inbox: "Inbox", graph: "Graph", home: "Home", empty: "새 탭" };
 
@@ -104,6 +105,9 @@ export default function PiecePoolApp() {
   const togglePinned = useWorkspaceStore((s) => s.togglePinned);
   const treeSort = useWorkspaceStore((s) => s.treeSort);
   const recentDocs = useWorkspaceStore((s) => s.recentDocs);
+
+  // 본문 글자 크기 — 저장값을 CSS 변수로 1회 주입(이후 변경은 설정 모달이 직접 apply)
+  useEffect(() => applyBodyFontSize(getBodyFontSize()), []);
 
   // 부팅: 시드 → spaces → 각 공간 wiki/notes/graph → 복원된 탭이 없으면 Study Home
   useEffect(() => {

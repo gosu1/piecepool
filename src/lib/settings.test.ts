@@ -10,6 +10,10 @@ import {
   INBOX_PANE_DEFAULTS,
   getOutputLanguage,
   setOutputLanguage,
+  getBodyFontSize,
+  setBodyFontSize,
+  BODY_FONT_MIN,
+  BODY_FONT_MAX,
 } from "./settings";
 
 // Map 백엔드 fake localStorage — node vitest 환경엔 없으므로 주입.
@@ -97,5 +101,34 @@ describe("output language (LLM 생성 언어)", () => {
   it("무효 저장값은 ko로 폴백", () => {
     localStorage.setItem("output-language", "jp");
     expect(getOutputLanguage()).toBe("ko");
+  });
+});
+
+describe("본문 글자 크기", () => {
+  beforeEach(() => {
+    g.localStorage = new FakeStorage() as unknown as Storage;
+  });
+  afterEach(() => {
+    delete g.localStorage;
+  });
+
+  it("기본값 15", () => {
+    expect(getBodyFontSize()).toBe(15);
+  });
+
+  it("set/get 라운드트립", () => {
+    setBodyFontSize(17);
+    expect(getBodyFontSize()).toBe(17);
+  });
+
+  it("범위 밖·비정수·쓰레기 값은 클램프/폴백", () => {
+    setBodyFontSize(12);
+    expect(getBodyFontSize()).toBe(BODY_FONT_MIN); // 12 → 13
+    setBodyFontSize(99);
+    expect(getBodyFontSize()).toBe(BODY_FONT_MAX); // 99 → 17
+    localStorage.setItem("body-font-size", "abc");
+    expect(getBodyFontSize()).toBe(15);
+    localStorage.setItem("body-font-size", "15.7");
+    expect(getBodyFontSize()).toBe(15); // 정수화
   });
 });

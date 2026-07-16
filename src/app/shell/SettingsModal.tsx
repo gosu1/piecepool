@@ -10,6 +10,11 @@ import {
   setFactCheck,
   getOutputLanguage,
   setOutputLanguage,
+  getBodyFontSize,
+  setBodyFontSize,
+  applyBodyFontSize,
+  BODY_FONT_MIN,
+  BODY_FONT_MAX,
 } from "../../lib/settings";
 import type { OutputLanguage } from "../../lib/settings";
 import { getGeminiModel, setGeminiModel, type GeminiModelId } from "../../llm/gemini";
@@ -29,6 +34,14 @@ export function SettingsModal({ onClose, workspacePath }: { onClose: () => void;
   const changeLang = (v: OutputLanguage) => {
     setOutputLanguage(v);
     setLang(v);
+  };
+  const [fontSize, setFontSize] = useState(getBodyFontSize());
+  // 클릭 즉시 저장 + CSS 변수 반영 — 생성 언어 토글과 같은 즉시 적용 결(저장 버튼 없음)
+  const changeFontSize = (delta: number) => {
+    const next = Math.min(BODY_FONT_MAX, Math.max(BODY_FONT_MIN, fontSize + delta));
+    setFontSize(next);
+    setBodyFontSize(next);
+    applyBodyFontSize(next);
   };
   const [model, setModel] = useState<GeminiModelId>(getGeminiModel());
   const changeModel = (m: GeminiModelId) => {
@@ -146,6 +159,33 @@ export function SettingsModal({ onClose, workspacePath }: { onClose: () => void;
                 onClick={() => changeLang("en")}
               >
                 English
+              </Button>
+            </div>
+          </div>
+          <div className="flex items-center justify-between rounded-md border border-hairline p-3">
+            <div>
+              <span className="text-[14px] text-ink-2">본문 글자 크기</span>
+              <p className="text-[12px] text-ink-muted">노트 에디터·위키·문서 본문에 적용됩니다 ({BODY_FONT_MIN}~{BODY_FONT_MAX}px).</p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <Button
+                variant="utility"
+                size="sm"
+                aria-label="본문 글자 작게"
+                disabled={fontSize <= BODY_FONT_MIN}
+                onClick={() => changeFontSize(-1)}
+              >
+                −
+              </Button>
+              <span className="w-12 text-center text-[14px] tabular-nums text-ink">{fontSize}px</span>
+              <Button
+                variant="utility"
+                size="sm"
+                aria-label="본문 글자 크게"
+                disabled={fontSize >= BODY_FONT_MAX}
+                onClick={() => changeFontSize(1)}
+              >
+                +
               </Button>
             </div>
           </div>
