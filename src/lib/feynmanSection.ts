@@ -74,7 +74,10 @@ function parseTurns(lines: string[]): FeynmanTurn[] {
     const line = dropCr(raw);
     // 인용 안 붙은 줄만 화자 마커가 될 수 있다 — 사용자 발화는 전부 `>` 로 시작하므로 위조 불가.
     const m = !line.startsWith(">") && ROLE_LINE.exec(line);
-    if (m && LABEL_TO_ROLE[m[1]]) {
+    // hasOwnProperty: 맨 객체 리터럴이라 `constructor`·`__proto__` 가 truthy 로 새어 들어온다.
+    // fail-closed 파서에 fail-open 구멍을 두면 안 된다.
+    // (Object.hasOwn 은 ES2022 — 이 프로젝트 tsconfig 는 ES2020 이라 ES5 관용구를 쓴다.)
+    if (m && Object.prototype.hasOwnProperty.call(LABEL_TO_ROLE, m[1])) {
       flush();
       role = LABEL_TO_ROLE[m[1]];
       continue;
@@ -88,7 +91,10 @@ function parseTurns(lines: string[]): FeynmanTurn[] {
 }
 
 /**
- * 본문과 기록을 분리한다. 기록이 없으면 { body: md, sessions: [], unparsed: [] }.
+ * 본문과 기록을 분리한다. 기록이 없으면 sessions/unparsed 가 빈 배열이다.
+ *
+ * **body 는 언제나 후행 개행이 다듬어진 값이다** — 기록 섹션 유무와 무관하다. `md` 를 그대로
+ * 돌려주지 않는다. join 이 항상 다듬으므로 여기서 조건부로 두면 왕복이 깨지고 배지가 상시 켜진다.
  *
  * 기록 섹션이 여럿이면 **전부** 걷어내 하나로 합친다. 따라서 body 에는 기록 섹션이 남지 않고,
  * strip 은 멱등이다. 이 성질에 기대는 곳이 많다 — 안 그러면 남은 섹션이 다음 라운드에 진짜
@@ -136,7 +142,11 @@ function parseSection(section: string, sessions: FeynmanSession[], unparsed: str
       return;
     }
     const parts = header.split(" · ").map((s) => s.trim());
-    const verdict = LABEL_TO_VERDICT[parts[1] ?? ""];
+    // hasOwnProperty: `### <ISO> · constructor · hash` 가 통과하면 verdict 가 함수 객체가 되고,
+    // UI 의 `=== "understood"` 가 거짓이 되어 **사용자가 내리지도 않은 판정**을 표시한다.
+    // (Object.hasOwn 은 ES2022 — 이 프로젝트 tsconfig 는 ES2020 이라 ES5 관용구를 쓴다.)
+    const label = parts[1] ?? "";
+    const verdict = Object.prototype.hasOwnProperty.call(LABEL_TO_VERDICT, label) ? LABEL_TO_VERDICT[label] : undefined;
     if (parts.length >= 2 && verdict) {
       sessions.push({ at: parts[0], verdict, bodyHash: parts[2] ?? "", turns: parseTurns(buf) });
     } else {

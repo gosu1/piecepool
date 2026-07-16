@@ -368,6 +368,18 @@ describe("applyLlmResult 병합 — 기존 개념에 새 노트가 얹힐 때", 
     });
     expect(applied.pages[0].markdown).toContain("잃으면 안 되는 말");
   });
+
+  // LLM 출력이 후행 개행으로 끝나는 건 정상 형태다. split 이 body 를 항상 정규화하므로
+  // 그 개행이 잘리는데, 픽스처에 후행 개행이 하나도 없어 이 경로가 검증되지 않고 있었다.
+  it("LLM 출력이 후행 개행으로 끝나도 기록 보존과 배지가 멀쩡하다", async () => {
+    const applied = await applyOnto([withRecord()], "교착 상태", ["subj-os"], {
+      mergeMarkdown: async () => "# 교착 상태\n\n새 본문\n\n",
+    });
+    const md = applied.pages[0].markdown;
+    const { body, sessions } = splitFeynmanSection(md);
+    expect(sessions).toEqual([FEYNMAN]);
+    expect(body).toBe("# 교착 상태\n\n새 본문");
+  });
 });
 
 // LLM 입력의 existingConcepts — normalizedTitle 이 validate.normTitle 과 다른 규칙으로 만들어지면

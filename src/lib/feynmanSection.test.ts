@@ -15,8 +15,10 @@ const S = (over: Partial<FeynmanSession> = {}): FeynmanSession => ({
 const BODY = "# 스레드\n\n프로세스 안의 실행 단위.";
 
 describe("splitFeynmanSection", () => {
-  it("기록이 없으면 본문 그대로, 세션 0개", () => {
+  it("기록이 없으면 세션 0개 — body 는 정규화된 본문", () => {
     expect(splitFeynmanSection(BODY)).toEqual({ body: BODY, sessions: [], unparsed: [] });
+    // body 는 md 그대로가 아니다 — 후행 개행은 섹션 유무와 무관하게 다듬는다.
+    expect(splitFeynmanSection(`${BODY}\n\n`).body).toBe(BODY);
   });
 
   it("라운드트립 — join 한 것을 split 하면 원래대로", () => {
@@ -141,6 +143,21 @@ describe("fail-closed — 파싱 못 한 기록을 조용히 삭제하지 않는
     const { sessions, unparsed } = splitFeynmanSection(md);
     expect(sessions).toEqual([]);
     expect(unparsed.join("\n")).toContain("소중한 발화");
+  });
+
+  // 맨 객체 리터럴은 `constructor`·`__proto__` 를 truthy 로 돌려준다. 통과시키면 verdict 가
+  // 함수 객체가 되어 UI 의 `=== "understood"` 가 거짓 → 사용자가 안 내린 판정을 표시한다.
+  it.each(["constructor", "__proto__", "toString"])("prototype 키(%s)를 판정으로 받지 않는다", (key) => {
+    const md = `${BODY}\n\n## 파인만 기록\n\n### 2026-07-16T12:00:00.000Z · ${key} · abc12345\n\n**나:**\n\n> 소중한 발화\n`;
+    const { sessions, unparsed } = splitFeynmanSection(md);
+    expect(sessions).toEqual([]);
+    expect(unparsed.join("\n")).toContain("소중한 발화");
+  });
+
+  it.each(["constructor", "__proto__"])("prototype 키(%s)를 화자로 받지 않는다", (key) => {
+    const md = `${BODY}\n\n## 파인만 기록\n\n### 2026-07-16T12:00:00.000Z · 이해함 · abc12345\n\n**${key}:**\n\n> 소중한 발화\n`;
+    const turns = splitFeynmanSection(md).sessions[0]?.turns ?? [];
+    expect(turns.every((t) => t.role === "user" || t.role === "probe")).toBe(true);
   });
 
   it("깨진 블록이 읽기→쓰기 사이클에서 살아남는다", () => {
