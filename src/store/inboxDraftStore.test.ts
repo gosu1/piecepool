@@ -29,6 +29,13 @@ describe("draft 슬라이스", () => {
     expect(useInboxDraftStore.getState().drafts["inbox:os:t2"].targetSpace).toBe("statistics");
   });
 
+  // 새 노트의 첫 행동이 대개 PDF 업로드다 — 닫힌 채 시작하면 업로드 입구가 안 보인다.
+  it("panels — 새 초안은 PDF 만 열린 채 시작한다", () => {
+    const s = useInboxDraftStore.getState();
+    s.write("inbox:os:t3", { title: "제목" });
+    expect(useInboxDraftStore.getState().drafts["inbox:os:t3"].panels).toEqual({ pdf: true, wiki: false });
+  });
+
   // 퀵메모가 전역 하나였을 땐, 다른 과목 노트로 옮겨 메모장을 켜면 남의 파편이 그대로 떠 있었다.
   // 메모는 "지금 이 노트를 쓰기 위한 작업대"다 — 노트에 종속돼야 한다.
   it("퀵메모는 노트 탭마다 따로다 — 다른 탭엔 남의 메모가 새지 않는다", () => {
