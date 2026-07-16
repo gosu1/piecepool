@@ -51,7 +51,7 @@ export function Button({
     <button
       type={type}
       className={cn(
-        "inline-flex items-center justify-center font-medium transition-[transform,opacity,background-color,color] duration-150",
+        "inline-flex items-center justify-center whitespace-nowrap font-medium transition-[transform,opacity,background-color,color] duration-150",
         "outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas",
         "disabled:pointer-events-none disabled:opacity-50",
         VARIANTS[variant],
