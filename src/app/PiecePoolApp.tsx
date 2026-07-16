@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AppShell, Sidebar, Card, EmptyState, Icons } from "../ds";
 import type { TreeNode } from "../ds";
 import type { KnowledgeSpace, WikiPage as WikiPageT, ArchiveNote, GraphData, Workspace, Subject, Relation } from "../lib/types";
@@ -65,6 +65,14 @@ export default function PiecePoolApp() {
   const [spaces, setSpaces] = useState<KnowledgeSpace[]>([]);
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [wikiBySlug, setWikiBySlug] = useState<Record<string, WikiPageT[]>>({});
+  // 본문 키워드 강조용 위키 제목 — 공간별로 안정 참조(내용 변경 때만 새 배열, remark 파이프라인 재실행 방지)
+  const termsBySlug = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(wikiBySlug).map(([s, pages]) => [s, (pages ?? []).filter((p) => !isSynthesisPage(p)).map((p) => p.title)]),
+      ) as Record<string, string[]>,
+    [wikiBySlug],
+  );
   const [notesBySlug, setNotesBySlug] = useState<Record<string, ArchiveNote[]>>({});
   const [graphBySlug, setGraphBySlug] = useState<Record<string, GraphData>>({});
   const [subjectsBySlug, setSubjectsBySlug] = useState<Record<string, Subject[]>>({});
@@ -1096,6 +1104,7 @@ export default function PiecePoolApp() {
         onLink={(t) => resolveLink(space, t)}
         linkExists={linkExistsIn(space)}
         embedSpace={space}
+        terms={termsBySlug[space]}
         toolSlot={<RelationQuality relations={g?.relations ?? []} />}
         sources={sections.sources}
         relationGroups={sections.relationGroups}
@@ -1196,6 +1205,7 @@ export default function PiecePoolApp() {
         onLink={(t) => resolveLink(space, t)}
         linkExists={linkExistsIn(space)}
         embedSpace={space}
+        terms={termsBySlug[space]}
         // 파인만은 원본 노트에서만 — 위키는 LLM 이 쓴 글이라 "자기 말로 설명"의 대상이 아니다.
         feynman={{ noteId: note.sourceId, space }}
         topSlot={

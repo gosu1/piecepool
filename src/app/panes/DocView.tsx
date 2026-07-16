@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { AIWritingBanner, Button, Card, SkeletonText, Icons, cn } from "../../ds";
 import { Markdown } from "../../lib/markdown";
@@ -40,6 +40,7 @@ export function DocView({
   sideSlot,
   embedSpace,
   feynman,
+  terms,
 }: {
   docType: "wiki" | "archive";
   title: string;
@@ -70,6 +71,8 @@ export function DocView({
   embedSpace?: string;
   /** 원본 노트에서만 — 에디터 우클릭으로 ##/### 섹션 파인만을 연다 */
   feynman?: { noteId: string; space: string; handlers?: FeynmanHandlers };
+  /** 본문 속 개념 키워드 강조 — 이 공간 위키 제목 목록. 클릭 시 onLink(제목) */
+  terms?: string[];
 }) {
   const hasConceptPanel = !!(sources?.length || relationGroups?.length || confused?.length);
   const fy = useFeynmanEditor({
@@ -79,10 +82,14 @@ export function DocView({
     noteTitle: title,
     handlers: feynman?.handlers,
   });
+  // 자기 자신 링크 방지 — 위키 문서 안에서 그 문서 제목은 강조하지 않는다.
+  const termsKey = terms?.join("\n") ?? "";
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const docTerms = useMemo(() => terms?.filter((t) => t !== title), [termsKey, title]);
   // 읽기 모드 본문 — 카드 없이 페이지에 바로. 빈 페이지는 클릭해서 작성 시작.
   const readBody = savedMd.trim() ? (
     <div className="px-1">
-      <Markdown source={savedMd} onLink={onLink} linkExists={linkExists} embedSpace={embedSpace} />
+      <Markdown source={savedMd} onLink={onLink} linkExists={linkExists} embedSpace={embedSpace} terms={docTerms} />
     </div>
   ) : (
     <button
@@ -122,10 +129,12 @@ export function DocView({
             headingAction={feynman && fy.headingAction}
             height="480px"
             placeholder="'/' 로 블록 · ⌘Enter 로 저장"
+            wikiTerms={docTerms}
+            onWikiTerm={onLink}
           />
           <Card padding="lg" className="max-h-[480px] overflow-y-auto">
             <p className="ds-eyebrow mb-2 text-ink-faint">미리보기</p>
-            <Markdown source={draft} onLink={onLink} linkExists={linkExists} embedSpace={embedSpace} />
+            <Markdown source={draft} onLink={onLink} linkExists={linkExists} embedSpace={embedSpace} terms={docTerms} />
           </Card>
         </div>
       ) : sideSlot ? (
