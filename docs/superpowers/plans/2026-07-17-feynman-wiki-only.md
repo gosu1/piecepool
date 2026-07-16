@@ -2192,6 +2192,101 @@ PR 본문에 반드시 적을 것:
 
 ---
 
+### Task 10: 인박스 위키 패널에도 파인만 (수동 전용)
+
+브레인스토밍이 놓친 요구사항이다. 나는 "위키 **문서**에서 파인만을 어떻게 시작함?" 이라고 물으며 선택지를 전부 문서 기준으로 줬고, 인박스의 위키 참조 패널은 후보에 넣지 않았다. 사용자가 원한 건 그쪽이었다. **문서 탭도 유지한다**(사용자 결정) — 개념을 어디서 만나든 설명할 수 있게.
+
+**Files:**
+- Modify: `src/app/panes/InboxSection.tsx` (`wikiPane`)
+- Modify: `src/app/PiecePoolApp.tsx` (`<InboxSection>` 에 prop 하나)
+- Test: `e2e/feynman-wiki.spec.ts` (추가)
+
+**Interfaces:**
+- Consumes: `<FeynmanPanel space page onSaved />` (Task 6) · `isSynthesisPage`(`InboxSection` 이 이미 import 한다)
+- Produces: `InboxSection` 에 `onWikiSaved: (space: string, saved: WikiPageT) => void` prop
+
+- [ ] **Step 1: `InboxSection` 이 저장된 위키를 올려보낼 통로를 만든다**
+
+`InboxSection` 은 `wikiBySlug` 를 **읽기만** 하고 setter 가 없다. `onSaved` 없이 붙이면 판정 후 `refWiki` 가 stale 로 남아 **접힌 카드가 안 나타난다**(Task 9 가 위키 탭에서 겪은 그 버그와 동일).
+
+`InboxSection` props 에 추가:
+
+```ts
+  /** 파인만 판정 저장 직후 — 앱의 메모리 사본(wikiBySlug)을 갱신한다. 없으면 카드가 안 나타난다. */
+  onWikiSaved: (space: string, saved: WikiPageT) => void;
+```
+
+`PiecePoolApp.tsx` 의 `<InboxSection ... onOpenWiki={openWiki}` 옆에:
+
+```tsx
+            onWikiSaved={(sp, saved) =>
+              setWikiBySlug((m) => ({ ...m, [sp]: (m[sp] ?? []).map((x) => (x.path === saved.path ? saved : x)) }))
+            }
+```
+
+> 여기선 `saved.path` 로 매칭해도 된다 — `wikiReader` 와 달리 저장 전 path 를 담은 클로저 변수가 없고, `refWiki` 는 렌더마다 새로 찾는다. `finish` 의 `cur` 는 `readWiki` 산이라 path 가 항상 채워져 있다.
+
+- [ ] **Step 2: `wikiPane` 에 패널을 붙인다**
+
+`InboxSection.tsx` 의 `wikiPane` 에서 관계 그래프 섹션 **뒤**, `refWiki` 분기 안에 넣는다:
+
+```tsx
+            {/* 정리 글은 학습자 본인 노트에서 나온 글이라 파인만 대상이 아니다 */}
+            {!isSynthesisPage(refWiki) && (
+              <FeynmanPanel space={targetSpace} page={refWiki} onSaved={(saved) => onWikiSaved(targetSpace, saved)} />
+            )}
+```
+
+import 를 추가한다.
+
+**자동 열기는 넣지 않는다.** 인박스는 **노트를 쓰는 중**이다 — 참고하려고 위키를 열었는데 "설명하세요" 패널이 불쑥 뜨면 필기가 끊긴다. `FeynmanPanel` 의 `!mine` 분기가 이미 수동 버튼("이 개념을 설명해보기")을 그리므로 **그냥 붙이면 수동 전용이 된다.** 자동 열기는 `PiecePoolApp` 의 `activeTab` 기반 effect 라 인박스엔 안 걸린다 — 추가 코드 0.
+
+- [ ] **Step 3: 타입 체크 + 유닛**
+
+Run: `npx tsc --noEmit && npx vitest run`
+Expected: 에러 0, 전체 통과(이 태스크는 UI 배선이라 유닛은 안 바뀐다).
+
+- [ ] **Step 4: e2e**
+
+`e2e/feynman-wiki.spec.ts` 에 추가:
+
+```ts
+test("인박스 위키 패널 — 수동 버튼으로 시작하고 판정하면 카드가 남는다", async ({ page }) => {
+  await openInboxWiki(page, "프로세스"); // 인박스 열고 → 위키 패널에서 개념 선택
+  // 인박스는 자동으로 안 열린다 — 노트 쓰는 중에 방해하지 않는다
+  await expect(box(page)).toHaveCount(0);
+  await page.getByRole("button", { name: "이 개념을 설명해보기" }).click();
+  await box(page).fill("프로세스는 실행 중인 프로그램이에요");
+  await page.getByRole("button", { name: "설명 보내기" }).click();
+  await expect(page.getByText("실행 중이라는 게 정확히 무슨 뜻인가요?")).toBeVisible();
+  await page.getByRole("button", { name: "네, 이해했어요" }).click();
+  // onWikiSaved 가 없으면 여기서 카드가 안 나타난다
+  await expect(page.getByRole("button", { name: /이해함/ })).toBeVisible();
+});
+
+test("인박스 위키 패널 — 정리 글엔 파인만이 없다", async ({ page }) => {
+  await openInboxWiki(page, "<정리 글 제목>");
+  await expect(page.getByRole("button", { name: "이 개념을 설명해보기" })).toHaveCount(0);
+});
+```
+
+> **`openInboxWiki` 헬퍼와 셀렉터는 실제로 돌려서 맞춰라.** 인박스를 여는 법·위키 패널에서 개념을 고르는 법(`refWikiPath` 를 세팅하는 UI)을 코드에서 확인하고, 정리 글의 실제 제목도 seed 에서 확인하라. 짐작하지 마라 — 이 계획에서 셀렉터 추측이 **세 번** 틀렸다.
+
+- [ ] **Step 5: 커밋**
+
+```bash
+git add src/app/panes/InboxSection.tsx src/app/PiecePoolApp.tsx e2e/feynman-wiki.spec.ts
+git commit -m "feat(feynman): 인박스 위키 패널에도 파인만 — 수동 전용"
+```
+
+#### 알아둘 것 — 진입점이 둘이 됐다
+
+`session` 은 앱 전역 싱글턴이다. 인박스 패널과 위키 문서 탭이 **같은 개념**을 보고 있으면 `mine`(`session.space === space && session.path === page.path`)이 양쪽 다 참이라 **한 세션이 두 곳에 동시에 보인다** — 의도된 동작이고 무해하다.
+
+**다른** 개념을 보는 중에 수동 버튼을 누르면 `start()` 가 기존 세션을 교체해 앞서 쓰던 설명이 증발한다. 진입점이 하나일 때도 있던 동작이고(위키A 시작 → 위키B 에서 버튼 클릭), 수동 클릭은 사용자의 선택이라 그대로 둔다. 자동 열기만 `session == null` 로 막는다.
+
+---
+
 ## 리뷰어를 위한 요약 — 이 PR 에서 가장 위험한 곳
 
 | 순위 | 지점 | 틀리면 |
