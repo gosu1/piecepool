@@ -398,9 +398,9 @@ function parseTurns(lines: string[]): FeynmanTurn[] {
     const line = dropCr(raw);
     // 인용 안 붙은 줄만 화자 마커가 될 수 있다 — 사용자 발화는 전부 `>` 로 시작하므로 위조 불가.
     const m = !line.startsWith(">") && ROLE_LINE.exec(line);
-    // hasOwn: 맨 객체 리터럴이라 `constructor`·`__proto__` 가 truthy 로 새어 들어온다.
+    // hasOwnProperty.call: 맨 객체 리터럴이라 `constructor`·`__proto__` 가 truthy 로 새어 들어온다.
     // fail-closed 파서에 fail-open 구멍을 두면 안 된다.
-    if (m && Object.hasOwn(LABEL_TO_ROLE, m[1])) {
+    if (m && Object.prototype.hasOwnProperty.call(LABEL_TO_ROLE, m[1])) {
       flush();
       role = LABEL_TO_ROLE[m[1]];
       continue;
@@ -465,10 +465,10 @@ function parseSection(section: string, sessions: FeynmanSession[], unparsed: str
       return;
     }
     const parts = header.split(" · ").map((s) => s.trim());
-    // hasOwn: `### <ISO> · constructor · hash` 가 통과하면 verdict 가 함수 객체가 되고,
+    // hasOwnProperty.call: `### <ISO> · constructor · hash` 가 통과하면 verdict 가 함수 객체가 되고,
     // UI 의 `=== "understood"` 가 거짓이 되어 **사용자가 내리지도 않은 판정**을 표시한다.
     const label = parts[1] ?? "";
-    const verdict = Object.hasOwn(LABEL_TO_VERDICT, label) ? LABEL_TO_VERDICT[label] : undefined;
+    const verdict = Object.prototype.hasOwnProperty.call(LABEL_TO_VERDICT, label) ? LABEL_TO_VERDICT[label] : undefined;
     if (parts.length >= 2 && verdict) {
       sessions.push({ at: parts[0], verdict, bodyHash: parts[2] ?? "", turns: parseTurns(buf) });
     } else {
