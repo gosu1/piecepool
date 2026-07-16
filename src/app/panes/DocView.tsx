@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { AIWritingBanner, Button, Card, SkeletonText, Icons, cn } from "../../ds";
+import { AIWritingBanner, Button, Card, SkeletonText, Icons, cn, LoadingQuote } from "../../ds";
+import { LOADING_QUOTES } from "../../lib/quotes";
 import { Markdown } from "../../lib/markdown";
 import { SlashBlockEditor } from "../../lib/SlashBlockEditor";
 import type { FeynmanHandlers } from "./FeynmanPanel";
@@ -356,7 +357,13 @@ export function ConvertPanel({
           className="max-h-[480px] overflow-y-auto"
         >
           {streaming && !job.text ? (
-            <SkeletonText lines={3} />
+            <div className="space-y-5">
+              <SkeletonText lines={3} />
+              {/* min-h 로 명언 길이 차이에 따른 카드 높이 출렁임을 줄인다 */}
+              <div className="flex min-h-[150px] items-center justify-center py-2">
+                <LoadingQuote quotes={LOADING_QUOTES} />
+              </div>
+            </div>
           ) : (
             <>
               {/* 스트리밍 중 embedSpace 미전달 — 재파싱마다 FilePreview 가 파일을 다시 읽는 churn 방지 */}

@@ -14,6 +14,7 @@ import { Markdown } from "../../lib/markdown";
 import { FilePreview } from "../../lib/FilePreview";
 import { PdfViewer } from "../../lib/PdfViewer";
 import { renameRefs } from "../../lib/wikilink";
+import { LOADING_QUOTES } from "../../lib/quotes";
 import {
   getInboxPaneWidths,
   setInboxPaneWidth,
@@ -57,10 +58,13 @@ function importSteps(status: string): { label: string; state: StepState }[] {
 
 // 로딩 중 돌아가는 소개 문구 — 이 앱 '파인만' 기능의 유래(리처드 파인만)와 그와 통하는
 // 학습론(안드레 카파시). 검증된 사실만 — 지어낸 인용 금지.
+// 여기에 출처 검증된 명언(lib/quotes.ts)을 “번역 — 저자” 형식으로 섞어 돌린다.
+// 짧은 것만 — 긴 명언(전문가 트윗·바이브 코딩)은 5초 팁 박스(360px)에 안 맞아 부팅 화면에서만 돈다.
+const QUOTE_TIPS = LOADING_QUOTES.filter((q) => q.text.length <= 60).map((q) => `“${q.text}” — ${q.author}`);
 const LOADING_TIPS = [
+  ...QUOTE_TIPS,
   "리처드 파인만은 1965년 양자전기역학(QED) 연구로 노벨 물리학상을 받았어요.",
   "파인만 기법 — 개념을 처음 배우는 사람에게 설명하듯 자기 말로 풀어 보면, 막히는 곳이 곧 이해의 구멍이에요.",
-  "파인만이 세상을 떠난 날, 칠판에는 “내가 만들 수 없는 것은 이해하지 못한 것이다”라는 문구가 남아 있었어요.",
   "파인만은 어려운 물리를 일상의 비유로 풀어내 ‘위대한 설명가’로 불렸어요.",
   "복잡한 입자 상호작용을 그림 하나로 — 그게 파인만 다이어그램이에요.",
   "안드레 카파시는 OpenAI 공동 창립 멤버이자 테슬라 오토파일럿 AI를 이끈 연구자예요.",

@@ -60,4 +60,6 @@ export { WikiPage, WikiHeading, WikiParagraph } from "./components/WikiPage";
 export { FileDropzone } from "./components/FileDropzone";
 export { EmptyState } from "./components/EmptyState";
 export { AIWritingBanner } from "./components/AIWritingBanner";
+export { LoadingQuote } from "./components/LoadingQuote";
+export type { LoadingQuoteItem, LoadingQuoteProps } from "./components/LoadingQuote";
 export { PlaceholderPanel } from "./components/PlaceholderPanel";

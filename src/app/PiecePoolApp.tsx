@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { AppShell, Sidebar, Card, EmptyState, Icons } from "../ds";
+import { AppShell, Sidebar, Card, EmptyState, Icons, LoadingQuote } from "../ds";
+import { LOADING_QUOTES } from "../lib/quotes";
 import type { TreeNode } from "../ds";
 import type { KnowledgeSpace, WikiPage as WikiPageT, ArchiveNote, GraphData, Workspace, Subject, Relation } from "../lib/types";
 import * as ipc from "../lib/ipc";
@@ -1427,7 +1428,14 @@ export default function PiecePoolApp() {
 
 
         <div className={fullBleed ? "min-h-0 flex-1 overflow-hidden" : "min-h-0 flex-1 overflow-y-auto p-6"}>
-          {booting ? <p className="p-6 text-[15px] text-ink-muted">불러오는 중…</p> : renderActiveTab()}
+          {booting ? (
+            <div className="flex h-full flex-col items-center justify-center gap-6 p-6">
+              <p className="text-[15px] text-ink-muted">불러오는 중…</p>
+              <LoadingQuote quotes={LOADING_QUOTES} />
+            </div>
+          ) : (
+            renderActiveTab()
+          )}
         </div>
       </AppShell>
 
