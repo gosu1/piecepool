@@ -45,7 +45,8 @@ export const EMPTY_DRAFT: InboxDraft = {
   savedFile: null,
   savedSpace: null,
   savedSnapshot: null,
-  panels: { pdf: false, wiki: false },
+  // PDF 는 열린 채 시작한다 — 새 노트의 첫 행동이 대개 PDF 업로드인데, 닫혀 있으면 업로드 입구가 안 보인다.
+  panels: { pdf: true, wiki: false },
   refSource: "",
   refWikiPath: "",
   targetSpace: "",
