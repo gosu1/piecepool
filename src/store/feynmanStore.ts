@@ -51,7 +51,7 @@ interface FeynmanState {
    * 가 저장 후 setWikiBySlug 를 부르는 것과 같은 이유다.
    */
   finish: (understood: boolean) => Promise<WikiPage | null>;
-  /** [나중에]·[닫기] — 세션을 닫고 이 페이지의 자동 열기를 끈다. */
+  /** [닫기] — 세션을 닫고 이 페이지의 자동 열기를 끈다. */
   dismiss: () => void;
 }
 

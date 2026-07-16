@@ -246,7 +246,7 @@ describe("finish — 기록을 위키 본문에 저장한다", () => {
   });
 });
 
-describe("dismiss — '나중에'", () => {
+describe("dismiss — [닫기]", () => {
   it("세션을 닫고 이 페이지를 dismissed 에 기록한다", () => {
     useFeynmanStore.getState().start("sp", page());
     useFeynmanStore.getState().dismiss();

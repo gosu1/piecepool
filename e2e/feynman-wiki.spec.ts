@@ -101,9 +101,9 @@ test("위키 본문에 기록 원문이 노출되지 않는다", async ({ page }
   await expect(page.getByRole("heading", { name: "파인만 기록" })).toHaveCount(0);
 });
 
-test("[나중에] 를 누르면 재방문해도 자동으로 안 열린다", async ({ page }) => {
+test("[닫기] 를 누르면 재방문해도 자동으로 안 열린다", async ({ page }) => {
   await openWiki(page);
-  await page.getByRole("button", { name: "나중에" }).click();
+  await page.getByRole("button", { name: "파인만 닫기" }).click();
   await expect(box(page)).toHaveCount(0);
 
   // 다른 문서로 갔다가 돌아온다 — DocView 인스턴스가 재사용되는 경로
