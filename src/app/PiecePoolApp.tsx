@@ -457,15 +457,27 @@ export default function PiecePoolApp() {
     closeTab(id);
   };
   // 미저장 편집이 있는 탭은 확인 후 닫기
-  const requestCloseTab = (id: string) => {
+  // 미저장 여부 판정(닫기 확인용) — 탭 dirty + inbox 초안 스냅샷 비교.
+  const isTabDirty = (id: string) => {
     const tab = openTabs.find((t) => t.id === id);
-    // 재시작으로 복원된 inbox 탭은 한 번도 안 열려 tab.dirty=false 여도, 저장 안 한 초안이 남아있을 수 있다 → 스토어로 확인.
     const d = id.startsWith("inbox:") ? useInboxDraftStore.getState().drafts[id] : undefined;
     const inboxDirty = !!d && !!(d.title.trim() || d.body.trim()) && `${d.title.trim()} ${d.body}` !== d.savedSnapshot;
-    if (tab?.dirty || inboxDirty) setDialog({ kind: "close-dirty", tabId: id });
+    return !!tab?.dirty || inboxDirty;
+  };
+  const requestCloseTab = (id: string) => {
+    // 재시작으로 복원된 inbox 탭은 한 번도 안 열려 tab.dirty=false 여도, 저장 안 한 초안이 남아있을 수 있다 → 스토어로 확인.
+    if (isTabDirty(id)) setDialog({ kind: "close-dirty", tabId: id });
     else closeTabClean(id);
   };
   requestCloseTabRef.current = requestCloseTab;
+
+  // 모든 탭 닫기 — 저장된 탭만 닫고 미저장 탭은 남긴다(closeTabClean 이 미저장 inbox 의 원본까지
+  // 지우므로 일괄로는 위험). 남은 게 있으면 알려 준다.
+  const closeAllTabs = () => {
+    const kept = openTabs.filter((t) => isTabDirty(t.id));
+    openTabs.filter((t) => !isTabDirty(t.id)).forEach((t) => closeTabClean(t.id));
+    if (kept.length) setNotice(`미저장 탭 ${kept.length}개는 남겨뒀어요 — 저장한 뒤 닫으세요`);
+  };
   // 문서별 세션 상태(드래프트·편집·간극) 일괄 정리 — 저장/이동/삭제/닫기 후 stale 부활 방지.
   const clearDocState = (key: string) => {
     setDrafts((d) => {
@@ -1425,6 +1437,7 @@ export default function PiecePoolApp() {
             activeId={activeTabId}
             onSelect={setActiveTab}
             onClose={requestCloseTab}
+            onCloseAll={closeAllTabs}
             onReorder={reorderTab}
             onNewTab={openEmptyTab}
             onToggleFiles={toggleLeftPane}
