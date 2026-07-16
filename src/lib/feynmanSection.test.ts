@@ -229,6 +229,30 @@ describe("미닫힘 코드펜스 — 기록이 펜스 안으로 들어가면 안
     expect(splitFeynmanSection(joinFeynmanSection(closed, [S()])).body).toBe(closed);
   });
 
+  // 마커가 섞인 문서 — scanHeadings 가 무조건 토글이던 시절 여기서 유출이 났고,
+  // 테스트가 전부 동종 마커라 441개 통과하면서 유출이 살아있었다.
+  it("코드블록 안에 다른 마커가 있어도 닫힌 문서로 본다 — 쓸데없는 펜스를 안 붙인다", () => {
+    // ~~~ 는 ```md 블록의 **내용**이다. CommonMark 상 이 문서는 정상 닫혔다.
+    const closed = "# 개념\n\n```md\n~~~\n예시\n```";
+    const md = joinFeynmanSection(closed, [S()]);
+    expect(splitFeynmanSection(md).body).toBe(closed); // 원문 그대로
+    expect(splitFeynmanSection(md).sessions).toEqual([S()]);
+  });
+
+  it("마커 섞인 미닫힘도 닫는다 — 발화가 안 샌다", () => {
+    const open = "# 개념\n\n```md\n~~~\n예시";
+    const md = joinFeynmanSection(open, [S({ turns: [{ role: "user", text: "내 사적인 설명" }] })]);
+    expect(splitFeynmanSection(md).sessions).toHaveLength(1);
+    expect(stripFeynmanSection(md)).not.toContain("내 사적인 설명");
+  });
+
+  it("~~~ 블록 안의 ``` 도 마찬가지다 — 반대 조합", () => {
+    const closed = "# 개념\n\n~~~md\n```\n예시\n~~~";
+    const md = joinFeynmanSection(closed, [S()]);
+    expect(splitFeynmanSection(md).body).toBe(closed);
+    expect(splitFeynmanSection(md).sessions).toEqual([S()]);
+  });
+
   it("펜스 미닫힘 본문에 append 해도 섹션이 중복되지 않는다", () => {
     // 설계 §8 이 명시적으로 요구한 역방향 반례. 못 찾으면 finish 가 섹션을 또 만든다.
     const once = joinFeynmanSection(OPEN, [S()]);

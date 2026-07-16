@@ -34,12 +34,16 @@ function cleanTitle(raw: string): string {
 export function scanHeadings(md: string): Heading[] {
   const out: Heading[] = [];
   let offset = 0;
-  let fenced = false;
+  let open: string | null = null;
   for (const line of md.split("\n")) {
     // CRLF: JS 정규식의 `.` 은 \r(줄 종결자)을 매치하지 않아 `$` 가 어긋난다 → 먼저 벗긴다.
     const text = line.endsWith("\r") ? line.slice(0, -1) : line;
-    if (FENCE.test(text)) fenced = !fenced;
-    else if (!fenced) {
+    const marker = FENCE.exec(text)?.[1];
+    if (marker) {
+      // 여는 마커와 같은 종류만 닫는다 — 다른 종류는 코드블록 안의 내용일 뿐이다.
+      if (!open) open = marker;
+      else if (marker === open) open = null;
+    } else if (!open) {
       const m = ATX.exec(text);
       if (m) out.push({ level: m[1].length, title: cleanTitle(m[2] ?? ""), from: offset });
     }
