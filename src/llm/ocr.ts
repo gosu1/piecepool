@@ -2,7 +2,7 @@
 // SSOT: docs/30-llm/provider-config.md. 정답 주입 금지 — 이미지에 있는 것만 옮긴다.
 // OCR 품질(실사진)은 사람 검증 대상. 요청 모양/오프라인 폴백/파싱은 자체검증.
 
-import { GEMINI_OPENAI_ENDPOINT, GEMINI_MODEL, extractChatText } from "./gemini";
+import { GEMINI_OPENAI_ENDPOINT, getGeminiModel, extractChatText } from "./gemini";
 import { getOutputLanguage, type OutputLanguage } from "./language";
 
 export interface OcrResult {
@@ -22,7 +22,7 @@ const OCR_INSTRUCTION_EN =
   "## Structure\n(reorganize into headings and lists)\n" +
   "## Summary\n(3 lines max)";
 
-export function buildOcrRequest(dataUrl: string, model = GEMINI_MODEL, lang: OutputLanguage = getOutputLanguage()) {
+export function buildOcrRequest(dataUrl: string, model: string = getGeminiModel(), lang: OutputLanguage = getOutputLanguage()) {
   return {
     model,
     messages: [
