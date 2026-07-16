@@ -37,8 +37,8 @@ Guidelines and commands for PiecePool Backend (Tauri + Rust) development.
 
 - The local directory structure is canonical. Every file path the backend reads or writes must conform exactly:
   ```
-  <workspaceRoot>/config/workspace.json
-  <workspaceRoot>/config/spaces.json
+  <workspaceRoot>/.config/workspace.json    ← hidden dir; same name on every OS (Windows also sets FILE_ATTRIBUTE_HIDDEN)
+  <workspaceRoot>/.config/spaces.json
   <space>/inbox/
   <space>/archive/         ← raw user text; NEVER overwrite with LLM output
   <space>/wiki/            ← LLM-generated WikiPage .md files

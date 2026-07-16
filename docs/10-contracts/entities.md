@@ -39,7 +39,7 @@ type Workspace = {
 };
 ```
 
-저장: `<workspaceRoot>/config/workspace.json`
+저장: `<workspaceRoot>/.config/workspace.json`
 
 ---
 
@@ -58,7 +58,7 @@ type KnowledgeSpace = {
 };
 ```
 
-저장: `<workspaceRoot>/config/spaces.json`
+저장: `<workspaceRoot>/.config/spaces.json`
 
 **폴더 구조**: [workspace-layout.md#지식-영역-폴더](workspace-layout.md)
 
