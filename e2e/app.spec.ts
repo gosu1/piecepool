@@ -160,15 +160,19 @@ test("새 노트 — 노트마다 새 탭, 옛 노트는 탭으로 유지된다"
   await expect(page.getByRole("tab", { name: /첫 노트/ })).toBeVisible();
 });
 
-// 위키 패널을 열어도 아무 위키가 자동 선택되지 않는다 — 고르기 전엔 빈 상태.
-test("Inbox 위키 패널 — 자동 선택 없음, 고른 뒤에만 본문 표시", async ({ page }) => {
+// 위키 패널을 열어도 아무 위키가 자동 선택되지 않는다 — 기본은 개념 목록, 고른 뒤에만 본문.
+test("Inbox 위키 패널 — 자동 선택 없음, 목록에서 고른 뒤에만 본문 표시", async ({ page }) => {
   await page.getByRole("button", { name: "새 노트 작성" }).click();
   await page.getByRole("button", { name: "위키 패널" }).click();
-  await expect(page.getByText(/이 노트의 위키가 여기 나타나요/)).toBeVisible();
+  const wikiPane = page.locator("section").filter({ hasText: "이 공간의 개념" });
+  await expect(wikiPane).toBeVisible();
   await expect(page.getByText(/선점형/)).not.toBeVisible();
-  // 셀렉트로 고르면 그제서야 본문이 뜬다
-  await page.getByRole("combobox").last().selectOption({ label: "CPU 스케줄링" });
+  // 목록에서 고르면 그제서야 본문이 뜬다
+  await wikiPane.getByRole("button", { name: "CPU 스케줄링" }).click();
   await expect(page.getByText(/선점형/)).toBeVisible();
+  // ← 목록으로 돌아가면 다시 개념 목록
+  await page.getByRole("button", { name: "← 목록" }).click();
+  await expect(page.getByText("이 공간의 개념")).toBeVisible();
 });
 
 // 저장 위치 = 노트가 속할 과목. 바꾸면 위키 참조 패널도 그 과목을 따라간다.
@@ -177,10 +181,10 @@ test("Inbox 저장 위치 — 과목 전환 시 위키 참조 후보도 바뀐�
   await page.getByRole("button", { name: "위키 패널" }).click();
   await page.getByRole("button", { name: "저장 위치" }).click();
   await page.getByRole("option", { name: "AI 딥러닝" }).click();
-  // 후보가 AI 딥러닝 위키로 교체된다 (운영체제 위키는 사라진다)
-  const wikiSel = page.getByRole("combobox").last();
-  await expect(wikiSel.locator("option", { hasText: "트랜스포머" })).toHaveCount(1);
-  await expect(wikiSel.locator("option", { hasText: "CPU 스케줄링" })).toHaveCount(0);
+  // 후보 목록이 AI 딥러닝 위키로 교체된다 (운영체제 위키는 사라진다)
+  const wikiPane = page.locator("section").filter({ hasText: "이 공간의 개념" });
+  await expect(wikiPane.getByRole("button", { name: "트랜스포머" })).toBeVisible();
+  await expect(wikiPane.getByRole("button", { name: "CPU 스케줄링" })).toHaveCount(0);
 });
 
 // 과목 폴더를 인박스에서 바로 만든다 — 만들면 저장 위치가 그 과목으로 옮겨간다.
