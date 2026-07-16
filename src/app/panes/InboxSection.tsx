@@ -825,8 +825,8 @@ export function InboxSection({
                 단 여기선 이 가드가 그 목적으로는 절대 안 걸린다 — 선택 경로 셋(목록·키워드·jobWikiPaths)이
                 이미 isSynthesisPage 를 거르거나 concept-syn-* 를 만들 수 없다. 유일하게 걸리는 건
                 isSynthesisPage 의 접두사 충돌("SYN Flood" → concept-syn-flood)이고 거기선 이 가드가
-                오히려 해롭다. 그럼에도 남기는 이유: 같은 파일이 :207/:419/:439 에서 이미 같은 판정을
-                쓰고 wikiReader 도 그렇다 — 여기만 빼면 다음 사람이 비대칭을 보고 되돌린다.
+                오히려 해롭다. 그럼에도 남기는 이유: 이 파일의 다른 isSynthesisPage 호출부들과
+                wikiReader 가 이미 같은 판정을 쓴다 — 여기만 빼면 다음 사람이 비대칭을 보고 되돌린다.
                 충돌 자체는 이 PR 범위 밖(conceptId 스킴 변경 + 마이그레이션 필요) — 후속 이슈. */}
             {!isSynthesisPage(refWiki) && (
               <FeynmanPanel
