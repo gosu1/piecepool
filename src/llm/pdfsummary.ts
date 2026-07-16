@@ -46,11 +46,15 @@ const SYSTEM_PROMPT_KO =
   "   - 이어서 원문의 주요 섹션 순서대로 `## {번호}. {한국어로 번역한 섹션 제목}` 헤딩과 그 섹션의 핵심 내용을 한국어로 요약한 본문.\n" +
   "3. 본문은 짧은 문단과 불릿으로 압축한다 — 전문 번역이 아니라 요약이다. 섹션당 3~8줄.\n" +
   "4. 수식은 KaTeX 문법으로 쓴다 — 인라인은 $...$, 블록 수식은 $$...$$. 블록 수식은 콜아웃 밖에만 둔다.\n" +
-  "5. **모든 `##` 섹션마다 예외 없이** 그 섹션의 마지막에 쉬운 설명 콜아웃을 하나 넣는다:\n" +
+  "5. **모든 `##` 섹션마다 예외 없이** 그 섹션 마지막에 쉬운 설명 콜아웃을 하나 넣는다. **줄글 한 덩어리로 쓰지 말고 구조화**해서 스캔되게 한다. 콜아웃의 모든 줄은 `> ` 로 시작한다:\n" +
   "   > [!easy] 쉬운 설명\n" +
-  "   > (그 섹션의 내용을 처음 배우는 사람에게 일상적인 비유로 풀어낸 설명 — 2~4문장)\n" +
-  "   콜아웃의 모든 줄은 `> ` 로 시작한다. 전문 용어를 다시 늘어놓지 말고, 중학생도 알아들을 말로 바꿔 쓴다.\n" +
-  "   쉬운 설명도 원문에 있는 내용만 다룬다(비유는 새로 들어도 되지만, 사실을 지어내지 않는다).\n" +
+  "   > **한마디로:** (이 섹션 핵심을 일상 비유와 함께 1~2문장)\n" +
+  "   >\n" +
+  "   > #### (소주제 제목)\n" +
+  "   > - **(라벨):** (짧은 설명)\n" +
+  "   > - **(라벨):** (짧은 설명)\n" +
+  "   내용이 여러 갈래면 `#### 소주제` 로 묶고 그 아래 `- **라벨:** 설명` 불릿으로 편다. 하위 항목은 한 단계 들여쓴 불릿(`>   - `)으로. 단순하면 한마디로 + 불릿 2~3개로 짧게 — 과하게 길게 쓰지 않는다.\n" +
+  "   중학생도 알아들을 말로, 전문 용어 재나열 금지, **이모지·이모티콘 금지**. 원문에 있는 내용만 다룬다(비유는 새로 들어도 되지만, 사실은 지어내지 않는다).\n" +
   "6. 전문 용어는 처음 한 번만 「한국어 번역(영어 원어)」로 병기하고, 이후는 한국어만 쓴다.\n" +
   "7. 페이지 번호·출처 표기·==하이라이트== 는 쓰지 않는다.\n" +
   "8. 출력은 순수 마크다운만 — 인사말·머리말·설명 문장·코드펜스(```)로 감싸기 금지.";
@@ -64,11 +68,15 @@ const SYSTEM_PROMPT_EN =
   "   - Then, following the source's main sections in order, `## {number}. {section title}` headings with each section's key content summarized.\n" +
   "3. Compress into short paragraphs and bullets — this is a summary, not a full translation. 3-8 lines per section.\n" +
   "4. Write math in KaTeX syntax — inline $...$, block $$...$$. Block math goes outside callouts only.\n" +
-  "5. **Every `##` section, no exceptions**, ends with one plain-language callout:\n" +
+  "5. **Every `##` section, no exceptions**, ends with one plain-language callout. **Do not write a single prose blob — structure it** so it scans. Every callout line starts with `> `:\n" +
   "   > [!easy] In plain terms\n" +
-  "   > (2-4 sentences explaining the section to a first-time learner with everyday analogies)\n" +
-  "   Every callout line starts with `> `. No jargon dumps — use words a middle-schooler understands.\n" +
-  "   The callout also covers only what is in the source (new analogies are fine; new facts are not).\n" +
+  "   > **In a nutshell:** (the section's core in 1-2 sentences with an everyday analogy)\n" +
+  "   >\n" +
+  "   > #### (subtopic title)\n" +
+  "   > - **(label):** (short explanation)\n" +
+  "   > - **(label):** (short explanation)\n" +
+  "   When the content splits into strands, group them under `#### subtopic` with `- **label:** explanation` bullets. Sub-items as one-level-indented bullets (`>   - `). If it is simple, keep it to the nutshell + 2-3 bullets — do not over-write.\n" +
+  "   Middle-schooler language, no jargon dumps, **no emoji**. Source content only (new analogies fine; new facts not).\n" +
   "6. No page numbers, no source citations, no ==highlights==.\n" +
   "7. Output pure Markdown only — no greetings, no preamble, no code-fence wrapping.";
 

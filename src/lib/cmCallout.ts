@@ -3,7 +3,7 @@
 // 접기는 CM6 내장 codeFolding 을 쓴다(접힘 위치 추적을 CM 이 관리 — 커스텀 상태 불필요).
 import { Decoration, EditorView, ViewPlugin, WidgetType } from "@codemirror/view";
 import type { DecorationSet, ViewUpdate } from "@codemirror/view";
-import type { Extension, Range } from "@codemirror/state";
+import type { EditorState, Extension, Range } from "@codemirror/state";
 import { codeFolding, foldEffect, foldedRanges, syntaxTree, unfoldEffect } from "@codemirror/language";
 import { parseCalloutMarker } from "./callout";
 
@@ -20,10 +20,10 @@ interface CalloutBlock {
 const MARKER_TOKEN = /^\[!\w+\]\s?/;
 
 /** 문서에서 콜아웃 블록(> [!type] …)을 찾는다. 중첩 인용 안쪽은 다루지 않는다. */
-function findCalloutBlocks(view: EditorView, from?: number, to?: number): CalloutBlock[] {
-  const doc = view.state.doc;
+function findCalloutBlocks(state: EditorState, from?: number, to?: number): CalloutBlock[] {
+  const doc = state.doc;
   const blocks: CalloutBlock[] = [];
-  syntaxTree(view.state).iterate({
+  syntaxTree(state).iterate({
     from: from ?? 0,
     to: to ?? doc.length,
     enter: (node) => {
@@ -94,22 +94,13 @@ function calloutDecorations(view: EditorView): DecorationSet {
   const doc = view.state.doc;
   const ranges: Range<Decoration>[] = [];
 
-  const activeLines = new Set<number>();
-  for (const r of view.state.selection.ranges) {
-    const first = doc.lineAt(r.from).number;
-    const last = doc.lineAt(r.to).number;
-    for (let n = first; n <= last; n++) activeLines.add(n);
-  }
-
   // fold 로 visibleRanges 가 쪼개지면 경계에 걸친 블록이 두 구간에서 중복 발견될 수 있다 → 시작 위치로 dedup.
   const seen = new Set<number>();
   for (const { from, to } of view.visibleRanges) {
-    for (const b of findCalloutBlocks(view, from, to)) {
+    for (const b of findCalloutBlocks(view.state, from, to)) {
       if (seen.has(b.from)) continue;
       seen.add(b.from);
       const lastLine = doc.lineAt(b.to).number;
-      let blockActive = false;
-      for (let n = b.titleLine.number; n <= lastLine; n++) if (activeLines.has(n)) blockActive = true;
 
       // 접기 셰브론 — 여러 줄 블록에만. 제목 줄 맨 앞(마크 앞)에 붙는다.
       if (lastLine > b.titleLine.number) {
@@ -122,8 +113,7 @@ function calloutDecorations(view: EditorView): DecorationSet {
       for (let n = b.titleLine.number; n <= lastLine; n++) {
         const line = doc.line(n);
         ranges.push(Decoration.line({ class: n === b.titleLine.number ? "pp-callout-line pp-callout-title-line" : "pp-callout-line" }).range(line.from));
-        // 커서가 블록 밖일 때만 `> ` 마크(와 제목 줄 마커 토큰)를 감춘다 — 문서는 불변.
-        if (blockActive) continue;
+        // 읽기 전용이라 `> `·`[!easy]` 마크를 항상 감춘다(커서와 무관하게 깔끔 — 문법 노출 없음).
         const q = /^(\s*>\s?)/.exec(line.text);
         if (q && q[1].length) ranges.push(hiddenMark.range(line.from, line.from + q[1].length));
         if (n === b.titleLine.number && b.hasTitleText) ranges.push(hiddenMark.range(b.markerFrom, b.markerTo));
@@ -156,7 +146,7 @@ const calloutPlugin = ViewPlugin.fromClass(
 
 /** 아직 안 접힌 [!easy] 블록을 전부 접는다. 스트림 완료 시·마운트 시 1회 호출. */
 export function foldEasyCallouts(view: EditorView): void {
-  const effects = findCalloutBlocks(view)
+  const effects = findCalloutBlocks(view.state)
     .filter((b) => b.type === "easy" && view.state.doc.lineAt(b.to).number > b.titleLine.number && !isFolded(view, b.titleLine.to))
     .map((b) => foldEffect.of({ from: b.titleLine.to, to: b.to }));
   if (effects.length) view.dispatch({ effects });
@@ -194,24 +184,26 @@ const calloutTheme = EditorView.baseTheme({
 // 접힌 자리의 "…" 기본 placeholder 를 없앤다 — 접힘 표시는 오른쪽 셰브론이 대신한다.
 const emptyFoldPlaceholder = codeFolding({ placeholderDOM: () => document.createElement("span") });
 
-// 제목 줄(=바) 전체가 접기 토글 — 어디를 눌러도 펼침↔접힘 양방향. 셰브론만 눌러야 했던
-// 비대칭·답답함 제거. 클릭 시 커서를 두지 않으므로 "편집 모드와 겹치는" 느낌도 사라진다
-// (편집이 필요한 본문은 별도 줄이라 영향 없다 — 제목은 자동 생성 라벨).
-const titleBarClick = EditorView.domEventHandlers({
+// 콜아웃(제목+본문) 어디를 눌러도 커서가 들어가지 않게 한다 — 읽기 전용 AI 산출물이라
+// 편집도, `> `·`**`·`####` 같은 마크다운 문법 노출도 원천 차단. 제목 줄 클릭은 접기 토글.
+const calloutClick = EditorView.domEventHandlers({
   mousedown(e, view) {
     const t = e.target as HTMLElement | null;
     if (!t || t.closest(".pp-callout-chevron")) return false; // 셰브론은 자기 핸들러가 토글(이중 처리 방지)
-    const lineEl = t.closest(".pp-callout-title-line") as HTMLElement | null;
+    const lineEl = t.closest(".pp-callout-line") as HTMLElement | null;
     if (!lineEl) return false;
-    const line = view.state.doc.lineAt(view.posAtDOM(lineEl));
-    const block = findCalloutBlocks(view).find((b) => b.titleLine.number === line.number);
-    if (!block) return false;
-    if (view.state.doc.lineAt(block.to).number <= block.titleLine.number) return false; // 접을 내용 없음
-    e.preventDefault();
-    const folded = isFolded(view, block.titleLine.to);
-    view.dispatch({ effects: (folded ? unfoldEffect : foldEffect).of({ from: block.titleLine.to, to: block.to }) });
+    e.preventDefault(); // 커서 진입 차단 → 마크다운 문법이 드러나지 않는다
+    // 제목 줄이면 접기 토글(본문 줄은 커서 차단만).
+    if (lineEl.classList.contains("pp-callout-title-line")) {
+      const line = view.state.doc.lineAt(view.posAtDOM(lineEl));
+      const block = findCalloutBlocks(view.state).find((b) => b.titleLine.number === line.number);
+      if (block && view.state.doc.lineAt(block.to).number > block.titleLine.number) {
+        const folded = isFolded(view, block.titleLine.to);
+        view.dispatch({ effects: (folded ? unfoldEffect : foldEffect).of({ from: block.titleLine.to, to: block.to }) });
+      }
+    }
     return true;
   },
 });
 
-export const calloutPreview: Extension = [emptyFoldPlaceholder, calloutPlugin, calloutTheme, titleBarClick];
+export const calloutPreview: Extension = [emptyFoldPlaceholder, calloutPlugin, calloutTheme, calloutClick];

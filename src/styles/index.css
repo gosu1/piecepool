@@ -279,7 +279,60 @@
   }
   .pp-callout-easy > .pp-callout-title:hover::after { border-color: var(--ds-primary); }
   .pp-callout-easy[open] > .pp-callout-title::after { transform: translateY(1px) rotate(-135deg); }
-  .pp-callout-easy > p { margin: 0; padding: 3px 14px; color: var(--ds-ink-2); }
-  .pp-callout-easy > p:first-of-type { padding-top: 6px; }
+  /* ── 리치 콘텐츠 렌더 — AI가 구조화(한마디로 → 섹션 → 볼드 라벨 불릿 → 중첩)해 뱉으면 스캔되게. ── */
+  .pp-callout-easy > p { margin: 0; padding: 3px 14px; color: var(--ds-ink-2); line-height: 1.55; }
   .pp-callout-easy > p:last-child { padding-bottom: 12px; }
+  /* 한마디로 = 첫 문단 → 파란 리드 박스(요점 먼저) */
+  .pp-callout-easy > p:first-of-type {
+    margin: 6px 12px 2px;
+    padding: 10px 12px;
+    background: color-mix(in srgb, var(--ds-primary) 7%, transparent);
+    border-radius: var(--radius-sm);
+    color: var(--ds-ink);
+  }
+  /* 섹션 헤더 (#### → h4) — 볼드 + 밑줄 구분 */
+  .pp-callout-easy h4 {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--ds-ink);
+    margin: 15px 14px 8px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid var(--ds-hairline);
+  }
+  /* 불릿 — 최상위=채운 파란 점, 볼드 라벨 */
+  .pp-callout-easy ul { margin: 0; padding: 0 14px; list-style: none; display: grid; gap: 8px; }
+  .pp-callout-easy > ul:last-child { padding-bottom: 12px; }
+  .pp-callout-easy li { position: relative; padding-left: 15px; line-height: 1.55; color: var(--ds-ink-2); }
+  .pp-callout-easy li::before {
+    content: "";
+    position: absolute;
+    left: 2px;
+    top: 8px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--ds-primary);
+  }
+  .pp-callout-easy li strong { color: var(--ds-ink); font-weight: 700; }
+  /* 중첩 불릿 — 들여쓰기 + 대시(작게·흐리게) */
+  .pp-callout-easy li ul { padding: 0; margin: 8px 0 2px; }
+  .pp-callout-easy li li { color: var(--ds-ink-muted); font-size: 13.5px; }
+  .pp-callout-easy li li::before {
+    top: 10px;
+    width: 6px;
+    height: 0;
+    border-top: 1.5px solid var(--ds-ink-faint);
+    border-radius: 0;
+    background: none;
+  }
+  .pp-callout-easy li li strong { color: var(--ds-ink-2); }
+  /* 수식·강조 */
+  .pp-callout-easy code {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+    font-size: 12.5px;
+    background: color-mix(in srgb, var(--ds-ink) 6%, transparent);
+    padding: 0 4px;
+    border-radius: 3px;
+  }
+  .pp-callout-easy em { font-style: normal; color: var(--ds-ink-muted); }
 }
