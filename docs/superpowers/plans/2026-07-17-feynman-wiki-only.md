@@ -64,8 +64,8 @@
 - Produces: 아래 5개. Task 2·5·6·7·8 이 전부 이걸 쓴다.
   - `interface FeynmanTurn { role: "user" | "probe"; text: string }`
   - `interface FeynmanSession { at: string; verdict: "understood" | "not_yet"; bodyHash: string; turns: FeynmanTurn[] }`
-  - `splitFeynmanSection(md: string): { body: string; sessions: FeynmanSession[] }`
-  - `joinFeynmanSection(body: string, sessions: FeynmanSession[]): string`
+  - `splitFeynmanSection(md: string): { body: string; sessions: FeynmanSession[]; unparsed: string[] }`
+  - `joinFeynmanSection(body: string, sessions: FeynmanSession[], unparsed?: string[]): string`
   - `stripFeynmanSection(md: string): string`
   - `bodyHash(md: string): string`
 
@@ -196,17 +196,42 @@ describe("stripFeynmanSection", () => {
   });
 });
 
-describe("fail-closed — 깨진 기록을 조용히 삭제하지 않는다", () => {
-  it("헤더가 망가진 세션은 버리되 원문 본문은 보존한다", () => {
-    const md = `${BODY}\n\n## 파인만 기록\n\n### 이건 헤더가 아니다\n\n> 뭔가\n`;
-    const { body, sessions } = splitFeynmanSection(md);
+describe("fail-closed — 파싱 못 한 기록을 조용히 삭제하지 않는다", () => {
+  // 복기가 이 기능의 존재 이유다. at/verdict 를 못 읽는 것과 사용자 발화를 잃는 것은 전혀 다른 문제다.
+  it("헤더가 망가져도 본문은 보존하고, 그 블록 원문을 unparsed 로 돌려준다", () => {
+    const md = `${BODY}\n\n## 파인만 기록\n\n### 이건 헤더가 아니다\n\n> 소중한 발화\n`;
+    const { body, sessions, unparsed } = splitFeynmanSection(md);
     expect(body).toBe(BODY);
     expect(sessions).toEqual([]);
+    expect(unparsed.join("\n")).toContain("소중한 발화");
+    expect(unparsed.join("\n")).toContain("### 이건 헤더가 아니다");
   });
 
-  it("판정 문자열이 미상이면 그 세션만 버린다", () => {
-    const md = `${BODY}\n\n## 파인만 기록\n\n### 2026-07-16T12:00:00.000Z · 몰?루 · abc12345\n\n**나:**\n\n> 뭔가\n`;
-    expect(splitFeynmanSection(md).sessions).toEqual([]);
+  it("판정 문자열이 미상이면 그 세션을 unparsed 로 넘긴다 — 발화를 버리지 않는다", () => {
+    const md = `${BODY}\n\n## 파인만 기록\n\n### 2026-07-16T12:00:00.000Z · 몰?루 · abc12345\n\n**나:**\n\n> 소중한 발화\n`;
+    const { sessions, unparsed } = splitFeynmanSection(md);
+    expect(sessions).toEqual([]);
+    expect(unparsed.join("\n")).toContain("소중한 발화");
+  });
+
+  it("깨진 블록이 읽기→쓰기 사이클에서 살아남는다", () => {
+    const md = `${BODY}\n\n## 파인만 기록\n\n### 이건 헤더가 아니다\n\n> 소중한 발화\n`;
+    const { body, sessions, unparsed } = splitFeynmanSection(md);
+    const out = joinFeynmanSection(body, sessions, unparsed);
+    expect(out).toContain("소중한 발화");
+    // 다시 읽어도 여전히 살아 있다 — 사이클을 반복해도 증발하지 않는다
+    expect(splitFeynmanSection(out).unparsed.join("\n")).toContain("소중한 발화");
+  });
+
+  it("성한 세션과 깨진 블록이 섞여 있으면 둘 다 살린다", () => {
+    const md = joinFeynmanSection(BODY, [S()]) + "\n\n### 깨진 헤더\n\n> 잃으면 안 되는 말\n";
+    const { sessions, unparsed } = splitFeynmanSection(md);
+    expect(sessions).toHaveLength(1);
+    expect(unparsed.join("\n")).toContain("잃으면 안 되는 말");
+  });
+
+  it("unparsed 가 비면 섹션 모양이 그대로다 — 정상 경로에 흔적을 안 남긴다", () => {
+    expect(joinFeynmanSection(BODY, [S()], [])).toBe(joinFeynmanSection(BODY, [S()]));
   });
 });
 
@@ -316,26 +341,40 @@ function parseTurns(lines: string[]): FeynmanTurn[] {
 }
 
 /**
- * 본문과 기록을 분리한다. 기록이 없으면 { body: md, sessions: [] }.
- * 헤더가 깨진 세션은 버리되 **본문은 언제나 온전히 복원한다** — 사용자 데이터를 조용히 잃지 않는다.
+ * 본문과 기록을 분리한다. 기록이 없으면 { body: md, sessions: [], unparsed: [] }.
+ *
+ * 읽을 수 없는 세션 블록은 **버리지 않고** unparsed 에 원문 그대로 담는다. at/verdict 를
+ * 못 읽는 것과 사용자 발화를 잃는 것은 전혀 다른 문제다 — 복기가 이 기능의 존재 이유인데,
+ * md 를 앱 밖에서 손대다 헤더 한 줄이 깨졌다고 대화가 증발하면 안 된다.
+ * joinFeynmanSection 이 그대로 되돌려 쓴다.
  */
-export function splitFeynmanSection(md: string): { body: string; sessions: FeynmanSession[] } {
+export function splitFeynmanSection(md: string): { body: string; sessions: FeynmanSession[]; unparsed: string[] } {
   const at = locate(md);
-  if (!at) return { body: md, sessions: [] };
+  if (!at) return { body: md, sessions: [], unparsed: [] };
   const [from, to] = at;
-  const body = (md.slice(0, from) + md.slice(to)).replace(/\n+$/, "");
+  // CRLF: /\n+$/ 만 쓰면 잘린 자리가 `…\r\n\r\n` 일 때 \r 이 남는다.
+  const body = (md.slice(0, from) + md.slice(to)).replace(/(\r?\n)+$/, "");
   const inner = md.slice(from, to).split("\n").slice(1); // `## 파인만 기록` 줄 제거
 
   const sessions: FeynmanSession[] = [];
+  const unparsed: string[] = [];
   let header: string | null = null;
   let buf: string[] = [];
   const flush = () => {
-    if (header === null) return;
+    if (header === null) {
+      // 첫 세션 헤더 이전의 내용 — 우리가 쓴 적 없는 모양이지만 사용자 것일 수 있다.
+      const stray = buf.join("\n").trim();
+      if (stray) unparsed.push(stray);
+      buf = [];
+      return;
+    }
     const parts = header.split(" · ").map((s) => s.trim());
     const verdict = LABEL_TO_VERDICT[parts[1] ?? ""];
-    // 헤더를 못 읽으면 그 세션만 버린다. 시각·판정 없이는 복기에 쓸모가 없다.
     if (parts.length >= 2 && verdict) {
       sessions.push({ at: parts[0], verdict, bodyHash: parts[2] ?? "", turns: parseTurns(buf) });
+    } else {
+      // 헤더를 못 읽어도 발화는 사용자 것이다 — 글자 그대로 되돌려 쓴다.
+      unparsed.push([`### ${header}`, ...buf].join("\n").trimEnd());
     }
     buf = [];
   };
@@ -350,13 +389,13 @@ export function splitFeynmanSection(md: string): { body: string; sessions: Feynm
     buf.push(raw);
   }
   flush();
-  return { body, sessions };
+  return { body, sessions, unparsed };
 }
 
-/** 본문 + 기록 → md. sessions 가 비면 섹션을 만들지 않는다. */
-export function joinFeynmanSection(body: string, sessions: FeynmanSession[]): string {
-  if (!sessions.length) return body;
-  const out: string[] = [body.replace(/\n+$/, ""), "", `## ${SECTION_TITLE}`, ""];
+/** 본문 + 기록 → md. 쓸 게 하나도 없으면 섹션을 만들지 않는다. */
+export function joinFeynmanSection(body: string, sessions: FeynmanSession[], unparsed: string[] = []): string {
+  if (!sessions.length && !unparsed.length) return body;
+  const out: string[] = [body.replace(/(\r?\n)+$/, ""), "", `## ${SECTION_TITLE}`, ""];
   for (const s of sessions) {
     out.push(`### ${s.at} · ${VERDICT_TO_LABEL[s.verdict]} · ${s.bodyHash}`, "");
     for (const t of s.turns) {
@@ -366,6 +405,9 @@ export function joinFeynmanSection(body: string, sessions: FeynmanSession[]): st
       out.push("");
     }
   }
+  // 읽을 수 없는 블록은 섹션 끝에 원문 그대로. body 에 섞으면 개념 문서가 오염되고
+  // LLM 병합 입력(llmApply)에도 들어간다 — 섹션 안에 머물러야 한다.
+  for (const raw of unparsed) out.push(raw, "");
   return out.join("\n").replace(/\n+$/, "\n");
 }
 
@@ -530,11 +572,11 @@ Expected: FAIL — 기록이 사라지거나(`sessions` 가 `[]`), LLM 에 넘�
 // 사용자가 자기 말로 쓴 설명이 "정답"으로 둔갑해 되물음에 인용되는 것도 함께 막는다.
 async function mergeMarkdown(ex: WikiPage, c: LlmConcept, source: ImportSource, deps?: ApplyDeps): Promise<string> {
   if (!deps?.mergeMarkdown) return ex.markdown;
-  const { body, sessions } = splitFeynmanSection(ex.markdown);
+  const { body, sessions, unparsed } = splitFeynmanSection(ex.markdown);
   try {
     const md = await deps.mergeMarkdown(body, c, source);
     // 폴백 두 경로는 기록 포함 원본(ex.markdown)을 그대로 돌려준다 — 여기서만 되붙여야 중복이 없다.
-    return md.trim() ? joinFeynmanSection(md, sessions) : ex.markdown;
+    return md.trim() ? joinFeynmanSection(md, sessions, unparsed) : ex.markdown;
   } catch (e) {
     console.warn(`[llmApply] 본문 통합 실패 — 기존 본문 유지: ${String(e)}`);
     return ex.markdown;
@@ -552,11 +594,17 @@ import { splitFeynmanSection, joinFeynmanSection } from "./feynmanSection";
 
 - [ ] **Step 4: `synthesisPage` 를 고친다**
 
-`src/lib/llmApply.ts:111` 의 `markdown,` 한 줄을 바꾼다. `ex` 는 `:90` 에서 이미 찾아져 있다:
+`src/lib/llmApply.ts:111` 의 `markdown,` 한 줄을 바꾼다. `ex` 는 `:90` 에서 이미 찾아져 있다. 함수 상단(`:88` `const now = ...` 근처)에 한 줄 추가:
+
+```ts
+  const keep = ex ? splitFeynmanSection(ex.markdown) : null;
+```
+
+`:111`:
 
 ```ts
     // 재변환은 기존 본문을 참조조차 하지 않고 새 출력으로 갈아탄다 — 파인만 기록만 되살린다.
-    markdown: joinFeynmanSection(markdown, ex ? splitFeynmanSection(ex.markdown).sessions : []),
+    markdown: joinFeynmanSection(markdown, keep?.sessions ?? [], keep?.unparsed ?? []),
 ```
 
 - [ ] **Step 5: 테스트가 통과하는지 확인한다**
@@ -1059,14 +1107,14 @@ export const useFeynmanStore = create<FeynmanState>()(
           // 디스크 최신본 기준 — 메모리 stale 본문이 그 사이 갱신된 본문을 덮지 않는다.
           try {
             const cur = await ipc.readWiki(s.space, s.path);
-            const { body, sessions } = splitFeynmanSection(cur.markdown);
+            const { body, sessions, unparsed } = splitFeynmanSection(cur.markdown);
             const session: FeynmanSession = {
               at: new Date().toISOString(),
               verdict: understood ? "understood" : "not_yet",
               bodyHash: bodyHash(body),
               turns: s.history.map((t) => ({ role: t.role, text: t.text })),
             };
-            await ipc.saveWiki(s.space, { ...cur, markdown: joinFeynmanSection(body, [session, ...sessions]) });
+            await ipc.saveWiki(s.space, { ...cur, markdown: joinFeynmanSection(body, [session, ...sessions], unparsed) });
             if (get().session?.id === s.id) set({ session: null });
           } catch (e) {
             // 설명을 잃지 않는다 — 세션을 유지하고 다시 시도하게 한다.
@@ -1497,8 +1545,8 @@ session 가드가 없으면 다른 페이지에서 진행 중이던 설명이 �
   // 메모리의 page.markdown 을 쓰면 편집 중에 끝낸 세션이 사라진다 — 그 세션은 디스크에만 있다.
   const saveWikiDoc = async (space: string, page: WikiPageT, md: string) => {
     const cur = await ipc.readWiki(space, page.path);
-    const { sessions } = splitFeynmanSection(cur.markdown);
-    const saved = await ipc.saveWiki(space, { ...cur, markdown: joinFeynmanSection(md, sessions) });
+    const { sessions, unparsed } = splitFeynmanSection(cur.markdown);
+    const saved = await ipc.saveWiki(space, { ...cur, markdown: joinFeynmanSection(md, sessions, unparsed) });
     setWikiBySlug((m) => ({ ...m, [space]: (m[space] ?? []).map((x) => (x.path === page.path ? saved : x)) }));
     clearDocState(docKey(space, page.path));
     setTabDirty(`wiki:${space}:${page.path}`, false);
