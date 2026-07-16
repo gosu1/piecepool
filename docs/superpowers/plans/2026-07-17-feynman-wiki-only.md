@@ -1146,6 +1146,25 @@ describe("finish — 기록을 위키 본문에 저장한다", () => {
     expect(vi.mocked(ipc.saveWiki).mock.calls[0][1].markdown).toContain("잃으면 안 되는 말");
   });
 
+  // 스토어는 디스크만 안다. 이 반환값이 없으면 호출부가 wikiBySlug 를 못 갱신하고,
+  // 판정 직후 접힌 카드가 같은 앱 세션에서 영영 안 나타난다(e2e 가 실제로 잡은 버그).
+  it("finish 가 저장된 페이지를 돌려준다 — 호출부가 메모리 사본을 갱신할 수 있게", async () => {
+    vi.mocked(probeExplanation).mockResolvedValue({ probe: "왜요?", targetGap: "why" });
+    useFeynmanStore.getState().start("sp", page());
+    await useFeynmanStore.getState().explain("설명");
+    const saved = await useFeynmanStore.getState().finish(true);
+    expect(saved).not.toBeNull();
+    expect(splitFeynmanSection(saved!.markdown).sessions).toHaveLength(1);
+  });
+
+  it("저장 실패면 null 을 돌려준다 — 호출부가 stale 페이지로 덮지 않게", async () => {
+    vi.mocked(probeExplanation).mockResolvedValue({ probe: "왜요?", targetGap: "why" });
+    vi.mocked(ipc.saveWiki).mockRejectedValue(new Error("디스크 죽음"));
+    useFeynmanStore.getState().start("sp", page());
+    await useFeynmanStore.getState().explain("설명");
+    expect(await useFeynmanStore.getState().finish(true)).toBeNull();
+  });
+
   it("판정 버튼 더블클릭이 저장을 두 번 태우지 않는다", async () => {
     vi.mocked(probeExplanation).mockResolvedValue({ probe: "왜요?", targetGap: "why" });
     useFeynmanStore.getState().start("sp", page());
@@ -1219,8 +1238,15 @@ interface FeynmanState {
   start: (space: string, page: WikiPage) => void;
   explain: (text: string) => Promise<void>;
   retryProbe: () => Promise<void>;
-  /** 사용자 판정 → 위키 본문에 기록을 append 하고 저장. 저장 실패면 세션을 유지한다. */
-  finish: (understood: boolean) => Promise<void>;
+  /**
+   * 사용자 판정 → 위키 본문에 기록을 append 하고 저장. 저장 실패면 세션을 유지한다.
+   *
+   * **저장된 WikiPage 를 돌려준다** — 스토어는 디스크에만 쓰고 앱의 메모리 사본(`wikiBySlug`)은
+   * 모른다. 호출부가 이 반환값으로 그걸 갱신하지 않으면 판정 직후 접힌 카드가 같은 앱 세션에서
+   * **영영 안 나타난다**(패널의 page prop 이 stale 인 채로 남는다). saveWikiDoc·toggleWikiSubject
+   * 가 저장 후 setWikiBySlug 를 부르는 것과 같은 이유다.
+   */
+  finish: (understood: boolean) => Promise<WikiPage | null>;
   /** [나중에]·[닫기] — 세션을 닫고 이 페이지의 자동 열기를 끈다. */
   dismiss: () => void;
 }
@@ -1294,7 +1320,7 @@ export const useFeynmanStore = create<FeynmanState>()(
 
         finish: async (understood) => {
           const s = get().session;
-          if (!s || s.probing || s.saving) return;
+          if (!s || s.probing || s.saving) return null;
           set({ session: { ...s, saving: true } });
           // 디스크 최신본 기준 — 메모리 stale 본문이 그 사이 갱신된 본문을 덮지 않는다.
           try {
@@ -1306,11 +1332,14 @@ export const useFeynmanStore = create<FeynmanState>()(
               bodyHash: bodyHash(body),
               turns: s.history.map((t) => ({ role: t.role, text: t.text })),
             };
-            await ipc.saveWiki(s.space, { ...cur, markdown: joinFeynmanSection(body, [session, ...sessions], unparsed) });
+            const saved = await ipc.saveWiki(s.space, { ...cur, markdown: joinFeynmanSection(body, [session, ...sessions], unparsed) });
             if (get().session?.id === s.id) set({ session: null });
+            // 호출부가 이걸로 wikiBySlug 를 갱신해야 접힌 카드가 화면에 나타난다 — 스토어는 디스크만 안다.
+            return saved;
           } catch (e) {
             // 설명을 잃지 않는다 — 세션을 유지하고 다시 시도하게 한다.
             if (get().session?.id === s.id) set((c) => ({ session: c.session && { ...c.session, saving: false, error: String(e) } }));
+            return null;
           }
         },
 
@@ -1437,7 +1466,20 @@ function SessionCard({ s, stale }: { s: FeynmanSession; stale: boolean }) {
   );
 }
 
-export function FeynmanPanel({ space, page }: { space: string; page: WikiPage }) {
+export function FeynmanPanel({
+  space,
+  page,
+  onSaved,
+}: {
+  space: string;
+  page: WikiPage;
+  /**
+   * 판정 저장 직후 — 호출부가 앱의 메모리 사본(wikiBySlug)을 갱신한다.
+   * 없으면 page prop 이 stale 인 채로 남아 **접힌 카드가 같은 앱 세션에서 영영 안 나타난다.**
+   * 스토어는 디스크만 안다.
+   */
+  onSaved?: (saved: WikiPage) => void;
+}) {
   const session = useFeynmanStore((s) => s.session);
   const start = useFeynmanStore((s) => s.start);
   const explain = useFeynmanStore((s) => s.explain);
@@ -1456,6 +1498,12 @@ export function FeynmanPanel({ space, page }: { space: string; page: WikiPage })
     if (!said || mine?.probing) return;
     setDraft("");
     await explain(said);
+  };
+
+  // 저장된 페이지를 호출부에 올려보내야 카드가 화면에 나타난다 — 스토어는 디스크만 안다.
+  const done = async (understood: boolean) => {
+    const saved = await finish(understood);
+    if (saved) onSaved?.(saved);
   };
 
   // 본문 파싱은 이 분기에서만 필요하다 — 위로 올리면 진행 중 세션의 타이핑마다 위키 전체를 다시 판다.
@@ -1534,10 +1582,10 @@ export function FeynmanPanel({ space, page }: { space: string; page: WikiPage })
         {/* 이해 판정은 오직 사용자. LLM 은 채점하지 않는다(relation-types.md §review_needed).
             단 설명을 한 번도 안 했으면 판정할 근거가 없다 — [나중에] 로만 넘어간다. */}
         <div className="flex gap-2">
-          <Button size="sm" variant="utility" disabled={probing || saving || !answered} onClick={() => void finish(false)}>
+          <Button size="sm" variant="utility" disabled={probing || saving || !answered} onClick={() => void done(false)}>
             아직 모르겠어요
           </Button>
-          <Button size="sm" variant="utility" disabled={probing || saving || !answered} onClick={() => void finish(true)}>
+          <Button size="sm" variant="utility" disabled={probing || saving || !answered} onClick={() => void done(true)}>
             네, 이해했어요
           </Button>
         </div>
@@ -1621,7 +1669,19 @@ import { stripFeynmanSection } from "../../lib/feynmanSection";
 ```tsx
         conflicts={sections.conflicts}
         // 정리 글(concept-syn-*)은 학습자 본인 노트에서 나온 글이라 파인만 대상이 아니다
-        bottomSlot={isSynthesisPage(page) ? undefined : <FeynmanPanel space={space} page={page} />}
+        bottomSlot={
+          isSynthesisPage(page) ? undefined : (
+            // onSaved 가 없으면 판정 후 page prop 이 stale 로 남아 접힌 카드가 영영 안 나타난다.
+            // saveWikiDoc·toggleWikiSubject 가 저장 후 setWikiBySlug 를 부르는 것과 같은 이유다.
+            <FeynmanPanel
+              space={space}
+              page={page}
+              onSaved={(saved) =>
+                setWikiBySlug((m) => ({ ...m, [space]: (m[space] ?? []).map((x) => (x.path === saved.path ? saved : x)) }))
+              }
+            />
+          )
+        }
       />
 ```
 
