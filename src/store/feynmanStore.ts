@@ -28,6 +28,8 @@ interface WikiSession {
   body: string;
   history: Turn[];
   probing: boolean;
+  /** finish 진행 중 — 판정 버튼 더블클릭이 readWiki/saveWiki 왕복을 두 번 태우는 걸 막는다. */
+  saving?: boolean;
   error?: string;
 }
 
@@ -115,7 +117,8 @@ export const useFeynmanStore = create<FeynmanState>()(
 
         finish: async (understood) => {
           const s = get().session;
-          if (!s || s.probing) return;
+          if (!s || s.probing || s.saving) return;
+          set({ session: { ...s, saving: true } });
           // 디스크 최신본 기준 — 메모리 stale 본문이 그 사이 갱신된 본문을 덮지 않는다.
           try {
             const cur = await ipc.readWiki(s.space, s.path);
@@ -130,7 +133,7 @@ export const useFeynmanStore = create<FeynmanState>()(
             if (get().session?.id === s.id) set({ session: null });
           } catch (e) {
             // 설명을 잃지 않는다 — 세션을 유지하고 다시 시도하게 한다.
-            if (get().session?.id === s.id) set((c) => ({ session: c.session && { ...c.session, error: String(e) } }));
+            if (get().session?.id === s.id) set((c) => ({ session: c.session && { ...c.session, saving: false, error: String(e) } }));
           }
         },
 

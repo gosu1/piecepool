@@ -36,6 +36,9 @@ const fake = new FakeStorage() as unknown as Storage;
 g.localStorage = fake;
 g.window = { localStorage: fake }; // zustand persist 기본 storage 는 window.localStorage 를 본다
 
+// 주의: zustand persist 는 module-eval 시점에 window.localStorage 를 읽는다. vitest node 환경엔
+// 없으므로 store 모듈을 정적 import 하면 터진다 — FakeStorage 를 심은 뒤 동적 import 해야 한다.
+// (선례: 구 feynmanStore.test.ts. settings.test.ts 는 지연 조회라 정적이어도 됐다.)
 const { useFeynmanStore, wikiKey } = await import("./feynmanStore");
 
 const BODY = "# 스레드\n\n프로세스 안의 실행 단위.";
@@ -160,6 +163,39 @@ describe("finish — 기록을 위키 본문에 저장한다", () => {
     expect(s).not.toBeNull();
     expect(s!.error).toBeTruthy();
     expect(s!.history).toHaveLength(2);
+    expect(s!.saving).toBe(false); // 다시 시도할 수 있어야 한다
+  });
+
+  it("후행 개행 있는 본문에서도 배지가 안 뜬다", async () => {
+    // 병합·편집을 거친 .md 의 정상 형태. split 이 조건부로만 다듬으면 여기서 해시가 어긋난다.
+    vi.mocked(probeExplanation).mockResolvedValue({ probe: "왜요?", targetGap: "why" });
+    const nl = page({ markdown: `${BODY}\n` });
+    vi.mocked(ipc.readWiki).mockResolvedValue(nl);
+    useFeynmanStore.getState().start("sp", nl);
+    await useFeynmanStore.getState().explain("설명");
+    await useFeynmanStore.getState().finish(true);
+
+    const saved = vi.mocked(ipc.saveWiki).mock.calls[0][1];
+    expect(splitFeynmanSection(saved.markdown).sessions[0].bodyHash).toBe(bodyHash(saved.markdown));
+  });
+
+  it("읽을 수 없는 블록(unparsed)이 저장을 건너 살아남는다", async () => {
+    vi.mocked(probeExplanation).mockResolvedValue({ probe: "왜요?", targetGap: "why" });
+    const broken = page({ markdown: `${BODY}\n\n## 파인만 기록\n\n### 깨진 헤더\n\n> 잃으면 안 되는 말\n` });
+    vi.mocked(ipc.readWiki).mockResolvedValue(broken);
+    useFeynmanStore.getState().start("sp", broken);
+    await useFeynmanStore.getState().explain("설명");
+    await useFeynmanStore.getState().finish(true);
+
+    expect(vi.mocked(ipc.saveWiki).mock.calls[0][1].markdown).toContain("잃으면 안 되는 말");
+  });
+
+  it("판정 버튼 더블클릭이 저장을 두 번 태우지 않는다", async () => {
+    vi.mocked(probeExplanation).mockResolvedValue({ probe: "왜요?", targetGap: "why" });
+    useFeynmanStore.getState().start("sp", page());
+    await useFeynmanStore.getState().explain("설명");
+    await Promise.all([useFeynmanStore.getState().finish(true), useFeynmanStore.getState().finish(true)]);
+    expect(vi.mocked(ipc.saveWiki).mock.calls).toHaveLength(1);
   });
 });
 

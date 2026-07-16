@@ -171,6 +171,22 @@ describe("bodyHash", () => {
     expect(bodyHash(joinFeynmanSection(BODY, [S(), S({ at: "2026-01-01T00:00:00.000Z" })]))).toBe(h0);
   });
 
+  // 후행 개행은 병합·편집을 거친 .md 의 정상 형태다. split 이 조건부로만 다듬으면
+  // 기록 없는 페이지의 첫 세션에서 저장 전후 해시가 어긋나 배지가 상시 점등한다.
+  it("후행 개행이 해시를 바꾸지 않는다 — split 이 섹션 유무와 무관하게 정규화한다", () => {
+    expect(bodyHash(`${BODY}\n`)).toBe(bodyHash(BODY));
+    expect(bodyHash(`${BODY}\n\n\n`)).toBe(bodyHash(BODY));
+    expect(bodyHash(`${BODY}\r\n`)).toBe(bodyHash(BODY));
+  });
+
+  it("후행 개행 있는 본문의 첫 세션 — 저장 전후 해시가 같다", () => {
+    // finish 가 하는 그대로: split → 해시 → join. 이 둘이 어긋나면 배지가 저장하자마자 켜진다.
+    const withNl = `${BODY}\n`;
+    const { body, sessions, unparsed } = splitFeynmanSection(withNl);
+    const saved = joinFeynmanSection(body, [S({ bodyHash: bodyHash(body) }), ...sessions], unparsed);
+    expect(splitFeynmanSection(saved).sessions[0].bodyHash).toBe(bodyHash(saved));
+  });
+
   it("본문이 바뀌면 해시가 바뀐다", () => {
     expect(bodyHash(`${BODY} 추가`)).not.toBe(bodyHash(BODY));
   });

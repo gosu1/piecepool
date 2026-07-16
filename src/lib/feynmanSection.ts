@@ -101,13 +101,20 @@ function parseTurns(lines: string[]): FeynmanTurn[] {
  */
 export function splitFeynmanSection(md: string): { body: string; sessions: FeynmanSession[]; unparsed: string[] } {
   const spans = locateAll(md);
-  if (!spans.length) return { body: md, sessions: [], unparsed: [] };
 
   // 섹션을 전부 걷어낸 나머지가 body. 뒤에서부터 잘라야 앞 구간 오프셋이 안 밀린다.
-  // CRLF: /\n+$/ 만 쓰면 잘린 자리가 `…\r\n\r\n` 일 때 \r 이 남는다.
   let body = md;
   for (const [from, to] of [...spans].reverse()) body = body.slice(0, from) + body.slice(to);
+
+  // 후행 개행은 섹션 유무와 **무관하게** 다듬는다. join 이 항상 다듬으므로 여기서 조건부로 두면
+  // split→join 왕복이 깨진다: 기록이 아직 없는 페이지의 첫 세션에서 finish 가 박는
+  // bodyHash(안 다듬은 body) 와 저장된 문서의 bodyHash(다듬은 body) 가 달라져 **저장하자마자
+  // "이후 문서 바뀜" 배지가 켜진다**. updatedAt 을 버리고 해시로 온 이유가 그 실패 모드인데
+  // 이 비대칭이 다른 문으로 같은 것을 들여놓는다. 후행 개행은 병합·편집을 거친 .md 의 정상 형태다.
+  // CRLF: /\n+$/ 만 쓰면 잘린 자리가 `…\r\n\r\n` 일 때 \r 이 남는다.
   body = body.replace(/(\r?\n)+$/, "");
+
+  if (!spans.length) return { body, sessions: [], unparsed: [] };
 
   const sessions: FeynmanSession[] = [];
   const unparsed: string[] = [];
