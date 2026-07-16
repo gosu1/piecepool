@@ -85,6 +85,12 @@ export function scanHeadings(md: string): Heading[] {
 export function sectionEnd(headings: Heading[], i: number, len: number): number {
 ```
 
+`FENCE`(`:42`)도 export 한다 — `feynmanSection.ts` 의 `closeOpenFence` 가 쓴다. 같은 정규식을 복붙하면 펜스 판정이 두 벌이 되어 갈라진다:
+
+```ts
+export const FENCE = /^ {0,3}(```|~~~)/;
+```
+
 `interface Heading`(`:33`)도 export 한다 — `feynmanSection.ts` 가 반환 타입을 받으려면 필요하다:
 
 ```ts
@@ -277,6 +283,64 @@ describe("fail-closed — 파싱 못 한 기록을 조용히 삭제하지 않는
   it("unparsed 가 비면 섹션 모양이 그대로다 — 정상 경로에 흔적을 안 남긴다", () => {
     expect(joinFeynmanSection(BODY, [S()], [])).toBe(joinFeynmanSection(BODY, [S()]));
   });
+
+  // `###` 없는 stray 블록 + 세션이 함께 있을 때가 유일하게 잃는 조합이었다.
+  // join 이 stray 를 세션 뒤에 쓰면 다음 split 에서 마지막 세션의 발화 버퍼로 빨려들고
+  // parseTurns 가 비인용 줄을 버려 2회차에 사라진다. 기존 테스트는 전부 `###` 형태라 못 잡았다.
+  it("### 없는 stray 블록이 세션과 함께 있어도 2회차에 안 사라진다", () => {
+    const md = `${BODY}\n\n## 파인만 기록\n\n앞선 잔여물\n\n### 2026-07-16T12:03:11.123Z · 이해함 · a1b2c3d4\n\n**나:**\n\n> 설명\n`;
+    const one = splitFeynmanSection(md);
+    expect(one.unparsed.join("\n")).toContain("앞선 잔여물");
+    expect(one.sessions).toHaveLength(1);
+
+    const out = joinFeynmanSection(one.body, one.sessions, one.unparsed);
+    const two = splitFeynmanSection(out);
+    expect(two.unparsed.join("\n")).toContain("앞선 잔여물"); // ← 여기서 사라졌었다
+    expect(two.sessions).toEqual(one.sessions);
+
+    // 3회차도 고정점
+    const three = splitFeynmanSection(joinFeynmanSection(two.body, two.sessions, two.unparsed));
+    expect(three.unparsed.join("\n")).toContain("앞선 잔여물");
+  });
+});
+
+describe("미닫힘 코드펜스 — 기록이 펜스 안으로 들어가면 안 된다", () => {
+  // CommonMark: 미닫힘 펜스는 EOF 까지다. 뒤에 붙인 `## 파인만 기록` 이 펜스 안이 되면
+  // scanHeadings 가 헤딩으로 안 보고 → split 이 기록을 못 걷고 → **사용자 발화가 body 로 남아
+  // LLM 입력이 된다**(설계 §4 가 막으려던 그 유출). 도달 경로: 편집 모드에서 ``` 열고 안 닫고 저장.
+  const OPEN = "# 개념\n\n```js\nconst x = 1;";
+
+  it("join 이 펜스를 닫아서 붙인다 — split 이 기록을 찾는다", () => {
+    const md = joinFeynmanSection(OPEN, [S()]);
+    const { body, sessions } = splitFeynmanSection(md);
+    expect(sessions).toEqual([S()]);
+    expect(body).toBe(`${OPEN}\n\`\`\``); // 펜스가 닫힌 채로
+  });
+
+  it("사용자 발화가 body 로 새지 않는다", () => {
+    const md = joinFeynmanSection(OPEN, [S({ turns: [{ role: "user", text: "내 사적인 설명" }] })]);
+    expect(stripFeynmanSection(md)).not.toContain("내 사적인 설명");
+  });
+
+  it("여는 마커와 같은 것으로 닫는다 — 파서와 렌더러가 둘 다 동의해야 한다", () => {
+    const md = joinFeynmanSection("# 개념\n\n~~~js\nconst x = 1;", [S()]);
+    expect(md).toContain("~~~js\nconst x = 1;\n~~~");
+    expect(splitFeynmanSection(md).sessions).toEqual([S()]);
+  });
+
+  it("이미 닫힌 펜스는 안 건드린다", () => {
+    const closed = "# 개념\n\n```js\nconst x = 1;\n```";
+    expect(splitFeynmanSection(joinFeynmanSection(closed, [S()])).body).toBe(closed);
+  });
+
+  it("펜스 미닫힘 본문에 append 해도 섹션이 중복되지 않는다", () => {
+    // 설계 §8 이 명시적으로 요구한 역방향 반례. 못 찾으면 finish 가 섹션을 또 만든다.
+    const once = joinFeynmanSection(OPEN, [S()]);
+    const { body, sessions, unparsed } = splitFeynmanSection(once);
+    const twice = joinFeynmanSection(body, [S({ at: "2026-08-01T00:00:00.000Z" }), ...sessions], unparsed);
+    expect(twice.match(/^## 파인만 기록$/gm)).toHaveLength(1);
+    expect(splitFeynmanSection(twice).sessions).toHaveLength(2);
+  });
 });
 
 describe("bodyHash", () => {
@@ -322,7 +386,7 @@ Expected: FAIL — `Failed to resolve import "./feynmanSection"`
 Create `src/lib/feynmanSection.ts`:
 
 ```ts
-import { scanHeadings, sectionEnd } from "./noteSections";
+import { scanHeadings, sectionEnd, FENCE } from "./noteSections";
 
 // ══ 위키 본문의 `## 파인만 기록` 섹션 — 학습자가 그 개념을 자기 말로 설명한 기록 ══
 //
@@ -490,10 +554,33 @@ function parseSection(section: string, sessions: FeynmanSession[], unparsed: str
   flush();
 }
 
+/**
+ * 미닫힘 코드펜스를 닫는다. 안 닫으면 뒤에 붙이는 기록 섹션이 **펜스 안**으로 들어가고
+ * (CommonMark: 미닫힘 펜스는 EOF 까지), scanHeadings 가 `## 파인만 기록` 을 헤딩으로 안 본다.
+ * 그러면 split 이 기록을 못 걷어 **사용자 발화가 body 로 남아 LLM 입력이 된다.**
+ *
+ * 여는 마커와 같은 것으로 닫는다 — 그래야 우리 파서와 실제 렌더러가 둘 다 닫힌 것으로 본다.
+ * 사용자 본문을 건드리는 것이지만, 미닫힘 펜스는 이미 깨진 마크다운이다(뒤가 전부 코드블록).
+ */
+function closeOpenFence(body: string): string {
+  let open: string | null = null;
+  for (const line of body.split("\n")) {
+    const marker = FENCE.exec(line.endsWith("\r") ? line.slice(0, -1) : line)?.[1];
+    if (!marker) continue;
+    if (!open) open = marker;
+    else if (marker === open) open = null;
+  }
+  return open ? `${body}\n${open}` : body;
+}
+
 /** 본문 + 기록 → md. 쓸 게 하나도 없으면 섹션을 만들지 않는다. */
 export function joinFeynmanSection(body: string, sessions: FeynmanSession[], unparsed: string[] = []): string {
   if (!sessions.length && !unparsed.length) return body;
-  const out: string[] = [body.replace(/(\r?\n)+$/, ""), "", `## ${SECTION_TITLE}`, ""];
+  const out: string[] = [closeOpenFence(body.replace(/(\r?\n)+$/, "")), "", `## ${SECTION_TITLE}`, ""];
+  // 읽을 수 없는 블록이 **먼저** — 뒤에 쓰면 다음 split 에서 마지막 세션의 발화 버퍼로 빨려들어가
+  // parseTurns 가 비인용 줄을 버리면서 조용히 사라진다(2회차 소실). 앞에 두면 "첫 ### 이전" 이라
+  // 다시 unparsed 로 읽혀 고정점이 된다.
+  for (const raw of unparsed) out.push(raw, "");
   for (const s of sessions) {
     out.push(`### ${s.at} · ${VERDICT_TO_LABEL[s.verdict]} · ${s.bodyHash}`, "");
     for (const t of s.turns) {
@@ -503,9 +590,6 @@ export function joinFeynmanSection(body: string, sessions: FeynmanSession[], unp
       out.push("");
     }
   }
-  // 읽을 수 없는 블록은 섹션 끝에 원문 그대로. body 에 섞으면 개념 문서가 오염되고
-  // LLM 병합 입력(llmApply)에도 들어간다 — 섹션 안에 머물러야 한다.
-  for (const raw of unparsed) out.push(raw, "");
   return out.join("\n").replace(/\n+$/, "\n");
 }
 
@@ -715,22 +799,37 @@ Expected: FAIL — 기록이 사라지거나(`sessions` 가 `[]`), LLM 에 넘�
 // 파인만 기록은 LLM 에 보내지 않고 코드로 되붙인다. mergeWiki 는 기존 본문을 통째로 넣고
 // 통째로 다시 쓰게 하는 구조라(mergeWiki.ts:5-6 이 인정하듯) 프롬프트 지시로는 못 지킨다.
 // 사용자가 자기 말로 쓴 설명이 "정답"으로 둔갑해 되물음에 인용되는 것도 함께 막는다.
-async function mergeMarkdown(ex: WikiPage, c: LlmConcept, source: ImportSource, deps?: ApplyDeps): Promise<string> {
+async function mergeMarkdown(space: string, ex: WikiPage, c: LlmConcept, source: ImportSource, deps?: ApplyDeps): Promise<string> {
   if (!deps?.mergeMarkdown) return ex.markdown;
-  const { body, sessions, unparsed } = splitFeynmanSection(ex.markdown);
+  // 디스크 최신본 기준. `ex` 는 저장 버튼 누른 시점의 wikiBySlug 스냅샷인데, 여기 오기까지
+  // LLM 호출(30초+)을 지난다 — 그 사이 사용자가 위키 탭에서 끝낸 파인만 세션이 이 스냅샷엔 없다.
+  // 그대로 쓰면 saveWikiBatch 가 그 세션을 덮어 없앤다(에러도 배지도 없이, 복구 원본도 없이).
+  // finish·saveWikiDoc·toggleWikiSubject 는 전부 이 원칙을 지킨다 — 위키 writer 중 여기만 예외였다.
+  // 읽기 실패는 치명적이지 않다: 스냅샷으로 진행하되 새 세션을 잃을 뿐이므로 조용히 폴백한다.
+  const cur = await ipc.readWiki(space, ex.path).catch(() => ex);
+  const { body, sessions, unparsed } = splitFeynmanSection(cur.markdown);
   try {
     const md = await deps.mergeMarkdown(body, c, source);
-    // 폴백 두 경로는 기록 포함 원본(ex.markdown)을 그대로 돌려준다 — 여기서만 되붙여야 중복이 없다.
+    // 폴백 두 경로는 기록 포함 원본(cur.markdown)을 그대로 돌려준다 — 여기서만 되붙여야 중복이 없다.
     // LLM 출력을 한 번 훑는 이유: 돌려준 본문에 `## 파인만 기록` 이 섞여 있으면 재부착 뒤 그 헤딩이
     // 두 번 나타나고, 다음 split 의 locate() 가 앞선 가짜를 잡아 **진짜 기록을 body 로 흘려보낸다**.
     // 그러면 사용자 발화가 다음 병합의 LLM 입력이 된다 — 이 함수가 막으려던 바로 그 유출이다.
     // 우리는 기록 없는 body 만 보냈으므로 LLM 이 그 헤딩을 뱉었다면 그건 창작이다. 버려도 된다.
-    return md.trim() ? joinFeynmanSection(splitFeynmanSection(md).body, sessions, unparsed) : ex.markdown;
+    return md.trim() ? joinFeynmanSection(splitFeynmanSection(md).body, sessions, unparsed) : cur.markdown;
   } catch (e) {
     console.warn(`[llmApply] 본문 통합 실패 — 기존 본문 유지: ${String(e)}`);
-    return ex.markdown;
+    return cur.markdown;
   }
 }
+```
+
+> 폴백 두 경로가 `ex.markdown` → **`cur.markdown`** 으로 바뀐다. `ex` 는 스냅샷이라 그걸 돌려주면 통합 실패 시 그 사이 끝낸 세션이 사라진다. `cur` 는 디스크 진실이다.
+
+`:210` 의 호출부에 `space` 를 넘긴다:
+
+```ts
+      const markdown = ex ? await mergeMarkdown(space, ex, c, source, deps) : conceptMarkdown(c);
+```
 ```
 
 파일 상단 import 에 추가 (`src/lib/llmApply.ts:4` 아래):
