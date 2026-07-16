@@ -448,12 +448,6 @@ export default function PiecePoolApp() {
     dropTarget: true,
     children: [
       {
-        id: `wf:${s.slug}`,
-        label: "wiki",
-        type: "folder",
-        children: sortDocs(wikiBySlug[s.slug] ?? []).map((w) => ({ id: `doc:wiki:${s.slug}:${w.path}`, label: w.title, type: "file" as const })),
-      },
-      {
         id: `af:${s.slug}`,
         label: "source",
         type: "folder",
@@ -464,6 +458,12 @@ export default function PiecePoolApp() {
           type: "file" as const,
           draggable: true,
         })),
+      },
+      {
+        id: `wf:${s.slug}`,
+        label: "wiki",
+        type: "folder",
+        children: sortDocs(wikiBySlug[s.slug] ?? []).map((w) => ({ id: `doc:wiki:${s.slug}:${w.path}`, label: w.title, type: "file" as const })),
       },
     ],
   }));
