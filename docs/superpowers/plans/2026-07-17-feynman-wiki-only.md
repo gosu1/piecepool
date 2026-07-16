@@ -531,6 +531,26 @@ import { joinFeynmanSection, splitFeynmanSection, type FeynmanSession } from "./
     });
     expect(splitFeynmanSection(applied.pages[0].markdown).sessions).toHaveLength(1);
   });
+
+  it("LLM 이 `## 파인만 기록` 을 뱉어도 진짜 기록이 body 로 새지 않는다", async () => {
+    // locate() 는 첫 헤딩을 잡는다 — 가짜가 앞서면 sectionEnd 가 진짜 헤딩을 경계로 삼아
+    // 진짜 세션이 통째로 body 가 되고, 다음 병합 때 LLM 에 유출된다.
+    const applied = await applyOnto([withRecord()], "교착 상태", ["subj-os"], {
+      mergeMarkdown: async () => "# 교착 상태\n\n새 본문\n\n## 파인만 기록\n\n### LLM 이 지어낸 것\n\n> 창작",
+    });
+    const { body, sessions } = splitFeynmanSection(applied.pages[0].markdown);
+    expect(sessions).toEqual([FEYNMAN]); // 진짜 기록 하나뿐
+    expect(body).toBe("# 교착 상태\n\n새 본문"); // 가짜 섹션은 버려진다 — LLM 창작이지 사용자 것이 아니다
+    expect(body).not.toContain("내가 쓴 설명");
+  });
+
+  it("unparsed(읽을 수 없는 블록)도 병합을 건너 살아남는다", async () => {
+    const ex = existingPage({ markdown: `${joinFeynmanSection(OLD_BODY, [FEYNMAN])}\n\n### 깨진 헤더\n\n> 잃으면 안 되는 말\n` });
+    const applied = await applyOnto([ex], "교착 상태", ["subj-os"], {
+      mergeMarkdown: async () => "# 교착 상태\n\n새 본문",
+    });
+    expect(applied.pages[0].markdown).toContain("잃으면 안 되는 말");
+  });
 ```
 
 `describe("synthesisPage")`(`:89`) 블록 **안**에 추가:
@@ -576,7 +596,11 @@ async function mergeMarkdown(ex: WikiPage, c: LlmConcept, source: ImportSource, 
   try {
     const md = await deps.mergeMarkdown(body, c, source);
     // 폴백 두 경로는 기록 포함 원본(ex.markdown)을 그대로 돌려준다 — 여기서만 되붙여야 중복이 없다.
-    return md.trim() ? joinFeynmanSection(md, sessions, unparsed) : ex.markdown;
+    // LLM 출력을 한 번 훑는 이유: 돌려준 본문에 `## 파인만 기록` 이 섞여 있으면 재부착 뒤 그 헤딩이
+    // 두 번 나타나고, 다음 split 의 locate() 가 앞선 가짜를 잡아 **진짜 기록을 body 로 흘려보낸다**.
+    // 그러면 사용자 발화가 다음 병합의 LLM 입력이 된다 — 이 함수가 막으려던 바로 그 유출이다.
+    // 우리는 기록 없는 body 만 보냈으므로 LLM 이 그 헤딩을 뱉었다면 그건 창작이다. 버려도 된다.
+    return md.trim() ? joinFeynmanSection(splitFeynmanSection(md).body, sessions, unparsed) : ex.markdown;
   } catch (e) {
     console.warn(`[llmApply] 본문 통합 실패 — 기존 본문 유지: ${String(e)}`);
     return ex.markdown;
@@ -604,7 +628,9 @@ import { splitFeynmanSection, joinFeynmanSection } from "./feynmanSection";
 
 ```ts
     // 재변환은 기존 본문을 참조조차 하지 않고 새 출력으로 갈아탄다 — 파인만 기록만 되살린다.
-    markdown: joinFeynmanSection(markdown, keep?.sessions ?? [], keep?.unparsed ?? []),
+    // splitFeynmanSection(markdown).body: LLM 출력에 `## 파인만 기록` 이 섞이면 재부착 뒤 헤딩이
+    // 두 번 나타나 다음 split 이 진짜 기록을 body 로 흘려보낸다(mergeMarkdown 과 같은 함정).
+    markdown: joinFeynmanSection(splitFeynmanSection(markdown).body, keep?.sessions ?? [], keep?.unparsed ?? []),
 ```
 
 - [ ] **Step 5: 테스트가 통과하는지 확인한다**
