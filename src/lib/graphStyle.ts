@@ -7,6 +7,11 @@ import { REVIEW_COLOR } from "./relationMeta";
 // 값 = text-margin-y(3) + 라벨 박스 높이(≈font 7 + padding). 라벨 하단에 바짝(작은 간격만) 붙인다.
 const LABEL_OFFSET = 12;
 
+// 노드 지름은 우선도 비례 6~36px(CytoscapeGraph: size = 6 + priority*30). 복습 테두리·선택 outline 두께를
+// 그 범위에 함께 매핑해 어느 크기에서도 같은 비율로 읽히게 한다.
+const REVIEW_BORDER = "mapData(size, 6, 36, 1.5, 4.5)";
+const SELECT_OUTLINE = "mapData(size, 6, 36, 1.5, 3)";
+
 export interface GraphTokens {
   label: string;
   labelBg: string;
@@ -58,9 +63,16 @@ export function graphStylesheet(t: GraphTokens): StylesheetStyle[] {
     { selector: "node[sbg]", style: { "background-color": "data(sbg)" } },
     // 사용자가 "아직 모르겠어요" 로 표시한 개념 — 모노크롬의 유일한 예외(relationMeta.ts REVIEW_COLOR).
     // 채움(선택/중심)이 아니라 테두리를 쓴다.
+    // 두께는 노드 크기(6~36px, 우선도 비례)에 함께 스케일한다. 고정폭이면 작은 노드는 테두리가 노드를
+    // 삼키고, 우선도로 커진 노드는 실오라기처럼 얇아져 대시가 톱니로 갈린다 — 정작 중요한 노드에서 신호가 죽는다.
     {
       selector: "node[review]",
-      style: { "border-width": 2.5, "border-color": REVIEW_COLOR, "border-style": "dashed", "border-opacity": 0.95 },
+      style: {
+        "border-width": REVIEW_BORDER,
+        "border-color": REVIEW_COLOR,
+        "border-style": "dashed",
+        "border-opacity": 0.95,
+      },
     },
     // 배경 잡고 팬할 때 뜨는 회색 원(core active-bg) 제거.
     { selector: "core", style: { "active-bg-opacity": 0 } },
@@ -102,7 +114,7 @@ export function graphStylesheet(t: GraphTokens): StylesheetStyle[] {
     // 후에야 나타난다. 테두리는 복습에 남기고 선택은 outline 으로 비켜 준다(두 채널이 직교).
     {
       selector: "node[review]:selected",
-      style: { "border-color": REVIEW_COLOR, "outline-width": 2, "outline-color": t.selection, "outline-opacity": 1 },
+      style: { "border-color": REVIEW_COLOR, "outline-width": SELECT_OUTLINE, "outline-color": t.selection, "outline-opacity": 1 },
     },
     { selector: "edge:selected", style: { opacity: 1, width: 4, "text-opacity": 1 } },
     { selector: ".faded", style: { opacity: 0.12 } },

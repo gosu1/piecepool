@@ -46,6 +46,15 @@ describe("graphStylesheet — 복습 테두리 vs 선택", () => {
     expect(parseFloat(nodeStyle({ review: 1 }, true, (n) => n.style("outline-width")))).toBeGreaterThan(0);
   });
 
+  // 고정폭이면 6px 노드는 테두리가 노드를 삼키고, 우선도로 커진 36px 노드는 얇아져 신호가 죽는다.
+  it("복습 테두리 두께는 노드 크기(6~36px)에 비례한다", () => {
+    const w = (size: number) => parseFloat(nodeStyle({ review: 1, size }, false, (n) => n.style("border-width")));
+    expect(w(6)).toBeCloseTo(1.5, 1);
+    expect(w(36)).toBeCloseTo(4.5, 1);
+    expect(w(21)).toBeGreaterThan(w(6));
+    expect(w(21)).toBeLessThan(w(36));
+  });
+
   it("복습 아닌 노드의 선택 테두리는 그대로 selection 색", () => {
     expect(toHex(nodeStyle({}, true, (n) => n.style("border-color")))).toBe(TOKENS.selection);
   });
