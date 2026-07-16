@@ -125,9 +125,9 @@ export function PageHeader({
         </div>
 
         <div className="flex min-h-[30px] items-center">
-          <PropLabel icon={<Icons.PinIcon size={15} />} label="고정하기" />
+          <PropLabel icon={<Icons.PinIcon size={15} />} label="북마크" />
           <div className="flex-1 px-2">
-            <input type="checkbox" checked={pinned} onChange={onTogglePin} aria-label="사이드바에 고정" className="h-[15px] w-[15px] accent-primary" />
+            <input type="checkbox" checked={pinned} onChange={onTogglePin} aria-label="북마크에 추가" className="h-[15px] w-[15px] accent-primary" />
           </div>
         </div>
 
