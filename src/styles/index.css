@@ -167,6 +167,11 @@
   #root {
     height: 100%;
   }
+  /* 터치패드 두손가락 팬 시 크로미움 기본 고무줄 튕김(빈 공간 노출)·스와이프 뒤로가기 차단 */
+  html,
+  body {
+    overscroll-behavior: none;
+  }
   body {
     margin: 0;
     background-color: var(--color-canvas);
