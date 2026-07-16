@@ -4,8 +4,6 @@ import { Button, Icons } from "../../ds";
 import { Markdown } from "../../lib/markdown";
 import { stripEvidenceSection } from "../../lib/noteSections";
 import { SlashBlockEditor } from "../../lib/SlashBlockEditor";
-import type { FeynmanHandlers } from "./FeynmanPanel";
-import { useFeynmanEditor } from "./useFeynmanEditor";
 import { MiniRelationGraph, type MiniGroup } from "../../lib/MiniGraph";
 import { RELATION_LABEL, REVIEW_COLOR, groupOf } from "../../lib/relationMeta";
 import type { RelationType } from "../../lib/generated/RelationType";
@@ -39,7 +37,6 @@ export function DocView({
   toolSlot,
   sideSlot,
   embedSpace,
-  feynman,
   terms,
 }: {
   docType: "wiki" | "archive";
@@ -71,19 +68,10 @@ export function DocView({
   /** 읽기 모드(archive)에서 본문 옆에 나란히 붙는 패널 — 정리 글 스트리밍 미리보기 */
   sideSlot?: ReactNode;
   embedSpace?: string;
-  /** 원본 노트에서만 — 에디터 우클릭으로 ##/### 섹션 파인만을 연다 */
-  feynman?: { noteId: string; space: string; handlers?: FeynmanHandlers };
   /** 본문 속 개념 키워드 강조 — 이 공간 위키 제목 목록. 클릭 시 onLink(제목) */
   terms?: string[];
 }) {
   const hasConceptPanel = !!(sources?.length || relationGroups?.length || confused?.length);
-  const fy = useFeynmanEditor({
-    noteId: feynman?.noteId ?? "",
-    space: feynman?.space ?? "",
-    markdown: draft,
-    noteTitle: title,
-    handlers: feynman?.handlers,
-  });
   // 자기 자신 링크 방지 — 위키 문서 안에서 그 문서 제목은 강조하지 않는다.
   // archive 노트는 제외하지 않는다: 노트 제목이 어떤 위키와 같아도 그 노트가 그 위키는 아니다.
   const termsKey = terms?.join("\n") ?? "";
@@ -135,8 +123,6 @@ export function DocView({
           value={draft}
           onChange={onChangeDraft}
           onSubmit={onSave}
-          onSelect={feynman && fy.onSelect}
-          headingAction={feynman && fy.headingAction}
           height="480px"
           placeholder="'/' 로 블록 · ⌘Enter 로 저장"
           wikiTerms={docTerms}
@@ -235,9 +221,6 @@ export function DocView({
           )}
         </div>
       )}
-
-      {/* 섹션 파인만 — 편집/읽기 토글 밖이라 모드를 바꿔도 대화가 살아 있다 */}
-      {feynman && fy.overlay}
 
       {bottomSlot}
     </div>

@@ -1051,8 +1051,6 @@ export default function PiecePoolApp() {
         linkExists={linkExistsIn(space)}
         embedSpace={space}
         terms={termsBySlug[space]}
-        // 파인만은 원본 노트에서만 — 위키는 LLM 이 쓴 글이라 "자기 말로 설명"의 대상이 아니다.
-        feynman={{ noteId: note.sourceId, space }}
         bottomSlot={
           <>
             <ReviewBar

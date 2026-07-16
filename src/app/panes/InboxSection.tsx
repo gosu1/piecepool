@@ -5,8 +5,6 @@ import * as ipc from "../../lib/ipc";
 import { extractPdfTextWithFallback } from "../../lib/pdfText";
 import { useImportStore } from "../../store/importStore";
 import { isSynthesisPage } from "../../lib/llmApply";
-import { draftNoteId } from "../../store/feynmanStore";
-import { useFeynmanEditor } from "./useFeynmanEditor";
 import { useInboxDraftStore, EMPTY_DRAFT, type InboxDraft, type PdfSummaryJob } from "../../store/inboxDraftStore";
 import { runImageOcr } from "../../llm/ocr";
 import { SlashBlockEditor } from "../../lib/SlashBlockEditor";
@@ -241,9 +239,6 @@ export function InboxSection({
   const foldEasyKey = summaryJob?.noteKey === draftKey && summaryJob.status === "done" ? summaryJob.text.length : 0;
   const [withLlm, setWithLlm] = useState(true);
   const { job, runImport } = useImportStore();
-  // 파인만 — 아직 저장 전이면 노트 id 가 없다. 노트=탭이므로 초안 id 는 탭(draftKey) 기준이어야
-  // 탭끼리 판정이 섞이지 않는다. 저장되면 importStore 가 진짜 sourceId 로 옮긴다(adopt).
-  const fy = useFeynmanEditor({ noteId: draftNoteId(draftKey), space, markdown: body, noteTitle: title });
   const busy = !!job && !["completed", "failed"].includes(job.status);
 
   // ── 참조 패널 상태 (선택 refSource·refWikiPath 는 draft 로 보존) ──
@@ -614,7 +609,6 @@ export function InboxSection({
       existing: t.existing,
       crossConcepts: t.crossConcepts,
       noteFile: reuse,
-      feynmanNoteId: draftNoteId(draftKey),
     });
     // 생성/갱신된 노트에 바인딩(살아있는 노트) — 노트를 비우지 않고 이어서 필기.
     if (res.noteFile) write({ savedFile: res.noteFile, savedSpace: curSpace });
@@ -622,11 +616,9 @@ export function InboxSection({
       write({ savedSnapshot: `${curTitle} ${d.body}` });
       await onRefresh(curSpace);
       onNotice?.(
-        res.feynmanUsed
-          ? "파인만에서 쓴 설명까지 위키에 반영됐어요 ✓ — 이어서 필기하세요"
-          : withLlmRef.current
-            ? "위키에 반영됐어요 ✓ — 이어서 필기하세요"
-            : "저장됐어요 ✓ — 이어서 필기하세요",
+        withLlmRef.current
+          ? "위키에 반영됐어요 ✓ — 이어서 필기하세요"
+          : "저장됐어요 ✓ — 이어서 필기하세요",
       );
       // 방금 만든 위키가 있으면 위키 패널을 개념 "목록"부터 연다(스펙 §3 — 전부 보이게).
       if (withLlmRef.current && (res.wikiPaths?.length || res.firstWikiPath)) {
@@ -682,11 +674,6 @@ export function InboxSection({
               AI 생성
               {withLlm && <Icons.CheckIcon size={12} className="ml-0.5" />}
             </PropertyPill>
-            {/* 파인만 — 토글이 아니라 액션이다. 누르면 지금 이 글 전체를 자기 말로 설명하게 한다.
-                (섹션 하나만 하려면 그 부분을 드래그하면 선택 위에 버튼이 뜬다) */}
-            <PropertyPill disabled={!fy.canStart} onClick={fy.startWhole} icon={<Icons.HelpCircleIcon size={13} />}>
-              파인만
-            </PropertyPill>
             {/* 퀵메모 — 창 열림/닫힘을 그대로 반영하는 토글. AI 생성 여부와 무관하게 항상 쓸 수 있다. */}
             <PropertyPill active={quickMemoOpen} onClick={onToggleQuickMemo} icon={<Icons.EditIcon size={13} />}>
               퀵메모
@@ -703,8 +690,6 @@ export function InboxSection({
             value={editorValue}
             onChange={setBody}
             onSubmit={run}
-            onSelect={fy.onSelect}
-            headingAction={fy.headingAction}
             readOnly={summarizing}
             foldEasyKey={foldEasyKey}
             placeholder="'/' 로 블록 삽입 · 마크다운으로 작성 · ⌘Enter 로 저장"
@@ -731,7 +716,6 @@ export function InboxSection({
         {/* 원본 저장 진행 오버레이 — AI 껐을 때만(한 단계뿐이라 라벨로 충분).
             AI 켜면 위키를 만드는 동안이라 오버레이는 위키 패널이 진다 — 노트는 계속 필기할 수 있게 둔다. */}
         {busy && !withLlm && <LoadingOverlay label={`${IMPORT_STATUS_LABEL[job!.status]} 중…`} />}
-        {fy.overlay}
         </div>
 
       </div>
@@ -1109,7 +1093,7 @@ function PaneDivider({ onPointerDown, onDoubleClick }: { onPointerDown: (e: Reac
   );
 }
 
-// 속성 토글 pill (AI 생성 · 파인만) — 기존 checkbox 대체. 켜지면 primary 계열, 상태가 한눈에. 저장위치는 select pill 로 별도.
+// 속성 토글 pill (AI 생성 · 퀵메모) — 기존 checkbox 대체. 켜지면 primary 계열, 상태가 한눈에. 저장위치는 select pill 로 별도.
 // PDF 요약(생성 언어 설정 준수) 진행/종결 스트립 — 스트리밍 중엔 파형+중단, 종결 후엔 결과+닫기.
 function SummaryStrip({ job, onCancel, onClose }: { job: PdfSummaryJob; onCancel: () => void; onClose: () => void }) {
   const streaming = job.status === "streaming";
