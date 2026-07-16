@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, FileDropzone, Icons, cn } from "../../ds";
 import type { KnowledgeSpace, WikiPage as WikiPageT, GraphData } from "../../lib/types";
 import * as ipc from "../../lib/ipc";
+import { extractPdfTextWithFallback } from "../../lib/pdfText";
 import { useImportStore } from "../../store/importStore";
 import { isSynthesisPage } from "../../lib/llmApply";
 import { draftNoteId } from "../../store/feynmanStore";
@@ -452,11 +453,15 @@ export function InboxSection({
       setTitleIfEmpty(f.name.replace(/\.[^.]+$/, ""));
       // 출처 연결용 임베드만 삽입(현재 출처 연결이 본문 ![[...]] 파싱에 의존 — 2단계에서 메타데이터로 이관 예정)
       appendBody(`![[${stored}]]`);
-      // PDF 내용 → 한국어 요약 스트리밍. 추출/키없음/타 요약 진행 중이면 embed 만 남기고 안내.
+      // PDF 내용 → 한국어 요약 스트리밍. Rust 추출이 인코딩으로 실패하면 pdf.js 폴백(ADR-0010).
+      // 추출/키없음/타 요약 진행 중이면 embed 만 남기고 안내.
       try {
-        const ext = await ipc.extractPdfText(targetSpace, stored);
+        const ext = await extractPdfTextWithFallback(targetSpace, stored);
         const text = ext.pages.map((p) => p.text).join("\n\n").trim();
-        if (!text) return;
+        if (!text) {
+          onNotice?.(`${f.name}에서 텍스트를 찾지 못했어요 — 스캔 이미지 PDF일 수 있어요. 내용을 직접 필기하면 됩니다`);
+          return;
+        }
         const apiKey = (typeof localStorage !== "undefined" && localStorage.getItem("gemini-key")) || "";
         if (!apiKey) {
           const langName = getOutputLanguage() === "en" ? "영어" : "한국어";
@@ -482,8 +487,10 @@ export function InboxSection({
           void runRef.current();
         });
       } catch {
-        // 추출 실패 — 사용자가 직접 필기하면 됨(embed 는 이미 들어감)
+        // Rust·pdf.js 둘 다 실패 — 원본 embed 는 남으니 직접 필기로 이어갈 수 있게 안내한다.
+        onNotice?.(`${f.name} 텍스트 추출에 실패했어요 — 내용을 직접 필기하면 됩니다 (원본은 남아 있어요)`);
       }
+
     } catch (e) {
       onNotice?.(`${f.name} 저장 실패: ${String(e)}`);
     } finally {

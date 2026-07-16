@@ -7,6 +7,11 @@
 > PDF **page preview 렌더링은 백엔드 책임이 아니다** — 프론트(PDF.js)가 담당한다
 > ([wikilink-embed.md §8](../10-contracts/wikilink-embed.md)). 백엔드는 텍스트와 **총 page 수**만 제공한다.
 
+> ⚠️ **이중 경로([ADR-0010](../adr/0010-pdf-text-extraction-pdfjs-fallback.md), ADR-0005 대체)**: `pdf-extract`는
+> `Identity-H/V` 외 predefined CMap(예: 한글 `UniKS-UTF16-H`)을 `panic!`으로 거부한다. 이 경우
+> Rust는 panic을 `catch_unwind`로 삼켜 `AppError`로 반환하고(§3.1), 프론트가 **pdf.js로 재추출하는
+> 폴백**을 수행한다(`src/lib/pdfText.ts`). 즉 텍스트 추출은 Rust 1차 + 프론트 pdf.js 2차의 이중 경로다.
+
 ---
 
 ## 1. 라이브러리 선정: `pdf-extract` (순수 Rust)
@@ -115,11 +120,14 @@ struct PageText {
 | 파일이 PDF가 아님 / 헤더 손상 | `pdf_extract` 중단, "PDF 파일이 손상되었거나 올바른 형식이 아닙니다." |
 | 암호화·열람 제한으로 파싱 불가 | `pdf_extract` 중단, "암호가 설정된 PDF는 지원하지 않습니다. 보안 해제 후 다시 시도해주세요." _(추후 별도 kind `pdf_encrypted` 분리 검토)_ |
 | page 수 0 또는 본문 구조 파싱 실패 | `pdf_extract` 중단, "PDF 구조를 분석할 수 없습니다." |
+| 미지원 폰트/CMap 인코딩(`pdf-extract` 내부 `panic!`) | `catch_unwind`로 삼켜 `pdf_extract` 반환, "이 PDF의 폰트/인코딩을 지원하지 않아…". 프론트가 pdf.js 폴백으로 재시도([ADR-0010](../adr/0010-pdf-text-extraction-pdfjs-fallback.md)) |
 
 - 중단 시 `import/`는 `ImportJob.status = failed` + `errorMessage`로 전이한다
   ([entities.md ImportJob](../10-contracts/entities.md)).
 - **원본 PDF는 보존**한다. 추출 실패가 원본 파일 삭제로 이어지지 않는다.
-- `unwrap()`/`panic!()` 금지 — 모든 실패는 `AppError`로 `?` 전파한다([architecture.md §4](architecture.md)).
+- 우리 코드에서 `unwrap()`/`panic!()` 금지 — 모든 실패는 `AppError`로 `?` 전파한다([architecture.md §4](architecture.md)).
+  단 서드파티 `pdf-extract`가 내부에서 `panic!`하므로, 그 호출만 `std::panic::catch_unwind`로 감싸
+  `AppError`로 변환한다(앱 크래시 방지 — Cargo 기본 unwind 전략 전제).
 
 > `pdf-extract`는 `extract_text_*_encrypted` 변종으로 암호화 여부를 구분 감지할 수 있어,
 > 위 메시지 분리가 가능하다. 별도 kind(`pdf_encrypted`) 신설은 `error-handling.md` 레지스트리
