@@ -1142,7 +1142,7 @@ Create `src/app/panes/FeynmanPanel.tsx`:
 import { useEffect, useState } from "react";
 import { Button, cn } from "../../ds";
 import { useFeynmanStore, hasGeminiKey } from "../../store/feynmanStore";
-import { splitFeynmanSection, bodyHash, type FeynmanSession } from "../../lib/feynmanSection";
+import { splitFeynmanSection, bodyHash, type FeynmanSession, type FeynmanTurn } from "../../lib/feynmanSection";
 import type { WikiPage } from "../../lib/types";
 
 // ══ 위키 파인만 패널 — 이 개념을 자기 말로 설명하게 한다 ══
@@ -1158,6 +1158,20 @@ const fmtDate = (iso: string) => {
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" });
 };
 const VERDICT_TEXT: Record<FeynmanSession["verdict"], string> = { understood: "이해함", not_yet: "아직 모르겠다고 표시" };
+
+/** 대화 렌더 — 과거 카드와 진행 중 세션이 같은 모양을 쓴다. */
+function Turns({ turns }: { turns: readonly FeynmanTurn[] }) {
+  return (
+    <>
+      {turns.map((t, i) => (
+        <p key={i} className={cn("whitespace-pre-wrap text-[13px] leading-relaxed", t.role === "user" ? "text-ink-2" : "font-medium text-ink")}>
+          {t.role === "user" ? "나: " : "↳ "}
+          {t.text}
+        </p>
+      ))}
+    </>
+  );
+}
 
 function SessionCard({ s, stale }: { s: FeynmanSession; stale: boolean }) {
   const [open, setOpen] = useState(false);
@@ -1176,12 +1190,7 @@ function SessionCard({ s, stale }: { s: FeynmanSession; stale: boolean }) {
       </button>
       {open && (
         <div className="space-y-1.5 border-t border-hairline px-2 py-2">
-          {s.turns.map((t, i) => (
-            <p key={i} className={cn("whitespace-pre-wrap text-[13px] leading-relaxed", t.role === "user" ? "text-ink-2" : "font-medium text-ink")}>
-              {t.role === "user" ? "나: " : "↳ "}
-              {t.text}
-            </p>
-          ))}
+          <Turns turns={s.turns} />
         </div>
       )}
     </div>
@@ -1242,12 +1251,7 @@ export function FeynmanPanel({ space, page }: { space: string; page: WikiPage })
 
       {history.length > 0 && (
         <div className="max-h-44 space-y-1.5 overflow-y-auto">
-          {history.map((t, i) => (
-            <p key={i} className={cn("whitespace-pre-wrap text-[13px] leading-relaxed", t.role === "user" ? "text-ink-2" : "font-medium text-ink")}>
-              {t.role === "user" ? "나: " : "↳ "}
-              {t.text}
-            </p>
-          ))}
+          <Turns turns={history} />
         </div>
       )}
 
