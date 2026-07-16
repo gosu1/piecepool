@@ -16,7 +16,7 @@ const BODY = "# 스레드\n\n프로세스 안의 실행 단위.";
 
 describe("splitFeynmanSection", () => {
   it("기록이 없으면 본문 그대로, 세션 0개", () => {
-    expect(splitFeynmanSection(BODY)).toEqual({ body: BODY, sessions: [] });
+    expect(splitFeynmanSection(BODY)).toEqual({ body: BODY, sessions: [], unparsed: [] });
   });
 
   it("라운드트립 — join 한 것을 split 하면 원래대로", () => {
@@ -98,17 +98,42 @@ describe("stripFeynmanSection", () => {
   });
 });
 
-describe("fail-closed — 깨진 기록을 조용히 삭제하지 않는다", () => {
-  it("헤더가 망가진 세션은 버리되 원문 본문은 보존한다", () => {
-    const md = `${BODY}\n\n## 파인만 기록\n\n### 이건 헤더가 아니다\n\n> 뭔가\n`;
-    const { body, sessions } = splitFeynmanSection(md);
+describe("fail-closed — 파싱 못 한 기록을 조용히 삭제하지 않는다", () => {
+  // 복기가 이 기능의 존재 이유다. at/verdict 를 못 읽는 것과 사용자 발화를 잃는 것은 전혀 다른 문제다.
+  it("헤더가 망가져도 본문은 보존하고, 그 블록 원문을 unparsed 로 돌려준다", () => {
+    const md = `${BODY}\n\n## 파인만 기록\n\n### 이건 헤더가 아니다\n\n> 소중한 발화\n`;
+    const { body, sessions, unparsed } = splitFeynmanSection(md);
     expect(body).toBe(BODY);
     expect(sessions).toEqual([]);
+    expect(unparsed.join("\n")).toContain("소중한 발화");
+    expect(unparsed.join("\n")).toContain("### 이건 헤더가 아니다");
   });
 
-  it("판정 문자열이 미상이면 그 세션만 버린다", () => {
-    const md = `${BODY}\n\n## 파인만 기록\n\n### 2026-07-16T12:00:00.000Z · 몰?루 · abc12345\n\n**나:**\n\n> 뭔가\n`;
-    expect(splitFeynmanSection(md).sessions).toEqual([]);
+  it("판정 문자열이 미상이면 그 세션을 unparsed 로 넘긴다 — 발화를 버리지 않는다", () => {
+    const md = `${BODY}\n\n## 파인만 기록\n\n### 2026-07-16T12:00:00.000Z · 몰?루 · abc12345\n\n**나:**\n\n> 소중한 발화\n`;
+    const { sessions, unparsed } = splitFeynmanSection(md);
+    expect(sessions).toEqual([]);
+    expect(unparsed.join("\n")).toContain("소중한 발화");
+  });
+
+  it("깨진 블록이 읽기→쓰기 사이클에서 살아남는다", () => {
+    const md = `${BODY}\n\n## 파인만 기록\n\n### 이건 헤더가 아니다\n\n> 소중한 발화\n`;
+    const { body, sessions, unparsed } = splitFeynmanSection(md);
+    const out = joinFeynmanSection(body, sessions, unparsed);
+    expect(out).toContain("소중한 발화");
+    // 다시 읽어도 여전히 살아 있다 — 사이클을 반복해도 증발하지 않는다
+    expect(splitFeynmanSection(out).unparsed.join("\n")).toContain("소중한 발화");
+  });
+
+  it("성한 세션과 깨진 블록이 섞여 있으면 둘 다 살린다", () => {
+    const md = joinFeynmanSection(BODY, [S()]) + "\n\n### 깨진 헤더\n\n> 잃으면 안 되는 말\n";
+    const { sessions, unparsed } = splitFeynmanSection(md);
+    expect(sessions).toHaveLength(1);
+    expect(unparsed.join("\n")).toContain("잃으면 안 되는 말");
+  });
+
+  it("unparsed 가 비면 섹션 모양이 그대로다 — 정상 경로에 흔적을 안 남긴다", () => {
+    expect(joinFeynmanSection(BODY, [S()], [])).toBe(joinFeynmanSection(BODY, [S()]));
   });
 });
 

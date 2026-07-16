@@ -77,28 +77,40 @@ function parseTurns(lines: string[]): FeynmanTurn[] {
 }
 
 /**
- * 본문과 기록을 분리한다. 기록이 없으면 { body: md, sessions: [] }.
- * 헤더가 깨진 세션은 버리되 **본문은 언제나 온전히 복원한다** — 사용자 데이터를 조용히 잃지 않는다.
+ * 본문과 기록을 분리한다. 기록이 없으면 { body: md, sessions: [], unparsed: [] }.
+ *
+ * 읽을 수 없는 세션 블록은 **버리지 않고** unparsed 에 원문 그대로 담는다. at/verdict 를
+ * 못 읽는 것과 사용자 발화를 잃는 것은 전혀 다른 문제다 — 복기가 이 기능의 존재 이유인데,
+ * md 를 앱 밖에서 손대다 헤더 한 줄이 깨졌다고 대화가 증발하면 안 된다.
+ * joinFeynmanSection 이 그대로 되돌려 쓴다.
  */
-export function splitFeynmanSection(md: string): { body: string; sessions: FeynmanSession[] } {
+export function splitFeynmanSection(md: string): { body: string; sessions: FeynmanSession[]; unparsed: string[] } {
   const at = locate(md);
-  if (!at) return { body: md, sessions: [] };
+  if (!at) return { body: md, sessions: [], unparsed: [] };
   const [from, to] = at;
-  // CRLF 대응: 잘라낸 앞부분이 "...\r\n\r\n" 로 끝날 수 있다. `\n+$` 만으로는 마지막 \n 하나만
-  // 지워져 \r 이 남는다 — \r? 를 단위에 포함해 (\r\n 또는 \n) 반복을 통째로 벗긴다.
+  // CRLF: /\n+$/ 만 쓰면 잘린 자리가 `…\r\n\r\n` 일 때 \r 이 남는다.
   const body = (md.slice(0, from) + md.slice(to)).replace(/(\r?\n)+$/, "");
   const inner = md.slice(from, to).split("\n").slice(1); // `## 파인만 기록` 줄 제거
 
   const sessions: FeynmanSession[] = [];
+  const unparsed: string[] = [];
   let header: string | null = null;
   let buf: string[] = [];
   const flush = () => {
-    if (header === null) return;
+    if (header === null) {
+      // 첫 세션 헤더 이전의 내용 — 우리가 쓴 적 없는 모양이지만 사용자 것일 수 있다.
+      const stray = buf.join("\n").trim();
+      if (stray) unparsed.push(stray);
+      buf = [];
+      return;
+    }
     const parts = header.split(" · ").map((s) => s.trim());
     const verdict = LABEL_TO_VERDICT[parts[1] ?? ""];
-    // 헤더를 못 읽으면 그 세션만 버린다. 시각·판정 없이는 복기에 쓸모가 없다.
     if (parts.length >= 2 && verdict) {
       sessions.push({ at: parts[0], verdict, bodyHash: parts[2] ?? "", turns: parseTurns(buf) });
+    } else {
+      // 헤더를 못 읽어도 발화는 사용자 것이다 — 글자 그대로 되돌려 쓴다.
+      unparsed.push([`### ${header}`, ...buf].join("\n").trimEnd());
     }
     buf = [];
   };
@@ -113,13 +125,13 @@ export function splitFeynmanSection(md: string): { body: string; sessions: Feynm
     buf.push(raw);
   }
   flush();
-  return { body, sessions };
+  return { body, sessions, unparsed };
 }
 
-/** 본문 + 기록 → md. sessions 가 비면 섹션을 만들지 않는다. */
-export function joinFeynmanSection(body: string, sessions: FeynmanSession[]): string {
-  if (!sessions.length) return body;
-  const out: string[] = [body.replace(/\n+$/, ""), "", `## ${SECTION_TITLE}`, ""];
+/** 본문 + 기록 → md. 쓸 게 하나도 없으면 섹션을 만들지 않는다. */
+export function joinFeynmanSection(body: string, sessions: FeynmanSession[], unparsed: string[] = []): string {
+  if (!sessions.length && !unparsed.length) return body;
+  const out: string[] = [body.replace(/(\r?\n)+$/, ""), "", `## ${SECTION_TITLE}`, ""];
   for (const s of sessions) {
     out.push(`### ${s.at} · ${VERDICT_TO_LABEL[s.verdict]} · ${s.bodyHash}`, "");
     for (const t of s.turns) {
@@ -129,6 +141,9 @@ export function joinFeynmanSection(body: string, sessions: FeynmanSession[]): st
       out.push("");
     }
   }
+  // 읽을 수 없는 블록은 섹션 끝에 원문 그대로. body 에 섞으면 개념 문서가 오염되고
+  // LLM 병합 입력(llmApply)에도 들어간다 — 섹션 안에 머물러야 한다.
+  for (const raw of unparsed) out.push(raw, "");
   return out.join("\n").replace(/\n+$/, "\n");
 }
 
