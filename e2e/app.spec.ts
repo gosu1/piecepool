@@ -113,9 +113,11 @@ test("에디터 콜아웃 — [!easy] 블록이 스타일링되고 접힌다", a
   await expect(page.locator(".pp-callout-line").first()).toBeVisible();
   const chevron = page.locator(".pp-callout-chevron").first();
   await expect(chevron).toBeVisible();
-  // 셰브론 클릭 → 접힘(fold placeholder 등장)
+  // 접기 전엔 본문이 보인다
+  await expect(page.getByText("비유로 설명")).toBeVisible();
+  // 셰브론 클릭 → 접힘. "…" 기본 placeholder 는 없앴으므로(오른쪽 셰브론이 대신) 본문이 사라진 것으로 확인한다.
   await chevron.click();
-  await expect(page.locator(".cm-foldPlaceholder")).toBeVisible();
+  await expect(page.getByText("비유로 설명")).not.toBeVisible();
 });
 
 // 회귀 방지: 빈 새 노트에 이 공간의 아무 위키(제목 정렬 1등)·아무 원본이 딸려 열리던 버그.

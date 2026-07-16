@@ -1,8 +1,7 @@
-import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { AIWritingBanner, Button, Card, SkeletonText, Icons, cn, LoadingQuote } from "../../ds";
-import { LOADING_QUOTES } from "../../lib/quotes";
+import { Button, Icons } from "../../ds";
 import { Markdown } from "../../lib/markdown";
+import { stripEvidenceSection } from "../../lib/noteSections";
 import { SlashBlockEditor } from "../../lib/SlashBlockEditor";
 import type { FeynmanHandlers } from "./FeynmanPanel";
 import { useFeynmanEditor } from "./useFeynmanEditor";
@@ -10,8 +9,6 @@ import { MiniRelationGraph, type MiniGroup } from "../../lib/MiniGraph";
 import { RELATION_LABEL, REVIEW_COLOR, groupOf } from "../../lib/relationMeta";
 import type { RelationType } from "../../lib/generated/RelationType";
 import type { RefConflict } from "../../lib/sourceRefConflicts";
-import type { GapQuestion, GapEngine } from "../../llm/gaps";
-import type { ConvertJob } from "../../store/convertStore";
 
 // ══ 문서 뷰 (위키/원본 공통) — 읽기 ↔ 편집 + 개념 중심 섹션(소스·관계·헷갈리는 개념) ══
 export interface DocLinkItem {
@@ -84,9 +81,12 @@ export function DocView({
     handlers: feynman?.handlers,
   });
   // 읽기 모드 본문 — 카드 없이 페이지에 바로. 빈 페이지는 클릭해서 작성 시작.
-  const readBody = savedMd.trim() ? (
+  // 위키는 본문의 `## 근거`(PDF 임베드)를 표시에서만 감춘다 — 관련 소스 섹션이 이미 출처를 담는다.
+  // 저장 데이터·편집 모드·conflicts 점검(원본 마크다운 기준)에는 영향 없다.
+  const displayMd = docType === "wiki" ? stripEvidenceSection(savedMd) : savedMd;
+  const readBody = displayMd.trim() ? (
     <div className="px-1">
-      <Markdown source={savedMd} onLink={onLink} linkExists={linkExists} embedSpace={embedSpace} />
+      <Markdown source={displayMd} onLink={onLink} linkExists={linkExists} embedSpace={embedSpace} />
     </div>
   ) : (
     <button
@@ -253,179 +253,6 @@ function ConflictBanner({ conflicts }: { conflicts: RefConflict[] }) {
   );
 }
 
-// ══ LLM 액션 바 (원본 노트) ══
-export function AiBar({
-  busy,
-  gapBusy,
-  status,
-  onGen,
-  onGaps,
-  convertBusy,
-  convertStreaming,
-  onConvert,
-  onCancelConvert,
-}: {
-  busy: boolean;
-  gapBusy?: boolean;
-  status?: string;
-  onGen: () => void;
-  onGaps: () => void;
-  /** 변환 진행 중(전역 single-flight) — 버튼 비활성 */
-  convertBusy?: boolean;
-  /** 이 노트가 스트리밍 중 — 버튼이 '중단'으로 전환 */
-  convertStreaming?: boolean;
-  onConvert?: () => void;
-  onCancelConvert?: () => void;
-}) {
-  return (
-    <Card padding="md" featured className="space-y-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="ds-eyebrow text-primary">AI</span>
-        <Button variant="primary" size="sm" onClick={onGen} disabled={busy || gapBusy} leftIcon={<Icons.SparkleIcon size={14} />}>
-          {busy ? "생성 중…" : "AI 위키 생성"}
-        </Button>
-        <Button variant="utility" size="sm" onClick={onGaps} disabled={busy || gapBusy}>
-          {gapBusy ? "점검 중…" : "간극 점검"}
-        </Button>
-        {onConvert &&
-          (convertStreaming ? (
-            <Button variant="utility" size="sm" onClick={onCancelConvert}>
-              중단
-            </Button>
-          ) : (
-            <Button variant="solid" size="sm" onClick={onConvert} disabled={busy || gapBusy || convertBusy} leftIcon={<Icons.SparkleIcon size={14} />}>
-              정리 글 변환
-            </Button>
-          ))}
-        {status && <span className="text-[13px] text-ink-muted">{status}</span>}
-      </div>
-    </Card>
-  );
-}
-
-// ══ 정리 글 변환 패널 — 스트리밍 미리보기 (docs/40-frontend/screens/convert.md) ══
-const CONVERT_ENGINE_LABEL: Record<string, string> = { gemini: "Gemini", heuristic: "휴리스틱" };
-
-export function ConvertPanel({
-  job,
-  onCancel,
-  onClose,
-  onOpen,
-  onRetry,
-  onLink,
-  linkExists,
-}: {
-  job: ConvertJob;
-  onCancel: () => void;
-  onClose: () => void;
-  onOpen: () => void;
-  onRetry: () => void;
-  onLink: (target: string) => void;
-  linkExists?: (target: string) => boolean;
-}) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const stickRef = useRef(true); // 바닥 48px 이내면 자동 스크롤 유지, 위로 올리면 해제
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (el && stickRef.current) el.scrollTop = el.scrollHeight;
-  }, [job.text]);
-  const streaming = job.status === "streaming";
-  return (
-    <div className="space-y-3">
-      {streaming ? (
-        <AIWritingBanner label="AI가 글을 정리하고 있어요" />
-      ) : (
-        <div className="flex items-center justify-between">
-          <p className="ds-eyebrow text-primary">
-            파편 → 정리 글
-            {job.engine && (
-              <span className="ml-2 rounded-full bg-surface-soft px-2 py-0.5 text-[11px] font-medium text-ink-muted">
-                {CONVERT_ENGINE_LABEL[job.engine]}
-              </span>
-            )}
-          </p>
-          <button type="button" onClick={onClose} aria-label="닫기" className="rounded p-1 text-ink-faint hover:bg-surface-soft hover:text-ink">
-            <Icons.CloseIcon size={14} />
-          </button>
-        </div>
-      )}
-      <Card padding="lg">
-        <div
-          ref={scrollRef}
-          onScroll={(e) => {
-            const el = e.currentTarget;
-            stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
-          }}
-          className="max-h-[480px] overflow-y-auto"
-        >
-          {streaming && !job.text ? (
-            <div className="space-y-5">
-              <SkeletonText lines={3} />
-              <LoadingQuote quotes={LOADING_QUOTES} className="mx-auto py-2" />
-            </div>
-          ) : (
-            <>
-              {/* 스트리밍 중 embedSpace 미전달 — 재파싱마다 FilePreview 가 파일을 다시 읽는 churn 방지 */}
-              <Markdown source={job.text} onLink={onLink} linkExists={linkExists} />
-              {streaming && <span className="animate-pulse text-ink-muted">▍</span>}
-            </>
-          )}
-        </div>
-      </Card>
-      <div className="flex flex-wrap items-center gap-2 text-[13px] text-ink-muted">
-        {streaming && (
-          <>
-            <span>{job.text.length.toLocaleString()}자</span>
-            <span className="flex-1" />
-            <Button variant="utility" size="sm" onClick={onCancel}>
-              중단
-            </Button>
-          </>
-        )}
-        {job.status === "saving" && <span>저장 중…</span>}
-        {job.status === "done" && (
-          <>
-            <span>
-              저장됨 · {job.noteTitle} 정리{job.warning ? ` · ${job.warning}` : ""}
-            </span>
-            <span className="flex-1" />
-            <Button variant="solid" size="sm" onClick={onOpen}>
-              열기
-            </Button>
-            <Button variant="utility" size="sm" onClick={onClose}>
-              닫기
-            </Button>
-          </>
-        )}
-        {job.status === "cancelled" && (
-          <>
-            <span>중단됨 — 저장 안 됨 (개념 추출은 계속 진행돼요)</span>
-            <span className="flex-1" />
-            <Button variant="utility" size="sm" onClick={onRetry}>
-              다시 시도
-            </Button>
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              닫기
-            </Button>
-          </>
-        )}
-        {job.status === "failed" && (
-          <>
-            <span className="text-danger">실패 — 저장 안 됨{job.error ? ` · ${job.error}` : ""}</span>
-            <span className="flex-1" />
-            <Button variant="utility" size="sm" onClick={onRetry}>
-              다시 시도
-            </Button>
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              닫기
-            </Button>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
 /**
  * 노트 하단 플로팅 바 — 이 노트에서 나온 개념 중 사용자가 "아직 모르겠어요" 로 표시한 것.
  *
@@ -464,124 +291,6 @@ export function ReviewBar({
           ))}
         </div>
       </div>
-    </div>
-  );
-}
-
-const GAP_ENGINE_LABEL: Record<GapEngine, string> = {
-  liner: "Liner 출처 기반",
-  gemini: "Gemini 소크라테스",
-  heuristic: "오프라인 점검",
-};
-
-export function GapPanel({
-  questions,
-  engine,
-  onClose,
-  onSubmit,
-}: {
-  questions: GapQuestion[];
-  engine?: GapEngine;
-  onClose: () => void;
-  onSubmit?: (answers: { prompt: string; answer: string }[]) => void | Promise<void>;
-}) {
-  const [answers, setAnswers] = useState<string[]>(() => questions.map(() => ""));
-  const answered = answers.some((a) => a.trim());
-  return (
-    <Card padding="lg" className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="ds-eyebrow text-primary">
-          정보 간극 메우기 · 이렇게 생각하신 게 맞나요?
-          {engine && <span className="ml-2 rounded-full bg-surface-soft px-2 py-0.5 text-[11px] font-medium text-ink-muted">{GAP_ENGINE_LABEL[engine]}</span>}
-        </p>
-        <button type="button" onClick={onClose} aria-label="닫기" className="rounded p-1 text-ink-faint hover:bg-surface-soft hover:text-ink">
-          <Icons.CloseIcon size={14} />
-        </button>
-      </div>
-      {questions.map((q, i) => (
-        <GapItem key={i} q={q} onAnswer={(a) => setAnswers((prev) => prev.map((x, j) => (j === i ? a : x)))} />
-      ))}
-      {onSubmit && (
-        <div className="flex justify-end">
-          <Button
-            size="sm"
-            variant="solid"
-            disabled={!answered}
-            onClick={() => onSubmit(questions.map((q, i) => ({ prompt: q.prompt, answer: answers[i] ?? "" })))}
-          >
-            답변을 노트에 저장
-          </Button>
-        </div>
-      )}
-    </Card>
-  );
-}
-
-function GapItem({ q, onAnswer }: { q: GapQuestion; onAnswer: (a: string) => void }) {
-  const [picked, setPicked] = useState<number | null>(null);
-  const [other, setOther] = useState("");
-  const [otherMode, setOtherMode] = useState(false);
-  return (
-    <div className="space-y-2 border-t border-hairline pt-3 first:border-0 first:pt-0">
-      <p className="text-[15px] font-semibold text-ink">{q.prompt}</p>
-      <div className="flex flex-col gap-1.5">
-        {q.choices.map((c, i) => (
-          <button
-            key={i}
-            type="button"
-            onClick={() => {
-              setPicked(i);
-              setOtherMode(false);
-              onAnswer(c);
-            }}
-            className={cn(
-              "rounded-md border px-3 py-2 text-left text-[14px] transition-colors",
-              picked === i && !otherMode ? "border-primary bg-surface-soft text-ink" : "border-hairline text-ink-2 hover:bg-surface-soft",
-            )}
-          >
-            {c}
-          </button>
-        ))}
-        {q.allowOther &&
-          (otherMode ? (
-            <input
-              autoFocus
-              value={other}
-              onChange={(e) => {
-                setOther(e.target.value);
-                onAnswer(e.target.value);
-              }}
-              placeholder="직접 설명해 보세요…"
-              className="rounded-md border border-primary bg-surface px-3 py-2 text-[14px] text-ink outline-none"
-            />
-          ) : (
-            <button
-              type="button"
-              onClick={() => {
-                setOtherMode(true);
-                setPicked(null);
-              }}
-              className="rounded-md border border-dashed border-hairline px-3 py-2 text-left text-[14px] text-ink-muted hover:bg-surface-soft"
-            >
-              기타 — 직접 설명
-            </button>
-          ))}
-      </div>
-      {q.sources && q.sources.length > 0 && (
-        <div className="flex flex-wrap gap-2 pt-0.5">
-          {q.sources.map((s, i) => (
-            <a
-              key={i}
-              href={s.url}
-              target="_blank"
-              rel="noreferrer"
-              className="text-[12px] text-primary underline-offset-2 hover:underline"
-            >
-              ↗ {s.title}
-            </a>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

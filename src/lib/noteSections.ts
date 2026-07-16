@@ -40,6 +40,8 @@ interface Heading {
 // CommonMark: ATX 헤딩은 앞 공백 3칸까지 허용된다(4칸이면 코드 블록). 에디터도 그렇게 렌더한다.
 const ATX = /^ {0,3}(#{1,6})(?:\s+(.*))?$/;
 const FENCE = /^ {0,3}(```|~~~)/;
+// 한 줄 전체가 PDF 임베드인 경우 — `![[….pdf]]`·`![[….pdf#page=N]]`. 이미지 임베드(png 등)는 제외.
+const PDF_EMBED_LINE = /^[ \t]*!\[\[[^\]]*\.pdf(?:#page=\d+)?\]\][ \t]*$/i;
 
 /**
  * 헤딩에서 강조 마커만 벗긴다. `_` 는 건드리지 않는다 —
@@ -155,4 +157,42 @@ export function topicsForSelection(md: string, from: number, to: number): Sectio
     }
   }
   return out;
+}
+
+/**
+ * 위키 본문에서 원문 PDF 노출을 표시에서만 걷어낸다 — 저장 데이터는 건드리지 않는다.
+ *
+ * 두 경로를 모두 커버한다: ① LLM 경로가 만드는 `## 근거`(레벨2, 제목 "근거") 섹션 통째,
+ * ② 휴리스틱(키 없음) 경로가 `## 근거` 없이 본문에 인라인으로 박는 단독 라인 PDF 임베드.
+ * frontmatter sourceRefs 는 그대로라 sourceRefs↔embed 계약 점검(원본 마크다운 기준)에는
+ * 영향이 없다. 코드펜스 안의 헤딩·임베드는 실제 콘텐츠가 아니므로 건드리지 않는다.
+ */
+export function stripEvidenceSection(md: string): string {
+  // ① `## 근거` 섹션 통째 제거 — 뒤에서부터 잘라야 앞 구간 오프셋이 밀리지 않는다.
+  const headings = scanHeadings(md);
+  const cuts = headings
+    .map((h, i): [number, number] | null =>
+      h.level === 2 && h.title === "근거" ? [h.from, sectionEnd(headings, i, md.length)] : null,
+    )
+    .filter((x): x is [number, number] => x !== null)
+    .reverse();
+  let out = md;
+  for (const [from, to] of cuts) out = out.slice(0, from) + out.slice(to);
+
+  // ② 코드펜스 밖의 단독 라인 PDF 임베드 제거(이미지 임베드는 보존).
+  let fenced = false;
+  out = out
+    .split("\n")
+    .filter((line) => {
+      const t = line.endsWith("\r") ? line.slice(0, -1) : line; // CRLF: \r 벗겨 판정
+      if (FENCE.test(t)) {
+        fenced = !fenced;
+        return true;
+      }
+      return fenced || !PDF_EMBED_LINE.test(t);
+    })
+    .join("\n");
+
+  // 아무것도 안 걷어냈으면 원문 그대로, 걷어냈으면 빈 줄 과다 정리(3+ → 2).
+  return out === md ? md : out.replace(/\n{3,}/g, "\n\n");
 }

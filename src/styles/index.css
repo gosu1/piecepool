@@ -240,4 +240,46 @@
   .pp-cline { transition: stroke 0.35s ease, opacity 0.35s ease; }
   .pp-map:hover .pp-star { animation: pp-twinkle 1.6s ease-in-out infinite; }
   .pp-map:hover .pp-cline { stroke: var(--color-primary); opacity: 0.6; }
+
+  /* ── 쉬운 설명 콜아웃 (읽기 뷰) — callout.ts 가 만든 details/summary.
+     편집 뷰(cmCallout)와 같은 1안: 왼쪽 파란 보더 · 오른쪽 셰브론 · 기본 ▶ 삼각형 제거. ── */
+  .pp-callout-easy {
+    border-left: 2px solid var(--ds-primary);
+    background: var(--ds-surface-soft);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    overflow: hidden;
+    margin: 12px 0;
+  }
+  .pp-callout-easy > .pp-callout-title {
+    list-style: none;                      /* 파이어폭스 기본 마커 */
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 9px 12px;
+    font-weight: 600;
+    color: var(--ds-ink);
+    user-select: none;
+    transition: background-color 110ms ease;
+  }
+  .pp-callout-easy > .pp-callout-title::-webkit-details-marker { display: none; } /* 크롬/사파리 기본 ▶ */
+  .pp-callout-easy > .pp-callout-title:hover { background: color-mix(in srgb, var(--ds-primary) 7%, transparent); }
+  /* 오른쪽 셰브론 — border 로 그린 v. 접힘=아래(⌄), 펼침=위(⌃). 바 전체 토글은 details 가 기본 제공. */
+  .pp-callout-easy > .pp-callout-title::after {
+    content: "";
+    flex: 0 0 auto;
+    margin-left: auto;
+    margin-right: 4px;
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid var(--ds-ink-faint);
+    border-bottom: 2px solid var(--ds-ink-faint);
+    transform: translateY(-2px) rotate(45deg);
+    transition: transform 170ms ease, border-color 110ms ease;
+  }
+  .pp-callout-easy > .pp-callout-title:hover::after { border-color: var(--ds-primary); }
+  .pp-callout-easy[open] > .pp-callout-title::after { transform: translateY(1px) rotate(-135deg); }
+  .pp-callout-easy > p { margin: 0; padding: 3px 14px; color: var(--ds-ink-2); }
+  .pp-callout-easy > p:first-of-type { padding-top: 6px; }
+  .pp-callout-easy > p:last-child { padding-bottom: 12px; }
 }
