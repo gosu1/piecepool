@@ -121,26 +121,28 @@ test("에디터 콜아웃 — [!easy] 블록이 스타일링되고 접힌다", a
 });
 
 // 회귀 방지: 빈 새 노트에 이 공간의 아무 위키(제목 정렬 1등)·아무 원본이 딸려 열리던 버그.
-test("새 노트 — 보조 패널 닫힌 빈 화면으로 시작", async ({ page }) => {
+test("새 노트 — 아무것도 자동 선택되지 않은 빈 화면으로 시작", async ({ page }) => {
   await page.getByRole("button", { name: "새 노트 작성" }).click();
   await expect(page.getByPlaceholder("새 페이지")).toBeVisible();
+  // PDF 패널은 열려 있지만 원본은 안 붙어 있다 — 열리는 건 빈 업로드 안내다.
+  await expect(page.getByText("원본 없음")).toBeVisible();
   // 시드 위키(CPU 스케줄링)가 우측 패널에 자동으로 뜨지 않는다
   await expect(page.getByText(/선점형/)).not.toBeVisible();
-  // 원본/위키 셀렉트는 패널이 닫혀 있어 없다. 저장 위치는 커스텀 드롭다운(버튼)이라 combobox 가 아니다.
+  // 원본/위키를 고르는 셀렉트는 어디에도 없다. 저장 위치는 커스텀 드롭다운(버튼)이라 combobox 가 아니다.
   await expect(page.getByRole("combobox")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "저장 위치" })).toBeVisible();
 });
 
 test("Inbox 패널 — 노트 고정, PDF·위키 보조 패널 여닫기", async ({ page }) => {
   await page.getByRole("button", { name: "새 노트 작성" }).click();
-  // 기본: 노트 에디터만 (보조 패널 닫힘 — 열림 상태를 저장하지 않는다)
+  // 기본: 노트 에디터 + PDF 패널 (새 노트의 첫 행동이 대개 PDF 업로드 — 입구가 보여야 한다)
   await expect(page.getByPlaceholder("새 페이지")).toBeVisible();
+  await expect(page.getByText("PDF", { exact: true })).toBeVisible();
+  // PDF 패널 닫고 열기
+  await page.getByRole("button", { name: "PDF 패널" }).click();
   await expect(page.getByText("PDF", { exact: true })).not.toBeVisible();
-  // PDF 패널 열고 닫기
   await page.getByRole("button", { name: "PDF 패널" }).click();
   await expect(page.getByText("PDF", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "PDF 패널" }).click();
-  await expect(page.getByText("PDF", { exact: true })).not.toBeVisible();
   // 위키 패널 열고 닫기 — 노트 에디터는 그대로
   await page.getByRole("button", { name: "위키 패널" }).click();
   await expect(page.getByText("위키", { exact: true })).toBeVisible();
