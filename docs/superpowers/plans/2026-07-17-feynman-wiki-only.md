@@ -804,7 +804,7 @@ cmHeadingAction 은 존재 이유가 파인만 헤딩 진입뿐이라 함께 죽
 e2e/feynman.spec.ts 는 이름과 달리 review_needed 테스트라 유지한다."
 ```
 
-> `git add -u` 는 **추적 중인 파일의 수정·삭제만** 스테이징한다. 미추적 파일(`test-pdfs/`)은 안 건드린다. 그래도 `git status` 로 확인하고 커밋하라.
+> 커밋 후 `git show --stat` 으로 의도한 8개 파일만 들어갔는지 확인하라.
 
 ---
 
