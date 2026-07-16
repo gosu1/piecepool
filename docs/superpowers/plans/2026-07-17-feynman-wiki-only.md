@@ -2212,28 +2212,49 @@ PR 본문에 반드시 적을 것:
 `InboxSection` props 에 추가:
 
 ```ts
-  /** 파인만 판정 저장 직후 — 앱의 메모리 사본(wikiBySlug)을 갱신한다. 없으면 카드가 안 나타난다. */
-  onWikiSaved: (space: string, saved: WikiPageT) => void;
+  /**
+   * 파인만 판정 저장 직후 — 앱의 메모리 사본(wikiBySlug)을 갱신한다. 없으면 카드가 안 나타난다.
+   * @param path 저장 **전** path (매칭 키). saved.path 로 찾으면 path 가 바뀌는 날 조용히 no-op 한다.
+   */
+  onWikiSaved: (space: string, path: string, saved: WikiPageT) => void;
 ```
 
 `PiecePoolApp.tsx` 의 `<InboxSection ... onOpenWiki={openWiki}` 옆에:
 
 ```tsx
-            onWikiSaved={(sp, saved) =>
-              setWikiBySlug((m) => ({ ...m, [sp]: (m[sp] ?? []).map((x) => (x.path === saved.path ? saved : x)) }))
+            onWikiSaved={(savedSpace, saved) =>
+              setWikiBySlug((m) => ({ ...m, [savedSpace]: (m[savedSpace] ?? []).map((x) => (x.path === saved.path ? saved : x)) }))
             }
 ```
 
-> 여기선 `saved.path` 로 매칭해도 된다 — `wikiReader` 와 달리 저장 전 path 를 담은 클로저 변수가 없고, `refWiki` 는 렌더마다 새로 찾는다. `finish` 의 `cur` 는 `readWiki` 산이라 path 가 항상 채워져 있다.
+> 파라미터를 `sp` 로 쓰지 마라 — 바깥 스코프의 `sp`(활성 탭 space)를 shadow 한다. 여기 들어오는 건 `targetSpace`(인박스가 저장할 대상 공간)이고 **둘이 다를 수 있다.** 하필 그 구분이 중요한 자리다.
+
+`InboxSection` 쪽에서 **저장 전 path 를 넘긴다** — `refWiki.path` 가 스코프에 있다:
+
+```tsx
+onSaved={(saved) => onWikiSaved(targetSpace, refWiki.path, saved)}
+```
+
+> `saved.path` 로 매칭하면 안 된다 — `wikiReader` 의 형제 핸들러가 그러지 말라고 주석까지 달고 저장 **전** path 를 쓴다. 오늘은 path 가 저장 간 불변이라 동치지만(`commands/wiki.rs:106-107`), 바뀌는 날 저장 전 키는 행을 찾고 `saved.path` 는 **조용히 no-op** 한다. 같은 파일에서 한쪽만 약한 패턴을 쓰면 다음 사람이 어느 쪽이 맞는지 알 수 없다.
 
 - [ ] **Step 2: `wikiPane` 에 패널을 붙인다**
 
 `InboxSection.tsx` 의 `wikiPane` 에서 관계 그래프 섹션 **뒤**, `refWiki` 분기 안에 넣는다:
 
 ```tsx
-            {/* 정리 글은 학습자 본인 노트에서 나온 글이라 파인만 대상이 아니다 */}
+            {/* 정리 글은 학습자 본인 노트에서 나온 글이라 파인만 대상이 아니다.
+                단 여기선 이 가드가 그 목적으로는 절대 안 걸린다 — 선택 경로 셋(목록·키워드·jobWikiPaths)이
+                이미 isSynthesisPage 를 거르거나 concept-syn-* 를 만들 수 없다. 유일하게 걸리는 건
+                isSynthesisPage 의 접두사 충돌("SYN Flood" → concept-syn-flood)이고 거기선 이 가드가
+                오히려 해롭다. 그럼에도 남기는 이유: 같은 파일이 :207/:419/:439 에서 이미 같은 판정을
+                쓰고 wikiReader 도 그렇다 — 여기만 빼면 다음 사람이 비대칭을 보고 되돌린다.
+                충돌 자체는 이 PR 범위 밖(conceptId 스킴 변경 + 마이그레이션 필요) — 후속 이슈. */}
             {!isSynthesisPage(refWiki) && (
-              <FeynmanPanel space={targetSpace} page={refWiki} onSaved={(saved) => onWikiSaved(targetSpace, saved)} />
+              <FeynmanPanel
+                space={targetSpace}
+                page={refWiki}
+                onSaved={(saved) => onWikiSaved(targetSpace, refWiki.path, saved)}
+              />
             )}
 ```
 
@@ -2264,13 +2285,22 @@ test("인박스 위키 패널 — 수동 버튼으로 시작하고 판정하면 
   await expect(page.getByRole("button", { name: /이해함/ })).toBeVisible();
 });
 
-test("인박스 위키 패널 — 정리 글엔 파인만이 없다", async ({ page }) => {
-  await openInboxWiki(page, "<정리 글 제목>");
+// 이름을 "정리 글엔 파인만이 없다" 로 쓰면 안 된다 — 이 테스트가 여는 건 정리 글이 **아니다**.
+// 진짜 정리 글은 인박스 위키 패널에 도달할 수 없어서(선택 경로가 전부 거른다) 테스트할 수가 없다.
+// 여기서 걸리는 건 isSynthesisPage 의 접두사 충돌이고, 그건 **버그**다. 이름을 사실대로 쓰지 않으면
+// 누군가 그 버그를 고쳤을 때 이 테스트가 "정리 글 처리를 깼다" 는 얼굴로 실패해 고치는 사람을 오도한다.
+test("인박스 위키 패널 — conceptId 가 concept-syn-* 인 페이지엔 파인만이 안 붙는다", async ({ page }) => {
+  // ⚠ 이건 정리 글이 아니라 isSynthesisPage 접두사 충돌이다("Syn X" → concept-syn-x).
+  //    "SYN Flood" 같은 실재 개념이 정리 글로 오인되는 알려진 버그 — 후속 이슈에서 고친다.
+  //    그때 이 테스트는 **없어지는 게 맞다**(가드의 진짜 목적은 여기서 도달 불가하므로).
+  await openInboxWikiViaImport(page, "Syn X");
   await expect(page.getByRole("button", { name: "이 개념을 설명해보기" })).toHaveCount(0);
 });
 ```
 
-> **`openInboxWiki` 헬퍼와 셀렉터는 실제로 돌려서 맞춰라.** 인박스를 여는 법·위키 패널에서 개념을 고르는 법(`refWikiPath` 를 세팅하는 UI)을 코드에서 확인하고, 정리 글의 실제 제목도 seed 에서 확인하라. 짐작하지 마라 — 이 계획에서 셀렉터 추측이 **세 번** 틀렸다.
+> **`openInboxWiki` 헬퍼와 셀렉터는 실제로 돌려서 맞춰라.** 인박스를 여는 법·위키 패널에서 개념을 고르는 법(`refWikiPath` 를 세팅하는 UI)을 코드에서 확인하라. 짐작하지 마라 — 이 계획에서 셀렉터 추측이 **세 번** 틀렸다.
+>
+> **정리 글은 테스트할 수 없다.** seed 에 없고(`convertStore.runConvert` 는 `src/app` 어디에도 UI 진입점이 없다), 있어도 인박스 위키 패널의 선택 경로 셋이 전부 거른다. 브리프가 이걸 틀리게 가정했다.
 
 - [ ] **Step 5: 커밋**
 
@@ -2281,7 +2311,11 @@ git commit -m "feat(feynman): 인박스 위키 패널에도 파인만 — 수동
 
 #### 알아둘 것 — 진입점이 둘이 됐다
 
-`session` 은 앱 전역 싱글턴이다. 인박스 패널과 위키 문서 탭이 **같은 개념**을 보고 있으면 `mine`(`session.space === space && session.path === page.path`)이 양쪽 다 참이라 **한 세션이 두 곳에 동시에 보인다** — 의도된 동작이고 무해하다.
+`session` 은 앱 전역 싱글턴이다. 활성 탭 하나만 렌더되므로 **한 세션이 두 곳에 동시에 보이는 일은 없다.**
+
+실제로 일어나는 건 이것이다: 위키 문서 탭에서 **자동 시작된** 세션이 있는 채로 인박스에서 같은 개념을 고르면, 거기서 수동 버튼이 아니라 **펼쳐진 대화창**이 뜬다(`mine` 이 참이라). 즉 "인박스는 자동으로 안 열린다" 는 **시작**에 대해 참이고 **표시**에 대해선 아니다.
+
+경로가 좁고(문서 탭을 먼저 방문해야 함) 사용자가 이미 본 세션이며 `dismiss` 가 양쪽에서 먹으므로 무해하다고 판단한다.
 
 **다른** 개념을 보는 중에 수동 버튼을 누르면 `start()` 가 기존 세션을 교체해 앞서 쓰던 설명이 증발한다. 진입점이 하나일 때도 있던 동작이고(위키A 시작 → 위키B 에서 버튼 클릭), 수동 클릭은 사용자의 선택이라 그대로 둔다. 자동 열기만 `session == null` 로 막는다.
 
