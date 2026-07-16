@@ -28,11 +28,28 @@ serde_json = "1"
 ts-rs = "12"
 pdf-extract = "0.10.0"
 
-# dev(tauri dev) 빌드는 opt-level 0 기본값이라 pdf-extract 같은 CPU-bound 의존성이
-# 릴리즈 대비 수~수십 배 느리다. 의존성만 최적화하고 자기 코드는 빠른 증분 컴파일 유지.
-[profile.dev]
-opt-level = 1
+# dev(tauri dev) 빌드는 opt-level 0 기본값이라 PDF 텍스트 추출(CPU-bound)이
+# 릴리즈 대비 수~수십 배 느리다. 핫패스 크레이트(파서·압축 해제·텍스트 디코딩)만
+# 최적화한다 — "*" 블랭킷은 CI cargo test·콜드 빌드를 2배로 늘려 되돌렸다(#212 회고).
+# dev 임포트가 다시 느려지면 이 목록에 크레이트를 선별 추가할 것.
+[profile.dev.package.pdf-extract]
+opt-level = 2
 
-[profile.dev.package."*"]
+[profile.dev.package.lopdf]
+opt-level = 2
+
+[profile.dev.package.flate2]
+opt-level = 2
+
+[profile.dev.package.miniz_oxide]
+opt-level = 2
+
+[profile.dev.package.crc32fast]
+opt-level = 2
+
+[profile.dev.package.weezl]
+opt-level = 2
+
+[profile.dev.package.encoding_rs]
 opt-level = 2
 
