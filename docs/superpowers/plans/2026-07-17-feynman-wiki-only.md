@@ -113,8 +113,10 @@ const S = (over: Partial<FeynmanSession> = {}): FeynmanSession => ({
 const BODY = "# 스레드\n\n프로세스 안의 실행 단위.";
 
 describe("splitFeynmanSection", () => {
-  it("기록이 없으면 본문 그대로, 세션 0개", () => {
-    expect(splitFeynmanSection(BODY)).toEqual({ body: BODY, sessions: [] });
+  it("기록이 없으면 세션 0개 — body 는 정규화된 본문", () => {
+    expect(splitFeynmanSection(BODY)).toEqual({ body: BODY, sessions: [], unparsed: [] });
+    // body 는 md 그대로가 아니다 — 후행 개행은 섹션 유무와 무관하게 다듬는다.
+    expect(splitFeynmanSection(`${BODY}\n\n`).body).toBe(BODY);
   });
 
   it("라운드트립 — join 한 것을 split 하면 원래대로", () => {
@@ -239,6 +241,21 @@ describe("fail-closed — 파싱 못 한 기록을 조용히 삭제하지 않는
     const { sessions, unparsed } = splitFeynmanSection(md);
     expect(sessions).toEqual([]);
     expect(unparsed.join("\n")).toContain("소중한 발화");
+  });
+
+  // 맨 객체 리터럴은 `constructor`·`__proto__` 를 truthy 로 돌려준다. 통과시키면 verdict 가
+  // 함수 객체가 되어 UI 의 `=== "understood"` 가 거짓 → 사용자가 안 내린 판정을 표시한다.
+  it.each(["constructor", "__proto__", "toString"])("prototype 키(%s)를 판정으로 받지 않는다", (key) => {
+    const md = `${BODY}\n\n## 파인만 기록\n\n### 2026-07-16T12:00:00.000Z · ${key} · abc12345\n\n**나:**\n\n> 소중한 발화\n`;
+    const { sessions, unparsed } = splitFeynmanSection(md);
+    expect(sessions).toEqual([]);
+    expect(unparsed.join("\n")).toContain("소중한 발화");
+  });
+
+  it.each(["constructor", "__proto__"])("prototype 키(%s)를 화자로 받지 않는다", (key) => {
+    const md = `${BODY}\n\n## 파인만 기록\n\n### 2026-07-16T12:00:00.000Z · 이해함 · abc12345\n\n**${key}:**\n\n> 소중한 발화\n`;
+    const turns = splitFeynmanSection(md).sessions[0]?.turns ?? [];
+    expect(turns.every((t) => t.role === "user" || t.role === "probe")).toBe(true);
   });
 
   it("깨진 블록이 읽기→쓰기 사이클에서 살아남는다", () => {
@@ -381,7 +398,9 @@ function parseTurns(lines: string[]): FeynmanTurn[] {
     const line = dropCr(raw);
     // 인용 안 붙은 줄만 화자 마커가 될 수 있다 — 사용자 발화는 전부 `>` 로 시작하므로 위조 불가.
     const m = !line.startsWith(">") && ROLE_LINE.exec(line);
-    if (m && LABEL_TO_ROLE[m[1]]) {
+    // hasOwn: 맨 객체 리터럴이라 `constructor`·`__proto__` 가 truthy 로 새어 들어온다.
+    // fail-closed 파서에 fail-open 구멍을 두면 안 된다.
+    if (m && Object.hasOwn(LABEL_TO_ROLE, m[1])) {
       flush();
       role = LABEL_TO_ROLE[m[1]];
       continue;
@@ -395,7 +414,10 @@ function parseTurns(lines: string[]): FeynmanTurn[] {
 }
 
 /**
- * 본문과 기록을 분리한다. 기록이 없으면 { body: md, sessions: [], unparsed: [] }.
+ * 본문과 기록을 분리한다. 기록이 없으면 sessions/unparsed 가 빈 배열이다.
+ *
+ * **body 는 언제나 후행 개행이 다듬어진 값이다** — 기록 섹션 유무와 무관하다. `md` 를 그대로
+ * 돌려주지 않는다. join 이 항상 다듬으므로 여기서 조건부로 두면 왕복이 깨지고 배지가 상시 켜진다.
  *
  * 기록 섹션이 여럿이면 **전부** 걷어내 하나로 합친다. 따라서 body 에는 기록 섹션이 남지 않고,
  * strip 은 멱등이다. 이 성질에 기대는 곳이 많다 — 안 그러면 남은 섹션이 다음 라운드에 진짜
@@ -443,7 +465,10 @@ function parseSection(section: string, sessions: FeynmanSession[], unparsed: str
       return;
     }
     const parts = header.split(" · ").map((s) => s.trim());
-    const verdict = LABEL_TO_VERDICT[parts[1] ?? ""];
+    // hasOwn: `### <ISO> · constructor · hash` 가 통과하면 verdict 가 함수 객체가 되고,
+    // UI 의 `=== "understood"` 가 거짓이 되어 **사용자가 내리지도 않은 판정**을 표시한다.
+    const label = parts[1] ?? "";
+    const verdict = Object.hasOwn(LABEL_TO_VERDICT, label) ? LABEL_TO_VERDICT[label] : undefined;
     if (parts.length >= 2 && verdict) {
       sessions.push({ at: parts[0], verdict, bodyHash: parts[2] ?? "", turns: parseTurns(buf) });
     } else {
@@ -638,6 +663,18 @@ import { joinFeynmanSection, splitFeynmanSection, type FeynmanSession } from "./
       mergeMarkdown: async () => "# 교착 상태\n\n새 본문",
     });
     expect(applied.pages[0].markdown).toContain("잃으면 안 되는 말");
+  });
+
+  // LLM 출력이 후행 개행으로 끝나는 건 정상 형태다. split 이 body 를 항상 정규화하므로
+  // 그 개행이 잘리는데, 픽스처에 후행 개행이 하나도 없어 이 경로가 검증되지 않고 있었다.
+  it("LLM 출력이 후행 개행으로 끝나도 기록 보존과 배지가 멀쩡하다", async () => {
+    const applied = await applyOnto([withRecord()], "교착 상태", ["subj-os"], {
+      mergeMarkdown: async () => "# 교착 상태\n\n새 본문\n\n",
+    });
+    const md = applied.pages[0].markdown;
+    const { body, sessions } = splitFeynmanSection(md);
+    expect(sessions).toEqual([FEYNMAN]);
+    expect(body).toBe("# 교착 상태\n\n새 본문");
   });
 ```
 
