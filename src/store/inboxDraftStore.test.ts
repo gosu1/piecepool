@@ -214,3 +214,32 @@ describe("runSummary", () => {
     expect(useInboxDraftStore.getState().job).toBeNull();
   });
 });
+
+describe("runSummary 반환값 — 원샷 파이프라인 트리거 판정용", () => {
+  it("정상 종결이면 'done'", async () => {
+    vi.mocked(runPdfSummary).mockResolvedValue({ markdown: "# 요약", truncated: false });
+    const out = await useInboxDraftStore.getState().runSummary(RUN);
+    expect(out).toBe("done");
+    expect(useInboxDraftStore.getState().job?.status).toBe("done");
+  });
+
+  it("사용자 취소(AbortError)면 'cancelled'", async () => {
+    const abort = new Error("aborted");
+    abort.name = "AbortError";
+    vi.mocked(runPdfSummary).mockRejectedValue(abort);
+    const out = await useInboxDraftStore.getState().runSummary(RUN);
+    expect(out).toBe("cancelled");
+  });
+
+  it("실패면 'failed'", async () => {
+    vi.mocked(runPdfSummary).mockRejectedValue(new Error("boom"));
+    const out = await useInboxDraftStore.getState().runSummary(RUN);
+    expect(out).toBe("failed");
+  });
+
+  it("스트리밍 중 재진입은 null (single-flight)", async () => {
+    useInboxDraftStore.setState({ job: { noteKey: "other", file: "x.pdf", status: "streaming", text: "" } });
+    const out = await useInboxDraftStore.getState().runSummary(RUN);
+    expect(out).toBeNull();
+  });
+});

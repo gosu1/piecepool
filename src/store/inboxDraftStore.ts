@@ -68,7 +68,9 @@ interface InboxDraftState {
   setBody: (key: string, body: string) => void;
   appendBody: (key: string, chunk: string) => void;
   clear: (key: string) => void; // 탭 닫힘 — 초안 제거 + 그 탭이 요약 job 소유면 abort
-  runSummary: (p: { noteKey: string; file: string; title: string; text: string }) => Promise<void>;
+  // 종결 상태를 돌려준다 — 원샷 파이프라인(InboxSection)이 "done"일 때만 자동 저장+위키를 잇는다.
+  // single-flight 재진입이면 null(아무것도 안 했음).
+  runSummary: (p: { noteKey: string; file: string; title: string; text: string }) => Promise<PdfSummaryStatus | null>;
   cancelSummary: () => void;
   clearJob: () => void;
 }
@@ -164,7 +166,7 @@ export const useInboxDraftStore = create<InboxDraftState>()(
         },
 
         runSummary: async (p) => {
-          if (get().job?.status === "streaming") return; // single-flight (버튼 disable 백스톱)
+          if (get().job?.status === "streaming") return null; // single-flight (버튼 disable 백스톱)
           const myAc = new AbortController();
           ac = myAc;
           latest = "";
@@ -175,14 +177,17 @@ export const useInboxDraftStore = create<InboxDraftState>()(
               signal: myAc.signal,
             });
             finish(p.noteKey, r.markdown, { status: "done", text: r.markdown, truncated: r.truncated, warning: r.warning });
+            return "done";
           } catch (e) {
             if (e instanceof Error && e.name === "AbortError") {
               finish(p.noteKey, latest, { status: "cancelled", text: latest });
+              return "cancelled";
             } else if (e instanceof PdfSummaryStreamError) {
               finish(p.noteKey, latest, { status: "failed", text: latest, error: e.message });
-            } else {
-              finish(p.noteKey, "", { status: "failed", error: e instanceof Error ? e.message : String(e) });
+              return "failed";
             }
+            finish(p.noteKey, "", { status: "failed", error: e instanceof Error ? e.message : String(e) });
+            return "failed";
           } finally {
             if (ac === myAc) ac = null; // 내가 시작한 컨트롤러일 때만 정리(다른 노트 요약을 건드리지 않게)
           }
