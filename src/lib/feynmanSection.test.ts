@@ -179,6 +179,64 @@ describe("fail-closed — 파싱 못 한 기록을 조용히 삭제하지 않는
   it("unparsed 가 비면 섹션 모양이 그대로다 — 정상 경로에 흔적을 안 남긴다", () => {
     expect(joinFeynmanSection(BODY, [S()], [])).toBe(joinFeynmanSection(BODY, [S()]));
   });
+
+  // `###` 없는 stray 블록 + 세션이 함께 있을 때가 유일하게 잃는 조합이었다.
+  // join 이 stray 를 세션 뒤에 쓰면 다음 split 에서 마지막 세션의 발화 버퍼로 빨려들고
+  // parseTurns 가 비인용 줄을 버려 2회차에 사라진다. 기존 테스트는 전부 `###` 형태라 못 잡았다.
+  it("### 없는 stray 블록이 세션과 함께 있어도 2회차에 안 사라진다", () => {
+    const md = `${BODY}\n\n## 파인만 기록\n\n앞선 잔여물\n\n### 2026-07-16T12:03:11.123Z · 이해함 · a1b2c3d4\n\n**나:**\n\n> 설명\n`;
+    const one = splitFeynmanSection(md);
+    expect(one.unparsed.join("\n")).toContain("앞선 잔여물");
+    expect(one.sessions).toHaveLength(1);
+
+    const out = joinFeynmanSection(one.body, one.sessions, one.unparsed);
+    const two = splitFeynmanSection(out);
+    expect(two.unparsed.join("\n")).toContain("앞선 잔여물"); // ← 여기서 사라졌었다
+    expect(two.sessions).toEqual(one.sessions);
+
+    // 3회차도 고정점
+    const three = splitFeynmanSection(joinFeynmanSection(two.body, two.sessions, two.unparsed));
+    expect(three.unparsed.join("\n")).toContain("앞선 잔여물");
+  });
+});
+
+describe("미닫힘 코드펜스 — 기록이 펜스 안으로 들어가면 안 된다", () => {
+  // CommonMark: 미닫힘 펜스는 EOF 까지다. 뒤에 붙인 `## 파인만 기록` 이 펜스 안이 되면
+  // scanHeadings 가 헤딩으로 안 보고 → split 이 기록을 못 걷고 → **사용자 발화가 body 로 남아
+  // LLM 입력이 된다**(설계 §4 가 막으려던 그 유출). 도달 경로: 편집 모드에서 ``` 열고 안 닫고 저장.
+  const OPEN = "# 개념\n\n```js\nconst x = 1;";
+
+  it("join 이 펜스를 닫아서 붙인다 — split 이 기록을 찾는다", () => {
+    const md = joinFeynmanSection(OPEN, [S()]);
+    const { body, sessions } = splitFeynmanSection(md);
+    expect(sessions).toEqual([S()]);
+    expect(body).toBe(`${OPEN}\n\`\`\``); // 펜스가 닫힌 채로
+  });
+
+  it("사용자 발화가 body 로 새지 않는다", () => {
+    const md = joinFeynmanSection(OPEN, [S({ turns: [{ role: "user", text: "내 사적인 설명" }] })]);
+    expect(stripFeynmanSection(md)).not.toContain("내 사적인 설명");
+  });
+
+  it("여는 마커와 같은 것으로 닫는다 — 파서와 렌더러가 둘 다 동의해야 한다", () => {
+    const md = joinFeynmanSection("# 개념\n\n~~~js\nconst x = 1;", [S()]);
+    expect(md).toContain("~~~js\nconst x = 1;\n~~~");
+    expect(splitFeynmanSection(md).sessions).toEqual([S()]);
+  });
+
+  it("이미 닫힌 펜스는 안 건드린다", () => {
+    const closed = "# 개념\n\n```js\nconst x = 1;\n```";
+    expect(splitFeynmanSection(joinFeynmanSection(closed, [S()])).body).toBe(closed);
+  });
+
+  it("펜스 미닫힘 본문에 append 해도 섹션이 중복되지 않는다", () => {
+    // 설계 §8 이 명시적으로 요구한 역방향 반례. 못 찾으면 finish 가 섹션을 또 만든다.
+    const once = joinFeynmanSection(OPEN, [S()]);
+    const { body, sessions, unparsed } = splitFeynmanSection(once);
+    const twice = joinFeynmanSection(body, [S({ at: "2026-08-01T00:00:00.000Z" }), ...sessions], unparsed);
+    expect(twice.match(/^## 파인만 기록$/gm)).toHaveLength(1);
+    expect(splitFeynmanSection(twice).sessions).toHaveLength(2);
+  });
 });
 
 describe("bodyHash", () => {

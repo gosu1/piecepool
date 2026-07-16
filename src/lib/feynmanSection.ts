@@ -1,4 +1,4 @@
-import { scanHeadings, sectionEnd } from "./noteSections";
+import { scanHeadings, sectionEnd, FENCE } from "./noteSections";
 
 // ══ 위키 본문의 `## 파인만 기록` 섹션 — 학습자가 그 개념을 자기 말로 설명한 기록 ══
 //
@@ -168,10 +168,33 @@ function parseSection(section: string, sessions: FeynmanSession[], unparsed: str
   flush();
 }
 
+/**
+ * 미닫힘 코드펜스를 닫는다. 안 닫으면 뒤에 붙이는 기록 섹션이 **펜스 안**으로 들어가고
+ * (CommonMark: 미닫힘 펜스는 EOF 까지), scanHeadings 가 `## 파인만 기록` 을 헤딩으로 안 본다.
+ * 그러면 split 이 기록을 못 걷어 **사용자 발화가 body 로 남아 LLM 입력이 된다.**
+ *
+ * 여는 마커와 같은 것으로 닫는다 — 그래야 우리 파서와 실제 렌더러가 둘 다 닫힌 것으로 본다.
+ * 사용자 본문을 건드리는 것이지만, 미닫힘 펜스는 이미 깨진 마크다운이다(뒤가 전부 코드블록).
+ */
+function closeOpenFence(body: string): string {
+  let open: string | null = null;
+  for (const line of body.split("\n")) {
+    const marker = FENCE.exec(line.endsWith("\r") ? line.slice(0, -1) : line)?.[1];
+    if (!marker) continue;
+    if (!open) open = marker;
+    else if (marker === open) open = null;
+  }
+  return open ? `${body}\n${open}` : body;
+}
+
 /** 본문 + 기록 → md. 쓸 게 하나도 없으면 섹션을 만들지 않는다. */
 export function joinFeynmanSection(body: string, sessions: FeynmanSession[], unparsed: string[] = []): string {
   if (!sessions.length && !unparsed.length) return body;
-  const out: string[] = [body.replace(/(\r?\n)+$/, ""), "", `## ${SECTION_TITLE}`, ""];
+  const out: string[] = [closeOpenFence(body.replace(/(\r?\n)+$/, "")), "", `## ${SECTION_TITLE}`, ""];
+  // 읽을 수 없는 블록이 **먼저** — 뒤에 쓰면 다음 split 에서 마지막 세션의 발화 버퍼로 빨려들어가
+  // parseTurns 가 비인용 줄을 버리면서 조용히 사라진다(2회차 소실). 앞에 두면 "첫 ### 이전" 이라
+  // 다시 unparsed 로 읽혀 고정점이 된다.
+  for (const raw of unparsed) out.push(raw, "");
   for (const s of sessions) {
     out.push(`### ${s.at} · ${VERDICT_TO_LABEL[s.verdict]} · ${s.bodyHash}`, "");
     for (const t of s.turns) {
@@ -181,9 +204,6 @@ export function joinFeynmanSection(body: string, sessions: FeynmanSession[], unp
       out.push("");
     }
   }
-  // 읽을 수 없는 블록은 섹션 끝에 원문 그대로. body 에 섞으면 개념 문서가 오염되고
-  // LLM 병합 입력(llmApply)에도 들어간다 — 섹션 안에 머물러야 한다.
-  for (const raw of unparsed) out.push(raw, "");
   return out.join("\n").replace(/\n+$/, "\n");
 }
 

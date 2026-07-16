@@ -15,7 +15,7 @@ export interface Heading {
 
 // CommonMark: ATX 헤딩은 앞 공백 3칸까지 허용된다(4칸이면 코드 블록). 에디터도 그렇게 렌더한다.
 const ATX = /^ {0,3}(#{1,6})(?:\s+(.*))?$/;
-const FENCE = /^ {0,3}(```|~~~)/;
+export const FENCE = /^ {0,3}(```|~~~)/;
 // 한 줄 전체가 PDF 임베드인 경우 — `![[….pdf]]`·`![[….pdf#page=N]]`. 이미지 임베드(png 등)는 제외.
 const PDF_EMBED_LINE = /^[ \t]*!\[\[[^\]]*\.pdf(?:#page=\d+)?\]\][ \t]*$/i;
 
