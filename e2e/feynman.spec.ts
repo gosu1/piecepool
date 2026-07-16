@@ -36,20 +36,20 @@ test("사용자가 그래프에서 직접 표시한다 (판단은 언제나 사�
 test("표시 → 해제 → 재표시 왕복 — 사용자가 붙이고 사용자가 거둔다", async ({ page }) => {
   await markOnGraph(page, "동기화", "왜 임계 구역을 지켜야 하는지 설명을 못 하겠어요");
   await expect(page.getByRole("button", { name: "복습" })).toBeVisible({ timeout: 15000 });
-  await expect(page.getByText("아직 모르겠다고 표시한 개념")).toBeVisible();
+  await expect(page.getByText("아직 모르겠음")).toBeVisible();
 
   await page.getByRole("button", { name: "표시 해제" }).click();
   await expect(page.getByText(/복습 표시를 해제했어요/)).toBeVisible({ timeout: 15000 });
   // 관계가 사라졌으므로 복습 그룹 칩도 사라진다
   await expect(page.getByRole("button", { name: "복습" })).toHaveCount(0);
-  await expect(page.getByText("아직 모르겠다고 표시한 개념")).toHaveCount(0);
+  await expect(page.getByText("아직 모르겠음")).toHaveCount(0);
 
   // 해제 후 다시 표시할 수 있다 — 시연 촬영을 반복하려면 왕복이 성립해야 한다.
   await page.getByRole("button", { name: "아직 모르겠다고 표시" }).click();
   await page.getByPlaceholder(/왜 그렇게 되는지/).fill("역시 아직 모르겠어요");
   await page.getByRole("button", { name: "표시", exact: true }).click();
   await expect(page.getByRole("button", { name: "복습" })).toBeVisible({ timeout: 15000 });
-  await expect(page.getByText("아직 모르겠다고 표시한 개념")).toBeVisible();
+  await expect(page.getByText("아직 모르겠음")).toBeVisible();
 });
 
 test("노트 하단 플로팅 바 — 이 노트에서 나온 개념 중 표시된 것을 먼저 알린다", async ({ page }) => {

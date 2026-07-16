@@ -106,6 +106,8 @@ export default function PiecePoolApp() {
   const setCollapsedTree = useWorkspaceStore((s) => s.setCollapsedTree);
   const pinnedDocs = useWorkspaceStore((s) => s.pinnedDocs);
   const togglePinned = useWorkspaceStore((s) => s.togglePinned);
+  const studyHomeDocs = useWorkspaceStore((s) => s.studyHomeDocs);
+  const toggleStudyHome = useWorkspaceStore((s) => s.toggleStudyHome);
   const treeSort = useWorkspaceStore((s) => s.treeSort);
   const recentDocs = useWorkspaceStore((s) => s.recentDocs);
 
@@ -518,6 +520,17 @@ export default function PiecePoolApp() {
     else openArchive(e.space, e.file);
   };
 
+  // "Study Home에 추가"한 문서(홈 큰 파일 타일) — 삭제/이동으로 사라진 것은 걸러낸다.
+  const studyHomeEntries = studyHomeDocs.flatMap((id) => {
+    const [kind, space, ...rest] = id.split(":");
+    const file = rest.join(":");
+    const list = kind === "wiki" ? wikiBySlug[space] : notesBySlug[space];
+    const doc = (list ?? []).find((d) => d.path === file);
+    return doc ? [{ id, title: doc.title, kind: kind as "wiki" | "archive", space, file }] : [];
+  });
+  const openStudyHomeDoc = (kind: "wiki" | "archive", space: string, file: string) =>
+    kind === "wiki" ? openWiki(space, file) : openArchive(space, file);
+
   // ── 트리 DnD: source md 를 다른 공간으로 이동 ──
   const slugOfFolder = (folderId: string) => {
     const [kind, slug] = folderId.split(":");
@@ -606,6 +619,16 @@ export default function PiecePoolApp() {
                 onClick: () => handleMoveNode(`doc:${menuDoc.kind}:${menuDoc.space}:${menuDoc.file}`, `af:${s.slug}`),
               }))
           : []),
+        {
+          // 북마크 — 사이드바 별 드롭다운(pinnedDocs). 있으면 제거로 전환.
+          label: pinnedDocs.includes(`${menuDoc.kind}:${menuDoc.space}:${menuDoc.file}`) ? "북마크 제거" : "북마크에 추가",
+          onClick: () => togglePinned(`${menuDoc.kind}:${menuDoc.space}:${menuDoc.file}`),
+        },
+        {
+          // Study Home 타일 — 북마크와 별개(studyHomeDocs). 홈 화면에 큰 파일 카드로 뜬다.
+          label: studyHomeDocs.includes(`${menuDoc.kind}:${menuDoc.space}:${menuDoc.file}`) ? "Study Home에서 제거" : "Study Home에 추가",
+          onClick: () => toggleStudyHome(`${menuDoc.kind}:${menuDoc.space}:${menuDoc.file}`),
+        },
         {
           label: "이름 변경…",
           onClick: () => {
@@ -1134,6 +1157,9 @@ export default function PiecePoolApp() {
           notesBySlug={notesBySlug}
           graphBySlug={graphBySlug}
           currentSpace={currentSpace}
+          studyHomeItems={studyHomeEntries}
+          onOpenDoc={openStudyHomeDoc}
+          onRemoveFromHome={toggleStudyHome}
           onOpenWiki={openWiki}
           onNewNote={() => openNewNote(currentSpace)}
           onNewFolder={() => setDialog({ kind: "new-space" })}

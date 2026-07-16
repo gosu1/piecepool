@@ -70,7 +70,7 @@ export function NewTabPane({
         ) : (
           <>
             {pinned.length > 0 && (
-              <Section label="고정됨">
+              <Section label="북마크">
                 {pinned.map((d) => (
                   <DocRow key={docKey(d)} d={d} icon={<Icons.PinIcon size={14} className="shrink-0 text-ink-faint" />} onClick={() => onOpenDoc(d)} />
                 ))}

@@ -37,6 +37,9 @@ interface WorkspaceState {
   // 페이지 헤더의 "고정하기" — 문서 id(`kind:space:file`) 목록. 사이드바 고정 섹션에 표시.
   // frontmatter 는 계약(SSOT) 필드라 pinned 를 넣을 수 없음 — 순수 뷰 상태로 localStorage 에만 둔다.
   pinnedDocs: string[];
+  // "Study Home에 추가"(파일 우클릭) — 홈 화면에 큰 파일 카드로 뜨는 문서 id 목록. 북마크(pinnedDocs)와
+  // 별개다: 북마크는 사이드바 별 드롭다운, 이건 홈 타일. 같은 뷰 상태라 localStorage 에만 둔다.
+  studyHomeDocs: string[];
   // 최근 연 문서 id(`kind:space:file`, 최신순) — 새 탭 런처의 "최근 문서" 섹션. persist.
   recentDocs: string[];
   // 사이드바 파일 트리 정렬(이름/업데이트/생성일 × 오름·내림). persist.
@@ -58,6 +61,7 @@ interface WorkspaceState {
   toggleTreeNode: (id: string) => void;
   setCollapsedTree: (ids: string[]) => void; // 전체 접기/펼치기 — 폴더 id 목록 통째 교체
   togglePinned: (id: string) => void;
+  toggleStudyHome: (id: string) => void;
   setTreeSort: (s: TreeSort) => void;
 }
 
@@ -74,6 +78,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       sidebarWidth: SIDEBAR_DEFAULT,
       collapsedTreeIds: [],
       pinnedDocs: [],
+      studyHomeDocs: [],
       recentDocs: [],
       treeSort: { key: "name", dir: "asc" },
       navBack: [],
@@ -206,6 +211,11 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           pinnedDocs: s.pinnedDocs.includes(id) ? s.pinnedDocs.filter((x) => x !== id) : [...s.pinnedDocs, id],
         })),
 
+      toggleStudyHome: (id) =>
+        set((s) => ({
+          studyHomeDocs: s.studyHomeDocs.includes(id) ? s.studyHomeDocs.filter((x) => x !== id) : [...s.studyHomeDocs, id],
+        })),
+
       setTreeSort: (treeSort) => set({ treeSort }),
     }),
     {
@@ -219,6 +229,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         sidebarWidth: s.sidebarWidth,
         collapsedTreeIds: s.collapsedTreeIds,
         pinnedDocs: s.pinnedDocs,
+        studyHomeDocs: s.studyHomeDocs,
         recentDocs: s.recentDocs,
         treeSort: s.treeSort,
       }),
