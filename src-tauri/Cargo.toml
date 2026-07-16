@@ -28,3 +28,11 @@ serde_json = "1"
 ts-rs = "12"
 pdf-extract = "0.10.0"
 
+# dev(tauri dev) 빌드는 opt-level 0 기본값이라 pdf-extract 같은 CPU-bound 의존성이
+# 릴리즈 대비 수~수십 배 느리다. 의존성만 최적화하고 자기 코드는 빠른 증분 컴파일 유지.
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 2
+

@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::commands::space_by_slug;
 use crate::models::WikiPage;
 use crate::storage::{self, frontmatter};
@@ -29,9 +31,32 @@ pub fn read_wiki(space: String, file: String) -> Result<WikiPage, String> {
 }
 
 /// WikiPage 저장. archive 는 절대 건드리지 않는다(원문 보존). 파일명 = path 또는 concept slug.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn save_wiki(space: String, page: WikiPage) -> Result<WikiPage, String> {
-    let mut page = page;
+    let subjects = crate::commands::subject_ids(&space);
+    let sources = crate::commands::source_ids(&space);
+    save_wiki_with(&space, page, &subjects, &sources)
+}
+
+/// WikiPage 여러 개를 한 번에 저장 — 임포트 writing 단계 전용.
+/// subject/source 레지스트리(source_ids 는 archive 전체 스캔)를 페이지마다가 아니라 1회만 읽는다.
+#[tauri::command(async)]
+pub fn save_wiki_batch(space: String, pages: Vec<WikiPage>) -> Result<Vec<WikiPage>, String> {
+    let subjects = crate::commands::subject_ids(&space);
+    let sources = crate::commands::source_ids(&space);
+    let mut out = Vec::with_capacity(pages.len());
+    for page in pages {
+        out.push(save_wiki_with(&space, page, &subjects, &sources)?);
+    }
+    Ok(out)
+}
+
+fn save_wiki_with(
+    space: &str,
+    mut page: WikiPage,
+    subjects: &HashSet<String>,
+    sources: &HashSet<String>,
+) -> Result<WikiPage, String> {
     if page.path.is_empty() {
         let slug = page
             .concept_id
@@ -44,14 +69,9 @@ pub fn save_wiki(space: String, page: WikiPage) -> Result<WikiPage, String> {
     }
     page.updated_at = storage::now_iso();
     // 저장 전 frontmatter 검증 (hard-fail)
-    frontmatter::validate_wiki(
-        &page,
-        &crate::commands::subject_ids(&space),
-        &crate::commands::source_ids(&space),
-    )
-    .map_err(|e| e.to_string())?;
+    frontmatter::validate_wiki(&page, subjects, sources).map_err(|e| e.to_string())?;
     // archive 보호: wiki 저장은 반드시 wiki/ 아래로만 (path-traversal 방어).
-    let path = storage::safe_join(&storage::space_subdir(&space, "wiki"), &page.path)
+    let path = storage::safe_join(&storage::space_subdir(space, "wiki"), &page.path)
         .map_err(|e| e.to_string())?;
     let md = frontmatter::wiki_to_md(&page);
     storage::write_text(&path, &md).map_err(|e| e.to_string())?;

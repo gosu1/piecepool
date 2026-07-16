@@ -344,6 +344,15 @@ export const mock = {
     else arr.push(page);
     return delay(page);
   },
+  saveWikiBatch: (space: string, pages: WikiPage[]) => {
+    const arr = WIKI[space] ?? (WIKI[space] = []);
+    for (const page of pages) {
+      const i = arr.findIndex((w) => w.path === page.path);
+      if (i >= 0) arr[i] = page;
+      else arr.push(page);
+    }
+    return delay(pages);
+  },
   deleteWiki: (space: string, file: string) => {
     const page = (WIKI[space] ?? []).find((w) => w.path === file);
     WIKI[space] = (WIKI[space] ?? []).filter((w) => w.path !== file);

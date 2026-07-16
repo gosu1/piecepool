@@ -195,34 +195,37 @@ export async function applyLlmResult(
   for (const p of existing) if (!isSynthesisPage(p)) byNorm.set(normalizeTitle(p.title), p);
 
   const conceptMap = new Map<string, string>(); // normalizedTitle → conceptId
-  const pages: WikiPage[] = [];
   let merged = 0;
 
-  for (const c of result.concepts) {
-    const norm = normalizeTitle(c.title);
-    const ex = byNorm.get(norm); // 기존과 동일 개념이면 그 파일에 병합
-    if (ex) merged++;
-    const cid = ex ? ex.conceptId : `concept-${slugOrHash(c.title)}`;
-    // 허용 sourceId = 이번 입력 소스 ∪ 기존 페이지가 이미 참조하던 소스
-    const allowed = new Set([source.sourceId, ...(ex?.sourceIds ?? [])]);
-    const markdown = ex ? await mergeMarkdown(ex, c, source, deps) : conceptMarkdown(c);
-    const page: WikiPage = {
-      id: ex ? ex.id : `wiki-${slugOrHash(c.title)}`,
-      spaceId,
-      conceptId: cid,
-      title: c.title,
-      path: ex ? ex.path : `${slugOrHash(c.title)}.md`,
-      subjectIds: ex ? Array.from(new Set([...ex.subjectIds, ...subjectIds])) : subjectIds,
-      sourceIds: ex ? Array.from(new Set([...ex.sourceIds, source.sourceId])) : [source.sourceId],
-      sourceRefs: toSourceRefs(c, allowed, slugOrHash(c.title), ex?.sourceRefs),
-      markdown,
-      createdAt: ex ? ex.createdAt : now, // 병합 시 생성시각 보존
-      updatedAt: now,
-    };
-    pages.push(page);
-    conceptMap.set(norm, cid);
-  }
-  for (const p of pages) await ipc.saveWiki(space, p);
+  // 개념별 처리는 서로 독립 — 병합(mergeMarkdown = LLM 2차 호출)을 순차로 기다리면
+  // 병합 수만큼 지연이 합산되므로 병렬로 돌린다. pages 순서는 Promise.all 이 보존한다.
+  const pages: WikiPage[] = await Promise.all(
+    result.concepts.map(async (c) => {
+      const norm = normalizeTitle(c.title);
+      const ex = byNorm.get(norm); // 기존과 동일 개념이면 그 파일에 병합
+      if (ex) merged++;
+      const cid = ex ? ex.conceptId : `concept-${slugOrHash(c.title)}`;
+      // 허용 sourceId = 이번 입력 소스 ∪ 기존 페이지가 이미 참조하던 소스
+      const allowed = new Set([source.sourceId, ...(ex?.sourceIds ?? [])]);
+      const markdown = ex ? await mergeMarkdown(ex, c, source, deps) : conceptMarkdown(c);
+      conceptMap.set(norm, cid);
+      return {
+        id: ex ? ex.id : `wiki-${slugOrHash(c.title)}`,
+        spaceId,
+        conceptId: cid,
+        title: c.title,
+        path: ex ? ex.path : `${slugOrHash(c.title)}.md`,
+        subjectIds: ex ? Array.from(new Set([...ex.subjectIds, ...subjectIds])) : subjectIds,
+        sourceIds: ex ? Array.from(new Set([...ex.sourceIds, source.sourceId])) : [source.sourceId],
+        sourceRefs: toSourceRefs(c, allowed, slugOrHash(c.title), ex?.sourceRefs),
+        markdown,
+        createdAt: ex ? ex.createdAt : now, // 병합 시 생성시각 보존
+        updatedAt: now,
+      };
+    }),
+  );
+  // 배치 저장 — 낱개 save_wiki 는 호출마다 archive 전체를 재스캔한다(source_ids).
+  if (pages.length) await ipc.saveWikiBatch(space, pages);
 
   // 관계: 개념 제목 → conceptId (이번 결과 ∪ 이 공간 기존 ∪ 다른 공간). 미해결이면 스킵.
   // 다른 공간까지 보는 이유: LLM 에게 타 공간 개념을 힌트로 줬으므로 그쪽을 가리키는 관계가 나온다.
