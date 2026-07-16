@@ -160,8 +160,10 @@ export function FeynmanPanel({
         className="w-full resize-none rounded border border-hairline bg-surface px-2 py-1.5 text-[13px] text-ink outline-none focus-visible:shadow-soft disabled:opacity-60"
       />
 
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex gap-2">
+      {/* 인박스 위키 패널은 좁다(min 280px) — 버튼 4개가 한 줄에 안 들어간다. 넓은 위키 문서 탭에선
+          지금처럼 한 줄, 좁아지면 판정 그룹부터 내려가고 더 좁으면 그룹 안에서도 접힌다. */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button size="sm" variant="solid" disabled={!draft.trim() || probing || saving} onClick={send}>
             {history.length ? "다시 설명" : "설명 보내기"}
           </Button>
@@ -171,7 +173,7 @@ export function FeynmanPanel({
         </div>
         {/* 이해 판정은 오직 사용자. LLM 은 채점하지 않는다(relation-types.md §review_needed).
             단 설명을 한 번도 안 했으면 판정할 근거가 없다 — [나중에] 로만 넘어간다. */}
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button size="sm" variant="utility" disabled={probing || saving || !answered} onClick={() => void done(false)}>
             아직 모르겠어요
           </Button>
