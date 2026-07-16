@@ -263,12 +263,16 @@ export default function PiecePoolApp() {
   const autoWiki = activeTab?.kind === "wiki" ? (wikiBySlug[autoSpace] ?? []).find((w) => w.path === activeTab.file) : undefined;
   useEffect(() => {
     if (!autoWiki || !autoSpace) return;
+    // 정리 글은 학습자 본인 노트에서 나온 글이다. 자기가 방금 쓴 내용을 설명하라고 띄우는 건
+    // IOED 를 못 깨서 걷어낸 노트 파인만과 같은 것이다. 코드베이스도 정리 글을 개념으로 안 본다
+    // (llmApply 병합·toExistingConcepts 에서 제외).
+    if (isSynthesisPage(autoWiki)) return;
     const st = useFeynmanStore.getState();
     // 진행 중인 세션을 파괴하지 않는다 — session 은 앱 전역 싱글턴이고 메모리 전용이라
     // 다른 페이지에서 쓰던 설명이 여기서 조용히 증발한다.
     if (st.session) return;
     if (st.dismissed[wikiKey(autoSpace, autoWiki.path)]) return;
-    // 키가 없으면 begin 이 조용히 무시되어 빈 패널만 뜬다.
+    // 키가 없으면 probeExplanation 이 빈 키로 실패해 되물음이 안 온다 — 반응 없는 빈 패널이 뜬다.
     if (!hasGeminiKey()) return;
     if (splitFeynmanSection(autoWiki.markdown).sessions.length) return;
     st.start(autoSpace, autoWiki);
@@ -978,7 +982,8 @@ export default function PiecePoolApp() {
         relationGroups={sections.relationGroups}
         confused={sections.confused}
         conflicts={sections.conflicts}
-        bottomSlot={<FeynmanPanel space={space} page={page} />}
+        // 정리 글(concept-syn-*)은 학습자 본인 노트에서 나온 글이라 파인만 대상이 아니다
+        bottomSlot={isSynthesisPage(page) ? undefined : <FeynmanPanel space={space} page={page} />}
       />
     );
   };
