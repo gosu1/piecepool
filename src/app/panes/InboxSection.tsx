@@ -42,6 +42,88 @@ const IMPORT_STATUS_LABEL: Record<string, string> = {
   failed: "실패",
 };
 
+// 저장+AI 정리 진행 3단계 — 오버레이 체크리스트용. parsing 은 archiving 직전 순간,
+// clarify_pending 은 llm 단계의 일부로 본다(상태머신: importStore).
+const IMPORT_STEPS = ["archiving", "llm_processing", "writing"] as const;
+type StepState = "done" | "active" | "todo";
+function importSteps(status: string): { label: string; state: StepState }[] {
+  const cur =
+    status === "parsing" ? 0 : status === "clarify_pending" ? 1 : IMPORT_STEPS.indexOf(status as (typeof IMPORT_STEPS)[number]);
+  return IMPORT_STEPS.map((s, i) => ({
+    label: IMPORT_STATUS_LABEL[s],
+    state: i < cur ? "done" : i === cur ? "active" : "todo",
+  }));
+}
+
+// 로딩 중 돌아가는 소개 문구 — 이 앱 '파인만' 기능의 유래(리처드 파인만)와 그와 통하는
+// 학습론(안드레 카파시). 검증된 사실만 — 지어낸 인용 금지.
+const LOADING_TIPS = [
+  "리처드 파인만은 1965년 양자전기역학(QED) 연구로 노벨 물리학상을 받았어요.",
+  "파인만 기법 — 개념을 처음 배우는 사람에게 설명하듯 자기 말로 풀어 보면, 막히는 곳이 곧 이해의 구멍이에요.",
+  "파인만이 세상을 떠난 날, 칠판에는 “내가 만들 수 없는 것은 이해하지 못한 것이다”라는 문구가 남아 있었어요.",
+  "파인만은 어려운 물리를 일상의 비유로 풀어내 ‘위대한 설명가’로 불렸어요.",
+  "복잡한 입자 상호작용을 그림 하나로 — 그게 파인만 다이어그램이에요.",
+  "안드레 카파시는 OpenAI 공동 창립 멤버이자 테슬라 오토파일럿 AI를 이끈 연구자예요.",
+  "카파시는 스탠퍼드 딥러닝 강의 CS231n을 만들어 수많은 사람을 AI에 입문시켰어요.",
+  "카파시는 micrograd·nanoGPT처럼 밑바닥부터 직접 구현하며 배우는 방식으로 유명해요.",
+  "‘바이브 코딩(vibe coding)’이라는 말은 카파시가 만들었어요.",
+  "직접 만들어 보고, 자기 말로 설명해 보기 — 파인만과 카파시가 말하는 진짜 이해의 기준이에요.",
+];
+
+/** 5초마다 다음 문구로 로테이션. 시작 위치는 랜덤 — 열 때마다 다른 문구부터. */
+function LoadingTip() {
+  const [i, setI] = useState(() => Math.floor(Math.random() * LOADING_TIPS.length));
+  useEffect(() => {
+    const t = setInterval(() => setI((v) => (v + 1) % LOADING_TIPS.length), 5000);
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <p
+      key={i}
+      style={{ animation: "pp-fade-in 0.5s ease" }}
+      className="max-w-[360px] px-6 text-center text-[12.5px] leading-relaxed text-ink-muted"
+    >
+      {LOADING_TIPS[i]}
+    </p>
+  );
+}
+
+/** 처리 중 패널 위를 덮는 로딩 오버레이 — 저장(단계 포함)·PDF 처리(라벨만) 공용. 부모에 relative 필요. */
+function LoadingOverlay({ label, steps }: { label: string; steps?: { label: string; state: StepState }[] }) {
+  return (
+    <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-surface/60 backdrop-blur-sm">
+      <span className="h-7 w-7 animate-spin rounded-full border-[2.5px] border-primary/20 border-t-primary" aria-hidden />
+      <p className="text-[14px] font-medium text-ink">{label}</p>
+      {steps && (
+        <ol className="mt-1 flex flex-col gap-1.5">
+          {steps.map((s) => (
+            <li
+              key={s.label}
+              className={cn(
+                "flex items-center gap-2 text-[13px]",
+                s.state === "active" ? "font-medium text-ink" : s.state === "done" ? "text-ink-muted" : "text-ink-faint",
+              )}
+            >
+              {s.state === "done" ? (
+                <Icons.CheckIcon size={13} className="text-primary" />
+              ) : (
+                <span
+                  className={cn(
+                    "mx-[3px] inline-block h-[7px] w-[7px] rounded-full",
+                    s.state === "active" ? "animate-pulse bg-primary" : "bg-ink-faint/40",
+                  )}
+                />
+              )}
+              {s.label}
+            </li>
+          ))}
+        </ol>
+      )}
+      <LoadingTip />
+    </div>
+  );
+}
+
 /** 본문에서 그 파일의 임베드 줄만 걷어낸다(원본 삭제 시). 남는 빈 줄은 최대 1개로 접는다. */
 function stripEmbed(body: string, file: string): string {
   return body
@@ -513,8 +595,11 @@ export function InboxSection({
           </div>
         </div>
         {/* 캔버스 — 에디터 + 주액션 (수집의 본체) */}
-        <div className="flex min-h-0 flex-1 flex-col p-4">
-          <div className="min-h-[160px] flex-1 pt-1">
+        <div className="relative flex min-h-0 flex-1 flex-col p-4">
+          <div className="relative min-h-[160px] flex-1 pt-1">
+          {/* AI 요약 — 첫 delta 전(TTFT 대기)만 덮는다. 텍스트가 흐르기 시작하면 걷어서
+              실시간 스트리밍이 그대로 보이게 한다. 취소는 아래 SummaryStrip — 가리지 않는다. */}
+          {summarizing && !summaryJob?.text && <LoadingOverlay label="AI 요약 중…" />}
           <SlashBlockEditor
             value={editorValue}
             onChange={setBody}
@@ -542,6 +627,13 @@ export function InboxSection({
           </Button>
         </div>
 
+        {/* 저장+AI 정리 진행 오버레이 — 단계는 AI 켰을 때만(끄면 원본 저장 한 단계뿐이라 라벨로 충분) */}
+        {busy && (
+          <LoadingOverlay
+            label={`${IMPORT_STATUS_LABEL[job!.status]} 중…`}
+            steps={withLlm ? importSteps(job!.status) : undefined}
+          />
+        )}
         {fy.overlay}
         </div>
 
@@ -574,13 +666,14 @@ export function InboxSection({
       />
       {srcErr && <p className="shrink-0 border-b border-hairline px-4 py-1.5 text-[13px] text-danger">원본 삭제 실패: {srcErr}</p>}
       {refSource && refSourceIsPdf ? (
-        <div className="flex min-h-0 flex-1 flex-col">
-          {pdfBusy && <p className="shrink-0 border-b border-hairline px-4 py-1.5 text-[13px] text-ink-muted">PDF 처리 중…</p>}
+        <div className="relative flex min-h-0 flex-1 flex-col">
+          {pdfBusy && <LoadingOverlay label="PDF 저장·텍스트 추출 중…" />}
           <PdfViewer space={targetSpace} file={refSource} />
         </div>
       ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto p-4">
-          {pdfBusy && <p className="mb-2 text-[13px] text-ink-muted">PDF 처리 중…</p>}
+        <div className="relative min-h-0 flex-1 overflow-y-auto p-4">
+          {/* 원본이 아직 안 붙은 초기 단계(저장 전)·이미지 OCR 도 이 분기 — PDF 한정 문구를 쓰지 않는다 */}
+          {pdfBusy && <LoadingOverlay label="원본 처리 중…" />}
           {refSource ? (
             <FilePreview space={targetSpace} target={refSource} />
           ) : (
