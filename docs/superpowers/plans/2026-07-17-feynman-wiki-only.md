@@ -194,6 +194,33 @@ describe("stripFeynmanSection", () => {
     const md = joinFeynmanSection(BODY, [S()]).replace(/\n/g, "\r\n");
     expect(stripFeynmanSection(md).replace(/\r\n/g, "\n")).toBe(BODY);
   });
+
+  // 섹션이 두 개가 되는 경로: LLM 창작(mergeWiki 출력)과 손편집. 첫 섹션만 걷으면
+  // 남은 섹션이 다음 라운드에 진짜 기록을 body 로 흘려보낸다.
+  it("섹션이 여러 개여도 전부 걷어낸다 — strip 은 멱등이다", () => {
+    const md = `${BODY}\n\n## 파인만 기록\n\n### 가짜1\n\n> 창작1\n\n## 파인만 기록\n\n### 가짜2\n\n> 창작2\n`;
+    const once = stripFeynmanSection(md);
+    expect(once).toBe(BODY);
+    expect(stripFeynmanSection(once)).toBe(once); // 멱등
+  });
+
+  it("섹션이 여러 개면 기록을 문서 순서로 합친다 — 아무것도 잃지 않는다", () => {
+    const md = `${joinFeynmanSection(BODY, [S()])}\n\n## 파인만 기록\n\n### 가짜\n\n> 창작\n`;
+    const { body, sessions, unparsed } = splitFeynmanSection(md);
+    expect(body).toBe(BODY);
+    expect(sessions).toEqual([S()]);
+    expect(unparsed.join("\n")).toContain("창작");
+  });
+
+  it("split → join 이 섹션 하나로 정규화된다", () => {
+    const md = `${BODY}\n\n## 파인만 기록\n\n### 가짜1\n\n> 창작1\n\n## 파인만 기록\n\n### 가짜2\n\n> 창작2\n`;
+    const { body, sessions, unparsed } = splitFeynmanSection(md);
+    const out = joinFeynmanSection(body, sessions, unparsed);
+    expect(out.match(/^## 파인만 기록$/gm)).toHaveLength(1);
+    // 두 창작 모두 보존된다 — 읽을 수 없다고 지우지 않는다
+    expect(out).toContain("창작1");
+    expect(out).toContain("창작2");
+  });
 });
 
 describe("fail-closed — 파싱 못 한 기록을 조용히 삭제하지 않는다", () => {
@@ -303,15 +330,26 @@ const SESSION_LINE = /^### (.+)$/;
 
 const dropCr = (line: string) => (line.endsWith("\r") ? line.slice(0, -1) : line);
 
-/** 기록 섹션의 [시작, 끝) 오프셋. 없으면 null. 코드펜스 안의 헤딩은 scanHeadings 가 이미 거른다. */
-function locate(md: string): [number, number] | null {
+/**
+ * 기록 섹션 **전부**의 [시작, 끝) 오프셋. 문서 순서. 코드펜스 안의 헤딩은 scanHeadings 가 이미 거른다.
+ *
+ * 첫 섹션만 잡으면 안 되는 이유: 그러면 strip 이 멱등이 아니다. 문서에 이 헤딩이 두 번 있을 때
+ * 한 번 걷어내도 두 번째가 body 에 남고, 그 body 를 다시 쓰면 헤딩이 또 두 개가 된다. 다음 split 의
+ * 경계 계산(sectionEnd = level ≤ 2 인 다음 헤딩)이 진짜 헤딩을 경계로 삼아 **진짜 기록을 body 로
+ * 흘려보낸다** — 사용자 발화가 LLM 입력이 되고 화면에 날것으로 찍힌다.
+ *
+ * 헤딩이 두 개가 되는 경로는 LLM 창작(mergeWiki 출력)과 손편집이다. 둘 다 드물지만, 한 번 일어나면
+ * mergeWiki 프롬프트 규칙 3("개인 기록은 그대로 둔다")이 오염을 영구화한다.
+ */
+function locateAll(md: string): Array<[number, number]> {
   const headings = scanHeadings(md);
+  const out: Array<[number, number]> = [];
   for (let i = 0; i < headings.length; i++) {
     if (headings[i].level === 2 && headings[i].title === SECTION_TITLE) {
-      return [headings[i].from, sectionEnd(headings, i, md.length)];
+      out.push([headings[i].from, sectionEnd(headings, i, md.length)]);
     }
   }
-  return null;
+  return out;
 }
 
 /** 세션 블록 하나(헤더 줄 제외한 본문)의 발화들. */
@@ -343,21 +381,34 @@ function parseTurns(lines: string[]): FeynmanTurn[] {
 /**
  * 본문과 기록을 분리한다. 기록이 없으면 { body: md, sessions: [], unparsed: [] }.
  *
+ * 기록 섹션이 여럿이면 **전부** 걷어내 하나로 합친다. 따라서 body 에는 기록 섹션이 남지 않고,
+ * strip 은 멱등이다. 이 성질에 기대는 곳이 많다 — 안 그러면 남은 섹션이 다음 라운드에 진짜
+ * 기록을 body 로 흘려보낸다(locateAll 주석 참고).
+ *
  * 읽을 수 없는 세션 블록은 **버리지 않고** unparsed 에 원문 그대로 담는다. at/verdict 를
  * 못 읽는 것과 사용자 발화를 잃는 것은 전혀 다른 문제다 — 복기가 이 기능의 존재 이유인데,
  * md 를 앱 밖에서 손대다 헤더 한 줄이 깨졌다고 대화가 증발하면 안 된다.
  * joinFeynmanSection 이 그대로 되돌려 쓴다.
  */
 export function splitFeynmanSection(md: string): { body: string; sessions: FeynmanSession[]; unparsed: string[] } {
-  const at = locate(md);
-  if (!at) return { body: md, sessions: [], unparsed: [] };
-  const [from, to] = at;
+  const spans = locateAll(md);
+  if (!spans.length) return { body: md, sessions: [], unparsed: [] };
+
+  // 섹션을 전부 걷어낸 나머지가 body. 뒤에서부터 잘라야 앞 구간 오프셋이 안 밀린다.
   // CRLF: /\n+$/ 만 쓰면 잘린 자리가 `…\r\n\r\n` 일 때 \r 이 남는다.
-  const body = (md.slice(0, from) + md.slice(to)).replace(/(\r?\n)+$/, "");
-  const inner = md.slice(from, to).split("\n").slice(1); // `## 파인만 기록` 줄 제거
+  let body = md;
+  for (const [from, to] of [...spans].reverse()) body = body.slice(0, from) + body.slice(to);
+  body = body.replace(/(\r?\n)+$/, "");
 
   const sessions: FeynmanSession[] = [];
   const unparsed: string[] = [];
+  for (const [from, to] of spans) parseSection(md.slice(from, to), sessions, unparsed);
+  return { body, sessions, unparsed };
+}
+
+/** 섹션 하나를 읽어 sessions/unparsed 에 밀어 넣는다. 섹션이 여럿이면 문서 순서로 이어 붙는다. */
+function parseSection(section: string, sessions: FeynmanSession[], unparsed: string[]): void {
+  const inner = section.split("\n").slice(1); // `## 파인만 기록` 줄 제거
   let header: string | null = null;
   let buf: string[] = [];
   const flush = () => {
@@ -389,7 +440,6 @@ export function splitFeynmanSection(md: string): { body: string; sessions: Feynm
     buf.push(raw);
   }
   flush();
-  return { body, sessions, unparsed };
 }
 
 /** 본문 + 기록 → md. 쓸 게 하나도 없으면 섹션을 만들지 않는다. */
@@ -533,7 +583,7 @@ import { joinFeynmanSection, splitFeynmanSection, type FeynmanSession } from "./
   });
 
   it("LLM 이 `## 파인만 기록` 을 뱉어도 진짜 기록이 body 로 새지 않는다", async () => {
-    // locate() 는 첫 헤딩을 잡는다 — 가짜가 앞서면 sectionEnd 가 진짜 헤딩을 경계로 삼아
+    // 가짜 헤딩이 남으면 다음 split 의 경계 계산이 진짜 헤딩을 경계로 삼아
     // 진짜 세션이 통째로 body 가 되고, 다음 병합 때 LLM 에 유출된다.
     const applied = await applyOnto([withRecord()], "교착 상태", ["subj-os"], {
       mergeMarkdown: async () => "# 교착 상태\n\n새 본문\n\n## 파인만 기록\n\n### LLM 이 지어낸 것\n\n> 창작",
@@ -541,6 +591,21 @@ import { joinFeynmanSection, splitFeynmanSection, type FeynmanSession } from "./
     const { body, sessions } = splitFeynmanSection(applied.pages[0].markdown);
     expect(sessions).toEqual([FEYNMAN]); // 진짜 기록 하나뿐
     expect(body).toBe("# 교착 상태\n\n새 본문"); // 가짜 섹션은 버려진다 — LLM 창작이지 사용자 것이 아니다
+    expect(body).not.toContain("내가 쓴 설명");
+  });
+
+  it("LLM 이 가짜 헤딩을 두 개 뱉어도 마찬가지다 — 소독이 멱등이어야 한다", async () => {
+    // 1회만 걷어내는 구현은 두 번째 가짜를 body 에 남기고, 재부착 후 헤딩이 다시 두 개가 되어
+    // 바로 다음 라운드에 진짜 기록이 유출된다. 실제로 재현된 경로다.
+    const applied = await applyOnto([withRecord()], "교착 상태", ["subj-os"], {
+      mergeMarkdown: async () =>
+        "# 교착 상태\n\n새 본문\n\n## 파인만 기록\n\n### 가짜1\n\n> 창작1\n\n## 파인만 기록\n\n### 가짜2\n\n> 창작2",
+    });
+    const md = applied.pages[0].markdown;
+    expect(md.match(/^## 파인만 기록$/gm)).toHaveLength(1);
+    const { body, sessions } = splitFeynmanSection(md);
+    expect(sessions).toEqual([FEYNMAN]);
+    expect(body).toBe("# 교착 상태\n\n새 본문");
     expect(body).not.toContain("내가 쓴 설명");
   });
 
