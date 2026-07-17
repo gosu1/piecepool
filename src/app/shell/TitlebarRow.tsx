@@ -19,6 +19,7 @@ export function TitlebarRow({
   activeId,
   onSelect,
   onClose,
+  onCloseAll,
   onReorder,
   onNewTab,
   onToggleFiles,
@@ -31,6 +32,7 @@ export function TitlebarRow({
   activeId: string | null;
   onSelect: (id: string) => void;
   onClose: (id: string) => void;
+  onCloseAll: () => void;
   onReorder: (dragId: string, targetId: string) => void;
   onNewTab: () => void;
   onToggleFiles: () => void;
@@ -99,6 +101,22 @@ export function TitlebarRow({
             <div className="fixed inset-0 z-20" onClick={() => setListOpen(false)} />
             <div className="absolute right-0 top-full z-30 mt-1 max-h-80 w-64 overflow-y-auto rounded-lg border border-hairline bg-surface p-1 shadow-elevated">
               {tabs.length === 0 && <p className="px-2.5 py-2 text-[13px] text-ink-faint">열린 탭이 없어요</p>}
+              {tabs.length > 0 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onCloseAll();
+                      setListOpen(false);
+                    }}
+                    className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[13px] text-ink-muted transition-colors hover:bg-surface-soft hover:text-ink"
+                  >
+                    <Icons.CloseIcon size={14} className="shrink-0 text-ink-faint" />
+                    <span>모든 탭 닫기</span>
+                  </button>
+                  <div className="my-1 h-px bg-hairline" />
+                </>
+              )}
               {tabs.map((t) => (
                 <button
                   key={t.id}

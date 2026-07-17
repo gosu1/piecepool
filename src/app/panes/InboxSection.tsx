@@ -459,6 +459,9 @@ export function InboxSection({
   // 위키 생성 엔진 뱃지 — 이 노트의 임포트가 어떤 엔진으로 만들었는지. job 은 휘발성(뷰 상태)이라
   // 임포트 세션 동안만 뜬다. 휴리스틱이면 경고 톤으로 — 데모 중 폴백을 즉시 알아챈다.
   const jobEngine = job?.space === targetSpace && !!job.noteFile && job.noteFile === savedFile ? job.engine : undefined;
+  // 폴백 사유(휴리스틱으로 내려간 이유). 완료 알림은 잠깐 뜨고 사라지므로, 뱃지에 마우스를 올리면
+  // 언제든 이유를 다시 볼 수 있게 title 로 단다(엔진과 같은 수명 — 임포트 세션 동안).
+  const jobWarning = job?.space === targetSpace && !!job.noteFile && job.noteFile === savedFile ? job.warning : undefined;
 
   // 자동 열기 게이트는 여전히 job 이다 — "방금 임포트가 끝났다" = "지금은 읽는 시간" 신호이고,
   // 그건 본질적으로 휘발성이다(재방문은 자동으로 열리면 안 된다). 목록 범위와는 다른 질문이다.
@@ -835,11 +838,13 @@ export function InboxSection({
             {listWikis.length > 0 ? `이 노트에서 나온 개념 ${listWikis.length}개` : "아직 없음"}
             {jobEngine && (
               <span
+                title={jobEngine === "heuristic" ? jobWarning : undefined}
                 className={cn(
                   "ml-1.5 rounded border px-1.5 py-0.5 text-[11px]",
                   jobEngine === "heuristic"
                     ? "border-warning/40 bg-warning/[0.06] text-warning"
                     : "border-hairline bg-surface-soft text-ink-faint",
+                  jobEngine === "heuristic" && jobWarning && "cursor-help",
                 )}
               >
                 {jobEngine === "gemini" ? "Gemini" : "기본 추출"}
