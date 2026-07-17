@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { probeExplanation, type Turn } from "../llm/feynman";
+import { probeExplanation, analogyHint, type Turn, type AnalogyHint } from "../llm/feynman";
 import { splitFeynmanSection, joinFeynmanSection, bodyHash, type FeynmanSession, type FeynmanTurn } from "../lib/feynmanSection";
 import type { WikiPage } from "../lib/types";
 import * as ipc from "../lib/ipc";
@@ -31,6 +31,10 @@ interface WikiSession {
   /** finish 진행 중 — 판정 버튼 더블클릭이 readWiki/saveWiki 왕복을 두 번 태우는 걸 막는다. */
   saving?: boolean;
   error?: string;
+  /** [아직 모르겠어요] 1단계가 받은 비유 힌트. 세션이 곧 페이지라, 세션과 함께 산다. */
+  hint?: AnalogyHint;
+  hinting?: boolean;
+  hintError?: string;
 }
 
 let sessionSeq = 0;
@@ -42,6 +46,8 @@ interface FeynmanState {
   start: (space: string, page: WikiPage) => void;
   explain: (text: string) => Promise<void>;
   retryProbe: () => Promise<void>;
+  /** [아직 모르겠어요] 1단계 — 비유 힌트를 받아 세션에 싣는다. 이미 있으면 다시 부르지 않는다. */
+  requestHint: () => Promise<void>;
   /**
    * 사용자 판정 → 위키 본문에 기록을 append 하고 저장. 저장 실패면 세션을 유지한다.
    *
@@ -64,8 +70,9 @@ export const wikiKey = (space: string, path: string) => `${space}::${path}`;
  * 기록이 물음표로 끝나 복기할 때 "그래서 뭐라고 답했더라" 가 된다. 내 답변으로 끝나야
  * "여기까지 말하고 이해했다고 했구나" 가 읽힌다.
  *
- * 첫 발화는 구조상 항상 사용자 것이고(feynman.ts 가 "질문은 설명 뒤에만" 을 강제한다) 판정 버튼은
- * answered 일 때만 열리므로, 떼고 나도 사용자 발화가 최소 하나 남는다.
+ * 첫 발화는 구조상 항상 사용자 것이다(feynman.ts 가 "질문은 설명 뒤에만" 을 강제한다).
+ * [네, 이해했어요] 는 answered 일 때만 열리므로 떼고 나도 사용자 발화가 남는다.
+ * [그래도 모르겠어요] 는 설명 없이도 눌린다 — turns 가 빈 not_yet 기록은 "시도조차 못 함"의 기록이다.
  */
 function settledTurns(history: Turn[]): FeynmanTurn[] {
   const out = history.map((t) => ({ role: t.role, text: t.text }));
@@ -136,6 +143,22 @@ export const useFeynmanStore = create<FeynmanState>()(
           if (!s || s.probing || last?.role !== "user") return;
           set({ session: { ...s, probing: true, error: undefined } });
           await runProbe(s.id, s, s.history);
+        },
+
+        requestHint: async () => {
+          const s = get().session;
+          if (!s || s.probing || s.saving || s.hinting || s.hint) return;
+          set({ session: { ...s, hinting: true, hintError: undefined } });
+          // 늦은 힌트가 다른 페이지·닫힌 세션에 붙으면 안 된다 — runProbe 와 같은 가드.
+          const fresh = () => get().session?.id === s.id;
+          try {
+            const hint = await analogyHint(s.title, s.body, apiKey());
+            if (!fresh()) return;
+            set((c) => ({ session: c.session && { ...c.session, hint, hinting: false } }));
+          } catch (e) {
+            if (!fresh()) return;
+            set((c) => ({ session: c.session && { ...c.session, hinting: false, hintError: String(e) } }));
+          }
         },
 
         finish: async (understood) => {

@@ -74,6 +74,7 @@ export function FeynmanPanel({
   const start = useFeynmanStore((s) => s.start);
   const explain = useFeynmanStore((s) => s.explain);
   const retryProbe = useFeynmanStore((s) => s.retryProbe);
+  const requestHint = useFeynmanStore((s) => s.requestHint);
   const finish = useFeynmanStore((s) => s.finish);
   const dismiss = useFeynmanStore((s) => s.dismiss);
   const [draft, setDraft] = useState("");
@@ -108,13 +109,13 @@ export function FeynmanPanel({
           <SessionCard key={`${s.at}-${i}`} s={s} stale={!!s.bodyHash && s.bodyHash !== now} />
         ))}
         <Button size="sm" variant="utility" disabled={!keyed} onClick={() => start(space, page)}>
-          {!keyed ? "파인만 — API 키 필요" : sessions.length ? "다시 설명해보기" : "이 개념을 설명해보기"}
+          {!keyed ? "파인만 — API 키 필요" : sessions.length ? "다시 설명해보기" : "파인만 기능"}
         </Button>
       </div>
     );
   }
 
-  const { history, probing, saving, error } = mine;
+  const { history, probing, saving, error, hint, hinting, hintError } = mine;
   const answered = history.some((t) => t.role === "user");
 
   return (
@@ -147,6 +148,35 @@ export function FeynmanPanel({
         </div>
       )}
 
+      {/* [아직 모르겠어요] 1단계 힌트 — 답이 아니라 출발점이다. 비유 프레임 + 유도 질문:
+          질문에 순서대로 답하다 보면 그게 곧 설명이 된다(키워드 나열은 할 일을 안 줘서 버렸다). */}
+      {hinting && <p className="text-[13px] text-ink-faint">힌트 만드는 중…</p>}
+      {hintError && (
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-[12px] text-danger">힌트를 못 만들었어요.</p>
+          <Button size="sm" variant="utility" onClick={requestHint}>
+            다시 시도
+          </Button>
+        </div>
+      )}
+      {hint && (
+        <div className="space-y-1.5 rounded border border-hairline bg-surface px-2.5 py-2">
+          <p className="text-[13px] leading-relaxed text-ink">
+            <span className="font-semibold text-primary">힌트</span> — {hint.analogy}
+          </p>
+          {hint.questions.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-[12px] text-ink-faint">이 질문에 하나씩 답해보세요 — 그게 곧 설명이 돼요.</p>
+              {hint.questions.map((q, i) => (
+                <p key={q} className="text-[13px] leading-relaxed text-ink-2">
+                  {i + 1}. {q}
+                </p>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       <textarea
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
@@ -161,15 +191,16 @@ export function FeynmanPanel({
       />
 
       {/* 이해 판정은 오직 사용자. LLM 은 채점하지 않는다(relation-types.md §review_needed).
-          단 설명을 한 번도 안 했으면 판정할 근거가 없다 — 그땐 헤더의 [닫기] 로 넘어간다.
+          [네, 이해했어요] 는 설명이 한 번은 있어야 한다 — 근거 없는 판정은 착각만 강화한다.
+          [아직 모르겠어요] 는 설명 전에도 누른다: 1단계는 비유 힌트, 힌트를 보고도 모르면 그때 기록.
           [나중에] 는 없앴다: 헤더 [닫기] 와 똑같이 dismiss() 라 완전히 중복이었다.
           인박스 위키 패널은 좁아서(min 280px) 한 줄에 다 안 들어간다 — flex-wrap 이 알아서 내린다. */}
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" variant="solid" disabled={!draft.trim() || probing || saving} onClick={send}>
           {history.length ? "다시 설명" : "설명 보내기"}
         </Button>
-        <Button size="sm" variant="utility" disabled={probing || saving || !answered} onClick={() => void done(false)}>
-          아직 모르겠어요
+        <Button size="sm" variant="utility" disabled={probing || saving || hinting} onClick={() => (hint ? void done(false) : void requestHint())}>
+          {hint ? "그래도 모르겠어요" : "아직 모르겠어요"}
         </Button>
         <Button size="sm" variant="utility" disabled={probing || saving || !answered} onClick={() => void done(true)}>
           네, 이해했어요

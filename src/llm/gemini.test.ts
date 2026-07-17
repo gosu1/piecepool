@@ -21,6 +21,13 @@ describe("buildMessages — 위키 생성 언어 directive", () => {
     expect(m[0].content).toContain("Write all prose in English");
     expect(m[0].content).not.toContain("서술은 한국어로 쓴다");
   });
+
+  it("제목 규칙 — 원문 표기 기준, 한글 음차 금지 (어텐션/Attention 갈라짐 방지)", () => {
+    const m = buildMessages(INPUT);
+    expect(m[0].content).toContain("concepts[].title");
+    expect(m[0].content).toContain("Do NOT transliterate");
+    expect(m[0].content).toContain("어텐션"); // 음차 금지 예시가 프롬프트에 박혀 있다
+  });
 });
 
 // ── GeminiProvider 단일 구조화 호출 — fetch mock 이 요청 body(model·messages)를 기록한다 ──

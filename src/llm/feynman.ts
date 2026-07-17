@@ -43,6 +43,35 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 // (Gemini 는 503 overloaded 를 자주 낸다 — eval 첫 실행에서 5콜 중 1콜이 503이었다.)
 const isRetriable = (status: number) => status === 429 || status >= 500;
 
+// 재시도 포함 채팅 호출 — probe·hint 가 공유한다. tag 는 오류 메시지의 출처 표시.
+async function chatJsonWithRetry(tag: string, key: string, body: string, deps?: FeynmanDeps): Promise<unknown> {
+  const fetchFn = deps?.fetchFn ?? globalThis.fetch.bind(globalThis);
+  const endpoint = deps?.endpoint ?? GEMINI_OPENAI_ENDPOINT;
+  const maxRetries = deps?.maxRetries ?? 2;
+  const backoffMs = deps?.backoffMs ?? 250;
+
+  let res: Response | undefined;
+  let lastErr = "";
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    if (attempt > 0) await sleep(backoffMs * 2 ** (attempt - 1));
+    try {
+      res = await fetchFn(`${endpoint}/chat/completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+        body,
+      });
+    } catch (e) {
+      lastErr = `network: ${e instanceof Error ? e.message : String(e)}`;
+      continue; // 네트워크 오류는 재시도
+    }
+    if (res.ok) break;
+    lastErr = `HTTP ${res.status}`;
+    if (!isRetriable(res.status)) break;
+  }
+  if (!res?.ok) throw new Error(`[provider=gemini] ${tag}: ${lastErr}`);
+  return extractChatJson(await res.json());
+}
+
 const PROBE_SCHEMA = {
   type: "object",
   additionalProperties: false,
@@ -101,11 +130,6 @@ export async function probeExplanation(
     throw new Error("[feynman] 파인만 질문은 사용자의 설명 뒤에만 온다");
   }
 
-  const fetchFn = deps?.fetchFn ?? globalThis.fetch.bind(globalThis);
-  const endpoint = deps?.endpoint ?? GEMINI_OPENAI_ENDPOINT;
-  const maxRetries = deps?.maxRetries ?? 2;
-  const backoffMs = deps?.backoffMs ?? 250;
-
   const lang = deps?.lang ?? getOutputLanguage();
 
   const body = JSON.stringify({
@@ -125,31 +149,101 @@ export async function probeExplanation(
     response_format: { type: "json_schema", json_schema: { name: "Probe", strict: false, schema: PROBE_SCHEMA } },
   });
 
-  let res: Response | undefined;
-  let lastErr = "";
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    if (attempt > 0) await sleep(backoffMs * 2 ** (attempt - 1));
-    try {
-      res = await fetchFn(`${endpoint}/chat/completions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-        body,
-      });
-    } catch (e) {
-      lastErr = `network: ${e instanceof Error ? e.message : String(e)}`;
-      continue; // 네트워크 오류는 재시도
-    }
-    if (res.ok) break;
-    lastErr = `HTTP ${res.status}`;
-    if (!isRetriable(res.status)) break;
-  }
-  if (!res?.ok) throw new Error(`[provider=gemini] feynman: ${lastErr}`);
-
-  const parsed = extractChatJson(await res.json()) as { probe?: string; targetGap?: string } | null;
+  const parsed = (await chatJsonWithRetry("feynman", key, body, deps)) as { probe?: string; targetGap?: string } | null;
   const probe = parsed?.probe?.trim();
   if (!probe) throw new Error("[provider=gemini] feynman: no structured output");
 
   const kinds: GapKind[] = ["why", "term", "example", "contradiction"];
   const targetGap = kinds.includes(parsed!.targetGap as GapKind) ? (parsed!.targetGap as GapKind) : "why";
   return { probe, targetGap };
+}
+
+// ── [아직 모르겠어요] 힌트 — 설명을 시작조차 못 할 때 비유 하나로 출발점을 준다 ──
+//
+// 파인만의 불변 제약(답 금지)은 그대로다. 주는 것은 두 가지뿐:
+//   1) "X 을(를) Y 에 비유해보세요" 한 문장 — 큰 그림을 잡을 비유 프레임
+//   2) 비유 세계의 유도 질문 2~3개 — 순서대로 답하다 보면 설명이 조립된다
+// 키워드(명사 나열)로는 뭘 해야 할지 몰랐다 — 질문은 할 일 자체다. 질문이라서
+// 답 노출도 구조적으로 없다: 대응 관계를 묻지, 말하지 않는다.
+
+export interface AnalogyHint {
+  /** "single-head attention 을 탐정에 비유해보세요" 꼴의 권유 한 문장 */
+  analogy: string;
+  /** 비유 세계의 유도 질문 — 순서대로 답하면 설명이 된다 (예: "탐정은 왜 혼자 모든 단서를 볼까요?") */
+  questions: string[];
+}
+
+const HINT_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["analogy", "questions"],
+  properties: {
+    analogy: { type: "string" },
+    questions: { type: "array", items: { type: "string" }, minItems: 2, maxItems: 3 },
+  },
+} as const;
+
+const buildHintSystem = (lang: OutputLanguage) =>
+  [
+    "You are a Feynman-technique tutor. The student cannot even START explaining the concept.",
+    "Give them a starting frame — an analogy — WITHOUT giving the answer.",
+    "Do this silently first: compose a Feynman-style explanation of the concept for a complete beginner,",
+    "built on ONE concrete everyday analogy (a person, object, or situation anyone knows).",
+    "Then output ONLY:",
+    "- analogy: ONE short sentence inviting the student to try that analogy",
+    "  (Korean pattern: '<개념>을(를) <비유 대상>에 비유해보세요'). Never explain HOW the analogy maps.",
+    "- questions: 2-3 short guiding questions set INSIDE the analogy's world, ordered so that answering",
+    "  them one by one rebuilds your silent explanation (e.g. why the analogy is set up this way →",
+    "  what each part does → how it comes together). One question may ask what a thing in the analogy",
+    "  corresponds to in the concept ('비유 속 X는 <개념>에서 무엇에 해당할까요?').",
+    "HARD RULES:",
+    "1. NEVER give the answer. No definition, no explanation of the concept, no analogy-to-concept mapping —",
+    "   questions ASK for the mapping, they never state it.",
+    "2. Each question is ONE short sentence with ONE question mark.",
+    "3. Pick an analogy that fits THIS concept and note.",
+    "Output language rule:",
+    languageDirective(lang),
+    "Respond ONLY with JSON conforming to the schema.",
+  ].join("\n");
+
+/**
+ * 설명을 시작 못 하는 사용자에게 비유 프레임 + 유도 질문을 준다.
+ * @param concept  설명 대상 개념 제목
+ * @param noteText 사용자의 원본 노트 (LLM 이 맥락으로 읽는다)
+ */
+export async function analogyHint(
+  concept: string,
+  noteText: string,
+  apiKey: string,
+  deps?: FeynmanDeps,
+): Promise<AnalogyHint> {
+  const key = apiKey?.trim();
+  if (!key) throw new Error("[provider=gemini] feynman-hint: API key 필요 — 힌트는 휴리스틱으로 만들 수 없다");
+
+  const lang = deps?.lang ?? getOutputLanguage();
+  const body = JSON.stringify({
+    model: deps?.model ?? GEMINI_MODEL,
+    messages: [
+      { role: "system", content: buildHintSystem(lang) },
+      { role: "user", content: JSON.stringify({ concept, note: noteText.slice(0, 6000) }) },
+    ],
+    response_format: { type: "json_schema", json_schema: { name: "AnalogyHint", strict: false, schema: HINT_SCHEMA } },
+  });
+
+  const parsed = (await chatJsonWithRetry("feynman-hint", key, body, deps)) as
+    | { analogy?: string; questions?: unknown }
+    | null;
+  const analogy = parsed?.analogy?.trim();
+  if (!analogy) throw new Error("[provider=gemini] feynman-hint: no structured output");
+
+  // 질문은 부분 실패를 허용한다 — 비유 한 문장만으로도 힌트는 성립한다.
+  // strict:false 라 스키마의 maxItems 를 못 믿는다 — 중복 제거 후 3개로 자른다.
+  const questions = Array.isArray(parsed!.questions)
+    ? [
+        ...new Set(
+          parsed!.questions.filter((q): q is string => typeof q === "string" && !!q.trim()).map((q) => q.trim()),
+        ),
+      ].slice(0, 3)
+    : [];
+  return { analogy, questions };
 }

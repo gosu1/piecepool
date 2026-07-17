@@ -2,10 +2,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { splitFeynmanSection, joinFeynmanSection, bodyHash } from "../lib/feynmanSection";
 import type { WikiPage } from "../lib/types";
 
-vi.mock("../llm/feynman", () => ({ probeExplanation: vi.fn() }));
+vi.mock("../llm/feynman", () => ({ probeExplanation: vi.fn(), analogyHint: vi.fn() }));
 // finish 는 디스크 최신본 기준이라 readWiki 도 탄다.
 vi.mock("../lib/ipc", () => ({ saveWiki: vi.fn(), readWiki: vi.fn() }));
-import { probeExplanation } from "../llm/feynman";
+import { probeExplanation, analogyHint } from "../llm/feynman";
 import * as ipc from "../lib/ipc";
 
 // Map 백엔드 fake localStorage — node vitest 환경엔 없다(settings.test.ts 와 동형).
@@ -252,5 +252,95 @@ describe("dismiss — [닫기]", () => {
     useFeynmanStore.getState().dismiss();
     expect(useFeynmanStore.getState().session).toBeNull();
     expect(useFeynmanStore.getState().dismissed[wikiKey("sp", "thread.md")]).toBeTruthy();
+  });
+});
+
+describe("requestHint — [아직 모르겠어요] 1단계", () => {
+  const HINT = { analogy: "스레드를 작업반에 비유해보세요", questions: ["작업반은 왜 여러 명일까요?"] };
+
+  it("기록을 걷어낸 본문을 맥락으로 힌트를 받아 세션에 싣는다", async () => {
+    vi.mocked(analogyHint).mockResolvedValue(HINT);
+    const withRecord = page({
+      markdown: joinFeynmanSection(BODY, [
+        { at: "2026-07-01T00:00:00.000Z", verdict: "understood", bodyHash: "x", turns: [{ role: "user", text: "옛 설명" }] },
+      ]),
+    });
+    useFeynmanStore.getState().start("sp", withRecord);
+    await useFeynmanStore.getState().requestHint();
+    expect(vi.mocked(analogyHint)).toHaveBeenCalledWith("스레드", BODY, "test-key");
+    const s = useFeynmanStore.getState().session!;
+    expect(s.hint).toEqual(HINT);
+    expect(s.hinting).toBe(false);
+  });
+
+  it("힌트가 이미 있으면 다시 부르지 않는다", async () => {
+    vi.mocked(analogyHint).mockResolvedValue(HINT);
+    useFeynmanStore.getState().start("sp", page());
+    await useFeynmanStore.getState().requestHint();
+    await useFeynmanStore.getState().requestHint();
+    expect(vi.mocked(analogyHint)).toHaveBeenCalledTimes(1);
+  });
+
+  it("실패하면 hintError 만 남는다 — 재요청으로 회복한다", async () => {
+    vi.mocked(analogyHint).mockRejectedValueOnce(new Error("HTTP 503"));
+    useFeynmanStore.getState().start("sp", page());
+    await useFeynmanStore.getState().requestHint();
+    let s = useFeynmanStore.getState().session!;
+    expect(s.hint).toBeUndefined();
+    expect(s.hintError).toContain("503");
+    expect(s.hinting).toBe(false);
+
+    vi.mocked(analogyHint).mockResolvedValueOnce(HINT);
+    await useFeynmanStore.getState().requestHint();
+    s = useFeynmanStore.getState().session!;
+    expect(s.hint).toEqual(HINT);
+    expect(s.hintError).toBeUndefined();
+  });
+
+  it("stale 힌트 — 닫힌 세션을 되살리지 않는다", async () => {
+    let release!: (v: typeof HINT) => void;
+    vi.mocked(analogyHint).mockReturnValue(new Promise((r) => (release = r)) as never);
+    useFeynmanStore.getState().start("sp", page());
+    const p = useFeynmanStore.getState().requestHint();
+    useFeynmanStore.getState().dismiss();
+    release(HINT);
+    await p;
+    expect(useFeynmanStore.getState().session).toBeNull();
+  });
+
+  it("stale 힌트 — 다른 페이지로 갈아탄 세션에 붙지 않는다", async () => {
+    let release!: (v: typeof HINT) => void;
+    vi.mocked(analogyHint).mockReturnValue(new Promise((r) => (release = r)) as never);
+    useFeynmanStore.getState().start("sp", page());
+    const p = useFeynmanStore.getState().requestHint();
+    useFeynmanStore.getState().start("sp", page({ path: "other.md", title: "다른 개념" }));
+    release(HINT);
+    await p;
+    expect(useFeynmanStore.getState().session!.hint).toBeUndefined();
+  });
+
+  it("힌트가 오는 사이 쓴 설명을 지우지 않는다", async () => {
+    let release!: (v: typeof HINT) => void;
+    vi.mocked(analogyHint).mockReturnValue(new Promise((r) => (release = r)) as never);
+    vi.mocked(probeExplanation).mockResolvedValue({ probe: "왜요?", targetGap: "why" });
+    useFeynmanStore.getState().start("sp", page());
+    const p = useFeynmanStore.getState().requestHint();
+    await useFeynmanStore.getState().explain("힌트 기다리며 쓴 설명");
+    release(HINT);
+    await p;
+    const s = useFeynmanStore.getState().session!;
+    expect(s.history).toEqual([
+      { role: "user", text: "힌트 기다리며 쓴 설명" },
+      { role: "probe", text: "왜요?" },
+    ]);
+    expect(s.hint).toEqual(HINT);
+  });
+
+  it("설명 없이 [그래도 모르겠어요] — turns 빈 not_yet 기록이 남는다", async () => {
+    useFeynmanStore.getState().start("sp", page());
+    const saved = await useFeynmanStore.getState().finish(false);
+    const { sessions } = splitFeynmanSection(saved!.markdown);
+    expect(sessions[0].verdict).toBe("not_yet");
+    expect(sessions[0].turns).toEqual([]);
   });
 });
