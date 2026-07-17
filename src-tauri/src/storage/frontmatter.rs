@@ -141,8 +141,10 @@ pub fn validate_wiki(
 }
 
 /// `---\n<fm>\n---\n<body>` 를 (fm, body)로 분리. frontmatter 없으면 ("", 전체).
+/// 외부 에디터가 CRLF 로 저장한 파일도 인식한다 — 파싱 시 \r\n → \n 정규화 (저장은 계약대로 LF).
 pub fn split(md: &str) -> (String, String) {
-    let trimmed = md.strip_prefix('\u{feff}').unwrap_or(md);
+    let md = md.replace("\r\n", "\n");
+    let trimmed = md.strip_prefix('\u{feff}').unwrap_or(&md);
     if let Some(rest) = trimmed.strip_prefix("---\n") {
         if let Some(end) = rest.find("\n---") {
             let fm = &rest[..end];
@@ -156,9 +158,28 @@ pub fn split(md: &str) -> (String, String) {
 
 fn unquote(s: &str) -> String {
     let s = s.trim();
-    if (s.starts_with('"') && s.ends_with('"') && s.len() >= 2)
-        || (s.starts_with('\'') && s.ends_with('\'') && s.len() >= 2)
-    {
+    if s.len() >= 2 && s.starts_with('"') && s.ends_with('"') {
+        // yq 가 이스케이프한 \" \\ 를 복원한다 (쓰기→읽기 왕복 항등 — 안 하면 저장
+        // 사이클마다 백슬래시가 증식한다). 그 외 \x 는 손대지 않고 그대로 둔다.
+        let mut out = String::new();
+        let mut chars = s[1..s.len() - 1].chars();
+        while let Some(c) = chars.next() {
+            if c == '\\' {
+                match chars.next() {
+                    Some('\\') => out.push('\\'),
+                    Some('"') => out.push('"'),
+                    Some(n) => {
+                        out.push('\\');
+                        out.push(n);
+                    }
+                    None => out.push('\\'),
+                }
+            } else {
+                out.push(c);
+            }
+        }
+        out
+    } else if s.len() >= 2 && s.starts_with('\'') && s.ends_with('\'') {
         s[1..s.len() - 1].to_string()
     } else {
         s.to_string()

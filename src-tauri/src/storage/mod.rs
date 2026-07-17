@@ -477,7 +477,9 @@ pub fn rename_space_dir(old: &str, new: &str) -> Result<()> {
     if from == to {
         return Ok(());
     }
-    if to.exists() {
+    // 대소문자만 다른 rename 은 케이스 인센시티브 FS(APFS/NTFS)에서 자기 자신이 exists() 에
+    // 걸린다 — 충돌이 아니므로 그대로 rename 한다.
+    if !old.eq_ignore_ascii_case(new) && to.exists() {
         return Err(AppError {
             kind: "conflict".into(),
             message: format!("이미 있는 폴더입니다: {}", to.display()),
