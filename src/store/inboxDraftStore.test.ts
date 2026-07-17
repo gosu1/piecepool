@@ -250,3 +250,23 @@ describe("runSummary 반환값 — 원샷 파이프라인 트리거 판정용", 
     expect(out).toBeNull();
   });
 });
+
+// 공간 rename 은 slug 까지 바꾼다(rename_space) — 초안의 공간 참조를 안 이으면
+// 저장·폴더 변경이 없는 공간을 향해 실패한다. key(탭 id)는 불투명 식별자라 그대로.
+describe("remapSpace — 공간 slug 변경 리매핑", () => {
+  it("targetSpace·savedSpace 를 새 slug 로 잇는다 (key 는 그대로)", () => {
+    useInboxDraftStore.getState().write(KEY, { targetSpace: "old", savedSpace: "old", savedFile: "2026-07-01-a.md" });
+    useInboxDraftStore.getState().remapSpace("old", "new");
+    const d = useInboxDraftStore.getState().drafts[KEY];
+    expect(d.targetSpace).toBe("new");
+    expect(d.savedSpace).toBe("new");
+    expect(d.savedFile).toBe("2026-07-01-a.md");
+  });
+
+  it("다른 공간을 참조하는 초안은 참조 그대로 둔다(불필요 리렌더 없음)", () => {
+    useInboxDraftStore.getState().write(KEY, { targetSpace: "stats", savedSpace: "stats" });
+    const before = useInboxDraftStore.getState().drafts[KEY];
+    useInboxDraftStore.getState().remapSpace("old", "new");
+    expect(useInboxDraftStore.getState().drafts[KEY]).toBe(before);
+  });
+});

@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import { Icons, cn } from "../../ds";
 import type { Subject } from "../../lib/types";
+import { titleError } from "../../lib/titleValidation";
 
 // ══ 페이지형 헤더 — 제목(인라인 이름 변경) · 속성(과목/고정/더 보기) · 관계형 ══
 // 고정은 뷰 상태(workspaceStore, localStorage) — frontmatter 는 계약(SSOT)이라 건드리지 않는다.
@@ -49,10 +50,19 @@ export function PageHeader({
 
   // 새 노트 기본 제목("제목 없음")은 빈 placeholder 로 보여준다.
   const isUntitled = title === "제목 없음";
+  // 허용 문자 위반 시 저장 차단 + 인라인 안내(titleValidation) — 입력값은 남겨 고칠 수 있게 한다.
+  const [titleErr, setTitleErr] = useState("");
   const commitTitle = (el: HTMLInputElement) => {
     const v = el.value.trim();
-    if (v && v !== title) onRename(v);
-    else el.value = isUntitled ? "" : title;
+    if (v && v !== title) {
+      const err = titleError(v);
+      if (err) {
+        setTitleErr(err);
+        return;
+      }
+      onRename(v);
+    } else el.value = isUntitled ? "" : title;
+    setTitleErr("");
   };
 
   const selected = subjects.filter((s) => subjectIds.includes(s.id));
@@ -68,17 +78,20 @@ export function PageHeader({
         placeholder="새 페이지"
         aria-label="페이지 제목"
         onBlur={(e) => commitTitle(e.currentTarget)}
+        onChange={() => titleErr && setTitleErr("")}
         onKeyDown={(e) => {
           // 한글 IME 조합 확정 Enter 는 제출이 아니다 — 조합 중이면 무시.
           if (e.nativeEvent.isComposing) return;
           if (e.key === "Enter") e.currentTarget.blur();
           else if (e.key === "Escape") {
             e.currentTarget.value = isUntitled ? "" : title;
+            setTitleErr("");
             e.currentTarget.blur();
           }
         }}
         className="w-full bg-transparent text-[32px] font-bold leading-tight text-ink outline-none placeholder:text-ink-faint"
       />
+      {titleErr && <p className="mt-1 text-[12px] text-danger">{titleErr}</p>}
 
       {/* 속성 행 */}
       <div className="mt-3 space-y-px text-[14px]">

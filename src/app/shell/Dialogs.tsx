@@ -95,6 +95,7 @@ export function PromptDialog({
   initial = "",
   placeholder,
   submitLabel = "저장",
+  validate,
   onSubmit,
   onCancel,
 }: {
@@ -102,11 +103,14 @@ export function PromptDialog({
   initial?: string;
   placeholder?: string;
   submitLabel?: string;
+  /** 값 검증 — 에러 메시지를 돌려주면 인라인 표시 + 저장 차단 */
+  validate?: (value: string) => string | null;
   onSubmit: (value: string) => void;
   onCancel: () => void;
 }) {
   const [value, setValue] = useState(initial);
-  const submit = () => value.trim() && onSubmit(value.trim());
+  const invalid = validate ? validate(value.trim()) : null;
+  const submit = () => value.trim() && !invalid && onSubmit(value.trim());
   return (
     <Overlay onClose={onCancel}>
       <p className="text-[15px] font-semibold text-ink">{title}</p>
@@ -118,11 +122,12 @@ export function PromptDialog({
         placeholder={placeholder}
         className="mt-3 w-full rounded-md border border-hairline bg-surface px-3 py-2 text-[14px] text-ink outline-none focus-visible:shadow-soft"
       />
+      {invalid && <p className="mt-1.5 text-[12px] text-danger">{invalid}</p>}
       <div className="mt-4 flex justify-end gap-2">
         <Button size="sm" variant="utility" onClick={onCancel}>
           취소
         </Button>
-        <Button size="sm" variant="solid" onClick={submit} disabled={!value.trim()}>
+        <Button size="sm" variant="solid" onClick={submit} disabled={!value.trim() || !!invalid}>
           {submitLabel}
         </Button>
       </div>

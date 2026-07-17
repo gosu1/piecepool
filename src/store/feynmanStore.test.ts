@@ -344,3 +344,57 @@ describe("requestHint — [아직 모르겠어요] 1단계", () => {
     expect(sessions[0].turns).toEqual([]);
   });
 });
+
+// 위키·공간 삭제 시 고아 세션 정리 — 세션은 전역 싱글턴이고 자동 열기가 세션 존재 시
+// bail out 하므로, 안 걷어내면 신규 개념 파인만 자동 열기가 앱 종료까지 전부 막힌다.
+describe("clearSessionFor — 삭제된 위키·공간의 고아 세션 정리", () => {
+  it("space+path 일치(위키 삭제) → 세션 정리", () => {
+    useFeynmanStore.getState().start("sp", page());
+    useFeynmanStore.getState().clearSessionFor("sp", "thread.md");
+    expect(useFeynmanStore.getState().session).toBeNull();
+  });
+
+  it("path 생략(공간 삭제) → 그 공간의 세션을 통째로 정리", () => {
+    useFeynmanStore.getState().start("sp", page());
+    useFeynmanStore.getState().clearSessionFor("sp");
+    expect(useFeynmanStore.getState().session).toBeNull();
+  });
+
+  it("다른 위키·다른 공간 삭제는 진행 중 세션을 건드리지 않는다", () => {
+    useFeynmanStore.getState().start("sp", page());
+    useFeynmanStore.getState().clearSessionFor("sp", "other.md");
+    useFeynmanStore.getState().clearSessionFor("other-space");
+    expect(useFeynmanStore.getState().session).not.toBeNull();
+  });
+
+  it("dismiss 와 달리 dismissed 에 기록하지 않는다 — 같은 경로가 재생성되면 자동 열기가 살아있어야 한다", () => {
+    useFeynmanStore.getState().start("sp", page());
+    useFeynmanStore.getState().clearSessionFor("sp", "thread.md");
+    expect(useFeynmanStore.getState().dismissed[wikiKey("sp", "thread.md")]).toBeUndefined();
+  });
+});
+
+// 공간 rename 은 slug 까지 바꾼다(rename_space) — 옛 slug 를 안 이으면 세션 저장이 없는
+// 공간을 향하고, dismissed 가 풀려 자동 열기가 한 번 더 뜬다.
+describe("remapSpace — 공간 slug 변경 리매핑", () => {
+  it("세션 space 와 dismissed 키를 새 slug 로 잇는다", () => {
+    useFeynmanStore.getState().start("old", page());
+    useFeynmanStore.getState().dismiss(); // dismissed["old::thread.md"]
+    useFeynmanStore.getState().start("old", page({ path: "other.md", title: "다른 개념" }));
+    useFeynmanStore.getState().remapSpace("old", "new");
+    const st = useFeynmanStore.getState();
+    expect(st.session!.space).toBe("new");
+    expect(st.dismissed[wikiKey("new", "thread.md")]).toBeTruthy();
+    expect(st.dismissed[wikiKey("old", "thread.md")]).toBeUndefined();
+  });
+
+  it("다른 공간의 세션·dismissed 는 그대로다", () => {
+    useFeynmanStore.getState().start("other", page());
+    useFeynmanStore.getState().dismiss();
+    useFeynmanStore.getState().start("other", page({ path: "b.md" }));
+    useFeynmanStore.getState().remapSpace("old", "new");
+    const st = useFeynmanStore.getState();
+    expect(st.session!.space).toBe("other");
+    expect(st.dismissed[wikiKey("other", "thread.md")]).toBeTruthy();
+  });
+});

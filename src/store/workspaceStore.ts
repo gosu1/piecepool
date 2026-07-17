@@ -63,6 +63,8 @@ interface WorkspaceState {
   togglePinned: (id: string) => void;
   toggleStudyHome: (id: string) => void;
   setTreeSort: (s: TreeSort) => void;
+  // 공간 rename 은 slug(=폴더명)까지 바꾼다(rename_space) — slug 가 박힌 탭 id·문서 id·트리 id 리매핑.
+  remapSpace: (oldSlug: string, newSlug: string) => void;
 }
 
 const NAV_CAP = 50;
@@ -217,6 +219,31 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         })),
 
       setTreeSort: (treeSort) => set({ treeSort }),
+
+      // 옛 slug 가 박힌 id 를 안 이으면 열린 탭 저장이 "unknown space" 로 무소음 실패하고
+      // 고정·홈·최근·접힘 항목이 고아가 된다.
+      remapSpace: (oldSlug, newSlug) =>
+        set((s) => {
+          const mapDocId = (id: string) => {
+            const [kind, space, ...rest] = id.split(":");
+            return (kind === "wiki" || kind === "archive") && space === oldSlug ? [kind, newSlug, ...rest].join(":") : id;
+          };
+          // 탭 id: wiki/archive 는 문서 id 와 같은 꼴, graph 는 `graph:<slug>`.
+          // inbox 탭 id 속 slug 는 생성 시점의 불투명 키 일부(초안 스토어 key 와 묶임)라 그대로 둔다.
+          const mapTabId = (id: string) => (id === `graph:${oldSlug}` ? `graph:${newSlug}` : mapDocId(id));
+          const mapFolderId = (id: string) =>
+            id === `sp:${oldSlug}` || id === `af:${oldSlug}` || id === `wf:${oldSlug}` ? `${id.slice(0, 3)}${newSlug}` : id;
+          return {
+            openTabs: s.openTabs.map((t) => ({ ...t, id: mapTabId(t.id), space: t.space === oldSlug ? newSlug : t.space })),
+            activeTabId: s.activeTabId === null ? null : mapTabId(s.activeTabId),
+            collapsedTreeIds: s.collapsedTreeIds.map(mapFolderId),
+            pinnedDocs: s.pinnedDocs.map(mapDocId),
+            studyHomeDocs: s.studyHomeDocs.map(mapDocId),
+            recentDocs: s.recentDocs.map(mapDocId),
+            navBack: s.navBack.map(mapTabId),
+            navForward: s.navForward.map(mapTabId),
+          };
+        }),
     }),
     {
       name: "pp-workspace",
