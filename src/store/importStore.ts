@@ -174,7 +174,9 @@ export const useImportStore = create<ImportState>((set) => {
         const input = buildInput(note, p.existing, p.crossConcepts);
 
         const { result, engine } = await runWikiGeneration(input, apiKey(), { chunk: chunkOpts() });
-        return writeAndComplete(job, result, engine, note, p);
+        // await 필수 — 프로미스를 그대로 return 하면 거부가 아래 catch 를 우회해 job 이
+        // "writing" 으로 영구 고착되고(importBusy 게이트가 이후 저장 전부 무시) 실패 알림도 안 뜬다.
+        return await writeAndComplete(job, result, engine, note, p);
       } catch (e) {
         return commit({ ...job, status: "failed", errorMessage: String(e) });
       }

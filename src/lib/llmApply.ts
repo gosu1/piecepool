@@ -1,4 +1,5 @@
 import type { LlmWikiResult, LlmConcept, LlmEvidence, LlmWikiInput } from "../llm/provider";
+import { mergeDuplicateConcepts } from "../llm/dedupConcepts";
 import type { WikiPage, Relation, Evidence, SourceRef, ArchiveNote } from "./types";
 import { parseWikilinks, parseEmbedTarget, firstEmbedFile } from "./wikilink";
 import * as ipc from "./ipc";
@@ -221,10 +222,14 @@ export async function applyLlmResult(
   const conceptMap = new Map<string, string>(); // normalizedTitle → conceptId
   let merged = 0;
 
+  // 응답 안의 동일 개념(대소문자·공백 변형)을 먼저 결합 — 아래 병렬 루프가 같은 경로에
+  // 두 번 저장해 뒤가 앞을 덮는 것을 막는다(#13). byNorm 은 기존 페이지만 알아 신규끼리는 못 접는다.
+  const concepts = mergeDuplicateConcepts(result.concepts);
+
   // 개념별 처리는 서로 독립 — 병합(mergeMarkdown = LLM 2차 호출)을 순차로 기다리면
   // 병합 수만큼 지연이 합산되므로 병렬로 돌린다. pages 순서는 Promise.all 이 보존한다.
   const pages: WikiPage[] = await Promise.all(
-    result.concepts.map(async (c) => {
+    concepts.map(async (c) => {
       const norm = normalizeTitle(c.title);
       const ex = byNorm.get(norm); // 기존과 동일 개념이면 그 파일에 병합
       if (ex) merged++;

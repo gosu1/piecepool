@@ -158,11 +158,10 @@ function enforceMinSentences(chunks: Chunk[], minSentences: number): Chunk[] {
   for (const c of chunks) {
     const prev = merged[merged.length - 1];
     if (prev && (prev.sentences.length < minSentences || c.sentences.length < minSentences)) {
-      merged[merged.length - 1] = makeChunk(
-        [...prev.sentences, ...c.sentences],
-        prev.start,
-        c.end,
-      );
+      // makeChunk 는 전역 문장 배열 기준 slice 라 여기선 못 쓴다 — 로컬 병합 배열에 전역 인덱스를
+      // 넘기면 prev.start 만큼 앞 문장이 잘려나간다. span(start/end)은 전역 인덱스로 유지한다.
+      const s = [...prev.sentences, ...c.sentences];
+      merged[merged.length - 1] = { text: s.join(" "), sentences: s, start: prev.start, end: c.end };
     } else {
       merged.push(c);
     }

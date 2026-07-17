@@ -224,6 +224,36 @@ const applyOnto = (
 ) =>
   applyLlmResult("space", "sp-1", subjectIds, { concepts: [conceptNamed(title)], relations: [] }, SRC, existing, deps);
 
+// 응답 안에서 같은 개념이 두 번 나오면(대소문자·공백 변형) 병렬 저장이 같은 경로에 두 번 써
+// 뒤가 앞을 덮었다 — 저장 전에 결합해야 한다(덮어쓰기 아님: explanation/examples/sourceRefs 결합).
+describe("applyLlmResult 응답 내 중복 개념 — 덮어쓰기 유실 방지", () => {
+  it("같은 제목 대소문자 변형 2개 → 1개 병합 페이지 (내용 결합)", async () => {
+    const dup = (title: string, n: string): LlmConcept => ({
+      title,
+      summary: `요약${n}`,
+      explanation: `설명${n}`,
+      examples: [`예시${n}`],
+      sourceRefs: [],
+      sourceEmbeds: [],
+    });
+    const applied = await applyLlmResult(
+      "space",
+      "sp-1",
+      [],
+      { concepts: [dup("Self-Attention", "1"), dup("self-attention", "2")], relations: [] },
+      SRC,
+      [],
+    );
+    expect(applied.pages).toHaveLength(1);
+    const p = applied.pages[0];
+    expect(p.title).toBe("Self-Attention"); // 첫 표기 유지
+    expect(p.markdown).toContain("설명1");
+    expect(p.markdown).toContain("설명2"); // 두 번째 내용이 유실되지 않는다
+    expect(p.markdown).toContain("예시1");
+    expect(p.markdown).toContain("예시2");
+  });
+});
+
 describe("applyLlmResult 병합 — 기존 개념에 새 노트가 얹힐 때", () => {
   it("같은 개념이면 새 파일을 만들지 않고 기존 파일에 병합한다 (id·path·conceptId·생성시각 보존)", async () => {
     const ex = existingPage();

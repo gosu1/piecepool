@@ -128,6 +128,21 @@ describe("runWikiGeneration — [C] chunking (opt-in)", () => {
     expect(out.result.concepts).toHaveLength(1);
   });
 
+  it("조각 간 동일 개념은 드롭이 아니라 결합 — 뒤 조각 내용이 유실되지 않는다", async () => {
+    let n = 0;
+    const { provider } = fakeProvider(() => ({
+      concepts: [{ ...c("동일"), explanation: `설명${++n}` }],
+      relations: [],
+    }));
+    const out = await runWikiGeneration({ ...base, sourceText: twoTopics }, undefined, {
+      provider,
+      chunk: { enabled: true, embed: topicEmbed, percentile: 10 },
+    });
+    expect(out.result.concepts).toHaveLength(1);
+    expect(out.result.concepts[0].explanation).toContain("설명1");
+    expect(out.result.concepts[0].explanation).toContain("설명2");
+  });
+
   it("조각 1개 이하면 통짜 단일 호출(비용 절약)", async () => {
     const { provider, calls } = fakeProvider(() => ({ concepts: [c("단일")], relations: [] }));
     const out = await runWikiGeneration({ ...base, sourceText: "한 문장뿐이다." }, undefined, {

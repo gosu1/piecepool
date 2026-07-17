@@ -1,6 +1,7 @@
 import type { LlmProvider, LlmWikiInput, LlmWikiResult, LlmConcept, LlmRelation } from "./provider";
 import { GeminiProvider } from "./gemini";
 import { semanticChunk, type EmbedFn, type Chunk } from "./chunk";
+import { mergeDuplicateConcepts } from "./dedupConcepts";
 import { createGeminiEmbedder } from "./embeddings";
 import { promote } from "./promote";
 import { classify, type NodeType } from "./classify";
@@ -90,21 +91,17 @@ async function chunkedExtract(
   const used = chunks.slice(0, cap);
   if (chunks.length > cap) console.warn(`[chunk] ${chunks.length}개 중 상한 ${cap}개만 처리`);
 
-  const concepts: LlmConcept[] = [];
+  let concepts: LlmConcept[] = [];
   const relations: LlmRelation[] = [];
-  const seen = new Set<string>(); // 이번 추출 내 개념 중복 방지(workspace 기존은 applyLlmResult가 병합)
   for (const ch of used) {
     const existing = [
       ...input.existingConcepts,
       ...concepts.map((c) => ({ id: normalize(c.title), title: c.title, normalizedTitle: normalize(c.title) })),
     ];
     const r = await provider.generateWikiStructured({ ...input, sourceText: ch.text, existingConcepts: existing });
-    for (const c of r.concepts) {
-      const k = normalize(c.title);
-      if (seen.has(k)) continue;
-      seen.add(k);
-      concepts.push(c);
-    }
+    // 이번 추출 내 동일 개념은 드롭이 아니라 결합 — 뒤 조각의 내용이 유실되지 않는다(#13).
+    // (workspace 기존과의 병합은 applyLlmResult 몫.)
+    concepts = mergeDuplicateConcepts([...concepts, ...r.concepts]);
     relations.push(...r.relations);
   }
 

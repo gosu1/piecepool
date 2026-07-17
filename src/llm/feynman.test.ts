@@ -123,6 +123,34 @@ describe("probeExplanation", () => {
     expect(p.probe).toBe("왜요?");
   });
 
+  it("마크다운 펜스로 감싼 응답(JSON 파싱 실패)은 재시도해서 성공한다", async () => {
+    let calls = 0;
+    const p = await probeExplanation("임계 구역", NOTE, askedOnce, "k", {
+      backoffMs: 0,
+      fetchFn: (async () => {
+        calls++;
+        const content = calls < 2 ? '```json\n{"probe":"왜요?","targetGap":"why"}\n```' : '{"probe":"왜요?","targetGap":"why"}';
+        return new Response(JSON.stringify({ choices: [{ message: { content } }] }), { status: 200 });
+      }) as unknown as typeof fetch,
+    });
+    expect(calls).toBe(2);
+    expect(p.probe).toBe("왜요?");
+  });
+
+  it("파싱 실패가 재시도까지 소진되면 raw SyntaxError 가 아니라 한국어 메시지로 던진다", async () => {
+    let calls = 0;
+    await expect(
+      probeExplanation("임계 구역", NOTE, askedOnce, "k", {
+        backoffMs: 0,
+        fetchFn: (async () => {
+          calls++;
+          return new Response(JSON.stringify({ choices: [{ message: { content: "```json\n{}\n```" } }] }), { status: 200 });
+        }) as unknown as typeof fetch,
+      }),
+    ).rejects.toThrow(/LLM 응답 형식 오류/);
+    expect(calls).toBe(3); // maxRetries 기본 2 → 총 3회 시도
+  });
+
   it("구조화 출력이 비면 던진다", async () => {
     await expect(
       probeExplanation("임계 구역", NOTE, askedOnce, "k", {
