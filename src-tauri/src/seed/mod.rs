@@ -167,9 +167,25 @@ pub fn ensure_seed() -> R {
     // (get_workspace/list_spaces/create_space)이 모두 ensure_seed 를 거치므로 여기가 유일한 관문이다.
     storage::migrate_legacy_config();
 
-    let ws_json = storage::config_dir().join("workspace.json");
+    let ws_json = storage::config_dir().join(storage::WORKSPACE_MARKER);
     if storage::exists(&ws_json) {
+        // 이미 초기화됨. 숨김만 멱등하게 다시 보장한다 — zip 으로 옮겨 온 워크스페이스는
+        // Windows 속성이 보존되지 않아 `.config` 가 탐색기에 드러난 채 도착한다.
+        storage::ensure_config_dir()?;
         return Ok(());
+    }
+    // 이관이 성사되지 않았는데(실패·스킵) 레거시에 마커가 남아 있으면 = **이미 초기화된 워크스페이스**다.
+    // 여기서 시드로 넘어가면 사용자의 relations.json·subjects.json·wiki 를 데모로 덮어쓴다.
+    // 시드 대신 오류를 올려 사용자가 상황을 알고 손쓸 수 있게 한다(데이터 파괴 금지).
+    if storage::exists(&storage::legacy_config_dir().join(storage::WORKSPACE_MARKER)) {
+        return Err(AppError {
+            kind: "config_migration".into(),
+            message: format!(
+                "설정 폴더 이관에 실패했습니다. {} 를 {} 로 옮긴 뒤 다시 실행하세요 — 데이터 보호를 위해 초기화하지 않았습니다.",
+                storage::legacy_config_dir().display(),
+                storage::config_dir().display()
+            ),
+        });
     }
     let now = storage::now_iso();
     storage::ensure_config_dir()?;

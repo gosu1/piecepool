@@ -57,6 +57,26 @@ mod tests {
         assert!(storage::RESERVED_SPACE_DIR.contains(&"config"));
     }
 
+    // 루트의 `config` 를 무조건 설정 디렉토리로 단정하면 안 된다 — RESERVED_SPACE_DIR 도입
+    // 이전 버전이 만든 워크스페이스에는 "config" 라는 과목 폴더가 있을 수 있다.
+    #[test]
+    fn migrate_skips_dir_without_marker() {
+        let root = migrate_root("not-config");
+        std::fs::create_dir_all(root.join("config/archive")).expect("space-like");
+        std::fs::write(root.join("config/archive/note.md"), "내 필기").expect("note");
+
+        storage::migrate_config_at(&root);
+        assert!(
+            root.join("config/archive/note.md").is_file(),
+            "과목 폴더는 건드리지 않는다"
+        );
+        assert!(
+            !root.join(".config").exists(),
+            "마커 없는 폴더는 이관 대상이 아니다"
+        );
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
     #[test]
     fn migrate_moves_legacy_config() {
         let root = migrate_root("legacy-only");

@@ -92,15 +92,24 @@ fn hide_dir(dir: &Path) {
     }
 }
 
+/// 시드 완료 마커. 이 파일이 있으면 그 디렉토리는 초기화된 워크스페이스의 설정 디렉토리다.
+pub const WORKSPACE_MARKER: &str = "workspace.json";
+
+/// 구버전 설정 디렉토리(`<root>/config`) 경로. 이관 여부 판정에 쓴다.
+pub fn legacy_config_dir() -> PathBuf {
+    workspace_root().join(LEGACY_CONFIG_DIR)
+}
+
 /// 구버전 워크스페이스의 설정 디렉토리(`config`)를 숨김 이름(`.config`)으로 이관한다.
 /// 설정 파일을 읽거나 시드 여부를 판정하기 **전에** 호출해야 한다(seed::ensure_seed 맨 앞).
 ///
-/// legacy 가 있고 `.config` 가 없을 때만 rename 한다. 둘 다 있으면 어느 쪽이 최신인지 알 수 없으므로
-/// 아무것도 지우지 않고 로그만 남긴다(사용자 데이터 파괴 금지). 없으면 no-op — 멱등하다.
-/// 이관 실패도 앱을 막지 않는다(에러 삼킴) — 그래서 Result 가 아니라 unit 을 반환한다.
+/// legacy 가 **설정 디렉토리로 확인되고**(마커·spaces.json 보유) `.config` 가 없을 때만 rename 한다.
+/// 둘 다 있으면 어느 쪽이 최신인지 알 수 없으므로 아무것도 지우지 않고 로그만 남긴다.
+/// 없으면 no-op — 멱등하다.
 ///
-/// legacy `config` 가 사용자 과목 폴더일 가능성은 없다: `RESERVED_SPACE_DIR` 이 처음부터
-/// "config" 를 과목 이름으로 못 쓰게 막아 왔으므로 루트의 `config` 는 언제나 설정 디렉토리다.
+/// **이관 실패를 삼키더라도 호출부는 반드시 legacy 마커를 다시 확인해야 한다.** 이관이 성사되지
+/// 않았는데 `.config/workspace.json` 이 없다고 시드를 돌리면 사용자 데이터가 데모로 덮인다
+/// (seed::ensure_seed 가 그 가드를 갖는다).
 pub fn migrate_legacy_config() {
     migrate_config_at(&workspace_root());
 }
@@ -112,6 +121,16 @@ pub(crate) fn migrate_config_at(root: &Path) {
     let target = root.join(CONFIG_DIR);
     if !legacy.is_dir() {
         return; // 구버전 워크스페이스가 아니다(이관 완료 후 재호출 포함)
+    }
+    // 루트의 `config` 가 언제나 설정 디렉토리라고 단정하지 않는다 — RESERVED_SPACE_DIR 이
+    // 도입되기 전 버전이 만든 워크스페이스에는 "config" 라는 과목 폴더가 있을 수 있다.
+    // 설정 디렉토리임이 확인될 때만 옮긴다(아니면 사용자 과목을 숨겨 버린다).
+    if !legacy.join(WORKSPACE_MARKER).is_file() && !legacy.join("spaces.json").is_file() {
+        eprintln!(
+            "[storage] {} 는 설정 디렉토리가 아니다(마커 없음) — 이관하지 않는다",
+            legacy.display()
+        );
+        return;
     }
     if target.exists() {
         eprintln!(
