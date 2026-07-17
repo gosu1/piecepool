@@ -27,6 +27,7 @@ import { SearchPalette } from "./shell/SearchPalette";
 import { SettingsModal } from "./shell/SettingsModal";
 import { QuickMemo } from "./panes/QuickMemo";
 import { ContextMenu, ConfirmDialog, PromptDialog } from "./shell/Dialogs";
+import { RetitleWikisDialog } from "./shell/RetitleWikisDialog";
 import { useWorkspaceStore, SIDEBAR_DEFAULT } from "../store/workspaceStore";
 import type { TabKind } from "../store/workspaceStore";
 import { useInboxDraftStore } from "../store/inboxDraftStore";
@@ -50,7 +51,8 @@ type ShellDialog =
   | { kind: "close-dirty"; tabId: string }
   | { kind: "new-space" }
   | { kind: "rename-space"; slug: string; name: string }
-  | { kind: "delete-space"; slug: string; name: string };
+  | { kind: "delete-space"; slug: string; name: string }
+  | { kind: "retitle-wikis"; slug: string };
 
 // 노트 탭 id — 노트 하나 = 탭 하나(웹 탭 모델). "새 노트"마다 고유 id 로 새 탭을 append 한다(재활용 없음).
 let noteTabSeq = 0;
@@ -664,6 +666,11 @@ export default function PiecePoolApp() {
             onClick: () => setDialog({ kind: "rename-space", slug: menuSpace.slug, name: menuSpace.name }),
           },
           {
+            // 음차 제목("어텐션") 일괄 정리 — 제안은 LLM, 선택·적용은 사용자(RetitleWikisDialog).
+            label: "위키 제목 정리…",
+            onClick: () => setDialog({ kind: "retitle-wikis", slug: menuSpace.slug }),
+          },
+          {
             label: "삭제…",
             danger: true,
             onClick: () => setDialog({ kind: "delete-space", slug: menuSpace.slug, name: menuSpace.name }),
@@ -685,6 +692,23 @@ export default function PiecePoolApp() {
     } catch (e) {
       setNotice(`이름 변경 실패: ${String(e)}`);
     }
+  };
+
+  // 위키 제목 일괄 정리 적용 — 순차 실행. relations.json 을 매 rename 이 다시 쓰므로 병렬이면 서로 덮는다.
+  const applyRetitles = async (slug: string, changes: { file: string; to: string }[]) => {
+    let ok = 0;
+    const fails: string[] = [];
+    for (const c of changes) {
+      try {
+        await ipc.renameWiki(slug, c.file, c.to);
+        renameTab(`wiki:${slug}:${c.file}`, c.to);
+        ok++;
+      } catch {
+        fails.push(c.to);
+      }
+    }
+    await refreshSpace(slug);
+    setNotice(fails.length ? `위키 제목 ${ok}개 변경 · ${fails.length}개 실패 (${fails.join(", ")})` : `위키 제목 ${ok}개 변경됨`);
   };
   const applyDelete = async (d: Extract<ShellDialog, { kind: "delete-note" | "delete-wiki" }>) => {
     try {
@@ -1398,6 +1422,15 @@ export default function PiecePoolApp() {
             setDialog(null);
           }}
           onCancel={() => setDialog(null)}
+        />
+      )}
+      {dialog?.kind === "retitle-wikis" && (
+        <RetitleWikisDialog
+          spaceName={spaces.find((s) => s.slug === dialog.slug)?.name ?? dialog.slug}
+          // 정리 글(concept-syn-*)은 앱이 만든 제목이라 정리 대상이 아니다.
+          wikis={(wikiBySlug[dialog.slug] ?? []).filter((w) => !isSynthesisPage(w)).map((w) => ({ path: w.path, title: w.title }))}
+          onApply={(changes) => applyRetitles(dialog.slug, changes)}
+          onClose={() => setDialog(null)}
         />
       )}
       {dialog?.kind === "delete-space" && (
