@@ -59,6 +59,10 @@ interface FeynmanState {
   finish: (understood: boolean) => Promise<WikiPage | null>;
   /** [닫기] — 세션을 닫고 이 페이지의 자동 열기를 끈다. */
   dismiss: () => void;
+  /** 위키·공간 삭제로 대상이 사라진 세션 정리 — path 생략이면 그 공간 전체. dismissed 는 남긴다. */
+  clearSessionFor: (space: string, path?: string) => void;
+  /** 공간 rename 은 slug 까지 바꾼다(rename_space) — 세션·dismissed 의 옛 slug 를 새 slug 로 잇는다. */
+  remapSpace: (oldSlug: string, newSlug: string) => void;
 }
 
 export const wikiKey = (space: string, path: string) => `${space}::${path}`;
@@ -193,6 +197,25 @@ export const useFeynmanStore = create<FeynmanState>()(
             dismissed: s ? { ...c.dismissed, [wikiKey(s.space, s.path)]: new Date().toISOString() } : c.dismissed,
           }));
         },
+
+        // 세션은 전역 싱글턴이고 자동 열기 effect 가 세션 존재 시 bail out 한다 — 삭제된 위키·공간의
+        // 세션을 안 걷어내면 앱 종료까지 신규 개념 파인만 자동 열기가 전부 막힌다. dismiss 와 달리
+        // dismissed 에는 기록하지 않는다(같은 경로가 재생성되면 자동 열기가 살아있어야 한다).
+        clearSessionFor: (space, path) => {
+          const s = get().session;
+          if (s && s.space === space && (path === undefined || s.path === path)) set({ session: null });
+        },
+
+        remapSpace: (oldSlug, newSlug) =>
+          set((c) => ({
+            session: c.session && c.session.space === oldSlug ? { ...c.session, space: newSlug } : c.session,
+            dismissed: Object.fromEntries(
+              Object.entries(c.dismissed).map(([k, v]) => [
+                k.startsWith(`${oldSlug}::`) ? wikiKey(newSlug, k.slice(oldSlug.length + 2)) : k,
+                v,
+              ]),
+            ),
+          })),
       };
     },
     {

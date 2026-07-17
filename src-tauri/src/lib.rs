@@ -922,6 +922,29 @@ mod tests {
         let cfg = commands::workspace::create_space("config".into()).expect("config space");
         assert_eq!(cfg.slug, "config 2");
 
+        // 19-5) 대소문자만 다른 이름은 케이스 인센시티브 FS(APFS/NTFS)에서 같은 물리 폴더 —
+        //       충돌 접미사를 붙여야 한다. 안 그러면 spaces.json 항목 둘이 폴더 하나를 가리키고
+        //       delete_space 의 remove_dir_all 이 남의 공간까지 전멸시킨다.
+        let os = commands::workspace::create_space("OS".into()).expect("OS space");
+        assert_eq!(os.slug, "OS");
+        let os_dup = commands::workspace::create_space("os".into()).expect("os dup");
+        assert_eq!(os_dup.slug, "os 2", "대소문자만 달라도 충돌 접미사");
+        assert!(storage::exists(&storage::space_subdir("os 2", "archive")));
+        // 예약 폴더도 대소문자 무시 — "Config" 가 legacy config 를 침범하면 안 된다.
+        // (19-4 의 "config 2" 공간과도 대소문자 무시로 충돌 → 다음 접미사 3)
+        let cfg2 = commands::workspace::create_space("Config".into()).expect("Config space");
+        assert_eq!(cfg2.slug, "Config 3");
+        // 대소문자만 바꾸는 rename 은 자기 자신 — 충돌 오류도 접미사도 없이 성공해야 한다.
+        let os_renamed =
+            commands::workspace::rename_space("OS".into(), "Os".into()).expect("case-only rename");
+        assert_eq!(os_renamed.slug, "Os");
+        // 접미사 공간을 지워도 원래 공간 폴더는 살아 있다 (폴더 공유 시 여기서 전멸했다).
+        commands::workspace::delete_space("os 2".into()).expect("delete dup");
+        assert!(
+            storage::exists(&storage::space_subdir("Os", "archive")),
+            "다른 공간 삭제가 원본 공간 폴더를 지웠다"
+        );
+
         let _ = std::fs::remove_dir_all(storage::workspace_root());
     }
 
@@ -1017,6 +1040,59 @@ mod tests {
             reason: None,
         }];
         assert!(fm::validate_wiki(&page, &subjects, &sources).is_err());
+    }
+
+    #[test]
+    fn frontmatter_split_accepts_crlf() {
+        use crate::storage::frontmatter as fm;
+        // 회귀: 외부 에디터가 CRLF 로 저장하면 split 이 "---\n" 을 못 찾아 frontmatter 없음으로
+        // 파싱 → md_to_wiki/archive "missing id" → 목록에서 문서가 무소음 실종됐다.
+        let md = "---\r\nid: \"note-crlf\"\r\ntitle: \"CRLF 노트\"\r\nsubjectIds:\r\n  - \"subject-os\"\r\ncreatedAt: \"2026-07-01T00:00:00Z\"\r\n---\r\n\r\n본문\r\n둘째 줄";
+        let note = fm::md_to_archive("space-os", "x.md", md).expect("CRLF frontmatter 인식");
+        assert_eq!(note.id, "note-crlf");
+        assert_eq!(note.title, "CRLF 노트");
+        assert_eq!(note.subject_ids, vec!["subject-os".to_string()]);
+        assert_eq!(note.markdown, "본문\n둘째 줄", "본문도 LF 로 정규화");
+        // LF 파일은 기존 그대로
+        let (fm_lf, body_lf) = fm::split("---\nid: \"a\"\n---\n\nbody");
+        assert_eq!(fm_lf, "id: \"a\"");
+        assert_eq!(body_lf, "\nbody", "빈 줄 하나는 남는다 — 호출부가 trim");
+    }
+
+    #[test]
+    fn frontmatter_quote_roundtrip() {
+        use crate::models::{ArchiveNote, SourceType};
+        use crate::storage::frontmatter as fm;
+        // 회귀: 쓰기(yq)는 \ 와 " 를 이스케이프하는데 읽기(unquote)가 복원하지 않아
+        // 저장 사이클마다 백슬래시가 증식했다 — 쓰기→읽기 왕복은 항등이어야 한다.
+        for title in [
+            r#"경로 C:\temp 와 "인용" 혼합"#,
+            r#"백슬래시로 끝 \"#,
+            r#"이중 백슬래시 \\ 가운데"#,
+            "평범한 제목",
+        ] {
+            let note = ArchiveNote {
+                id: "note-q".into(),
+                space_id: "space-os".into(),
+                source_id: "note-q".into(),
+                path: "x.md".into(),
+                title: title.into(),
+                markdown: "본문".into(),
+                subject_ids: vec![],
+                created_at: "2026-07-01T00:00:00Z".into(),
+                updated_at: String::new(),
+            };
+            let md = fm::archive_to_md(&note, SourceType::Text, None);
+            let back = fm::md_to_archive("space-os", "x.md", &md).expect("1왕복");
+            assert_eq!(back.title, title, "1왕복 항등");
+            // 2왕복 — 증식 버그는 사이클마다 악화되므로 한 번 더 돈다
+            let md2 = fm::archive_to_md(&back, SourceType::Text, None);
+            let back2 = fm::md_to_archive("space-os", "x.md", &md2).expect("2왕복");
+            assert_eq!(back2.title, title, "2왕복 항등");
+        }
+        // 손으로 쓴 알 수 없는 이스케이프(\n 등)는 그대로 보존 — 데이터를 지어내지 않는다
+        let (fm_text, _) = fm::split("---\ntitle: \"a\\nb\"\n---\n\nx");
+        assert_eq!(fm::Fm::parse(&fm_text).scalar("title").unwrap(), "a\\nb");
     }
 
     #[test]

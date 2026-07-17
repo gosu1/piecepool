@@ -50,10 +50,10 @@ async function chatJsonWithRetry(tag: string, key: string, body: string, deps?: 
   const maxRetries = deps?.maxRetries ?? 2;
   const backoffMs = deps?.backoffMs ?? 250;
 
-  let res: Response | undefined;
   let lastErr = "";
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     if (attempt > 0) await sleep(backoffMs * 2 ** (attempt - 1));
+    let res: Response;
     try {
       res = await fetchFn(`${endpoint}/chat/completions`, {
         method: "POST",
@@ -64,12 +64,20 @@ async function chatJsonWithRetry(tag: string, key: string, body: string, deps?: 
       lastErr = `network: ${e instanceof Error ? e.message : String(e)}`;
       continue; // 네트워크 오류는 재시도
     }
-    if (res.ok) break;
-    lastErr = `HTTP ${res.status}`;
-    if (!isRetriable(res.status)) break;
+    if (!res.ok) {
+      lastErr = `HTTP ${res.status}`;
+      if (!isRetriable(res.status)) break;
+      continue;
+    }
+    // 파싱 실패(마크다운 펜스 등 JSON 아닌 응답)도 재시도 대상 — gemini.ts attempt() 의 parse 분류와 동일.
+    // 루프 밖에서 파싱하면 첫 실패가 raw SyntaxError 로 그대로 패널에 노출된다.
+    try {
+      return extractChatJson(await res.json());
+    } catch {
+      lastErr = "LLM 응답 형식 오류 — 다시 시도해 주세요";
+    }
   }
-  if (!res?.ok) throw new Error(`[provider=gemini] ${tag}: ${lastErr}`);
-  return extractChatJson(await res.json());
+  throw new Error(`[provider=gemini] ${tag}: ${lastErr}`);
 }
 
 const PROBE_SCHEMA = {

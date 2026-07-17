@@ -167,7 +167,7 @@ export function SettingsModal({ onClose, workspacePath }: { onClose: () => void;
           </div>
           <div className="space-y-1.5">
             <label className="text-[14px] font-semibold text-ink">Liner API Key</label>
-            <p className="text-[12px] text-ink-muted">정보 간극 메우기·fact-check의 출처 검색(feature 3). 비우면 Gemini 되묻기 → 오프라인 순서로 폴백합니다.</p>
+            <p className="text-[12px] text-ink-muted">위키 생성 시 fact-check의 권위 출처 검색에 사용합니다. 비우면 fact-check를 건너뜁니다.</p>
             <div className="flex gap-2">
               <input
                 type="password"

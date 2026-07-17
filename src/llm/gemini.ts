@@ -134,7 +134,7 @@ function terminal(stage: Stage, cause: string): AttemptResult {
 }
 
 // Chat Completions 응답 → 구조화 객체. choices[0].message.content(JSON 문자열)을 parse.
-// gaps.ts(소크라테스 되묻기)도 재사용. SSOT: docs/30-llm/output-validation.md §3.
+// feynman.ts 도 재사용. SSOT: docs/30-llm/output-validation.md §3.
 type ChatResponse = {
   choices?: Array<{ message?: { content?: string } }>;
 };

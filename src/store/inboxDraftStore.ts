@@ -69,6 +69,9 @@ interface InboxDraftState {
   setBody: (key: string, body: string) => void;
   appendBody: (key: string, chunk: string) => void;
   clear: (key: string) => void; // 탭 닫힘 — 초안 제거 + 그 탭이 요약 job 소유면 abort
+  // 공간 rename 은 slug 까지 바꾼다(rename_space) — 초안의 공간 참조(targetSpace·savedSpace)를 새 slug 로
+  // 잇는다. key(탭 id)는 불투명 식별자라 그대로 둔다(workspaceStore 도 inbox 탭 id 는 안 바꾼다).
+  remapSpace: (oldSlug: string, newSlug: string) => void;
   // 종결 상태를 돌려준다 — 원샷 파이프라인(InboxSection)이 "done"일 때만 자동 저장+위키를 잇는다.
   // single-flight 재진입이면 null(아무것도 안 했음).
   runSummary: (p: { noteKey: string; file: string; title: string; text: string }) => Promise<PdfSummaryStatus | null>;
@@ -156,6 +159,22 @@ export const useInboxDraftStore = create<InboxDraftState>()(
             return { drafts: next, job: s.job?.noteKey === key ? null : s.job, pdfJobs: jobs };
           });
         },
+
+        remapSpace: (oldSlug, newSlug) =>
+          set((s) => ({
+            drafts: Object.fromEntries(
+              Object.entries(s.drafts).map(([k, d]) => [
+                k,
+                d.targetSpace === oldSlug || d.savedSpace === oldSlug
+                  ? {
+                      ...d,
+                      targetSpace: d.targetSpace === oldSlug ? newSlug : d.targetSpace,
+                      savedSpace: d.savedSpace === oldSlug ? newSlug : d.savedSpace,
+                    }
+                  : d,
+              ]),
+            ),
+          })),
 
         cancelSummary: () => {
           if (get().job?.status === "streaming") ac?.abort();

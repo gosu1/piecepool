@@ -17,10 +17,16 @@ pub fn list_spaces() -> Result<Vec<KnowledgeSpace>, String> {
 }
 
 /// 이름과 충돌하지 않는 지식 영역 폴더명을 고른다. 이미 있으면 `이름 2`, `이름 3` … 접미사.
+/// 비교는 대소문자 무시 — 케이스 인센시티브 FS(APFS/NTFS)에서 "os" 와 "OS" 는 같은 물리
+/// 폴더라, 구분하면 두 공간이 폴더 하나를 공유하고 delete_space 가 남의 공간까지 지운다.
 fn unique_dir_name(name: &str, spaces: &[KnowledgeSpace]) -> String {
     let base = storage::space_dir_name(name);
-    let taken =
-        |c: &str| spaces.iter().any(|s| s.slug == c) || storage::RESERVED_SPACE_DIR.contains(&c);
+    let taken = |c: &str| {
+        spaces.iter().any(|s| s.slug.eq_ignore_ascii_case(c))
+            || storage::RESERVED_SPACE_DIR
+                .iter()
+                .any(|r| r.eq_ignore_ascii_case(c))
+    };
     let mut slug = base.clone();
     let mut n = 2;
     while taken(&slug) {

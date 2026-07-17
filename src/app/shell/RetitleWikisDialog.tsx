@@ -63,8 +63,14 @@ export function RetitleWikisDialog({
   const apply = async () => {
     if (!picked.length || busy) return;
     setBusy(true);
-    await onApply(picked.map((r) => ({ file: r.file, to: r.to })));
-    onClose();
+    try {
+      await onApply(picked.map((r) => ({ file: r.file, to: r.to })));
+      onClose();
+    } catch (e) {
+      // 무소음 실패 금지 — busy 로 잠긴 채 멈추지 않게 풀고, 에러를 그대로 보여준다.
+      setBusy(false);
+      setError(String(e));
+    }
   };
 
   return (

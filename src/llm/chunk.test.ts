@@ -58,6 +58,21 @@ describe("semanticChunk (percentile boundary detection)", () => {
     expect(merged.chunks.length).toBe(2);
   });
 
+  it("병합 청크가 문장을 잃지 않는다 — 로컬 배열에 전역 인덱스를 넘기던 회귀", async () => {
+    // [0..3) [3..6) [6..7) + min 2 → 마지막 두 청크 병합. 회귀에선 slice(3,7)이 로컬 4개
+    // 배열에 적용돼 "나무 하나."만 남고 돈 문장 3개가 유실됐다.
+    const text = "고양이 하나. 고양이 둘. 고양이 셋. 돈 하나. 돈 둘. 돈 셋. 나무 하나.";
+    const embed3: EmbedFn = async (texts) =>
+      texts.map((t) => (t.includes("고양이") ? [1, 0, 0] : t.includes("돈") ? [0, 1, 0] : [0, 0, 1]));
+    const r = await semanticChunk(text, { embed: embed3, percentile: 50, minSentences: 2 });
+    expect(r.chunks.length).toBe(2);
+    const last = r.chunks[1];
+    expect(last.sentences).toEqual(["돈 하나.", "돈 둘.", "돈 셋.", "나무 하나."]);
+    expect(last.start).toBe(3); // span 은 전역 인덱스 유지
+    expect(last.end).toBe(7);
+    expect(r.chunks.flatMap((c) => c.sentences)).toEqual(r.sentences); // 전 문장이 정확히 한 번씩
+  });
+
   it("returns a single chunk when there is nothing to split", async () => {
     const r = await semanticChunk("문장 하나뿐이다.", { embed: topicEmbed });
     expect(r.chunks.length).toBe(1);

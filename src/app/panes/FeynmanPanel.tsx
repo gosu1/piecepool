@@ -18,6 +18,24 @@ const fmtDate = (iso: string) => {
 };
 const VERDICT_TEXT: Record<FeynmanSession["verdict"], string> = { understood: "이해함", not_yet: "아직 모르겠다고 표시" };
 
+/**
+ * 실패 원인을 사용자가 할 일로 번역한다.
+ *
+ * 429(기다리면 됨)와 401(키를 고쳐야 함)은 사용자가 취할 행동이 완전히 다른데
+ * "문제가 생겼어요" 만 띄우면 구분이 안 된다. gemini.ts 가 이미 429 를 rate_limit 으로
+ * 분류하는 것과 같은 취지 — feynman.ts 는 `HTTP ${status}` 로 뭉개므로 여기서 읽는다.
+ * 429 는 분당 속도 제한(기다리면 풀림)과 할당량 소진(키·결제 필요) 둘 다 온다(cb994d2) —
+ * 구분은 아래 작게 남기는 원문(진단용)으로 한다.
+ */
+export function errorHint(raw: string): string {
+  if (/HTTP 429/.test(raw)) return "요청이 몰렸어요 — 잠시 후 다시 시도해보세요.";
+  if (/HTTP 40[13]/.test(raw)) return "API 키를 확인하거나 교체해주세요.";
+  if (/API key 필요/.test(raw)) return "설정에서 Gemini 키를 넣어주세요.";
+  if (/network:/.test(raw)) return "연결을 확인해주세요.";
+  if (/no structured output/.test(raw)) return "답을 못 알아들었어요 — 다시 시도해보세요.";
+  return "문제가 생겼어요.";
+}
+
 /** 대화 렌더 — 과거 카드와 진행 중 세션이 같은 모양을 쓴다. */
 function Turns({ turns }: { turns: readonly FeynmanTurn[] }) {
   return (
@@ -140,11 +158,18 @@ export function FeynmanPanel({
       {saving && <p className="text-[13px] text-ink-faint">기록하는 중…</p>}
       {error && (
         // 설명은 history 에 남아 있다 — 다시 타이핑하지 않고 그대로 재시도한다.
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="text-[12px] text-danger">문제가 생겼어요. 설명은 그대로 있어요.</p>
-          <Button size="sm" variant="utility" onClick={retryProbe}>
-            다시 시도
-          </Button>
+        // 원인을 보여준다: "API 키 필요" 와 "HTTP 429" 는 사용자가 할 일이 완전히 다른데,
+        // "문제가 생겼어요" 만 띄우면 무엇을 해야 할지 알 수 없고 우리도 진단할 수 없다.
+        <div className="space-y-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-[12px] text-danger">
+              {errorHint(error)} 설명은 그대로 있어요.
+            </p>
+            <Button size="sm" variant="utility" onClick={retryProbe}>
+              다시 시도
+            </Button>
+          </div>
+          <p className="break-all text-[11px] text-ink-faint">{error}</p>
         </div>
       )}
 

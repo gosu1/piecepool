@@ -18,9 +18,9 @@ export function hasText(r: PdfExtractResult): boolean {
   return r.pages.some((p) => p.text.trim().length > 0);
 }
 
-/** pdf.js textContent items → 한 페이지 문자열. */
-export function joinItems(items: { str?: string }[]): string {
-  return items.map((i) => i.str ?? "").join("");
+/** pdf.js textContent items → 한 페이지 문자열. hasEOL 은 줄바꿈으로 보존 — 안 하면 페이지가 한 줄로 뭉개진다. */
+export function joinItems(items: { str?: string; hasEOL?: boolean }[]): string {
+  return items.map((i) => (i.str ?? "") + (i.hasEOL ? "\n" : "")).join("");
 }
 
 // pdfjs 는 지연 로드 — 이 모듈의 순수 함수만 쓰는 테스트(node)가 react-pdf 를 끌어오지 않게 한다.
@@ -42,7 +42,7 @@ export async function extractWithPdfJs(b64: string): Promise<PdfExtractResult> {
     for (let i = 1; i <= doc.numPages; i++) {
       const page = await doc.getPage(i);
       const tc = await page.getTextContent();
-      pages.push({ page: i, text: joinItems(tc.items as { str?: string }[]) });
+      pages.push({ page: i, text: joinItems(tc.items as { str?: string; hasEOL?: boolean }[]) });
     }
     return { pageCount: doc.numPages, pages };
   } finally {

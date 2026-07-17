@@ -34,6 +34,8 @@ import { useInboxDraftStore } from "../store/inboxDraftStore";
 import { useFeynmanStore, wikiKey, hasGeminiKey } from "../store/feynmanStore";
 import { splitFeynmanSection, joinFeynmanSection, stripFeynmanSection } from "../lib/feynmanSection";
 import { noteOriginalFiles } from "../lib/wikilink";
+import { retitleWikilinks, retitleLeadingH1 } from "../lib/retitleSync";
+import { titleError } from "../lib/titleValidation";
 import { getBodyFontSize, applyBodyFontSize } from "../lib/settings";
 
 const KIND_LABEL: Record<TabKind, string> = { wiki: "Wiki", archive: "Source", inbox: "Inbox", graph: "Graph", home: "Home", empty: "새 탭" };
@@ -343,11 +345,38 @@ export default function PiecePoolApp() {
     }
   };
 
-  // 공간 이름 변경 — 백엔드 rename_space (slug/폴더는 그대로, 표시 이름만 바뀜)
+  // 공간 이름 변경 — 백엔드 rename_space 는 표시 이름만이 아니라 slug·디스크 폴더까지 바꾼다
+  // (폴더명 = 표시 이름 계약, workspace.rs). 옛 slug 로 남은 프론트 상태(slug 키 맵·탭·문서 키·
+  // 초안·파인만 세션)를 전부 새 slug 로 리매핑해야 문서 실종·"unknown space" 무소음 저장 실패가 안 생긴다.
   const renameSpaceFlow = async (slug: string, newName: string) => {
     try {
-      await ipc.renameSpace(slug, newName);
+      const sp = await ipc.renameSpace(slug, newName);
       setSpaces(await ipc.listSpaces());
+      if (sp.slug !== slug) {
+        const remapKey = <T,>(m: Record<string, T>): Record<string, T> => {
+          if (!(slug in m)) return m;
+          const { [slug]: moved, ...rest } = m;
+          return { ...rest, [sp.slug]: moved } as Record<string, T>;
+        };
+        setWikiBySlug(remapKey);
+        setNotesBySlug(remapKey);
+        setGraphBySlug(remapKey);
+        setSubjectsBySlug(remapKey);
+        setCurrentSpaceSlug((c) => (c === slug ? sp.slug : c));
+        // graphViews: key = `graph:<slug>` 탭 id, value = 보고 있는 과목 slug — 둘 다 잇는다.
+        setGraphViews((m) =>
+          Object.fromEntries(
+            Object.entries(m).map(([k, v]) => [k === `graph:${slug}` ? `graph:${sp.slug}` : k, v === slug ? sp.slug : v]),
+          ),
+        );
+        // docKey(`space:file`) 키 문서 세션 상태(편집 플래그·드래프트)
+        const remapDocKey = (k: string) => (k.startsWith(`${slug}:`) ? `${sp.slug}:${k.slice(slug.length + 1)}` : k);
+        setDrafts((m) => Object.fromEntries(Object.entries(m).map(([k, v]) => [remapDocKey(k), v])));
+        setEditing((prev) => new Set([...prev].map(remapDocKey)));
+        useWorkspaceStore.getState().remapSpace(slug, sp.slug);
+        useInboxDraftStore.getState().remapSpace(slug, sp.slug);
+        useFeynmanStore.getState().remapSpace(slug, sp.slug);
+      }
     } catch (e) {
       setNotice(`이름 변경 실패: ${String(e)}`);
     }
@@ -381,6 +410,9 @@ export default function PiecePoolApp() {
           ...(boundHere ? { savedFile: null, savedSpace: null } : {}),
         });
       }
+      // 이 공간의 활성 파인만 세션 정리 — 세션은 전역 싱글턴이라, 남겨두면 신규 개념
+      // 자동 열기가 앱 종료까지 전부 막힌다(자동 열기 effect 가 세션 존재 시 bail out).
+      useFeynmanStore.getState().clearSessionFor(slug);
       if (currentSpace === slug) {
         setCurrentSpaceSlug(spaceList[0]?.slug ?? "");
         openHome();
@@ -533,6 +565,47 @@ export default function PiecePoolApp() {
   const openStudyHomeDoc = (kind: "wiki" | "archive", space: string, file: string) =>
     kind === "wiki" ? openWiki(space, file) : openArchive(space, file);
 
+  // ── 노트 삭제·이동 시 위키 sourceRefs 참조 무결성 ──
+  // 노트(Source)가 사라졌는데 위키가 그 sourceId 를 계속 참조하면, 그 위키의 다음 저장
+  // (본문 편집·rename·파인만 판정)이 validate_wiki "존재하지 않는 Source 참조"로 영영 거부된다.
+  // 분류: orphaned = 참조 소스가 이 노트뿐(노트가 죽으면 근거 0 → 함께 삭제 후보),
+  // shared = 다른 소스도 참조(죽은 항목만 걷어낼 후보). sourceId 없는 노트는 캐스케이드 없음.
+  const wikisReferencingSource = (space: string, sourceId: string | undefined) => {
+    const orphaned: WikiPageT[] = [];
+    const shared: WikiPageT[] = [];
+    if (!sourceId) return { orphaned, shared };
+    for (const w of wikiBySlug[space] ?? []) {
+      const refs = new Set([...w.sourceIds, ...w.sourceRefs.map((r) => r.sourceId)]);
+      if (!refs.has(sourceId)) continue;
+      (refs.size === 1 ? orphaned : shared).push(w);
+    }
+    return { orphaned, shared };
+  };
+  // 죽은 sourceId 항목만 sourceRefs/sourceIds 에서 걷어내 저장 — 본문(임베드)은 안 건드린다
+  // (wikilink-embed.md: 자동 재작성 금지. 어긋난 임베드는 기존 ref 충돌 경고가 사용자에게 보여준다).
+  const stripWikiSource = async (space: string, file: string, sourceId: string) => {
+    const cur = await ipc.readWiki(space, file);
+    await ipc.saveWiki(space, {
+      ...cur,
+      sourceIds: cur.sourceIds.filter((id) => id !== sourceId),
+      sourceRefs: cur.sourceRefs.filter((r) => r.sourceId !== sourceId),
+    });
+  };
+  // 위키 한 장 삭제 + 부속 상태 정리(문서 세션·핀·탭·파인만 세션) — 직접 삭제와 노트 캐스케이드가 같은 경로를 탄다.
+  const removeWikiDoc = async (space: string, file: string) => {
+    // 삭제 확인은 이미 받았으므로 문서 세션 상태도 함께 정리(경로 재사용 시 stale 부활 방지).
+    clearDocState(docKey(space, file));
+    // 고정도 정리 — localStorage 에 죽은 키가 쌓이지 않게.
+    const docId = `wiki:${space}:${file}`;
+    const st = useWorkspaceStore.getState();
+    if (st.pinnedDocs.includes(docId)) st.togglePinned(docId);
+    const pruned = await ipc.deleteWiki(space, file);
+    closeTab(docId);
+    // 이 위키의 활성 파인만 세션 정리 — 전역 싱글턴이라, 남겨두면 신규 개념 자동 열기가 앱 종료까지 막힌다.
+    useFeynmanStore.getState().clearSessionFor(space, file);
+    return pruned;
+  };
+
   // ── 트리 DnD: source md 를 다른 공간으로 이동 ──
   const slugOfFolder = (folderId: string) => {
     const [kind, slug] = folderId.split(":");
@@ -554,6 +627,9 @@ export default function PiecePoolApp() {
       return;
     }
     try {
+      // 이동 전에 참조 위키를 분류해 둔다 — 이동 후엔 원본 공간 목록에 이 노트가 없어 sourceId 를 모른다.
+      const sid = notesBySlug[doc.space]?.find((n) => n.path === doc.file)?.sourceId;
+      const { orphaned, shared } = wikisReferencingSource(doc.space, sid);
       const moved = await ipc.moveNote(doc.space, doc.file, toSpace);
       clearDocState(docKey(doc.space, doc.file));
       closeTab(tabId);
@@ -564,8 +640,16 @@ export default function PiecePoolApp() {
         st.togglePinned(tabId);
         st.togglePinned(newTabId);
       }
+      // 원본 공간 위키들의 stale 참조 정리 — 이동은 위키를 지우지 않는다. sourceId 가 공간을 떠났으니
+      // 참조만 걷어낸다. 안 걷어내면 그 위키의 다음 저장이 validate_wiki 에서 영영 거부된다.
+      let stripFails = 0;
+      if (sid) {
+        for (const w of [...orphaned, ...shared]) {
+          await stripWikiSource(doc.space, w.path, sid).catch(() => stripFails++);
+        }
+      }
       await Promise.all([refreshSpace(doc.space), refreshSpace(toSpace)]);
-      setNotice(`"${moved.title}" → ${spaceNameOf(toSpace)} 이동됨`);
+      setNotice(`"${moved.title}" → ${spaceNameOf(toSpace)} 이동됨${stripFails ? ` · 위키 참조 정리 ${stripFails}개 실패` : ""}`);
     } catch (e) {
       setNotice(`이동 실패: ${String(e)}`);
     }
@@ -695,47 +779,84 @@ export default function PiecePoolApp() {
   };
 
   // 위키 제목 일괄 정리 적용 — 순차 실행. relations.json 을 매 rename 이 다시 쓰므로 병렬이면 서로 덮는다.
+  // rename_wiki 는 frontmatter title 만 바꾼다 — 링크 해석(findWiki)이 제목 매칭이라, 같은 공간
+  // 위키 본문의 [[옛제목]] 과 해당 페이지 선두 H1 도 함께 고쳐야 고아 링크·제목 이중 표시가 안 남는다.
+  // 위키 본문만 고친다 — 노트(archive)는 사용자 원문이라 절대 수정하지 않는다.
   const applyRetitles = async (slug: string, changes: { file: string; to: string }[]) => {
     let ok = 0;
     const fails: string[] = [];
+    let syncFails = 0;
     for (const c of changes) {
+      const from = (wikiBySlug[slug] ?? []).find((w) => w.path === c.file)?.title;
       try {
         await ipc.renameWiki(slug, c.file, c.to);
         renameTab(`wiki:${slug}:${c.file}`, c.to);
         ok++;
       } catch {
         fails.push(c.to);
+        continue;
+      }
+      if (!from || from === c.to) continue;
+      for (const w of wikiBySlug[slug] ?? []) {
+        // 메모리 본문은 후보 선별에만 쓴다 — 실제 치환은 디스크 최신본에서(같은 배치의 앞선 치환 보존).
+        if (w.path !== c.file && !w.markdown.includes(`[[${from}]]`)) continue;
+        try {
+          const cur = await ipc.readWiki(slug, w.path);
+          let next = retitleWikilinks(cur.markdown, from, c.to);
+          if (w.path === c.file) next = retitleLeadingH1(next, from, c.to);
+          if (next !== cur.markdown) await ipc.saveWiki(slug, { ...cur, markdown: next });
+        } catch {
+          syncFails++;
+        }
       }
     }
     await refreshSpace(slug);
-    setNotice(fails.length ? `위키 제목 ${ok}개 변경 · ${fails.length}개 실패 (${fails.join(", ")})` : `위키 제목 ${ok}개 변경됨`);
+    const base = fails.length ? `위키 제목 ${ok}개 변경 · ${fails.length}개 실패 (${fails.join(", ")})` : `위키 제목 ${ok}개 변경됨`;
+    setNotice(syncFails ? `${base} · 본문 링크 동기화 ${syncFails}개 실패` : base);
   };
   const applyDelete = async (d: Extract<ShellDialog, { kind: "delete-note" | "delete-wiki" }>) => {
     try {
-      // 삭제 확인은 이미 받았으므로 문서 세션 상태도 함께 정리(경로 재사용 시 stale 부활 방지).
-      clearDocState(docKey(d.space, d.file));
-      // 고정도 정리 — localStorage 에 죽은 키가 쌓이지 않게.
-      const docId = `${d.kind === "delete-wiki" ? "wiki" : "archive"}:${d.space}:${d.file}`;
-      const st = useWorkspaceStore.getState();
-      if (st.pinnedDocs.includes(docId)) st.togglePinned(docId);
       if (d.kind === "delete-wiki") {
-        const pruned = await ipc.deleteWiki(d.space, d.file);
-        closeTab(`wiki:${d.space}:${d.file}`);
+        const pruned = await removeWikiDoc(d.space, d.file);
         setNotice(`"${d.title}" 삭제됨${pruned > 0 ? ` · 관계 ${pruned}개 정리` : ""}`);
       } else {
+        // 삭제 확인은 이미 받았으므로 문서 세션 상태도 함께 정리(경로 재사용 시 stale 부활 방지).
+        clearDocState(docKey(d.space, d.file));
+        // 고정도 정리 — localStorage 에 죽은 키가 쌓이지 않게.
+        const docId = `archive:${d.space}:${d.file}`;
+        const st = useWorkspaceStore.getState();
+        if (st.pinnedDocs.includes(docId)) st.togglePinned(docId);
         // 노트가 죽으면 그 원본도 전부 죽는다 — 첨부 저장소이지 자료실이 아니다(노트마다 새로 업로드).
         // 삭제 전에 본문에서 원본 목록을 뽑아둔다 — deleteNote 뒤에는 마크다운이 사라진다.
-        const srcs = noteOriginalFiles(notesBySlug[d.space]?.find((n) => n.path === d.file)?.markdown ?? "");
+        const note = notesBySlug[d.space]?.find((n) => n.path === d.file);
+        const srcs = noteOriginalFiles(note?.markdown ?? "");
+        // 위키 캐스케이드 분류도 삭제 전에 — 삭제 후엔 sourceId 판단 근거가 없다.
+        const sid = note?.sourceId;
+        const { orphaned, shared } = wikisReferencingSource(d.space, sid);
         await ipc.deleteNote(d.space, d.file);
         // 정리는 부수 작업 — 한 파일이 실패해도 나머지를 시도하고, 삭제 자체는 성공으로 알린다.
         for (const f of srcs) await ipc.deleteSource(d.space, f).catch(() => {});
-        closeTab(`archive:${d.space}:${d.file}`);
-        setNotice(`"${d.title}" 삭제됨`);
+        closeTab(docId);
+        // (a) 이 노트만 참조하던 위키 — 확인 다이얼로그에서 예고한 대로 함께 삭제.
+        // (b) 다른 소스도 참조하는 위키 — 죽은 sourceId 항목만 걷어내 저장(안 걷어내면 다음 저장이 영영 거부된다).
+        let cascadeFails = 0;
+        if (sid) {
+          for (const w of orphaned) await removeWikiDoc(d.space, w.path).catch(() => cascadeFails++);
+          for (const w of shared) await stripWikiSource(d.space, w.path, sid).catch(() => cascadeFails++);
+        }
+        setNotice(
+          `"${d.title}" 삭제됨${orphaned.length ? ` · 위키 ${orphaned.length}개 함께 삭제` : ""}${cascadeFails ? ` · 위키 정리 ${cascadeFails}개 실패` : ""}`,
+        );
       }
       await refreshSpace(d.space);
     } catch (e) {
       setNotice(`삭제 실패: ${String(e)}`);
     }
+  };
+  // 노트 삭제 확인 문구 — 이 노트만 참조하는 위키가 있으면 함께 삭제됨을 미리 알린다.
+  const deleteNoteMessage = (space: string, file: string) => {
+    const n = wikisReferencingSource(space, notesBySlug[space]?.find((x) => x.path === file)?.sourceId).orphaned.length;
+    return `원본 노트 파일이 삭제됩니다. 되돌릴 수 없어요.${n > 0 ? ` 이 노트만 참조하는 위키 ${n}개도 함께 삭제됩니다.` : ""}`;
   };
 
   // 위키 개념 중심 섹션 데이터 (scope §2.7) — 관련 소스 · 타입별 관계 · confused_with · ref 충돌.
@@ -807,19 +928,29 @@ export default function PiecePoolApp() {
   //
   // 파인만 기록은 편집기에 안 보이므로(draft 는 strip 된 본문) 디스크 최신본에서 꺼내 되붙인다.
   // 메모리의 page.markdown 을 쓰면 편집 중에 끝낸 세션이 사라진다 — 그 세션은 디스크에만 있다.
+  // 저장 거부(검증 실패 등)를 소리 없이 삼키지 않는다 — notice 로 알리고, 드래프트·dirty 는
+  // 그대로 남겨 편집 내용을 지킨다(성공 시에만 clearDocState/setTabDirty).
   const saveWikiDoc = async (space: string, page: WikiPageT, md: string) => {
-    const cur = await ipc.readWiki(space, page.path);
-    const { sessions, unparsed } = splitFeynmanSection(cur.markdown);
-    const saved = await ipc.saveWiki(space, { ...cur, markdown: joinFeynmanSection(md, sessions, unparsed) });
-    setWikiBySlug((m) => ({ ...m, [space]: (m[space] ?? []).map((x) => (x.path === page.path ? saved : x)) }));
-    clearDocState(docKey(space, page.path));
-    setTabDirty(`wiki:${space}:${page.path}`, false);
+    try {
+      const cur = await ipc.readWiki(space, page.path);
+      const { sessions, unparsed } = splitFeynmanSection(cur.markdown);
+      const saved = await ipc.saveWiki(space, { ...cur, markdown: joinFeynmanSection(md, sessions, unparsed) });
+      setWikiBySlug((m) => ({ ...m, [space]: (m[space] ?? []).map((x) => (x.path === page.path ? saved : x)) }));
+      clearDocState(docKey(space, page.path));
+      setTabDirty(`wiki:${space}:${page.path}`, false);
+    } catch (e) {
+      setNotice(`저장 실패: ${String(e)}`);
+    }
   };
   const saveArchiveDoc = async (space: string, file: string, md: string) => {
-    const saved = await ipc.saveNote(space, file, md);
-    setNotesBySlug((m) => ({ ...m, [space]: (m[space] ?? []).map((x) => (x.path === file ? saved : x)) }));
-    clearDocState(docKey(space, file));
-    setTabDirty(`archive:${space}:${file}`, false);
+    try {
+      const saved = await ipc.saveNote(space, file, md);
+      setNotesBySlug((m) => ({ ...m, [space]: (m[space] ?? []).map((x) => (x.path === file ? saved : x)) }));
+      clearDocState(docKey(space, file));
+      setTabDirty(`archive:${space}:${file}`, false);
+    } catch (e) {
+      setNotice(`저장 실패: ${String(e)}`);
+    }
   };
 
   // ── 페이지형 헤더 — 과목 토글 · 사용자 직접 연결 ──
@@ -1392,6 +1523,7 @@ export default function PiecePoolApp() {
           title="이름 변경"
           initial={dialog.title}
           placeholder="새 제목"
+          validate={titleError}
           onSubmit={(v) => {
             applyRename(dialog, v);
             setDialog(null);
@@ -1449,7 +1581,7 @@ export default function PiecePoolApp() {
       {(dialog?.kind === "delete-note" || dialog?.kind === "delete-wiki") && (
         <ConfirmDialog
           title={`"${dialog.title}" 삭제`}
-          message={dialog.kind === "delete-wiki" ? "위키 파일과 이 개념에 연결된 관계가 함께 삭제됩니다. 되돌릴 수 없어요." : "원본 노트 파일이 삭제됩니다. 되돌릴 수 없어요."}
+          message={dialog.kind === "delete-wiki" ? "위키 파일과 이 개념에 연결된 관계가 함께 삭제됩니다. 되돌릴 수 없어요." : deleteNoteMessage(dialog.space, dialog.file)}
           confirmLabel="삭제"
           danger
           onConfirm={() => {

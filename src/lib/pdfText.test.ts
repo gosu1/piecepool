@@ -20,6 +20,14 @@ describe("joinItems", () => {
   it("treats missing str as empty", () => {
     expect(joinItems([{ str: "a" }, {}, { str: "b" }])).toBe("ab");
   });
+  it("hasEOL 항목 뒤에 줄바꿈을 보존한다 — 페이지가 한 줄로 뭉개지는 회귀", () => {
+    expect(
+      joinItems([{ str: "첫 줄", hasEOL: true }, { str: "둘째" }, { str: " 줄", hasEOL: true }, { str: "셋째" }]),
+    ).toBe("첫 줄\n둘째 줄\n셋째");
+  });
+  it("hasEOL 없는 항목만이면 기존과 동일하게 이어붙인다", () => {
+    expect(joinItems([{ str: "가" }, { str: "나" }])).toBe("가나");
+  });
 });
 
 describe("hasText", () => {

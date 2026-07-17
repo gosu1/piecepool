@@ -456,6 +456,10 @@ export function InboxSection({
   const isNewHere = (w: WikiPageT) => w.sourceIds[0] === noteSourceId;
   const listWikis = derived;
 
+  // 위키 생성 엔진 뱃지 — 이 노트의 임포트가 어떤 엔진으로 만들었는지. job 은 휘발성(뷰 상태)이라
+  // 임포트 세션 동안만 뜬다. 휴리스틱이면 경고 톤으로 — 데모 중 폴백을 즉시 알아챈다.
+  const jobEngine = job?.space === targetSpace && !!job.noteFile && job.noteFile === savedFile ? job.engine : undefined;
+
   // 자동 열기 게이트는 여전히 job 이다 — "방금 임포트가 끝났다" = "지금은 읽는 시간" 신호이고,
   // 그건 본질적으로 휘발성이다(재방문은 자동으로 열리면 안 된다). 목록 범위와는 다른 질문이다.
   const justImported =
@@ -669,7 +673,7 @@ export function InboxSection({
       await onRefresh(curSpace);
       onNotice?.(
         withLlmRef.current
-          ? "위키에 반영됐어요 ✓ — 이어서 필기하세요"
+          ? `위키에 반영됐어요 ✓ — 이어서 필기하세요${res.warning ? ` · ${res.warning}` : ""}`
           : "저장됐어요 ✓ — 이어서 필기하세요",
       );
       // 방금 만든 위키가 있으면 위키 패널을 개념 "목록"부터 연다(스펙 §3 — 전부 보이게).
@@ -826,7 +830,23 @@ export function InboxSection({
     <section style={{ width: `${paneW.wiki}%`, minWidth: 280 }} className="flex min-w-0 shrink-0 flex-col border-l border-hairline">
       <PaneHeader
         label="위키"
-        hint={listWikis.length > 0 ? `이 노트에서 나온 개념 ${listWikis.length}개` : "아직 없음"}
+        hint={
+          <>
+            {listWikis.length > 0 ? `이 노트에서 나온 개념 ${listWikis.length}개` : "아직 없음"}
+            {jobEngine && (
+              <span
+                className={cn(
+                  "ml-1.5 rounded border px-1.5 py-0.5 text-[11px]",
+                  jobEngine === "heuristic"
+                    ? "border-warning/40 bg-warning/[0.06] text-warning"
+                    : "border-hairline bg-surface-soft text-ink-faint",
+                )}
+              >
+                {jobEngine === "gemini" ? "Gemini" : "기본 추출"}
+              </span>
+            )}
+          </>
+        }
         right={
           refWiki ? (
             <div className="flex min-w-0 items-center gap-1.5">
@@ -1135,7 +1155,7 @@ function SpacePicker({
   );
 }
 
-function PaneHeader({ label, hint, right }: { label?: string; hint?: string; right?: React.ReactNode }) {
+function PaneHeader({ label, hint, right }: { label?: string; hint?: React.ReactNode; right?: React.ReactNode }) {
   return (
     <div className="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-hairline px-3">
       <p className="min-w-0 truncate">
