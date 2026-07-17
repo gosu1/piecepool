@@ -152,13 +152,19 @@ export function extractChatText(resp: unknown): string {
 }
 
 // 프롬프트 본문은 docs/30-llm/prompt-templates.md SSOT. 여기서는 최소 직렬화만.
-// 언어 규칙: 사용자 노출 텍스트 필드 전부(summary/explanation/examples/relations[].explanation)가 directive를 따른다.
+// 언어 규칙: 사용자 노출 텍스트 필드 전부(summary/explanation/examples/relations[].explanation)와
+// concepts[].title 이 directive 를 따른다. 제목은 원문 표기 기준(§4) — 규칙 없이는 Gemini 가
+// 마음대로 음차해서("어텐션") 같은 개념이 표기별로 갈라지고 normalizedTitle 병합도 안 된다.
 export function buildMessages(input: LlmWikiInput, lang?: OutputLanguage) {
   const system =
     "You extract structured wiki concepts and relations from study notes. " +
     "Respond ONLY with JSON conforming to the LlmWikiResult schema. No prose, no markdown.\n" +
     "All user-facing text fields (summary, explanation, examples, relations[].explanation) follow this language rule:\n" +
-    languageDirective(lang);
+    languageDirective(lang) +
+    "\nconcepts[].title follows the same terminology rules: use the spelling the note itself uses " +
+    "(note writes 'attention' → title 'Attention', never '어텐션'). For a concept the note never names, " +
+    "use the field's canonical form — English where English is the convention (e.g. 'Transformer'), " +
+    "Korean where Korean is standard. Do NOT transliterate English technical terms into Hangul.";
   return [
     { role: "system", content: system },
     { role: "user", content: JSON.stringify(input) },
