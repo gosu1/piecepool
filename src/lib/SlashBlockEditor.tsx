@@ -10,7 +10,6 @@ import { autocompletion, startCompletion, type Completion, type CompletionContex
 import { cn } from "../ds";
 import { mathPreview } from "./cmMath";
 import { calloutPreview, foldEasyCallouts } from "./cmCallout";
-import { headingAction as headingActionExt, type HeadingAction } from "./cmHeadingAction";
 import { toggleMark } from "./cmFormat";
 import { wikiTermExtension, refreshWikiTerms } from "./cmWikiTerm";
 
@@ -28,25 +27,6 @@ const theme = EditorView.theme({
     { backgroundColor: "color-mix(in srgb, var(--ds-primary) 28%, transparent)" },
   ".cm-cursor": { borderLeftColor: "var(--ds-ink)" },
   ".cm-placeholder": { color: "var(--ds-ink-faint)" },
-  // 헤딩 호버 액션 — 그 줄에 마우스를 올렸을 때만 나타난다(평소엔 글이 조용하다).
-  ".pp-heading-action": {
-    display: "none",
-    marginLeft: "10px",
-    verticalAlign: "middle",
-    fontFamily: "var(--font-sans)",
-    fontSize: "11px",
-    fontWeight: "500",
-    lineHeight: "1.4",
-    color: "var(--ds-ink-faint)",
-    backgroundColor: "var(--ds-fill-subtle)",
-    border: "1px solid var(--ds-hairline)",
-    borderRadius: "6px",
-    padding: "2px 7px",
-    cursor: "pointer",
-    userSelect: "none",
-  },
-  ".cm-line:hover .pp-heading-action": { display: "inline-block" },
-  ".pp-heading-action:hover": { color: "var(--ds-ink)", backgroundColor: "var(--ds-surface-soft)" },
   // 슬래시 메뉴 — 조용·airy: 12px 팝업 라운드 · 6px ul 인셋으로 선택 필(surface-soft) 부유 · 테두리 없는 22px 아이콘 타일(선택 시에만 fill-subtle 워시) · 11px/600 레터스페이스 아이브로우 · 단일 액센트(primary=매칭 텍스트) · 우측 키캡 칩 단축키 · 미들닷 푸터
   ".cm-tooltip.cm-tooltip-autocomplete": { backgroundColor: "var(--ds-surface)", border: "1px solid var(--ds-hairline)", borderRadius: "12px", boxShadow: "var(--shadow-elevated)", overflow: "hidden", minWidth: "300px", padding: "0" },
   ".cm-tooltip-autocomplete > ul": { maxHeight: "360px", padding: "6px", fontFamily: "var(--font-sans)" },
@@ -223,26 +203,10 @@ const slashTrigger = EditorView.updateListener.of((u) => {
   if (typedSlash) queueMicrotask(() => startCompletion(u.view));
 });
 
-/** 드래그로 잡은 선택 범위 + 그 시작 지점의 화면 좌표(뷰포트 기준) */
-export interface EditorSelection {
-  from: number;
-  to: number;
-  x: number;
-  y: number;
-  /**
-   * 오프셋의 기준이 되는 문서 본문. 부모가 갖고 있는 원본 문자열로 잘라 쓰면 안 된다 —
-   * CM6 는 문서를 만들 때 CRLF 의 \r 을 없애므로, 윈도우에서 만든 노트에서는 부모의
-   * 문자열과 오프셋이 줄 수만큼 어긋나 엉뚱한 섹션이 잡힌다.
-   */
-  doc: string;
-}
-
 export function SlashBlockEditor({
   value,
   onChange,
   onSubmit,
-  onSelect,
-  headingAction: heading,
   placeholder,
   height = "320px",
   className,
@@ -255,10 +219,6 @@ export function SlashBlockEditor({
   value: string;
   onChange: (v: string) => void;
   onSubmit?: () => void;
-  /** 드래그로 텍스트를 잡으면 그 범위·좌표를 올린다. 선택이 풀리면 null. */
-  onSelect?: (sel: EditorSelection | null) => void;
-  /** ##/### 제목 줄에 마우스를 올리면 제목 끝에 뜨는 버튼 (블록 핸들 패턴) */
-  headingAction?: HeadingAction;
   placeholder?: string;
   height?: string;
   className?: string;
@@ -275,11 +235,6 @@ export function SlashBlockEditor({
 }) {
   const submitRef = useRef(onSubmit);
   submitRef.current = onSubmit;
-  // onSubmit 과 같은 이유로 ref 우회 — extensions deps 에 넣으면 매 렌더 에디터가 재구성된다.
-  const selRef = useRef(onSelect);
-  selRef.current = onSelect;
-  const headingRef = useRef(heading);
-  headingRef.current = heading;
   const viewRef = useRef<EditorView | null>(null);
   useEffect(() => {
     if (foldEasyKey && viewRef.current) foldEasyCallouts(viewRef.current);
@@ -301,7 +256,6 @@ export function SlashBlockEditor({
       markdown(),
       syntaxHighlighting(liveMarkdown),
       hideMarkupMarks,
-      headingActionExt(() => headingRef.current),
       mathPreview,
       calloutPreview,
       EditorView.lineWrapping,
@@ -319,15 +273,6 @@ export function SlashBlockEditor({
       ),
       slashTrigger,
       ...wikiTermExtension(() => termsRef.current ?? [], (t) => onTermRef.current?.(t)),
-      // 드래그로 텍스트를 잡으면 그 범위를 부모에게 올린다 — 부모가 선택 위에 액션 버튼을 띄운다.
-      EditorView.updateListener.of((u) => {
-        const notify = selRef.current;
-        if (!notify || (!u.selectionSet && !u.docChanged && !u.geometryChanged)) return;
-        const r = u.state.selection.main;
-        const c = r.empty ? null : u.view.coordsAtPos(r.from);
-        // doc 은 선택이 있을 때만 만든다 — 빈 선택(타이핑 중)에는 문자열을 복사하지 않는다.
-        notify(c ? { from: r.from, to: r.to, x: c.left, y: c.top, doc: u.state.doc.toString() } : null);
-      }),
       autocompletion({
         override: [slashSource],
         activateOnTyping: true,

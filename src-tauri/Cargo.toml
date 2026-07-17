@@ -28,6 +28,11 @@ serde_json = "1"
 ts-rs = "12"
 pdf-extract = "0.10.0"
 
+# Windows 탐색기는 닷 이름(`.config`)을 숨기지 않는다 — SetFileAttributesW 로 숨김 속성을 건다.
+# 0.61 은 tauri 의존 그래프(muda 등)에 이미 들어 있는 메이저라 빌드 부담이 없다.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Storage_FileSystem"] }
+
 # dev(tauri dev) 빌드는 opt-level 0 기본값이라 PDF 텍스트 추출(CPU-bound)이
 # 릴리즈 대비 수~수십 배 느리다. 핫패스 크레이트(파서·압축 해제·텍스트 디코딩)만
 # 최적화한다 — "*" 블랭킷은 CI cargo test·콜드 빌드를 2배로 늘려 되돌렸다(#212 회고).

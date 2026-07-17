@@ -250,5 +250,5 @@ pub async fn watch_space(
 ## 5. 테스트 가이드
 
 - `write_atomic` 도중 프로세스 종료를 시뮬레이션하려면 `.tmp` 파일을 남긴 채 재시작 후 정리 로직이 동작하는지 확인한다.
-- Path Traversal 테스트: `"../config/workspace.json"`, `"/etc/passwd"` 등을 `safe_join`에 넣어 `AppError` 반환을 검증한다.
+- Path Traversal 테스트: `"../.config/workspace.json"`, `"/etc/passwd"` 등을 `safe_join`에 넣어 `AppError` 반환을 검증한다.
 - fs watch 테스트: 실제 tmpdir에 파일을 생성/수정해 이벤트가 mpsc 채널로 도착하는지 확인한다. `tauri::AppHandle` 없이 채널만으로 검증 가능하다.

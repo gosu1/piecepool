@@ -78,14 +78,20 @@ export function SettingsModal({ onClose, workspacePath }: { onClose: () => void;
 
   return (
     <div className="fixed inset-0 z-40 flex items-start justify-center bg-black/30 pt-[12vh]" onClick={onClose}>
-      <div className="w-full max-w-lg rounded-xl border border-hairline bg-surface p-5 shadow-elevated" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-4 flex items-center justify-between">
+      {/* 항목이 늘어도 화면 밖으로 잘리지 않게 — 높이를 뷰포트에 묶고(위 12vh 여백 대칭) 본문만 스크롤한다.
+          헤더는 고정이라 어디까지 내려가도 닫기(✕)에 닿는다. */}
+      <div
+        className="flex max-h-[76vh] w-full max-w-lg flex-col rounded-xl border border-hairline bg-surface p-5 shadow-elevated"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex shrink-0 items-center justify-between">
           <h2 className="text-[18px] font-bold text-ink">설정</h2>
           <button type="button" onClick={onClose} className="text-[16px] text-ink-faint hover:text-ink">
             ✕
           </button>
         </div>
-        <div className="space-y-4">
+        {/* -mr-2.5: 스크롤바를 패널 오른쪽 여백(p-5=20px) 중간까지 밀어낸다. pr-2.5 로 내용은 스크롤바와 띄운다. */}
+        <div className="-mr-2.5 min-h-0 flex-1 space-y-4 overflow-y-auto pr-2.5">
           <div className="space-y-1.5">
             <label className="text-[14px] font-semibold text-ink">Gemini API Key</label>
             <p className="text-[12px] text-ink-muted">비우면 오프라인 휴리스틱 엔진을 사용합니다. 키는 이 기기(localStorage)에만 저장됩니다.</p>

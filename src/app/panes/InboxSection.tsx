@@ -1,18 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, FileDropzone, Icons, cn } from "../../ds";
-import type { KnowledgeSpace, WikiPage as WikiPageT, GraphData } from "../../lib/types";
+import type { KnowledgeSpace, WikiPage as WikiPageT, ArchiveNote as ArchiveNoteT, GraphData } from "../../lib/types";
 import * as ipc from "../../lib/ipc";
 import { extractPdfTextWithFallback } from "../../lib/pdfText";
 import { useImportStore } from "../../store/importStore";
 import { isSynthesisPage } from "../../lib/llmApply";
-import { draftNoteId } from "../../store/feynmanStore";
-import { useFeynmanEditor } from "./useFeynmanEditor";
 import { useInboxDraftStore, EMPTY_DRAFT, type InboxDraft, type PdfSummaryJob } from "../../store/inboxDraftStore";
 import { runImageOcr } from "../../llm/ocr";
 import { SlashBlockEditor } from "../../lib/SlashBlockEditor";
 import { ConfirmDialog } from "../shell/Dialogs";
 import { Markdown } from "../../lib/markdown";
 import { stripEvidenceSection } from "../../lib/noteSections";
+import { stripFeynmanSection, splitFeynmanSection } from "../../lib/feynmanSection";
+import { useFeynmanStore, wikiKey, hasGeminiKey } from "../../store/feynmanStore";
+import { FeynmanPanel } from "./FeynmanPanel";
 import { conceptRelationGroups } from "../../lib/conceptGraph";
 import { MiniRelationGraph } from "../../lib/MiniGraph";
 import { FilePreview } from "../../lib/FilePreview";
@@ -34,8 +35,8 @@ import {
 // 노트 에디터가 중심(항상 고정), 좌(PDF 자료)·우(위키 참조)는 보조 패널로 여닫는다.
 // PDF 업로드 → PDF 패널 자동 열림, AI 정리 완료 → 위키 패널 자동 열림.
 //
-// 보조 패널은 "이 노트에 딸린 것"이다. 열림 상태는 저장하지 않고(노트마다 닫힌 채 시작),
-// 아무것도 자동 선택하지 않는다 — 빈 노트에 공간의 아무 PDF·아무 위키가 뜨면 안 된다.
+// 보조 패널은 "이 노트에 딸린 것"이다. 새 노트는 PDF 만 열린 채 시작하고(EMPTY_DRAFT.panels),
+// 아무것도 자동 선택하지 않는다 — 열리는 건 빈 업로드 안내지 공간의 아무 PDF·아무 위키가 아니다.
 const IMPORT_STATUS_LABEL: Record<string, string> = {
   idle: "대기",
   parsing: "파싱",
@@ -153,9 +154,11 @@ export function InboxSection({
   existing,
   spaces,
   wikiBySlug,
+  notesBySlug,
   graphBySlug,
   onCreateSpace,
   onOpenWiki,
+  onWikiSaved,
   onRefresh,
   onNotice,
   onDirtyChange,
@@ -173,11 +176,18 @@ export function InboxSection({
   // 저장 대상 폴더 선택용 — 전체 지식 공간 목록과 공간별 위키(대상 폴더의 dedup 기준)
   spaces: KnowledgeSpace[];
   wikiBySlug: Record<string, WikiPageT[]>;
+  /** 노트 sourceId 조회용 — 위키 패널 목록이 "이 노트에서 파생된 것" 을 sourceIds 로 가린다 */
+  notesBySlug: Record<string, ArchiveNoteT[]>;
   // 위키 참조 패널의 개념 중심 미니 그래프용 — 대상 공간 그래프(노드·관계)
   graphBySlug: Record<string, GraphData>;
   // 저장 위치 드롭다운에서 바로 새 과목 폴더 만들기 — 만든 slug 를 돌려주면 그 과목으로 대상이 옮겨간다.
   onCreateSpace: (name: string) => Promise<string | null>;
   onOpenWiki: (space: string, file: string) => void;
+  /**
+   * 파인만 판정 저장 직후 — 앱의 메모리 사본(wikiBySlug)을 갱신한다. 없으면 카드가 안 나타난다.
+   * @param path 저장 **전** path (매칭 키). saved.path 로 찾으면 path 가 바뀌는 날 조용히 no-op 한다.
+   */
+  onWikiSaved: (space: string, path: string, saved: WikiPageT) => void;
   onRefresh: (space: string) => Promise<void> | void;
   // 저장 실패 등 사용자 알림(상태바 토스트). 성공은 노트 초기화·위키 패널로 암시.
   onNotice?: (msg: string) => void;
@@ -241,9 +251,6 @@ export function InboxSection({
   const foldEasyKey = summaryJob?.noteKey === draftKey && summaryJob.status === "done" ? summaryJob.text.length : 0;
   const [withLlm, setWithLlm] = useState(true);
   const { job, runImport } = useImportStore();
-  // 파인만 — 아직 저장 전이면 노트 id 가 없다. 노트=탭이므로 초안 id 는 탭(draftKey) 기준이어야
-  // 탭끼리 판정이 섞이지 않는다. 저장되면 importStore 가 진짜 sourceId 로 옮긴다(adopt).
-  const fy = useFeynmanEditor({ noteId: draftNoteId(draftKey), space, markdown: body, noteTitle: title });
   const busy = !!job && !["completed", "failed"].includes(job.status);
 
   // ── 참조 패널 상태 (선택 refSource·refWikiPath 는 draft 로 보존) ──
@@ -409,7 +416,6 @@ export function InboxSection({
 
   // 참조 후보 = 저장 대상 공간의 위키. 대상이 바뀌면 이전 공간에서 고른 참조는 버린다(파일명이 공간 간 충돌한다).
   const refCandidates = resolveTarget(targetSpace).existing;
-  const targetName = spaces.find((s) => s.slug === targetSpace)?.name ?? targetSpace;
   useEffect(() => setRefWikiPath(""), [targetSpace]);
   // 고른 게 없으면 없는 것 — `?? existing[0]` 폴백은 빈 노트에 공간의 첫 위키(제목 정렬 1등)를 띄웠다.
   const refWiki = refCandidates.find((w) => w.path === refWikiPath) ?? null;
@@ -429,14 +435,55 @@ export function InboxSection({
     togglePanel("wiki", true);
   };
 
-  // ── 위키 패널 개념 목록 (스펙 §3) — 이번 임포트 개념이 있으면 그것만, 없으면 공간 전체 ──
-  const jobWikiPaths =
-    job?.status === "completed" && job.space === targetSpace && job.noteFile && job.noteFile === savedFile
-      ? (job.wikiPaths ?? [])
-      : [];
-  const listWikis = jobWikiPaths.length
-    ? jobWikiPaths.map((p) => refCandidates.find((w) => w.path === p)).filter((w): w is WikiPageT => !!w)
-    : refCandidates.filter((w) => !isSynthesisPage(w));
+  // ── 위키 패널 개념 목록 — 이 노트에서 파생된 것만 ──
+  //
+  // 판정은 sourceIds 다(llmApply.ts:243). 새 개념은 `[이 노트]`, 병합이면 `[...기존, 이 노트]` 로
+  // 쌓이므로 **includes = 이 노트에서 파생**, **[0] === 이 노트 = 이 노트가 처음 만듦** 이다.
+  // Set 이 삽입 순서를 지키고 기존 것이 앞에 오니 [0] 은 최초 생성자로 영원히 고정된다.
+  //
+  // job.wikiPaths 를 안 쓰는 이유: job 은 휘발성이라 탭을 떠나거나 앱을 껐다 켜면 사라진다.
+  // 그래서 임포트 직후에만 이 노트 것이 뜨고 그 뒤엔 공간 전체가 떴다. sourceIds 는 .md
+  // frontmatter 에 박혀 있어 재시작해도 산다.
+  //
+  // refCandidates(공간 전체)는 그대로 둔다 — 본문 키워드 클릭은 다른 노트에서 나온 개념도
+  // 열 수 있어야 한다(상호참조). 좁히는 건 훑어보는 **목록**뿐이다.
+  const noteSourceId = savedFile ? (notesBySlug[targetSpace] ?? []).find((n) => n.path === savedFile)?.sourceId : undefined;
+  const derived = useMemo(
+    () => (noteSourceId ? refCandidates.filter((w) => !isSynthesisPage(w) && w.sourceIds.includes(noteSourceId)) : []),
+    [refCandidates, noteSourceId],
+  );
+  /** 이 노트가 처음 만든 개념인가 — 아니면 이 노트가 얹힌(병합된) 것이다. */
+  const isNewHere = (w: WikiPageT) => w.sourceIds[0] === noteSourceId;
+  const listWikis = derived;
+
+  // 자동 열기 게이트는 여전히 job 이다 — "방금 임포트가 끝났다" = "지금은 읽는 시간" 신호이고,
+  // 그건 본질적으로 휘발성이다(재방문은 자동으로 열리면 안 된다). 목록 범위와는 다른 질문이다.
+  const justImported =
+    job?.status === "completed" && job.space === targetSpace && !!job.noteFile && job.noteFile === savedFile;
+
+  // ── 방금 만들어진 개념이면 파인만을 자동으로 연다 ──
+  //
+  // 위키 개념은 학습자가 만든 것이 아니다. 막 생성된 걸 그냥 읽고 넘기면 이해했다는 착각만 남는다(IOED).
+  // 판정은 위키 문서 탭과 같다 — 기록 0개면 신규. 다만 여기엔 **임포트 직후** 조건이 하나 더 붙는다:
+  // 노트를 쓰다가 참고하려고 옛 위키를 열었을 뿐인데 "설명하세요" 가 뜨면 필기가 끊긴다.
+  // justImported 는 이 노트의 임포트가 방금 끝났을 때만 참이므로 그게 곧 "지금은 읽는 시간" 신호다.
+  const autoWiki = justImported ? refWiki : null;
+  useEffect(() => {
+    if (!autoWiki || !targetSpace) return;
+    // 정리 글은 학습자 본인 노트에서 나온 글이라 대상이 아니다.
+    if (isSynthesisPage(autoWiki)) return;
+    const st = useFeynmanStore.getState();
+    // 진행 중인 세션을 파괴하지 않는다 — session 은 앱 전역 싱글턴이고 메모리 전용이라
+    // 다른 곳에서 쓰던 설명이 여기서 조용히 증발한다.
+    if (st.session) return;
+    if (st.dismissed[wikiKey(targetSpace, autoWiki.path)]) return;
+    // 키가 없으면 probeExplanation 이 빈 키로 실패해 되물음이 안 온다 — 반응 없는 빈 패널이 뜬다.
+    if (!hasGeminiKey()) return;
+    if (splitFeynmanSection(autoWiki.markdown).sessions.length) return;
+    st.start(targetSpace, autoWiki);
+    // 문서 정체성 기준 — 목록에서 다른 개념을 고르면 그때 다시 판정한다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetSpace, autoWiki?.path]);
 
   // PDF → sources/original-files 저장 + 패널 열람 + 출처 임베드 + 한국어 번역·요약 스트리밍.
   // 요약은 스토어가 소유(fire-and-forget) — 탭을 떠나도 계속 흐르고 종결 시 본문에 병합된다.
@@ -614,7 +661,6 @@ export function InboxSection({
       existing: t.existing,
       crossConcepts: t.crossConcepts,
       noteFile: reuse,
-      feynmanNoteId: draftNoteId(draftKey),
     });
     // 생성/갱신된 노트에 바인딩(살아있는 노트) — 노트를 비우지 않고 이어서 필기.
     if (res.noteFile) write({ savedFile: res.noteFile, savedSpace: curSpace });
@@ -622,11 +668,9 @@ export function InboxSection({
       write({ savedSnapshot: `${curTitle} ${d.body}` });
       await onRefresh(curSpace);
       onNotice?.(
-        res.feynmanUsed
-          ? "파인만에서 쓴 설명까지 위키에 반영됐어요 ✓ — 이어서 필기하세요"
-          : withLlmRef.current
-            ? "위키에 반영됐어요 ✓ — 이어서 필기하세요"
-            : "저장됐어요 ✓ — 이어서 필기하세요",
+        withLlmRef.current
+          ? "위키에 반영됐어요 ✓ — 이어서 필기하세요"
+          : "저장됐어요 ✓ — 이어서 필기하세요",
       );
       // 방금 만든 위키가 있으면 위키 패널을 개념 "목록"부터 연다(스펙 §3 — 전부 보이게).
       if (withLlmRef.current && (res.wikiPaths?.length || res.firstWikiPath)) {
@@ -682,11 +726,6 @@ export function InboxSection({
               AI 생성
               {withLlm && <Icons.CheckIcon size={12} className="ml-0.5" />}
             </PropertyPill>
-            {/* 파인만 — 토글이 아니라 액션이다. 누르면 지금 이 글 전체를 자기 말로 설명하게 한다.
-                (섹션 하나만 하려면 그 부분을 드래그하면 선택 위에 버튼이 뜬다) */}
-            <PropertyPill disabled={!fy.canStart} onClick={fy.startWhole} icon={<Icons.HelpCircleIcon size={13} />}>
-              파인만
-            </PropertyPill>
             {/* 퀵메모 — 창 열림/닫힘을 그대로 반영하는 토글. AI 생성 여부와 무관하게 항상 쓸 수 있다. */}
             <PropertyPill active={quickMemoOpen} onClick={onToggleQuickMemo} icon={<Icons.EditIcon size={13} />}>
               퀵메모
@@ -703,8 +742,6 @@ export function InboxSection({
             value={editorValue}
             onChange={setBody}
             onSubmit={run}
-            onSelect={fy.onSelect}
-            headingAction={fy.headingAction}
             readOnly={summarizing}
             foldEasyKey={foldEasyKey}
             placeholder="'/' 로 블록 삽입 · 마크다운으로 작성 · ⌘Enter 로 저장"
@@ -731,7 +768,6 @@ export function InboxSection({
         {/* 원본 저장 진행 오버레이 — AI 껐을 때만(한 단계뿐이라 라벨로 충분).
             AI 켜면 위키를 만드는 동안이라 오버레이는 위키 패널이 진다 — 노트는 계속 필기할 수 있게 둔다. */}
         {busy && !withLlm && <LoadingOverlay label={`${IMPORT_STATUS_LABEL[job!.status]} 중…`} />}
-        {fy.overlay}
         </div>
 
       </div>
@@ -790,7 +826,7 @@ export function InboxSection({
     <section style={{ width: `${paneW.wiki}%`, minWidth: 280 }} className="flex min-w-0 shrink-0 flex-col border-l border-hairline">
       <PaneHeader
         label="위키"
-        hint={refCandidates.length > 0 ? `${targetName}의 위키 ${refCandidates.length}개` : "위키 없음"}
+        hint={listWikis.length > 0 ? `이 노트에서 나온 개념 ${listWikis.length}개` : "아직 없음"}
         right={
           refWiki ? (
             <div className="flex min-w-0 items-center gap-1.5">
@@ -811,9 +847,9 @@ export function InboxSection({
         )}
         {refWiki ? (
           <>
-            <h2 className="mb-3 text-[17px] font-bold text-ink">{refWiki.title}</h2>
-            {/* 근거(`## 근거` PDF 임베드)는 표시에서 감춘다 — 대신 아래에 개념 중심 관계 그래프 */}
-            <Markdown source={stripEvidenceSection(refWiki.markdown)} embedSpace={targetSpace} />
+            {/* 제목은 본문 첫 줄 `# {제목}`(mergeWiki 계약)이 담당 — 패널이 h2 로 또 넣으면 제목 중복. DocView 와 일치시켜 본문만 렌더. */}
+            {/* 근거(`## 근거` PDF 임베드)·파인만 기록은 표시에서 감춘다 — 대신 아래에 개념 중심 관계 그래프 */}
+            <Markdown source={stripFeynmanSection(stripEvidenceSection(refWiki.markdown))} embedSpace={targetSpace} />
             {(() => {
               const groups = conceptRelationGroups(graphBySlug[targetSpace], refWiki.conceptId, (path) =>
                 onOpenWiki(targetSpace, path),
@@ -829,10 +865,24 @@ export function InboxSection({
                 </section>
               ) : null;
             })()}
+            {/* 정리 글은 학습자 본인 노트에서 나온 글이라 파인만 대상이 아니다.
+                단 여기선 이 가드가 그 목적으로는 절대 안 걸린다 — 선택 경로 셋(목록·키워드·jobWikiPaths)이
+                이미 isSynthesisPage 를 거르거나 concept-syn-* 를 만들 수 없다. 유일하게 걸리는 건
+                isSynthesisPage 의 접두사 충돌("SYN Flood" → concept-syn-flood)이고 거기선 이 가드가
+                오히려 해롭다. 그럼에도 남기는 이유: 이 파일의 다른 isSynthesisPage 호출부들과
+                wikiReader 가 이미 같은 판정을 쓴다 — 여기만 빼면 다음 사람이 비대칭을 보고 되돌린다.
+                충돌 자체는 이 PR 범위 밖(conceptId 스킴 변경 + 마이그레이션 필요) — 후속 이슈. */}
+            {!isSynthesisPage(refWiki) && (
+              <FeynmanPanel
+                space={targetSpace}
+                page={refWiki}
+                onSaved={(saved) => onWikiSaved(targetSpace, refWiki.path, saved)}
+              />
+            )}
           </>
         ) : listWikis.length ? (
           <>
-            <p className="ds-eyebrow mb-2 text-ink-faint">{jobWikiPaths.length ? "이 노트의 개념" : "이 공간의 개념"}</p>
+            <p className="ds-eyebrow mb-2 text-ink-faint">이 노트의 개념</p>
             <ul className="space-y-0.5">
               {listWikis.map((w) => (
                 <li key={w.path}>
@@ -842,6 +892,8 @@ export function InboxSection({
                     className="flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-2 text-left text-[14px] text-ink-2 transition-colors hover:bg-surface-soft hover:text-ink"
                   >
                     <span className="truncate font-medium">{w.title}</span>
+                    {/* 이 노트가 처음 만든 개념인지, 기존 개념에 이 노트가 얹힌 것인지(sourceIds[0]) */}
+                    <span className="ml-auto shrink-0 text-[11px] text-ink-faint">{isNewHere(w) ? "새 개념" : "얹힘"}</span>
                     <Icons.ChevronRightIcon size={14} className="shrink-0 text-ink-faint" />
                   </button>
                 </li>
@@ -1109,7 +1161,7 @@ function PaneDivider({ onPointerDown, onDoubleClick }: { onPointerDown: (e: Reac
   );
 }
 
-// 속성 토글 pill (AI 생성 · 파인만) — 기존 checkbox 대체. 켜지면 primary 계열, 상태가 한눈에. 저장위치는 select pill 로 별도.
+// 속성 토글 pill (AI 생성 · 퀵메모) — 기존 checkbox 대체. 켜지면 primary 계열, 상태가 한눈에. 저장위치는 select pill 로 별도.
 // PDF 요약(생성 언어 설정 준수) 진행/종결 스트립 — 스트리밍 중엔 파형+중단, 종결 후엔 결과+닫기.
 function SummaryStrip({ job, onCancel, onClose }: { job: PdfSummaryJob; onCancel: () => void; onClose: () => void }) {
   const streaming = job.status === "streaming";

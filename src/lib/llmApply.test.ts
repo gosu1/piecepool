@@ -3,11 +3,17 @@ import { normalizeTitle, slugOrHash, toSourceRefs, embedSourceFiles, synthesisPa
 import type { LlmConcept, LlmRelation } from "../llm/provider";
 import type { ArchiveNote, Relation, SourceRef, WikiPage } from "./types";
 import * as ipc from "./ipc";
+import { joinFeynmanSection, splitFeynmanSection, type FeynmanSession } from "./feynmanSection";
 
 vi.mock("./ipc", () => ({
   saveWiki: vi.fn(async (_space: string, page: unknown) => page),
   saveWikiBatch: vi.fn(async (_space: string, pages: unknown[]) => pages),
   appendRelations: vi.fn(async (_space: string, relations: unknown[] = []) => relations.length),
+  // 기본값: 디스크 재읽기 실패 → mergeMarkdown 이 스냅샷(ex)으로 폴백. 개별 테스트가
+  // mockResolvedValueOnce 로 "디스크가 스냅샷보다 최신" 시나리오를 덮어쓴다.
+  readWiki: vi.fn(async () => {
+    throw new Error("readWiki not mocked for this test");
+  }),
 }));
 
 describe("concept dedup key (normalizedTitle)", () => {
@@ -119,6 +125,21 @@ describe("synthesisPage", () => {
 
   it("일반 추출 페이지는 isSynthesisPage 아님", () => {
     expect(isSynthesisPage({ conceptId: "concept-transformer" } as WikiPage)).toBe(false);
+  });
+
+  it("재변환해도 파인만 기록은 살아남는다 — 본문은 새 출력으로 갈아탄다", () => {
+    const session: FeynmanSession = {
+      at: "2026-07-16T12:00:00.000Z",
+      verdict: "understood",
+      bodyHash: "a1b2c3d4",
+      turns: [{ role: "user", text: "내가 쓴 설명" }],
+    };
+    const first = synthesisPage("sp-1", NOTE, "v1", []);
+    const withRec = { ...first, markdown: joinFeynmanSection("v1", [session]) };
+    const second = synthesisPage("sp-1", NOTE, "v2", [withRec]);
+    const { body, sessions } = splitFeynmanSection(second.markdown);
+    expect(sessions).toEqual([session]);
+    expect(body).toBe("v2");
   });
 });
 
@@ -270,6 +291,127 @@ describe("applyLlmResult 병합 — 기존 개념에 새 노트가 얹힐 때", 
     const ex = existingPage();
     const applied = await applyOnto([ex], "교착 상태");
     expect(applied.pages[0].markdown).toBe(ex.markdown);
+  });
+
+  // ── 파인만 기록 보존 — LLM 이 본문을 다시 써도 코드가 지킨다 ──
+  const FEYNMAN: FeynmanSession = {
+    at: "2026-07-16T12:00:00.000Z",
+    verdict: "understood",
+    bodyHash: "a1b2c3d4",
+    turns: [{ role: "user", text: "내가 쓴 설명" }],
+  };
+  const OLD_BODY = "# 교착 상태\n\n1주차에 배운 내용";
+  const withRecord = () => existingPage({ markdown: joinFeynmanSection(OLD_BODY, [FEYNMAN]) });
+
+  it("병합 후에도 파인만 기록이 글자 그대로 남는다", async () => {
+    const applied = await applyOnto([withRecord()], "교착 상태", ["subj-os"], {
+      mergeMarkdown: async () => "# 교착 상태\n\n통합된 새 본문",
+    });
+    const { body, sessions } = splitFeynmanSection(applied.pages[0].markdown);
+    expect(sessions).toEqual([FEYNMAN]);
+    expect(body).toBe("# 교착 상태\n\n통합된 새 본문");
+  });
+
+  it("LLM 에 넘기는 본문에 파인만 기록이 없다 — 답 유출·판정 누출 차단", async () => {
+    let seen = "";
+    await applyOnto([withRecord()], "교착 상태", ["subj-os"], {
+      mergeMarkdown: async (existingMd) => {
+        seen = existingMd;
+        return "# 교착 상태\n\n통합된 새 본문";
+      },
+    });
+    expect(seen).toBe(OLD_BODY); // 기록을 걷어낸 본문만 간다
+    expect(seen).not.toContain("내가 쓴 설명");
+    expect(seen).not.toContain("이해함");
+  });
+
+  it("mergeMarkdown 미주입 폴백 — 기록이 중복되지 않는다", async () => {
+    const applied = await applyOnto([withRecord()], "교착 상태");
+    expect(splitFeynmanSection(applied.pages[0].markdown).sessions).toHaveLength(1);
+  });
+
+  it("mergeMarkdown 실패 폴백 — 기록이 중복되지 않는다", async () => {
+    const applied = await applyOnto([withRecord()], "교착 상태", ["subj-os"], {
+      mergeMarkdown: async () => {
+        throw new Error("[mergeWiki] HTTP 429");
+      },
+    });
+    expect(splitFeynmanSection(applied.pages[0].markdown).sessions).toHaveLength(1);
+  });
+
+  it("LLM 이 `## 파인만 기록` 을 뱉어도 진짜 기록이 body 로 새지 않는다", async () => {
+    // 가짜 헤딩이 남으면 다음 split 의 경계 계산이 진짜 헤딩을 경계로 삼아
+    // 진짜 세션이 통째로 body 가 되고, 다음 병합 때 LLM 에 유출된다.
+    const applied = await applyOnto([withRecord()], "교착 상태", ["subj-os"], {
+      mergeMarkdown: async () => "# 교착 상태\n\n새 본문\n\n## 파인만 기록\n\n### LLM 이 지어낸 것\n\n> 창작",
+    });
+    const { body, sessions } = splitFeynmanSection(applied.pages[0].markdown);
+    expect(sessions).toEqual([FEYNMAN]); // 진짜 기록 하나뿐
+    expect(body).toBe("# 교착 상태\n\n새 본문"); // 가짜 섹션은 버려진다 — LLM 창작이지 사용자 것이 아니다
+    expect(body).not.toContain("내가 쓴 설명");
+  });
+
+  it("LLM 이 가짜 헤딩을 두 개 뱉어도 마찬가지다 — 소독이 멱등이어야 한다", async () => {
+    // 1회만 걷어내는 구현은 두 번째 가짜를 body 에 남기고, 재부착 후 헤딩이 다시 두 개가 되어
+    // 바로 다음 라운드에 진짜 기록이 유출된다. 실제로 재현된 경로다.
+    const applied = await applyOnto([withRecord()], "교착 상태", ["subj-os"], {
+      mergeMarkdown: async () =>
+        "# 교착 상태\n\n새 본문\n\n## 파인만 기록\n\n### 가짜1\n\n> 창작1\n\n## 파인만 기록\n\n### 가짜2\n\n> 창작2",
+    });
+    const md = applied.pages[0].markdown;
+    expect(md.match(/^## 파인만 기록$/gm)).toHaveLength(1);
+    const { body, sessions } = splitFeynmanSection(md);
+    expect(sessions).toEqual([FEYNMAN]);
+    expect(body).toBe("# 교착 상태\n\n새 본문");
+    expect(body).not.toContain("내가 쓴 설명");
+  });
+
+  it("unparsed(읽을 수 없는 블록)도 병합을 건너 살아남는다", async () => {
+    const ex = existingPage({ markdown: `${joinFeynmanSection(OLD_BODY, [FEYNMAN])}\n\n### 깨진 헤더\n\n> 잃으면 안 되는 말\n` });
+    const applied = await applyOnto([ex], "교착 상태", ["subj-os"], {
+      mergeMarkdown: async () => "# 교착 상태\n\n새 본문",
+    });
+    expect(applied.pages[0].markdown).toContain("잃으면 안 되는 말");
+  });
+
+  // LLM 출력이 후행 개행으로 끝나는 건 정상 형태다. split 이 body 를 항상 정규화하므로
+  // 그 개행이 잘리는데, 픽스처에 후행 개행이 하나도 없어 이 경로가 검증되지 않고 있었다.
+  it("LLM 출력이 후행 개행으로 끝나도 기록 보존과 배지가 멀쩡하다", async () => {
+    const applied = await applyOnto([withRecord()], "교착 상태", ["subj-os"], {
+      mergeMarkdown: async () => "# 교착 상태\n\n새 본문\n\n",
+    });
+    const md = applied.pages[0].markdown;
+    const { body, sessions } = splitFeynmanSection(md);
+    expect(sessions).toEqual([FEYNMAN]);
+    expect(body).toBe("# 교착 상태\n\n새 본문");
+  });
+
+  // ── 디스크 재읽기 — ex 는 저장 버튼 누른 시점의 wikiBySlug 스냅샷인데, 쓰이는 건
+  // runWikiGeneration(LLM 30초+) 을 지난 뒤다. 그 사이 사용자가 위키 탭에서 끝낸 파인만
+  // 세션은 스냅샷엔 없다 — mergeMarkdown 은 디스크 최신본(cur)을 읽어 기준으로 삼아야 한다.
+  it("병합 성공 시 디스크 최신본을 기준으로 삼는다 — 스냅샷(ex)에 없는 세션도 살아남는다", async () => {
+    const staleEx = existingPage({ markdown: OLD_BODY }); // 스냅샷: 세션 없음
+    const freshOnDisk = { ...staleEx, markdown: joinFeynmanSection(OLD_BODY, [FEYNMAN]) }; // 디스크: 그 사이 세션 추가됨
+    vi.mocked(ipc.readWiki).mockResolvedValueOnce(freshOnDisk);
+    const applied = await applyOnto([staleEx], "교착 상태", ["subj-os"], {
+      mergeMarkdown: async () => "# 교착 상태\n\n통합된 새 본문",
+    });
+    expect(vi.mocked(ipc.readWiki)).toHaveBeenCalledWith("space", staleEx.path);
+    const { body, sessions } = splitFeynmanSection(applied.pages[0].markdown);
+    expect(sessions).toEqual([FEYNMAN]); // 스냅샷엔 없던 세션이 살아 있다
+    expect(body).toBe("# 교착 상태\n\n통합된 새 본문");
+  });
+
+  it("병합 실패 폴백도 디스크 최신본을 쓴다 — 스냅샷으로 되돌리면 그 사이의 세션을 잃는다", async () => {
+    const staleEx = existingPage({ markdown: OLD_BODY });
+    const freshOnDisk = { ...staleEx, markdown: joinFeynmanSection(OLD_BODY, [FEYNMAN]) };
+    vi.mocked(ipc.readWiki).mockResolvedValueOnce(freshOnDisk);
+    const applied = await applyOnto([staleEx], "교착 상태", ["subj-os"], {
+      mergeMarkdown: async () => {
+        throw new Error("[mergeWiki] HTTP 429");
+      },
+    });
+    expect(splitFeynmanSection(applied.pages[0].markdown).sessions).toEqual([FEYNMAN]);
   });
 });
 

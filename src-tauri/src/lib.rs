@@ -32,6 +32,80 @@ mod tests {
         assert_eq!(a, storage::slug_or_hash("자료구조"), "같은 이름은 안정적");
     }
 
+    /// 이관 테스트용 빈 루트. HOME 을 건드리지 않는다 — HOME 은 프로세스 전역이라
+    /// 병렬로 도는 seed_and_read_back 의 워크스페이스를 덮어쓴다.
+    fn migrate_root(name: &str) -> std::path::PathBuf {
+        let root = std::env::temp_dir().join(format!("pp-migrate-{}-{name}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("root");
+        root
+    }
+
+    #[test]
+    fn config_dir_is_hidden() {
+        // Finder/탐색기에서 ~/PiecePool 을 열면 과목 폴더만 보여야 한다.
+        let dir = storage::config_dir();
+        assert!(
+            dir.ends_with(storage::CONFIG_DIR),
+            "설정 폴더는 {} 여야 한다: {}",
+            storage::CONFIG_DIR,
+            dir.display()
+        );
+        assert!(dir.ends_with(".config"), "macOS·Windows 동일한 닷 이름");
+        // 이관 전 구버전 워크스페이스와 충돌하지 않게 레거시 이름도 예약을 유지한다.
+        assert!(storage::RESERVED_SPACE_DIR.contains(&".config"));
+        assert!(storage::RESERVED_SPACE_DIR.contains(&"config"));
+    }
+
+    #[test]
+    fn migrate_moves_legacy_config() {
+        let root = migrate_root("legacy-only");
+        std::fs::create_dir_all(root.join("config")).expect("legacy");
+        std::fs::write(root.join("config/workspace.json"), "{}").expect("marker");
+
+        storage::migrate_config_at(&root);
+        assert!(!root.join("config").exists(), "legacy 는 옮겨졌다");
+        assert_eq!(
+            std::fs::read_to_string(root.join(".config/workspace.json")).expect("이관된 설정"),
+            "{}"
+        );
+
+        // 멱등 — 두 번째 호출은 no-op
+        storage::migrate_config_at(&root);
+        assert!(root.join(".config/workspace.json").exists());
+        assert!(!root.join("config").exists());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn migrate_keeps_legacy_when_both_exist() {
+        // 둘 다 있으면 어느 쪽이 최신인지 알 수 없다 — 사용자 데이터를 지우지 않는다.
+        let root = migrate_root("both");
+        std::fs::create_dir_all(root.join("config")).expect("legacy");
+        std::fs::create_dir_all(root.join(".config")).expect("target");
+        std::fs::write(root.join("config/workspace.json"), "old").expect("old");
+        std::fs::write(root.join(".config/workspace.json"), "new").expect("new");
+
+        storage::migrate_config_at(&root);
+        assert_eq!(
+            std::fs::read_to_string(root.join("config/workspace.json")).expect("legacy 보존"),
+            "old"
+        );
+        assert_eq!(
+            std::fs::read_to_string(root.join(".config/workspace.json")).expect("현행 보존"),
+            "new"
+        );
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn migrate_is_noop_without_legacy() {
+        let root = migrate_root("empty");
+        storage::migrate_config_at(&root);
+        assert!(!root.join(".config").exists(), "빈 워크스페이스는 그대로");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
     #[test]
     fn space_dir_name_keeps_display_name() {
         // 계약 §4 — 폴더명 = 사용자가 화면에서 본 이름 그대로.

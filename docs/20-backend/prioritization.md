@@ -145,6 +145,13 @@ flush는 **델타 병합**(현재 파일 read → 카운트 가산 → atomic wr
 |---|---|---|---|---|
 | 1 | **Graph centrality** | in+out degree (허브 개념) | `relations.json` — **get_graph가 이미 계산** | 0.35 |
 | 2 | **Edge quality** | 인접 엣지의 `strength·confidence` 합 | `relations.json` | 0.15 |
+
+**팩터 1·2에서 제외하는 관계** (`graph.rs::counts_toward_priority`) — `kind`(core/result) 판정에도 동일 적용:
+
+- **`review_needed`** — 사용자가 "아직 모르겠다"고 붙인 마커이지 지식 구조가 아니다. 팩터 1의 신호는 **"허브 개념"**이고, 표시했다는 사실은 그 개념이 허브라는 근거가 못 된다.
+- **self-loop**(`source_node_id == target_node_id`) — 한 노드의 in/out을 동시에 올리고 `edge_quality`를 두 번 더해 **이중 계산**된다.
+
+빼지 않으면 표시하는 행위가 그 노드를 키우고(`size = 6 + priority*30`), `out == 0 && inn > 0`으로 판정하던 result 노드를 core로 뒤집는다 — 크기·색이 사용자 표시로 오염돼 **"크다 = 중요하다"**가 깨진다. 관계 자체는 `get_graph`가 그대로 반환한다(프런트가 빨간 테두리를 그리는 근거).
 | 3 | **Click frequency** | 사용자 실제 주목도 | app-local `node-stats.json` (§4) | 0.25 |
 | 4 | **Recency** | `updatedAt` 기반 신선도 decay | wiki frontmatter — **get_graph가 이미 읽음** | 0.15 |
 | 5 | **Source-backing** | `sourceIds`/`sourceRefs` 수 (근거 탄탄함) | wiki frontmatter — **get_graph가 이미 읽음** | 0.10 |

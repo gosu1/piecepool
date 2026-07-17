@@ -10,6 +10,7 @@ import { detectSourceRefConflicts } from "../lib/sourceRefConflicts";
 import { docKey } from "./types";
 import type { SearchItem } from "./types";
 import { DocView, ReviewBar } from "./panes/DocView";
+import { FeynmanPanel } from "./panes/FeynmanPanel";
 import { PageHeader } from "./panes/PageHeader";
 import type { LinkedItem } from "./panes/PageHeader";
 import { RelationQuality } from "./panes/RelationQuality";
@@ -29,6 +30,8 @@ import { ContextMenu, ConfirmDialog, PromptDialog } from "./shell/Dialogs";
 import { useWorkspaceStore, SIDEBAR_DEFAULT } from "../store/workspaceStore";
 import type { TabKind } from "../store/workspaceStore";
 import { useInboxDraftStore } from "../store/inboxDraftStore";
+import { useFeynmanStore, wikiKey, hasGeminiKey } from "../store/feynmanStore";
+import { splitFeynmanSection, joinFeynmanSection, stripFeynmanSection } from "../lib/feynmanSection";
 import { noteOriginalFiles } from "../lib/wikilink";
 import { getBodyFontSize, applyBodyFontSize } from "../lib/settings";
 
@@ -103,6 +106,8 @@ export default function PiecePoolApp() {
   const setCollapsedTree = useWorkspaceStore((s) => s.setCollapsedTree);
   const pinnedDocs = useWorkspaceStore((s) => s.pinnedDocs);
   const togglePinned = useWorkspaceStore((s) => s.togglePinned);
+  const studyHomeDocs = useWorkspaceStore((s) => s.studyHomeDocs);
+  const toggleStudyHome = useWorkspaceStore((s) => s.toggleStudyHome);
   const treeSort = useWorkspaceStore((s) => s.treeSort);
   const recentDocs = useWorkspaceStore((s) => s.recentDocs);
 
@@ -249,6 +254,32 @@ export default function PiecePoolApp() {
   }, [currentSpace]);
   const spaceName = spaces.find((s) => s.slug === currentSpace)?.name ?? "";
   const spaceNameOf = (slug: string) => spaces.find((s) => s.slug === slug)?.name ?? slug;
+
+  // 신규 개념(기록 0개)이면 파인만을 자동으로 연다 — 위키는 학습자가 만든 것이 아니므로
+  // 그냥 읽고 넘어가면 이해했다는 착각만 남는다(IOED).
+  //
+  // 마운트가 아니라 문서 정체성에 건다: DocView 에 key 가 없어 위키A→위키B 전환 시
+  // React 가 인스턴스를 재사용한다 → 마운트 훅은 열려야 할 때 안 열리고,
+  // 위키→그래프→위키 재마운트 때는 안 열려야 할 때 열린다.
+  const autoSpace = activeTab?.kind === "wiki" ? (activeTab.space ?? "") : "";
+  const autoWiki = activeTab?.kind === "wiki" ? (wikiBySlug[autoSpace] ?? []).find((w) => w.path === activeTab.file) : undefined;
+  useEffect(() => {
+    if (!autoWiki || !autoSpace) return;
+    // 정리 글은 학습자 본인 노트에서 나온 글이다. 자기가 방금 쓴 내용을 설명하라고 띄우는 건
+    // IOED 를 못 깨서 걷어낸 노트 파인만과 같은 것이다. 코드베이스도 정리 글을 개념으로 안 본다
+    // (llmApply 병합·toExistingConcepts 에서 제외).
+    if (isSynthesisPage(autoWiki)) return;
+    const st = useFeynmanStore.getState();
+    // 진행 중인 세션을 파괴하지 않는다 — session 은 앱 전역 싱글턴이고 메모리 전용이라
+    // 다른 페이지에서 쓰던 설명이 여기서 조용히 증발한다.
+    if (st.session) return;
+    if (st.dismissed[wikiKey(autoSpace, autoWiki.path)]) return;
+    // 키가 없으면 probeExplanation 이 빈 키로 실패해 되물음이 안 온다 — 반응 없는 빈 패널이 뜬다.
+    if (!hasGeminiKey()) return;
+    if (splitFeynmanSection(autoWiki.markdown).sessions.length) return;
+    st.start(autoSpace, autoWiki);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSpace, autoWiki?.path]);
 
   // ── 탭 열기(=네비게이션) ──
   const openWiki = (space: string, file: string) => {
@@ -489,6 +520,17 @@ export default function PiecePoolApp() {
     else openArchive(e.space, e.file);
   };
 
+  // "Study Home에 추가"한 문서(홈 큰 파일 타일) — 삭제/이동으로 사라진 것은 걸러낸다.
+  const studyHomeEntries = studyHomeDocs.flatMap((id) => {
+    const [kind, space, ...rest] = id.split(":");
+    const file = rest.join(":");
+    const list = kind === "wiki" ? wikiBySlug[space] : notesBySlug[space];
+    const doc = (list ?? []).find((d) => d.path === file);
+    return doc ? [{ id, title: doc.title, kind: kind as "wiki" | "archive", space, file }] : [];
+  });
+  const openStudyHomeDoc = (kind: "wiki" | "archive", space: string, file: string) =>
+    kind === "wiki" ? openWiki(space, file) : openArchive(space, file);
+
   // ── 트리 DnD: source md 를 다른 공간으로 이동 ──
   const slugOfFolder = (folderId: string) => {
     const [kind, slug] = folderId.split(":");
@@ -577,6 +619,16 @@ export default function PiecePoolApp() {
                 onClick: () => handleMoveNode(`doc:${menuDoc.kind}:${menuDoc.space}:${menuDoc.file}`, `af:${s.slug}`),
               }))
           : []),
+        {
+          // 북마크 — 사이드바 별 드롭다운(pinnedDocs). 있으면 제거로 전환.
+          label: pinnedDocs.includes(`${menuDoc.kind}:${menuDoc.space}:${menuDoc.file}`) ? "북마크 제거" : "북마크에 추가",
+          onClick: () => togglePinned(`${menuDoc.kind}:${menuDoc.space}:${menuDoc.file}`),
+        },
+        {
+          // Study Home 타일 — 북마크와 별개(studyHomeDocs). 홈 화면에 큰 파일 카드로 뜬다.
+          label: studyHomeDocs.includes(`${menuDoc.kind}:${menuDoc.space}:${menuDoc.file}`) ? "Study Home에서 제거" : "Study Home에 추가",
+          onClick: () => toggleStudyHome(`${menuDoc.kind}:${menuDoc.space}:${menuDoc.file}`),
+        },
         {
           label: "이름 변경…",
           onClick: () => {
@@ -728,8 +780,13 @@ export default function PiecePoolApp() {
   const setDraft = (key: string, md: string) => setDrafts((d) => ({ ...d, [key]: md }));
   // 저장 후에는 드래프트를 비운다 — 남겨두면 다음 편집 진입 시 stale 드래프트가 부활해
   // 그 사이 외부 갱신(AI 병합 등)된 내용을 덮어쓴다.
+  //
+  // 파인만 기록은 편집기에 안 보이므로(draft 는 strip 된 본문) 디스크 최신본에서 꺼내 되붙인다.
+  // 메모리의 page.markdown 을 쓰면 편집 중에 끝낸 세션이 사라진다 — 그 세션은 디스크에만 있다.
   const saveWikiDoc = async (space: string, page: WikiPageT, md: string) => {
-    const saved = await ipc.saveWiki(space, { ...page, markdown: md });
+    const cur = await ipc.readWiki(space, page.path);
+    const { sessions, unparsed } = splitFeynmanSection(cur.markdown);
+    const saved = await ipc.saveWiki(space, { ...cur, markdown: joinFeynmanSection(md, sessions, unparsed) });
     setWikiBySlug((m) => ({ ...m, [space]: (m[space] ?? []).map((x) => (x.path === page.path ? saved : x)) }));
     clearDocState(docKey(space, page.path));
     setTabDirty(`wiki:${space}:${page.path}`, false);
@@ -891,6 +948,8 @@ export default function PiecePoolApp() {
     const candidates = (wikiBySlug[space] ?? [])
       .filter((w) => !isSynthesisPage(w) && !neighborIds.has(w.conceptId))
       .map((w) => ({ key: w.path, label: w.title }));
+    // 편집기는 기록을 모른다 — draft·dirty·저장 폴백이 전부 이 값을 기준으로 움직인다.
+    const savedBody = stripFeynmanSection(page.markdown);
     return (
       <DocView
         docType="wiki"
@@ -933,17 +992,17 @@ export default function PiecePoolApp() {
         }
         savedMd={page.markdown}
         isEditing={editing.has(key)}
-        draft={drafts[key] ?? page.markdown}
-        onToggleEdit={() => toggleEdit(key, page.markdown)}
+        draft={drafts[key] ?? savedBody}
+        onToggleEdit={() => toggleEdit(key, savedBody)}
         onCancel={() => {
           clearDocState(key);
           setTabDirty(tabId, false);
         }}
         onChangeDraft={(md) => {
           setDraft(key, md);
-          setTabDirty(tabId, md !== page.markdown);
+          setTabDirty(tabId, md !== savedBody);   // strip 기준 — 안 맞추면 열자마자 dirty 로 뜬다
         }}
-        onSave={() => saveWikiDoc(space, page, drafts[key] ?? page.markdown)}
+        onSave={() => saveWikiDoc(space, page, drafts[key] ?? savedBody)}
         onLink={(t) => resolveLink(space, t)}
         linkExists={linkExistsIn(space)}
         embedSpace={space}
@@ -953,6 +1012,22 @@ export default function PiecePoolApp() {
         relationGroups={sections.relationGroups}
         confused={sections.confused}
         conflicts={sections.conflicts}
+        // 정리 글(concept-syn-*)은 학습자 본인 노트에서 나온 글이라 파인만 대상이 아니다
+        bottomSlot={
+          isSynthesisPage(page) ? undefined : (
+            // onSaved 가 없으면 판정 후 page prop 이 stale 로 남아 접힌 카드가 영영 안 나타난다.
+            // saveWikiDoc·toggleWikiSubject 가 저장 후 setWikiBySlug 를 부르는 것과 같은 이유다.
+            <FeynmanPanel
+              space={space}
+              page={page}
+              // 매칭 키는 저장 **전** path — saveWikiDoc·toggleWikiSubject 와 같다. saved.path 로
+              // 찾으면 저장 중 path 가 바뀌는 날 조용히 no-op 이 된다(행을 못 찾고 아무 일도 안 남).
+              onSaved={(saved) =>
+                setWikiBySlug((m) => ({ ...m, [space]: (m[space] ?? []).map((x) => (x.path === page.path ? saved : x)) }))
+              }
+            />
+          )
+        }
       />
     );
   };
@@ -1051,8 +1126,6 @@ export default function PiecePoolApp() {
         linkExists={linkExistsIn(space)}
         embedSpace={space}
         terms={termsBySlug[space]}
-        // 파인만은 원본 노트에서만 — 위키는 LLM 이 쓴 글이라 "자기 말로 설명"의 대상이 아니다.
-        feynman={{ noteId: note.sourceId, space }}
         bottomSlot={
           <>
             <ReviewBar
@@ -1084,6 +1157,9 @@ export default function PiecePoolApp() {
           notesBySlug={notesBySlug}
           graphBySlug={graphBySlug}
           currentSpace={currentSpace}
+          studyHomeItems={studyHomeEntries}
+          onOpenDoc={openStudyHomeDoc}
+          onRemoveFromHome={toggleStudyHome}
           onOpenWiki={openWiki}
           onNewNote={() => openNewNote(currentSpace)}
           onNewFolder={() => setDialog({ kind: "new-space" })}
@@ -1138,9 +1214,16 @@ export default function PiecePoolApp() {
             existing={wikiBySlug[sp] ?? []}
             spaces={spaces}
             wikiBySlug={wikiBySlug}
+            notesBySlug={notesBySlug}
             graphBySlug={graphBySlug}
             onCreateSpace={createNewSpace}
             onOpenWiki={openWiki}
+            onWikiSaved={(savedSpace, path, saved) =>
+              setWikiBySlug((m) => ({
+                ...m,
+                [savedSpace]: (m[savedSpace] ?? []).map((x) => (x.path === path ? saved : x)),
+              }))
+            }
             onRefresh={(s) => refreshSpace(s)}
             onNotice={setNotice}
             quickMemoOpen={memoOpen}

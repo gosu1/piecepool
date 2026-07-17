@@ -14,6 +14,7 @@ import {
   type RelationGroupId,
 } from "../../lib/relationMeta";
 import { Markdown } from "../../lib/markdown";
+import { stripFeynmanSection } from "../../lib/feynmanSection";
 import { PromptDialog } from "../shell/Dialogs";
 import { RelationQualityMeter } from "./RelationQuality";
 
@@ -556,41 +557,48 @@ export function GraphSection({
           </Card>
         ) : page ? (
           <Card padding="lg" className="flex h-full max-h-full flex-col overflow-hidden">
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <h3 className="truncate text-[16px] font-bold text-ink">{page.title}</h3>
-              <Button size="sm" variant="utility" onClick={() => onOpenWiki(nodeSpace, page.path)}>
-                열기
-              </Button>
-            </div>
-            {/* 붙이는 것도 거두는 것도 사용자다 — AI 는 이 표시를 못 만들고 못 지운다. */}
+            {/* 제목은 본문 마크다운 첫 줄의 `# 제목`(H1)이 렌더한다 — 여기서 또 찍으면 두 번 나온다 */}
+            {/* 액션은 한 줄 수평 배치(인박스 위키 패널과 동일) — 표시/해제 + 열기.
+                붙이는 것도 거두는 것도 사용자다 — AI 는 이 표시를 못 만들고 못 지운다. */}
             {nodeReviewed ? (
-              <div className="mb-2 flex items-center gap-2 rounded-md border border-dashed px-2 py-1.5" style={{ borderColor: REVIEW_COLOR }}>
-                <p className="min-w-0 flex-1 text-[12px] leading-snug" style={{ color: REVIEW_COLOR }}>
-                  아직 모르겠다고 표시한 개념
-                </p>
-                <Button
-                  size="sm"
-                  variant="utility"
-                  className="shrink-0 whitespace-nowrap"
-                  disabled={unmarking}
-                  onClick={async () => {
-                    setUnmarking(true);
-                    try {
-                      await onUnmarkReview(nodeSpace, node.id, page.title);
-                    } finally {
-                      setUnmarking(false);
-                    }
-                  }}
-                >
-                  {unmarking ? "해제 중…" : "표시 해제"}
+              <div className="mb-2 flex items-center gap-2">
+                <Button size="sm" variant="utility" className="shrink-0" onClick={() => onOpenWiki(nodeSpace, page.path)}>
+                  열기
                 </Button>
+                <div className="flex min-w-0 flex-1 items-center gap-2 rounded-md border border-dashed px-2 py-1.5" style={{ borderColor: REVIEW_COLOR }}>
+                  {/* 열기와 한 행을 나눠 쓰므로 배너에 남는 폭이 ~128px 뿐이다 — 문구를 짧게 두고
+                      nowrap 으로 못박아 줄바꿈으로 행 높이가 튀지 않게 한다. */}
+                  <p className="min-w-0 flex-1 truncate text-[12px] leading-snug" style={{ color: REVIEW_COLOR }}>
+                    아직 모르겠음
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="utility"
+                    className="shrink-0 whitespace-nowrap"
+                    disabled={unmarking}
+                    onClick={async () => {
+                      setUnmarking(true);
+                      try {
+                        await onUnmarkReview(nodeSpace, node.id, page.title);
+                      } finally {
+                        setUnmarking(false);
+                      }
+                    }}
+                  >
+                    {unmarking ? "해제 중…" : "표시 해제"}
+                  </Button>
+                </div>
               </div>
             ) : (
-              <div className="mb-2 flex justify-end">
+              // 두 버튼이 행을 나눠 채운다 — 제목을 뺀 자리가 빈칸으로 남지 않게(패널 폭 320px 고정).
+              <div className="mb-2 flex items-center gap-2">
+                <Button size="sm" variant="utility" className="flex-1" onClick={() => onOpenWiki(nodeSpace, page.path)}>
+                  열기
+                </Button>
                 <Button
                   size="sm"
                   variant="utility"
-                  className="whitespace-nowrap"
+                  className="flex-1 whitespace-nowrap"
                   disabled={!nodeSourceId}
                   title={nodeSourceId ? undefined : "출처가 없는 개념은 표시할 수 없어요"}
                   onClick={() => setMarkOpen(true)}
@@ -613,7 +621,7 @@ export function GraphSection({
               />
             )}
             <div className="min-h-0 flex-1 overflow-y-auto">
-              <Markdown source={page.markdown} />
+              <Markdown source={stripFeynmanSection(page.markdown)} />
             </div>
           </Card>
         ) : (

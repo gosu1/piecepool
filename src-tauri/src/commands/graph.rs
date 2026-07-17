@@ -45,6 +45,20 @@ fn is_symmetric(rt: RelationType) -> bool {
     matches!(rt, Contrasts | ConfusedWith | RelatedTo)
 }
 
+/// 이 관계를 우선도 팩터(centrality·edge_quality)와 kind 판정에 셈하는가. (prioritization.md §5.1 factor 1)
+///
+/// 두 가지를 뺀다:
+/// - `review_needed` — 사용자가 "아직 모르겠다" 고 붙인 마커이지 지식 구조가 아니다. factor 1 의 정의는
+///   "허브 개념"이고, 표시했다는 사실은 그 개념이 허브라는 근거가 못 된다.
+/// - self-loop — source·target 이 같아 한 노드의 in/out 을 동시에 올리고 edge_quality 를 두 번 더한다.
+///
+/// 빼지 않으면 표시하는 행위가 그 노드를 키우고(`size = 6 + priority*30`), `out == 0 && inn > 0` 로
+/// 판정하던 result 노드를 core 로 뒤집는다 — 크기·색이 사용자 표시로 오염돼 "크다 = 중요하다" 가 깨진다.
+/// 관계 자체는 그대로 반환한다(프런트가 빨간 테두리를 그리는 근거).
+fn counts_toward_priority(r: &Relation) -> bool {
+    r.relation_type != RelationType::ReviewNeeded && r.source_node_id != r.target_node_id
+}
+
 /// 중복 판정 키. 대칭 타입은 (source,target) 을 정렬해 방향 차이를 지운다.
 /// 방향성 타입(part_of·prerequisite 등)은 정렬하면 계층축(DAG)이 무너지므로 그대로 둔다.
 fn dedup_key(r: &Relation) -> (String, String, RelationType) {
@@ -111,6 +125,9 @@ pub fn get_graph(space: String) -> Result<GraphData, String> {
     // 저장된 방향의 target 이 "받기만 하는" 노드로 오분류된다.
     let mut symmetric_touched: HashSet<&str> = HashSet::new();
     for r in &relations {
+        if !counts_toward_priority(r) {
+            continue;
+        }
         *outdeg.entry(r.source_node_id.clone()).or_default() += 1;
         *indeg.entry(r.target_node_id.clone()).or_default() += 1;
         if is_symmetric(r.relation_type) {
@@ -320,4 +337,62 @@ pub fn unmark_review_needed(space: String, concept_id: String) -> Result<usize, 
         .filter(|r| !is_review_self_loop(r, &concept_id))
         .collect();
     write_relations(&space, &kept)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn rel(source: &str, target: &str, rt: RelationType) -> Relation {
+        Relation {
+            id: "rel-1".into(),
+            space_id: "sp-1".into(),
+            source_node_id: source.into(),
+            target_node_id: target.into(),
+            relation_type: rt,
+            strength: 0.9,
+            confidence: 0.9,
+            explanation: String::new(),
+            evidence: vec![],
+            created_at: "2026-07-17T00:00:00+09:00".into(),
+            updated_at: "2026-07-17T00:00:00+09:00".into(),
+        }
+    }
+
+    // 회귀: "아직 모르겠다" 표시(review_needed self-loop)가 우선도 팩터에 섞여 들어가면
+    // outdeg·indeg 가 같은 노드에 +1 씩(centrality +2), edge_quality 가 +2w 되어
+    // 표시하는 행위만으로 노드가 커졌다(size = 6 + priority*30). 크기 채널의 의미가 깨진다.
+    #[test]
+    fn review_marker_is_not_a_priority_factor() {
+        assert!(!counts_toward_priority(&rel(
+            "concept-a",
+            "concept-a",
+            RelationType::ReviewNeeded
+        )));
+    }
+
+    // self-loop 는 타입과 무관하게 한 노드의 in/out 을 동시에 올려 이중 계산된다.
+    #[test]
+    fn self_loop_is_not_a_priority_factor() {
+        assert!(!counts_toward_priority(&rel(
+            "concept-a",
+            "concept-a",
+            RelationType::RelatedTo
+        )));
+    }
+
+    // 진짜 지식 관계는 그대로 센다 — 우선도가 죽으면 안 된다.
+    #[test]
+    fn real_relation_counts() {
+        assert!(counts_toward_priority(&rel(
+            "concept-a",
+            "concept-b",
+            RelationType::Prerequisite
+        )));
+        assert!(counts_toward_priority(&rel(
+            "concept-a",
+            "concept-b",
+            RelationType::RelatedTo
+        )));
+    }
 }
