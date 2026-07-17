@@ -21,6 +21,8 @@ export interface ImportJobView {
   status: ImportJobStatus;
   errorMessage?: string;
   engine?: "gemini" | "heuristic";
+  warning?: string; // 휴리스틱 폴백 사유(키 없음/LLM 실패) — 완료 알림이 사용자에게 보여준다
+
   wikiCount?: number;
   relationCount?: number;
   mergedCount?: number;
@@ -118,8 +120,9 @@ export const useImportStore = create<ImportState>((set) => {
     engine: "gemini" | "heuristic",
     note: ArchiveNote,
     p: RunImportParams,
+    warning?: string,
   ): Promise<ImportJobView> => {
-    commit({ ...job, status: "writing", engine });
+    commit({ ...job, status: "writing", engine, warning });
     const fc = await maybeFactCheck(result);
     const applied = await applyLlmResult(
       p.space,
@@ -139,6 +142,7 @@ export const useImportStore = create<ImportState>((set) => {
       ...job,
       status: "completed",
       engine,
+      warning,
       wikiCount: applied.pages.length,
       relationCount: applied.relationCount,
       mergedCount: applied.merged,
@@ -173,10 +177,17 @@ export const useImportStore = create<ImportState>((set) => {
         job = commit({ ...job, status: "llm_processing" });
         const input = buildInput(note, p.existing, p.crossConcepts);
 
-        const { result, engine } = await runWikiGeneration(input, apiKey(), { chunk: chunkOpts() });
+        const key = apiKey();
+        const gen = await runWikiGeneration(input, key, { chunk: chunkOpts() });
+        // 휴리스틱으로 조용히 내려간 이유를 사용자 문구로 구성해 job.warning 에 싣는다(engine 과 같은 수명).
+        const warning = gen.warning
+          ? `LLM 호출 실패로 기본 추출로 만들었어요: ${gen.warning}`
+          : gen.engine === "heuristic" && !key.trim()
+            ? "Gemini 키가 없어 기본 추출로 만들었어요. 설정에서 키를 등록해 주세요."
+            : undefined;
         // await 필수 — 프로미스를 그대로 return 하면 거부가 아래 catch 를 우회해 job 이
         // "writing" 으로 영구 고착되고(importBusy 게이트가 이후 저장 전부 무시) 실패 알림도 안 뜬다.
-        return await writeAndComplete(job, result, engine, note, p);
+        return await writeAndComplete(job, gen.result, gen.engine, note, p, warning);
       } catch (e) {
         return commit({ ...job, status: "failed", errorMessage: String(e) });
       }

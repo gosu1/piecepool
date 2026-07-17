@@ -97,3 +97,35 @@ describe("runImport — writing 단계 실패", () => {
     expect(useImportStore.getState().job?.status).toBe("completed");
   });
 });
+
+describe("runImport — 휴리스틱 폴백 사유(warning) 표출", () => {
+  beforeEach(() => {
+    vi.mocked(applyLlmResult).mockResolvedValue({ pages: [], relationCount: 0, merged: 0 });
+  });
+
+  it("LLM 호출 실패 폴백 시 사유(원문 포함)가 job.warning 으로 전파된다", async () => {
+    localStorage.setItem("gemini-key", "k");
+    vi.mocked(runWikiGeneration).mockResolvedValue({
+      result: { concepts: [], relations: [] },
+      engine: "heuristic",
+      warning: "HTTP 429 Too Many Requests",
+    });
+    const res = await useImportStore.getState().runImport(PARAMS);
+    expect(res.status).toBe("completed");
+    expect(res.warning).toContain("LLM 호출 실패로 기본 추출로 만들었어요");
+    expect(res.warning).toContain("HTTP 429 Too Many Requests");
+    expect(useImportStore.getState().job?.warning).toBe(res.warning);
+  });
+
+  it("키 없음 폴백 시 키 등록 안내 warning 이 설정된다", async () => {
+    // beforeEach 의 localStorage.clear() 로 gemini-key 없음
+    vi.mocked(runWikiGeneration).mockResolvedValue({
+      result: { concepts: [], relations: [] },
+      engine: "heuristic",
+    });
+    const res = await useImportStore.getState().runImport(PARAMS);
+    expect(res.status).toBe("completed");
+    expect(res.warning).toContain("Gemini 키가 없어");
+    expect(res.warning).toContain("설정에서 키를 등록");
+  });
+});
