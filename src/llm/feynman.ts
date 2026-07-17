@@ -162,23 +162,24 @@ export async function probeExplanation(
 //
 // 파인만의 불변 제약(답 금지)은 그대로다. 주는 것은 두 가지뿐:
 //   1) "X 을(를) Y 에 비유해보세요" 한 문장 — 큰 그림을 잡을 비유 프레임
-//   2) 힌트 키워드 — LLM 이 속으로 쓴 파인만식 설명에서 뽑은, 비유 세계의 단어들
-// 키워드는 디딤돌이지 설명이 아니다 — 설명은 여전히 사용자가 조립한다.
+//   2) 비유 세계의 유도 질문 2~3개 — 순서대로 답하다 보면 설명이 조립된다
+// 키워드(명사 나열)로는 뭘 해야 할지 몰랐다 — 질문은 할 일 자체다. 질문이라서
+// 답 노출도 구조적으로 없다: 대응 관계를 묻지, 말하지 않는다.
 
 export interface AnalogyHint {
   /** "single-head attention 을 탐정에 비유해보세요" 꼴의 권유 한 문장 */
   analogy: string;
-  /** 비유 세계의 힌트 키워드 (예: 탐정, 사건 현장, 단서) */
-  keywords: string[];
+  /** 비유 세계의 유도 질문 — 순서대로 답하면 설명이 된다 (예: "탐정은 왜 혼자 모든 단서를 볼까요?") */
+  questions: string[];
 }
 
 const HINT_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["analogy", "keywords"],
+  required: ["analogy", "questions"],
   properties: {
     analogy: { type: "string" },
-    keywords: { type: "array", items: { type: "string" }, minItems: 3, maxItems: 6 },
+    questions: { type: "array", items: { type: "string" }, minItems: 2, maxItems: 3 },
   },
 } as const;
 
@@ -191,19 +192,22 @@ const buildHintSystem = (lang: OutputLanguage) =>
     "Then output ONLY:",
     "- analogy: ONE short sentence inviting the student to try that analogy",
     "  (Korean pattern: '<개념>을(를) <비유 대상>에 비유해보세요'). Never explain HOW the analogy maps.",
-    "- keywords: 3-6 short words/phrases FROM your silent explanation — words of the analogy's world",
-    "  (roles, objects, actions; e.g. for 'single-head attention → 탐정': 탐정, 사건 현장, 단서, 혼자서).",
+    "- questions: 2-3 short guiding questions set INSIDE the analogy's world, ordered so that answering",
+    "  them one by one rebuilds your silent explanation (e.g. why the analogy is set up this way →",
+    "  what each part does → how it comes together). One question may ask what a thing in the analogy",
+    "  corresponds to in the concept ('비유 속 X는 <개념>에서 무엇에 해당할까요?').",
     "HARD RULES:",
-    "1. NEVER give the answer. No definition, no explanation of the concept, no analogy-to-concept mapping.",
-    "2. Keywords are stepping stones, not the explanation — no technical terms from the concept itself.",
-    "3. Pick an analogy that fits THIS concept and note. Do not reuse the example above unless it truly fits.",
+    "1. NEVER give the answer. No definition, no explanation of the concept, no analogy-to-concept mapping —",
+    "   questions ASK for the mapping, they never state it.",
+    "2. Each question is ONE short sentence with ONE question mark.",
+    "3. Pick an analogy that fits THIS concept and note.",
     "Output language rule:",
     languageDirective(lang),
     "Respond ONLY with JSON conforming to the schema.",
   ].join("\n");
 
 /**
- * 설명을 시작 못 하는 사용자에게 비유 프레임 + 힌트 키워드를 준다.
+ * 설명을 시작 못 하는 사용자에게 비유 프레임 + 유도 질문을 준다.
  * @param concept  설명 대상 개념 제목
  * @param noteText 사용자의 원본 노트 (LLM 이 맥락으로 읽는다)
  */
@@ -227,19 +231,19 @@ export async function analogyHint(
   });
 
   const parsed = (await chatJsonWithRetry("feynman-hint", key, body, deps)) as
-    | { analogy?: string; keywords?: unknown }
+    | { analogy?: string; questions?: unknown }
     | null;
   const analogy = parsed?.analogy?.trim();
   if (!analogy) throw new Error("[provider=gemini] feynman-hint: no structured output");
 
-  // 키워드는 부분 실패를 허용한다 — 비유 한 문장만으로도 힌트는 성립한다.
-  // strict:false 라 스키마의 maxItems 를 못 믿는다 — 중복 제거 후 6개로 자른다.
-  const keywords = Array.isArray(parsed!.keywords)
+  // 질문은 부분 실패를 허용한다 — 비유 한 문장만으로도 힌트는 성립한다.
+  // strict:false 라 스키마의 maxItems 를 못 믿는다 — 중복 제거 후 3개로 자른다.
+  const questions = Array.isArray(parsed!.questions)
     ? [
         ...new Set(
-          parsed!.keywords.filter((k): k is string => typeof k === "string" && !!k.trim()).map((k) => k.trim()),
+          parsed!.questions.filter((q): q is string => typeof q === "string" && !!q.trim()).map((q) => q.trim()),
         ),
-      ].slice(0, 6)
+      ].slice(0, 3)
     : [];
-  return { analogy, keywords };
+  return { analogy, questions };
 }

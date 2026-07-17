@@ -170,40 +170,40 @@ describe("probeExplanation", () => {
 });
 
 describe("analogyHint", () => {
-  it("비유 한 문장 + 힌트 키워드를 파싱한다", async () => {
+  it("비유 한 문장 + 유도 질문을 파싱한다", async () => {
     const h = await analogyHint("single-head attention", NOTE, "k", {
       fetchFn: geminiOk({
         analogy: "single-head attention을 탐정 한 명에 비유해보세요",
-        keywords: ["탐정", "사건 현장", "단서", "혼자서"],
+        questions: ["탐정은 왜 혼자서 모든 단서를 볼까요?", "탐정이 놓칠 수 있는 건 뭘까요?"],
       }) as unknown as typeof fetch,
     });
     expect(h).toEqual({
       analogy: "single-head attention을 탐정 한 명에 비유해보세요",
-      keywords: ["탐정", "사건 현장", "단서", "혼자서"],
+      questions: ["탐정은 왜 혼자서 모든 단서를 볼까요?", "탐정이 놓칠 수 있는 건 뭘까요?"],
     });
   });
 
-  it("keywords 가 깨져 있으면 정리한다 — 비유 한 문장만으로도 힌트는 성립한다", async () => {
+  it("questions 가 깨져 있으면 정리한다 — 비유 한 문장만으로도 힌트는 성립한다", async () => {
     const h = await analogyHint("c", NOTE, "k", {
-      fetchFn: geminiOk({ analogy: "a", keywords: [1, " 탐정 ", "", "탐정"] }) as unknown as typeof fetch,
+      fetchFn: geminiOk({ analogy: "a", questions: [1, " 왜죠? ", "", "왜죠?"] }) as unknown as typeof fetch,
     });
-    expect(h.keywords).toEqual(["탐정"]); // 비문자열·공백 제거 + 중복 제거
+    expect(h.questions).toEqual(["왜죠?"]); // 비문자열·공백 제거 + 중복 제거
     const none = await analogyHint("c", NOTE, "k", {
       fetchFn: geminiOk({ analogy: "a" }) as unknown as typeof fetch,
     });
-    expect(none.keywords).toEqual([]);
+    expect(none.questions).toEqual([]);
   });
 
-  it("keywords 가 넘치면 6개로 자른다 — strict:false 라 스키마 maxItems 를 못 믿는다", async () => {
+  it("questions 가 넘치면 3개로 자른다 — strict:false 라 스키마 maxItems 를 못 믿는다", async () => {
     const h = await analogyHint("c", NOTE, "k", {
-      fetchFn: geminiOk({ analogy: "a", keywords: ["a", "b", "c", "d", "e", "f", "g", "h"] }) as unknown as typeof fetch,
+      fetchFn: geminiOk({ analogy: "a", questions: ["q1?", "q2?", "q3?", "q4?", "q5?"] }) as unknown as typeof fetch,
     });
-    expect(h.keywords).toEqual(["a", "b", "c", "d", "e", "f"]);
+    expect(h.questions).toEqual(["q1?", "q2?", "q3?"]);
   });
 
   it("analogy 가 비면 던진다", async () => {
     await expect(
-      analogyHint("c", NOTE, "k", { fetchFn: geminiOk({ keywords: ["탐정"] }) as unknown as typeof fetch }),
+      analogyHint("c", NOTE, "k", { fetchFn: geminiOk({ questions: ["왜죠?"] }) as unknown as typeof fetch }),
     ).rejects.toThrow(/no structured output/);
   });
 
@@ -211,19 +211,21 @@ describe("analogyHint", () => {
     await expect(analogyHint("c", NOTE, "  ")).rejects.toThrow(/API key/);
   });
 
-  it("프롬프트가 '답 금지·비유만' 을 강제하고 개념·노트를 맥락으로 담는다", async () => {
+  it("프롬프트가 '답 금지·질문은 묻기만' 을 강제하고 개념·노트를 맥락으로 담는다", async () => {
     let sent = "";
     await analogyHint("임계 구역", NOTE, "k", {
       fetchFn: (async (_u: string, init: RequestInit) => {
         sent = String(init.body);
-        return new Response(JSON.stringify({ choices: [{ message: { content: '{"analogy":"a","keywords":["b"]}' } }] }), {
-          status: 200,
-        });
+        return new Response(
+          JSON.stringify({ choices: [{ message: { content: '{"analogy":"a","questions":["b?"]}' } }] }),
+          { status: 200 },
+        );
       }) as unknown as typeof fetch,
     });
     expect(sent).toContain("NEVER give the answer");
-    expect(sent).toContain("no analogy-to-concept mapping");
+    expect(sent).toContain("questions ASK for the mapping, they never state it");
     expect(sent).toContain("비유해보세요");
+    expect(sent).toContain("guiding questions");
     expect(sent).toContain("임계 구역");
     expect(sent).toContain("락을 건다"); // 노트 본문이 맥락으로 들어간다
   });
@@ -236,7 +238,7 @@ describe("analogyHint", () => {
         calls++;
         return calls < 3
           ? new Response("", { status: 503 })
-          : new Response(JSON.stringify({ choices: [{ message: { content: '{"analogy":"a","keywords":["b"]}' } }] }), {
+          : new Response(JSON.stringify({ choices: [{ message: { content: '{"analogy":"a","questions":["b?"]}' } }] }), {
               status: 200,
             });
       }) as unknown as typeof fetch,

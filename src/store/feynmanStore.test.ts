@@ -256,7 +256,7 @@ describe("dismiss — [닫기]", () => {
 });
 
 describe("requestHint — [아직 모르겠어요] 1단계", () => {
-  const HINT = { analogy: "스레드를 작업반에 비유해보세요", keywords: ["작업반", "공구"] };
+  const HINT = { analogy: "스레드를 작업반에 비유해보세요", questions: ["작업반은 왜 여러 명일까요?"] };
 
   it("기록을 걷어낸 본문을 맥락으로 힌트를 받아 세션에 싣는다", async () => {
     vi.mocked(analogyHint).mockResolvedValue(HINT);

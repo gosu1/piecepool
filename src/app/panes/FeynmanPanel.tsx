@@ -148,7 +148,8 @@ export function FeynmanPanel({
         </div>
       )}
 
-      {/* [아직 모르겠어요] 1단계 힌트 — 답이 아니라 출발점(비유 프레임 + 키워드)이다 */}
+      {/* [아직 모르겠어요] 1단계 힌트 — 답이 아니라 출발점이다. 비유 프레임 + 유도 질문:
+          질문에 순서대로 답하다 보면 그게 곧 설명이 된다(키워드 나열은 할 일을 안 줘서 버렸다). */}
       {hinting && <p className="text-[13px] text-ink-faint">힌트 만드는 중…</p>}
       {hintError && (
         <div className="flex flex-wrap items-center gap-2">
@@ -163,12 +164,13 @@ export function FeynmanPanel({
           <p className="text-[13px] leading-relaxed text-ink">
             <span className="font-semibold text-primary">힌트</span> — {hint.analogy}
           </p>
-          {hint.keywords.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              {hint.keywords.map((k) => (
-                <span key={k} className="rounded-full border border-hairline bg-surface-soft px-2 py-0.5 text-[12px] text-ink-2">
-                  {k}
-                </span>
+          {hint.questions.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-[12px] text-ink-faint">이 질문에 하나씩 답해보세요 — 그게 곧 설명이 돼요.</p>
+              {hint.questions.map((q, i) => (
+                <p key={q} className="text-[13px] leading-relaxed text-ink-2">
+                  {i + 1}. {q}
+                </p>
               ))}
             </div>
           )}

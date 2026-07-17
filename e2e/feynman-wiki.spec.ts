@@ -18,7 +18,7 @@ test.beforeEach(async ({ page }) => {
   await page.route("**generativelanguage.googleapis.com**", (route) =>
     route.fulfill(
       (route.request().postData() ?? "").includes('"AnalogyHint"')
-        ? chat({ analogy: "프로세스를 요리사에 비유해보세요", keywords: ["요리사", "주방", "레시피"] })
+        ? chat({ analogy: "프로세스를 요리사에 비유해보세요", questions: ["주방에는 왜 요리사가 있을까요?", "레시피는 누가 볼까요?"] })
         : chat({ probe: "실행 중이라는 게 정확히 무슨 뜻인가요?", targetGap: "term" }),
     ),
   );
@@ -111,7 +111,7 @@ test("[아직 모르겠어요] 1단계는 비유 힌트만 — 기록은 [그래
   // 설명 전에도 눌린다 — 시작조차 못 하는 사람을 위한 버튼이다
   await page.getByRole("button", { name: "아직 모르겠어요" }).click();
   await expect(page.getByText(/요리사에 비유해보세요/)).toBeVisible();
-  await expect(page.getByText("주방")).toBeVisible(); // 힌트 키워드 칩
+  await expect(page.getByText("주방에는 왜 요리사가 있을까요?")).toBeVisible(); // 유도 질문
   // 아직 아무것도 기록되지 않았다 — 카드 없음
   await expect(page.getByRole("button", { name: /모르겠다고 표시/ })).toHaveCount(0);
 
