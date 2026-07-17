@@ -131,7 +131,7 @@ test("[닫기] 를 누르면 재방문해도 자동으로 안 열린다", async 
   await openWiki(page);
   await expect(box(page)).toHaveCount(0);
   // 대신 수동 버튼이 있다
-  await expect(page.getByRole("button", { name: "이 개념을 설명해보기" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "파인만 기능" })).toBeVisible();
 });
 
 test("진행 중인 세션은 다른 위키를 열어도 파괴되지 않는다", async ({ page }) => {
@@ -217,14 +217,14 @@ test("인박스 위키 패널 — 본문 키워드로 연 남의 개념은 자�
   // justImported 가 거짓인 게 "지금은 쓰는 시간" 신호다.
   await openInboxWiki(page, "프로세스");
   await expect(box(page)).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "이 개념을 설명해보기" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "파인만 기능" })).toBeVisible();
 });
 
 test("인박스 위키 패널 — 수동 버튼으로 시작하고 판정하면 카드가 남는다", async ({ page }) => {
   await openInboxWiki(page, "프로세스");
   // 임포트 직후가 아니라 참고로 연 것 — 자동으로 안 열린다
   await expect(box(page)).toHaveCount(0);
-  await page.getByRole("button", { name: "이 개념을 설명해보기" }).click();
+  await page.getByRole("button", { name: "파인만 기능" }).click();
   await box(page).fill("프로세스는 실행 중인 프로그램이에요");
   await page.getByRole("button", { name: "설명 보내기" }).click();
   await expect(page.getByText("실행 중이라는 게 정확히 무슨 뜻인가요?")).toBeVisible();

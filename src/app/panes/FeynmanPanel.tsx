@@ -109,7 +109,7 @@ export function FeynmanPanel({
           <SessionCard key={`${s.at}-${i}`} s={s} stale={!!s.bodyHash && s.bodyHash !== now} />
         ))}
         <Button size="sm" variant="utility" disabled={!keyed} onClick={() => start(space, page)}>
-          {!keyed ? "파인만 — API 키 필요" : sessions.length ? "다시 설명해보기" : "이 개념을 설명해보기"}
+          {!keyed ? "파인만 — API 키 필요" : sessions.length ? "다시 설명해보기" : "파인만 기능"}
         </Button>
       </div>
     );
