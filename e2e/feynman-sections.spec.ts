@@ -28,8 +28,13 @@ test.beforeEach(async ({ page }) => {
     localStorage.setItem("gemini-key", "test-key");
     localStorage.removeItem("pp-feynman-sections");
   });
+  // 같은 엔드포인트로 되물음(Probe)·힌트(AnalogyHint)가 온다 — response_format 이름으로 가른다.
   await page.route("**generativelanguage.googleapis.com**", (route) =>
-    route.fulfill(chat({ probe: "유사도가 크면 왜 더 많이 섞나요?", targetGap: "why" })),
+    route.fulfill(
+      (route.request().postData() ?? "").includes('"AnalogyHint"')
+        ? chat({ analogy: "임베딩을 사물함에 비유해보세요", keywords: ["사물함", "번호표", "물건"] })
+        : chat({ probe: "유사도가 크면 왜 더 많이 섞나요?", targetGap: "why" }),
+    ),
   );
   await page.goto("/");
   await expect(page.getByRole("button", { name: "프로세스", exact: true })).toBeVisible();
@@ -187,7 +192,16 @@ test("판정은 localStorage 에 남고, 노트 본문은 변하지 않는다", 
   await page.getByLabel("주제 설명").fill("각 토큰을 고정 길이 벡터로 매핑해요");
   await page.getByRole("button", { name: "설명 보내기" }).click();
   await expect(page.getByText(/유사도가 크면/)).toBeVisible({ timeout: 20000 });
+
+  // 1단계 — [아직 모르겠어요] 는 판정이 아니라 비유 힌트를 부른다. 아직 아무것도 기록되지 않는다.
   await page.getByRole("button", { name: "아직 모르겠어요" }).click();
+  await expect(page.getByText(/사물함에 비유해보세요/)).toBeVisible({ timeout: 20000 });
+  await expect(page.getByText("번호표")).toBeVisible(); // 힌트 키워드 칩
+  const beforeJudge = await page.evaluate(() => localStorage.getItem("pp-feynman-sections"));
+  expect(beforeJudge ?? "").not.toContain("임베딩");
+
+  // 2단계 — 힌트를 보고도 모르면 그때 복습으로 기록된다.
+  await page.getByRole("button", { name: "그래도 모르겠어요" }).click();
 
   const saved = await page.evaluate(() => localStorage.getItem("pp-feynman-sections"));
   expect(saved).toContain("임베딩");

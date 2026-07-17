@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { probeExplanation, type Turn } from "../llm/feynman";
+import { probeExplanation, analogyHint, type Turn, type AnalogyHint } from "../llm/feynman";
 import type { SectionTopic } from "../lib/noteSections";
 
 // ══ 섹션 단위 파인만 — 노트의 ##/### 주제 하나씩 자기 말로 설명하게 한다 ══
@@ -40,11 +40,27 @@ interface Session {
   history: Turn[]; // 현재 주제의 대화. 주제가 바뀌면 비운다.
   probing: boolean;
   error?: string;
+  /** [아직 모르겠어요] 1단계가 받은 비유 힌트. 주제가 바뀌면 버린다 — 다음 주제의 힌트가 아니다. */
+  hint?: AnalogyHint;
+  hinting: boolean;
+  hintError?: string;
 }
 
 // 같은 노트에서 파인만을 닫았다 다시 열면 noteId·idx 가 그대로다 — 그것만으로는
 // 닫힌 세션의 늦은 응답을 걸러낼 수 없다. 세션 번호로 가른다.
 let sessionSeq = 0;
+
+// 다음 주제로 — 대화·힌트는 주제 소유물이라 함께 버린다.
+const nextTopic = (s: Session): Session => ({
+  ...s,
+  idx: s.idx + 1,
+  history: [],
+  probing: false,
+  error: undefined,
+  hint: undefined,
+  hinting: false,
+  hintError: undefined,
+});
 
 interface FeynmanState {
   session: Session | null;
@@ -52,6 +68,8 @@ interface FeynmanState {
   start: (noteId: string, space: string, topics: SectionTopic[]) => void;
   explain: (text: string) => Promise<void>;
   retryProbe: () => Promise<void>;
+  /** [아직 모르겠어요] 1단계 — 비유 힌트를 받아 세션에 싣는다. 이미 있으면 다시 부르지 않는다. */
+  requestHint: () => Promise<void>;
   /** 사용자 판정 → 기록하고 다음 주제로. 마지막이면 세션 종료. */
   finishTopic: (understood: boolean) => { topic: SectionTopic; explanations: string[] } | null;
   /** 판정 없이 다음 주제로 — 아무것도 기록하지 않는다 */
@@ -79,21 +97,23 @@ function apiKey(): string {
 export const useFeynmanStore = create<FeynmanState>()(
   persist(
     (set, get) => {
+      // 늦게 온 응답이 다른 주제·닫힌 세션 위에 옛 상태를 되살리면 안 된다 — 세션 번호 + idx 대조.
+      // probe·hint 공용 가드.
+      const fresh = (sid: number, idx: number) => {
+        const s = get().session;
+        return !!s && s.id === sid && s.idx === idx;
+      };
+
       // 되물음 1회. explain/retryProbe 공통.
-      // 늦게 온 응답이 다른 주제·다른 세션 위에 옛 대화를 되살리면 안 된다 → 세션 번호 + idx 대조.
       const runProbe = async (sid: number, idx: number, topic: SectionTopic, history: Turn[]) => {
-        const fresh = () => {
-          const s = get().session;
-          return !!s && s.id === sid && s.idx === idx;
-        };
         try {
           const { probe } = await probeExplanation(topic.title, topic.text, history, apiKey());
-          if (!fresh()) return;
+          if (!fresh(sid, idx)) return;
           set((s) => ({
             session: s.session && { ...s.session, history: [...history, { role: "probe", text: probe }], probing: false },
           }));
         } catch (e) {
-          if (!fresh()) return;
+          if (!fresh(sid, idx)) return;
           // 사용자가 쓴 설명은 history 에 남긴다 — retryProbe 로 재타이핑 없이 다시 시도한다.
           set((s) => ({ session: s.session && { ...s.session, history, probing: false, error: String(e) } }));
         }
@@ -105,7 +125,7 @@ export const useFeynmanStore = create<FeynmanState>()(
 
         start: (noteId, space, topics) => {
           if (!topics.length) return;
-          set({ session: { id: ++sessionSeq, noteId, space, topics, idx: 0, history: [], probing: false } });
+          set({ session: { id: ++sessionSeq, noteId, space, topics, idx: 0, history: [], probing: false, hinting: false } });
         },
 
         explain: async (text) => {
@@ -125,6 +145,22 @@ export const useFeynmanStore = create<FeynmanState>()(
           await runProbe(s.id, s.idx, s.topics[s.idx], s.history);
         },
 
+        requestHint: async () => {
+          const s = get().session;
+          if (!s || s.probing || s.hinting || s.hint) return;
+          const { id: sid, idx } = s;
+          const topic = s.topics[idx];
+          set({ session: { ...s, hinting: true, hintError: undefined } });
+          try {
+            const hint = await analogyHint(topic.title, topic.text, apiKey());
+            if (!fresh(sid, idx)) return;
+            set((cur) => ({ session: cur.session && { ...cur.session, hint, hinting: false } }));
+          } catch (e) {
+            if (!fresh(sid, idx)) return;
+            set((cur) => ({ session: cur.session && { ...cur.session, hinting: false, hintError: String(e) } }));
+          }
+        },
+
         finishTopic: (understood) => {
           const s = get().session;
           if (!s || s.probing) return null;
@@ -142,7 +178,7 @@ export const useFeynmanStore = create<FeynmanState>()(
           const last = s.idx >= s.topics.length - 1;
           set((cur) => ({
             statuses: { ...cur.statuses, [sectionKey(s.noteId, topic.key)]: status },
-            session: last ? null : { ...s, idx: s.idx + 1, history: [], probing: false, error: undefined },
+            session: last ? null : nextTopic(s),
           }));
           return { topic, explanations };
         },
@@ -151,7 +187,7 @@ export const useFeynmanStore = create<FeynmanState>()(
           const s = get().session;
           if (!s || s.probing) return;
           const last = s.idx >= s.topics.length - 1;
-          set({ session: last ? null : { ...s, idx: s.idx + 1, history: [], probing: false, error: undefined } });
+          set({ session: last ? null : nextTopic(s) });
         },
 
         cancel: () => set({ session: null }),

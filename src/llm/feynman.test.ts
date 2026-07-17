@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { probeExplanation, type Turn } from "./feynman";
+import { analogyHint, probeExplanation, type Turn } from "./feynman";
 
 const NOTE = "# 운영체제 3주차\n\n임계 구역에는 락을 건다. 프로세스는 실행 중인 프로그램이다.\n프로세스란 코드·데이터·스택으로 구성된다. 예를 들어 크롬 탭 하나가 프로세스다.";
 
@@ -166,5 +166,82 @@ describe("probeExplanation", () => {
     const body = JSON.parse(sent);
     expect(body.messages[0].content).toContain("존댓말");
     expect(body.messages[0].content).toContain("원문 표기를 그대로");
+  });
+});
+
+describe("analogyHint", () => {
+  it("비유 한 문장 + 힌트 키워드를 파싱한다", async () => {
+    const h = await analogyHint("single-head attention", NOTE, "k", {
+      fetchFn: geminiOk({
+        analogy: "single-head attention을 탐정 한 명에 비유해보세요",
+        keywords: ["탐정", "사건 현장", "단서", "혼자서"],
+      }) as unknown as typeof fetch,
+    });
+    expect(h).toEqual({
+      analogy: "single-head attention을 탐정 한 명에 비유해보세요",
+      keywords: ["탐정", "사건 현장", "단서", "혼자서"],
+    });
+  });
+
+  it("keywords 가 깨져 있으면 정리한다 — 비유 한 문장만으로도 힌트는 성립한다", async () => {
+    const h = await analogyHint("c", NOTE, "k", {
+      fetchFn: geminiOk({ analogy: "a", keywords: [1, " 탐정 ", "", "탐정"] }) as unknown as typeof fetch,
+    });
+    expect(h.keywords).toEqual(["탐정"]); // 비문자열·공백 제거 + 중복 제거
+    const none = await analogyHint("c", NOTE, "k", {
+      fetchFn: geminiOk({ analogy: "a" }) as unknown as typeof fetch,
+    });
+    expect(none.keywords).toEqual([]);
+  });
+
+  it("keywords 가 넘치면 6개로 자른다 — strict:false 라 스키마 maxItems 를 못 믿는다", async () => {
+    const h = await analogyHint("c", NOTE, "k", {
+      fetchFn: geminiOk({ analogy: "a", keywords: ["a", "b", "c", "d", "e", "f", "g", "h"] }) as unknown as typeof fetch,
+    });
+    expect(h.keywords).toEqual(["a", "b", "c", "d", "e", "f"]);
+  });
+
+  it("analogy 가 비면 던진다", async () => {
+    await expect(
+      analogyHint("c", NOTE, "k", { fetchFn: geminiOk({ keywords: ["탐정"] }) as unknown as typeof fetch }),
+    ).rejects.toThrow(/no structured output/);
+  });
+
+  it("키가 없으면 던진다 — 힌트도 휴리스틱으로 만들 수 없다", async () => {
+    await expect(analogyHint("c", NOTE, "  ")).rejects.toThrow(/API key/);
+  });
+
+  it("프롬프트가 '답 금지·비유만' 을 강제하고 개념·노트를 맥락으로 담는다", async () => {
+    let sent = "";
+    await analogyHint("임계 구역", NOTE, "k", {
+      fetchFn: (async (_u: string, init: RequestInit) => {
+        sent = String(init.body);
+        return new Response(JSON.stringify({ choices: [{ message: { content: '{"analogy":"a","keywords":["b"]}' } }] }), {
+          status: 200,
+        });
+      }) as unknown as typeof fetch,
+    });
+    expect(sent).toContain("NEVER give the answer");
+    expect(sent).toContain("no analogy-to-concept mapping");
+    expect(sent).toContain("비유해보세요");
+    expect(sent).toContain("임계 구역");
+    expect(sent).toContain("락을 건다"); // 노트 본문이 맥락으로 들어간다
+  });
+
+  it("503(overloaded)은 재시도해서 성공한다 — 재시도 규약은 probe 와 같다", async () => {
+    let calls = 0;
+    const h = await analogyHint("c", NOTE, "k", {
+      backoffMs: 0,
+      fetchFn: (async () => {
+        calls++;
+        return calls < 3
+          ? new Response("", { status: 503 })
+          : new Response(JSON.stringify({ choices: [{ message: { content: '{"analogy":"a","keywords":["b"]}' } }] }), {
+              status: 200,
+            });
+      }) as unknown as typeof fetch,
+    });
+    expect(calls).toBe(3);
+    expect(h.analogy).toBe("a");
   });
 });

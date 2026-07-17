@@ -2,8 +2,10 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import type { SectionTopic } from "../lib/noteSections";
 
 const probeExplanation = vi.fn();
+const analogyHint = vi.fn();
 vi.mock("../llm/feynman", () => ({
   probeExplanation: (...a: unknown[]) => probeExplanation(...a),
+  analogyHint: (...a: unknown[]) => analogyHint(...a),
 }));
 
 // Map 백엔드 fake localStorage — node vitest 환경엔 없다(settings.test.ts 와 동형).
@@ -53,6 +55,7 @@ const reset = () => useFeynmanStore.setState({ session: null, statuses: {} });
 
 beforeEach(() => {
   probeExplanation.mockReset();
+  analogyHint.mockReset();
   localStorage.clear();
   localStorage.setItem("gemini-key", "k");
   reset();
@@ -200,5 +203,141 @@ describe("feynmanStore", () => {
     expect(useFeynmanStore.getState().session!.probing).toBe(true);
     expect(useFeynmanStore.getState().finishTopic(true)).toBeNull();
     expect(useFeynmanStore.getState().statuses).toEqual({});
+  });
+});
+
+describe("requestHint — [아직 모르겠어요] 1단계", () => {
+  const HINT = { analogy: "attention을 탐정에 비유해보세요", keywords: ["탐정", "단서"] };
+
+  it("섹션 본문을 맥락으로 비유 힌트를 받아 세션에 싣는다", async () => {
+    analogyHint.mockResolvedValue(HINT);
+    const t = topic("attention", "## attention\n가중치를 만든다");
+    useFeynmanStore.getState().start(NOTE, "sp", [t]);
+
+    await useFeynmanStore.getState().requestHint();
+
+    expect(analogyHint).toHaveBeenCalledWith("attention", t.text, "k");
+    const s = useFeynmanStore.getState().session!;
+    expect(s.hint).toEqual(HINT);
+    expect(s.hinting).toBe(false);
+  });
+
+  it("힌트가 이미 있으면 다시 부르지 않는다", async () => {
+    analogyHint.mockResolvedValue(HINT);
+    useFeynmanStore.getState().start(NOTE, "sp", [topic("a")]);
+    await useFeynmanStore.getState().requestHint();
+    await useFeynmanStore.getState().requestHint();
+    expect(analogyHint).toHaveBeenCalledTimes(1);
+  });
+
+  it("실패하면 hintError 만 남는다 — 재요청으로 회복한다", async () => {
+    analogyHint.mockRejectedValueOnce(new Error("HTTP 503"));
+    useFeynmanStore.getState().start(NOTE, "sp", [topic("a")]);
+    await useFeynmanStore.getState().requestHint();
+    let s = useFeynmanStore.getState().session!;
+    expect(s.hint).toBeUndefined();
+    expect(s.hintError).toContain("503");
+    expect(s.hinting).toBe(false);
+
+    analogyHint.mockResolvedValueOnce(HINT);
+    await useFeynmanStore.getState().requestHint();
+    s = useFeynmanStore.getState().session!;
+    expect(s.hint).toEqual(HINT);
+    expect(s.hintError).toBeUndefined();
+  });
+
+  it("주제를 넘기면 힌트를 버린다 — 다음 주제의 힌트가 아니다", async () => {
+    analogyHint.mockResolvedValue(HINT);
+    useFeynmanStore.getState().start(NOTE, "sp", [topic("a"), topic("b")]);
+    await useFeynmanStore.getState().requestHint();
+    useFeynmanStore.getState().skipTopic();
+    const s = useFeynmanStore.getState().session!;
+    expect(s.idx).toBe(1);
+    expect(s.hint).toBeUndefined();
+  });
+
+  it("늦은 힌트는 넘어간 주제에 붙지 않는다", async () => {
+    let release!: (v: typeof HINT) => void;
+    analogyHint.mockReturnValueOnce(new Promise((r) => (release = r)));
+    useFeynmanStore.getState().start(NOTE, "sp", [topic("a"), topic("b")]);
+    const inflight = useFeynmanStore.getState().requestHint();
+
+    useFeynmanStore.getState().skipTopic(); // 힌트를 기다리다 그냥 넘어갔다
+    release(HINT);
+    await inflight;
+
+    const s = useFeynmanStore.getState().session!;
+    expect(s.idx).toBe(1);
+    expect(s.hint).toBeUndefined();
+    expect(s.hinting).toBe(false);
+  });
+
+  it("패널을 닫은 뒤 늦게 온 힌트는 세션을 되살리지 않는다", async () => {
+    let release!: (v: typeof HINT) => void;
+    analogyHint.mockReturnValueOnce(new Promise((r) => (release = r)));
+    useFeynmanStore.getState().start(NOTE, "sp", [topic("a")]);
+    const inflight = useFeynmanStore.getState().requestHint();
+
+    useFeynmanStore.getState().cancel();
+    release(HINT);
+    await inflight;
+
+    expect(useFeynmanStore.getState().session).toBeNull();
+  });
+
+  it("닫았다 같은 노트에서 다시 열면, 닫힌 세션의 늦은 힌트가 새 세션에 붙지 않는다", async () => {
+    let release!: (v: typeof HINT) => void;
+    analogyHint.mockReturnValueOnce(new Promise((r) => (release = r)));
+    useFeynmanStore.getState().start(NOTE, "sp", [topic("a")]);
+    const inflight = useFeynmanStore.getState().requestHint();
+
+    useFeynmanStore.getState().cancel();
+    useFeynmanStore.getState().start(NOTE, "sp", [topic("a")]); // 같은 노트·같은 주제·같은 idx
+    release(HINT);
+    await inflight;
+
+    // noteId+idx 만 대조했다면 유령 힌트가 붙고, s.hint 가드가 정당한 재요청까지 막는다.
+    expect(useFeynmanStore.getState().session!.hint).toBeUndefined();
+  });
+
+  it("되묻는 중에는 힌트를 요청하지 않는다", async () => {
+    probeExplanation.mockReturnValue(new Promise(() => {})); // 영원히 대기
+    useFeynmanStore.getState().start(NOTE, "sp", [topic("a")]);
+    void useFeynmanStore.getState().explain("설명");
+
+    await useFeynmanStore.getState().requestHint();
+    expect(analogyHint).not.toHaveBeenCalled();
+  });
+
+  it("힌트를 기다리는 중에 또 눌러도 한 번만 부른다", async () => {
+    let release!: (v: typeof HINT) => void;
+    analogyHint.mockReturnValueOnce(new Promise((r) => (release = r)));
+    useFeynmanStore.getState().start(NOTE, "sp", [topic("a")]);
+    const first = useFeynmanStore.getState().requestHint();
+    const second = useFeynmanStore.getState().requestHint(); // hinting 중 — no-op
+
+    release(HINT);
+    await Promise.all([first, second]);
+    expect(analogyHint).toHaveBeenCalledTimes(1);
+    expect(useFeynmanStore.getState().session!.hint).toEqual(HINT);
+  });
+
+  it("힌트가 오는 사이 쓴 설명을 지우지 않는다", async () => {
+    let release!: (v: typeof HINT) => void;
+    analogyHint.mockReturnValueOnce(new Promise((r) => (release = r)));
+    probeExplanation.mockResolvedValue({ probe: "왜요?", targetGap: "why" });
+    useFeynmanStore.getState().start(NOTE, "sp", [topic("a")]);
+    const inflight = useFeynmanStore.getState().requestHint();
+
+    await useFeynmanStore.getState().explain("힌트 기다리며 쓴 설명");
+    release(HINT);
+    await inflight;
+
+    const s = useFeynmanStore.getState().session!;
+    expect(s.history).toEqual([
+      { role: "user", text: "힌트 기다리며 쓴 설명" },
+      { role: "probe", text: "왜요?" },
+    ]);
+    expect(s.hint).toEqual(HINT);
   });
 });

@@ -21,6 +21,7 @@ export function FeynmanPanel({ noteId, handlers }: { noteId: string; handlers?: 
   const session = useFeynmanStore((s) => s.session);
   const explain = useFeynmanStore((s) => s.explain);
   const retryProbe = useFeynmanStore((s) => s.retryProbe);
+  const requestHint = useFeynmanStore((s) => s.requestHint);
   const finishTopic = useFeynmanStore((s) => s.finishTopic);
   const skipTopic = useFeynmanStore((s) => s.skipTopic);
   const cancel = useFeynmanStore((s) => s.cancel);
@@ -35,7 +36,7 @@ export function FeynmanPanel({ noteId, handlers }: { noteId: string; handlers?: 
   const topic = session.topics[session.idx];
   if (!topic) return null;
 
-  const { history, probing, error, idx, topics } = session;
+  const { history, probing, error, idx, topics, hint, hinting, hintError } = session;
   const answered = history.some((t) => t.role === "user");
 
   const send = async () => {
@@ -92,6 +93,33 @@ export function FeynmanPanel({ noteId, handlers }: { noteId: string; handlers?: 
         </div>
       )}
 
+      {/* [아직 모르겠어요] 1단계 힌트 — 답이 아니라 출발점(비유 프레임 + 키워드)이다 */}
+      {hinting && <p className="text-[13px] text-ink-faint">힌트 만드는 중…</p>}
+      {hintError && (
+        <div className="flex items-center gap-2">
+          <p className="text-[12px] text-danger">힌트를 못 만들었어요.</p>
+          <Button size="sm" variant="utility" onClick={requestHint}>
+            다시 시도
+          </Button>
+        </div>
+      )}
+      {hint && (
+        <div className="space-y-1.5 rounded border border-hairline bg-surface px-2.5 py-2">
+          <p className="text-[13px] leading-relaxed text-ink">
+            <span className="font-semibold text-primary">힌트</span> — {hint.analogy}
+          </p>
+          {hint.keywords.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {hint.keywords.map((k) => (
+                <span key={k} className="rounded-full border border-hairline bg-surface-soft px-2 py-0.5 text-[12px] text-ink-2">
+                  {k}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       <textarea
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
@@ -115,10 +143,11 @@ export function FeynmanPanel({ noteId, handlers }: { noteId: string; handlers?: 
           </Button>
         </div>
         {/* 이해 판정은 오직 사용자. LLM 은 채점하지 않는다(relation-types.md §review_needed).
-            단 설명을 한 번도 안 했으면 판정할 근거가 없다 — 건너뛰기로만 넘어간다. */}
+            [네, 이해했어요] 는 설명이 한 번은 있어야 한다 — 근거 없는 판정은 착각만 강화한다.
+            [아직 모르겠어요] 는 설명 전에도 누른다: 1단계는 비유 힌트, 힌트를 보고도 모르면 그때 복습 기록. */}
         <div className="flex gap-2">
-          <Button size="sm" variant="utility" disabled={probing || !answered} onClick={() => finish(false)}>
-            아직 모르겠어요
+          <Button size="sm" variant="utility" disabled={probing || hinting} onClick={() => (hint ? finish(false) : void requestHint())}>
+            {hint ? "그래도 모르겠어요" : "아직 모르겠어요"}
           </Button>
           <Button size="sm" variant="utility" disabled={probing || !answered} onClick={() => finish(true)}>
             네, 이해했어요
