@@ -7,7 +7,9 @@
 
 **대학생용 로컬 우선(local-first) AI 지식 Workspace.** 강의 PDF·필기·요약을 한 Workspace에 모으면 LLM이 Concept 중심 Wiki와 타입 있는 지식 Graph로 재구성한다. 시간이 지날수록 Wiki/Graph가 **개인 전공 지식 지도**처럼 성장한다.
 
-> Tauri + Rust · React/TypeScript · Tailwind · macOS
+> Tauri + Rust · React/TypeScript · Tailwind · macOS · Windows
+
+> 🏃 **바로 실행해 보려면 → [RUN_GUIDE.md](RUN_GUIDE.md)** — 설치 파일 다운로드 · 실행 · 5분 데모 시나리오
 
 ## 목차
 
