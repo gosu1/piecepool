@@ -7,7 +7,9 @@ vi.mock("../llm/mergeWiki", () => ({ runWikiMerge: vi.fn() }));
 vi.mock("../lib/factCheck", () => ({
   maybeFactCheck: vi.fn(async (result: unknown) => ({ result, checked: 0 })),
 }));
-vi.mock("../lib/settings", () => ({ chunkOpts: () => ({}) }));
+// importStore 는 apiKey() 로 settings.geminiKey 를 쓴다 — 목에서 빠지면 "No geminiKey export" 로 죽는다.
+// 기본값은 키 없음("") — 휴리스틱 폴백 경로를 그대로 검증한다.
+vi.mock("../lib/settings", () => ({ chunkOpts: () => ({}), geminiKey: () => "" }));
 // buildInput 이 쓰는 embedSourceFiles/toExistingConcepts/normalizeTitle 은 실물, 저장(applyLlmResult)만 대체.
 vi.mock("../lib/llmApply", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../lib/llmApply")>()),
