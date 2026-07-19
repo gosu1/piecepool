@@ -1,4 +1,4 @@
-# PiecePool 실행 가이드
+# PiecePool 실행 가이드 (macOS)
 
 심사위원·평가자가 **설치 파일로 바로 실행**하거나 **소스에서 직접 빌드**할 수 있도록 안내합니다.
 
@@ -6,14 +6,13 @@
 
 ## 1. 설치 파일로 실행 (권장)
 
-이 저장소의 **[Releases](../../releases)** 탭(또는 제출된 `2_설치파일/` 폴더)에서 OS에 맞는 파일을 내려받습니다.
+제출된 `2_설치파일/` 폴더(또는 저장소 **[Releases](../../releases)** 탭)에서 `.dmg` 파일을 받습니다.
 
-| OS | 파일 | 비고 |
-|---|---|---|
-| macOS (Apple Silicon / Intel 공용) | `PiecePool_x.x.x_universal.dmg` | universal 바이너리 |
-| Windows 10/11 | `PiecePool_x.x.x_x64-setup.exe` 또는 `.msi` | 둘 중 아무거나 |
+| 파일 | 대상 |
+|---|---|
+| `PiecePool_x.x.x_universal.dmg` | macOS (Apple Silicon / Intel 공용 universal 바이너리) |
 
-### macOS 설치
+### 설치
 
 1. `.dmg`를 열고 **PiecePool을 Applications 폴더로 드래그**합니다.
 2. 첫 실행 시 "확인되지 않은 개발자" 경고가 뜹니다(개인 개발 앱이라 Apple 공증 미적용). 다음 중 하나로 열어 주세요:
@@ -23,36 +22,22 @@
      xattr -cr /Applications/PiecePool.app
      ```
 
-### Windows 설치
-
-1. 설치 파일을 실행합니다.
-2. SmartScreen 경고가 뜨면 **"추가 정보" → "실행"** 을 눌러 진행합니다(코드 서명 미적용).
-
 ---
 
 ## 2. 첫 실행 — 데모 데이터가 자동으로 준비됩니다
 
-첫 실행 시 홈 폴더에 `PiecePool` 워크스페이스가 생성되고, **5개 지식 공간(운영체제 · AI 딥러닝 · 통계학 · 경제학 · 생리학)** 에 노트·위키·지식 그래프 데모 데이터가 시드됩니다. 빈 화면이 아니라 바로 둘러볼 수 있는 상태로 시작합니다.
+첫 실행 시 홈 폴더에 `/Users/<사용자>/PiecePool` 워크스페이스가 생성되고, **5개 지식 공간(운영체제 · AI 딥러닝 · 통계학 · 경제학 · 생리학)** 에 노트·위키·지식 그래프 데모 데이터가 시드됩니다. 빈 화면이 아니라 바로 둘러볼 수 있는 상태로 시작합니다.
 
-워크스페이스 위치:
-
-| OS | 경로 |
-|---|---|
-| macOS | `/Users/<사용자>/PiecePool` |
-| Windows | `C:\Users\<사용자>\PiecePool` |
-
-- 앱 설정은 숨김 폴더 `.config/` 에 보관되므로, 파일 탐색기/Finder 로 `PiecePool` 을 열면 **과목 폴더만** 깔끔하게 보입니다.
+- 앱 설정은 숨김 폴더 `.config/` 에 보관되므로, Finder 로 `PiecePool` 을 열면 **과목 폴더만** 깔끔하게 보입니다.
 - 모든 데이터는 로컬 마크다운/JSON 파일로 저장됩니다(로컬 우선 설계). 앱을 지워도 `PiecePool` 폴더의 내 기록은 남습니다.
 
 ---
 
-## 3. Gemini API 키 입력 (AI 기능 활성화)
+## 3. AI 기능 (Gemini)
 
-- **키가 없어도 모든 기능이 동작합니다** — LLM 호출이 불가능하면 휴리스틱 폴백으로 위키·그래프를 생성합니다.
-- AI 품질(위키 생성 · PDF 한국어 요약 · 파인만 되묻기)을 확인하시려면 키 입력을 권장합니다.
-
-1. [Google AI Studio](https://aistudio.google.com/apikey)에서 **무료 API 키**를 발급받습니다 (Google 계정만 있으면 1분).
-2. 앱 사이드바 하단 **설정(⚙)** → **Gemini API 키** 칸에 붙여넣고 저장합니다.
+- **이 배포 빌드에 데모용 API 키가 포함돼 있으면 별도 설정 없이 AI 기능(위키 생성 · PDF 한국어 요약 · 파인만 되묻기)이 바로 동작합니다.**
+- 키가 포함돼 있지 않거나 본인 키를 쓰시려면: [Google AI Studio](https://aistudio.google.com/apikey)에서 무료 키를 발급받아, 앱 사이드바 하단 **설정(⚙)** → **Gemini API 키** 칸에 입력합니다.
+- **키가 전혀 없어도 모든 기능이 동작합니다** — LLM 호출이 불가능하면 휴리스틱 폴백으로 위키·그래프를 생성합니다(AI 품질은 낮아짐).
 
 > 키는 이 기기의 앱 저장소(localStorage)에만 보관되며, Google Gemini API 호출 외에는 어디에도 전송되지 않습니다.
 
@@ -73,24 +58,23 @@
 
 ---
 
-## 5. 소스에서 직접 빌드
+## 5. 소스에서 직접 빌드 (macOS)
 
 ### 요구 사항
 
 - Node.js 20 이상 (개발은 22 기준)
-- Rust stable (rustup 권장) + OS별 Tauri 사전 요구 사항: [Tauri Prerequisites](https://v2.tauri.app/start/prerequisites/)
-  - macOS: Xcode Command Line Tools
-  - Windows: Microsoft C++ Build Tools, WebView2(Win11은 기본 내장)
+- Rust stable (rustup 권장) + Xcode Command Line Tools
+- 참고: [Tauri Prerequisites](https://v2.tauri.app/start/prerequisites/)
 
 ### 명령
 
 ```bash
 npm install          # 프론트 의존성
 npm run tauri dev    # 개발 모드 실행 (첫 빌드는 Rust 컴파일로 수 분 소요)
-npm run tauri build  # 배포 번들 생성 (macOS: .dmg / Windows: .msi·.exe)
+npm run tauri build  # 배포 번들(.dmg) 생성
 ```
 
-빌드 산출물 위치: `src-tauri/target/release/bundle/`
+빌드 산출물 위치: `src-tauri/target/release/bundle/dmg/`
 
 ---
 
@@ -98,8 +82,7 @@ npm run tauri build  # 배포 번들 생성 (macOS: .dmg / Windows: .msi·.exe)
 
 | 증상 | 해결 |
 |---|---|
-| (macOS) 앱이 "손상되었기 때문에 열 수 없음" | `xattr -cr /Applications/PiecePool.app` 실행 후 다시 열기 |
-| (Windows) SmartScreen 이 실행을 막음 | "추가 정보" → "실행" (코드 서명 미적용이라 뜨는 정상 경고입니다) |
+| 앱이 "손상되었기 때문에 열 수 없음" | `xattr -cr /Applications/PiecePool.app` 실행 후 다시 열기 |
 | AI 요약/위키 생성이 안 됨 | 설정에서 Gemini 키 확인. 키가 없으면 휴리스틱 폴백으로 동작하는 것이 정상입니다 |
 | PDF 텍스트 추출 실패 안내가 뜸 | 스캔본(이미지) PDF는 텍스트가 없을 수 있습니다 — 텍스트 기반 PDF로 시도해 주세요 |
 | 데모 데이터를 초기화하고 싶음 | 앱 종료 후 홈 폴더의 `PiecePool` 폴더 삭제 → 재실행 시 다시 시드됩니다 |
