@@ -17,7 +17,11 @@ function ls(): Storage | null {
  */
 export function geminiKey(): string {
   const stored = ls()?.getItem("gemini-key")?.trim();
-  return stored || import.meta.env.VITE_GEMINI_API_KEY || "";
+  // import.meta.env 는 Vite 앱 빌드에서만 존재한다(vite/client). CLI 스크립트 tsconfig 에는 그 타입이
+  // 없어 import.meta 를 캐스팅해 접근한다 — 캐스트는 트랜스파일 시 사라져 Vite 가 키를 그대로 인라인한다.
+  // 스크립트 실행 경로에서는 이 함수가 호출되지 않으므로 런타임에도 무해하다.
+  const meta = import.meta as unknown as { env?: { VITE_GEMINI_API_KEY?: string } };
+  return stored || meta.env?.VITE_GEMINI_API_KEY || "";
 }
 
 export function getChunkSettings(): { enabled: boolean; percentile: number } {
