@@ -13,7 +13,7 @@
 | OS | 파일 | 비고 |
 |---|---|---|
 | macOS (Apple Silicon / Intel 공용) | `PiecePool_x.x.x_universal.dmg` | universal 바이너리 (기본 대상) |
-| Windows 10/11 | `PiecePool_x.x.x_x64-setup.exe` 또는 `PiecePool_x.x.x_x64_en-US.msi` | 둘 중 아무거나 (시연용) |
+| Windows 10/11 | `PiecePool_x.x.x_x64-setup.exe` | 시연용 (관리자 권한 없이 설치) |
 
 ### macOS 설치
 
@@ -27,7 +27,7 @@
 
 ### Windows 설치
 
-1. `.exe`(NSIS) 또는 `.msi` 를 실행합니다.
+1. `PiecePool_x.x.x_x64-setup.exe` 를 실행합니다.
 2. SmartScreen 경고가 뜨면 **"추가 정보" → "실행"** 을 눌러 진행합니다(코드 서명 미적용이라 뜨는 정상 경고입니다).
 
 ---
@@ -86,10 +86,10 @@
 ```bash
 npm install          # 프론트 의존성
 npm run tauri dev    # 개발 모드 실행 (첫 빌드는 Rust 컴파일로 수 분 소요)
-npm run tauri build  # 배포 번들 생성 (macOS: .dmg / Windows: .msi·.exe)
+npm run tauri build  # 배포 번들 생성 (macOS: .dmg / Windows: .exe)
 ```
 
-빌드 산출물 위치: `src-tauri/target/release/bundle/` (`dmg/` · `msi/` · `nsis/`)
+빌드 산출물 위치: `src-tauri/target/release/bundle/` (macOS `dmg/` · Windows `nsis/`)
 
 ---
 
