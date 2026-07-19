@@ -9,6 +9,21 @@ function ls(): Storage | null {
   return typeof localStorage !== "undefined" ? localStorage : null;
 }
 
+/**
+ * Gemini API 키 — 이 기기 설정(설정 모달 → localStorage["gemini-key"])이 우선,
+ * 없으면 빌드 시 주입된 값(`VITE_GEMINI_API_KEY`), 그것도 없으면 "" (휴리스틱 폴백).
+ * 데모 배포에서 심사위원이 키 발급 없이 바로 쓰게 하려면 빌드 시 주입한다 —
+ * 소스에 커밋하지 말 것(.env.local 또는 CI Secret). 절차는 RUN_GUIDE 참고.
+ */
+export function geminiKey(): string {
+  const stored = ls()?.getItem("gemini-key")?.trim();
+  // import.meta.env 는 Vite 앱 빌드에서만 존재한다(vite/client). CLI 스크립트 tsconfig 에는 그 타입이
+  // 없어 import.meta 를 캐스팅해 접근한다 — 캐스트는 트랜스파일 시 사라져 Vite 가 키를 그대로 인라인한다.
+  // 스크립트 실행 경로에서는 이 함수가 호출되지 않으므로 런타임에도 무해하다.
+  const meta = import.meta as unknown as { env?: { VITE_GEMINI_API_KEY?: string } };
+  return stored || meta.env?.VITE_GEMINI_API_KEY || "";
+}
+
 export function getChunkSettings(): { enabled: boolean; percentile: number } {
   const store = ls();
   const enabled = store?.getItem(ENABLED_KEY) === "1";

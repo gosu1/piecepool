@@ -26,6 +26,7 @@ import {
   clampPanePct,
   INBOX_PANE_DEFAULTS,
   getOutputLanguage,
+  geminiKey,
   type InboxPanelKey,
   type InboxPaneKey,
 } from "../../lib/settings";
@@ -516,7 +517,7 @@ export function InboxSection({
           onNotice?.(`${f.name}에서 텍스트를 찾지 못했어요 — 스캔 이미지 PDF일 수 있어요. 내용을 직접 필기하면 됩니다`);
           return;
         }
-        const apiKey = (typeof localStorage !== "undefined" && localStorage.getItem("gemini-key")) || "";
+        const apiKey = geminiKey(); // 설정 키 우선, 없으면 빌드 주입(VITE_GEMINI_API_KEY) 폴백
         if (!apiKey) {
           const langName = getOutputLanguage() === "en" ? "영어" : "한국어";
           onNotice?.(`AI 요약 키가 없어요 — 설정에서 Gemini 키를 넣으면 PDF를 ${langName}로 요약해요`);
@@ -588,7 +589,7 @@ export function InboxSection({
           } catch {
             // 저장 실패해도 OCR 은 계속
           }
-          const apiKey = (typeof localStorage !== "undefined" && localStorage.getItem("gemini-key")) || "";
+          const apiKey = geminiKey(); // 설정 키 우선, 없으면 빌드 주입(VITE_GEMINI_API_KEY) 폴백
           try {
             const { markdown } = await runImageOcr(dataUrl, apiKey);
             appendBody(embed + markdown);

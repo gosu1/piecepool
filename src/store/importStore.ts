@@ -6,7 +6,7 @@ import { runWikiMerge } from "../llm/mergeWiki";
 import type { LlmWikiInput, LlmWikiResult } from "../llm/provider";
 import { applyLlmResult, embedSourceFiles, toExistingConcepts, normalizeTitle } from "../lib/llmApply";
 import { maybeFactCheck } from "../lib/factCheck";
-import { chunkOpts } from "../lib/settings";
+import { chunkOpts, geminiKey } from "../lib/settings";
 
 // ImportJob 상태머신 소유 = TS 오케스트레이터(결정 A). useImportStore 가 상태 전이 + Rust atomic-step
 // 커맨드(create_note/save_wiki/append_relations) + LLM 어댑터 호출을 조율한다.
@@ -84,7 +84,7 @@ function loadLast(): ImportJobView | null {
   }
 }
 function apiKey(): string {
-  return (typeof localStorage !== "undefined" && localStorage.getItem("gemini-key")) || "";
+  return geminiKey(); // 설정 키 우선, 없으면 빌드 주입(VITE_GEMINI_API_KEY) 폴백
 }
 function buildInput(note: ArchiveNote, existing: WikiPage[], cross?: CrossConcept[]): LlmWikiInput {
   // 이 공간의 기존 개념 — 중복 병합(dedup) 힌트이자 관계 대상.

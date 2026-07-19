@@ -21,7 +21,12 @@ fn io_err(ctx: &str, e: impl std::fmt::Display) -> AppError {
 // ── Workspace 루트 ───────────────────────────────────────────
 /// 단일 로컬 Workspace 루트. `~/PiecePool`.
 pub fn workspace_root() -> PathBuf {
-    let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
+    // Windows 에는 HOME 이 없다(USERPROFILE 을 쓴다). 폴백이 없으면 "." 로 떨어져 워크스페이스가
+    // 앱 실행 위치(cwd)에 생긴다 — 설치 파일로 실행하는 심사위원 PC 에서 데모가 엉뚱한 곳(또는
+    // 권한 없는 Program Files)에 워크스페이스를 만든다. HOME → USERPROFILE → "." 순으로 폴백한다.
+    let home = std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
+        .unwrap_or_else(|_| ".".into());
     Path::new(&home).join("PiecePool")
 }
 
