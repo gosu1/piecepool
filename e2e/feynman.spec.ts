@@ -23,7 +23,7 @@ async function markOnGraph(page: import("@playwright/test").Page, concept: strin
   await search.locator("xpath=following-sibling::div").getByRole("button", { name: concept, exact: true }).click();
 
   await page.getByRole("button", { name: "아직 모르겠다고 표시" }).click();
-  await page.getByPlaceholder(/왜 그렇게 되는지/).fill(reason);
+  await page.getByPlaceholder(/어떤 부분에서 이해가/).fill(reason);
   await page.getByRole("button", { name: "표시", exact: true }).click();
 }
 
@@ -46,7 +46,7 @@ test("표시 → 해제 → 재표시 왕복 — 사용자가 붙이고 사용�
 
   // 해제 후 다시 표시할 수 있다 — 시연 촬영을 반복하려면 왕복이 성립해야 한다.
   await page.getByRole("button", { name: "아직 모르겠다고 표시" }).click();
-  await page.getByPlaceholder(/왜 그렇게 되는지/).fill("역시 아직 모르겠어요");
+  await page.getByPlaceholder(/어떤 부분에서 이해가/).fill("역시 아직 모르겠어요");
   await page.getByRole("button", { name: "표시", exact: true }).click();
   await expect(page.getByRole("button", { name: "복습" })).toBeVisible({ timeout: 15000 });
   await expect(page.getByText("아직 모르겠음")).toBeVisible();

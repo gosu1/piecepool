@@ -611,8 +611,9 @@ export function GraphSection({
               // 이유가 곧 evidence 다 — 사용자의 말이 근거로 남는다(graph.rs: evidence ≥ 1).
               <PromptDialog
                 title={`"${page.title}" — 무엇이 아직 막히나요?`}
-                placeholder="예: 왜 그렇게 되는지 설명을 못 하겠어요"
+                placeholder="어떤 부분에서 이해가 어렵나요?"
                 submitLabel="표시"
+                quickSubmit="왜 그렇게 되는지 모르겠어요"
                 onCancel={() => setMarkOpen(false)}
                 onSubmit={async (reason) => {
                   setMarkOpen(false);

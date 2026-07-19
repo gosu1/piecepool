@@ -95,6 +95,7 @@ export function PromptDialog({
   initial = "",
   placeholder,
   submitLabel = "저장",
+  quickSubmit,
   validate,
   onSubmit,
   onCancel,
@@ -103,6 +104,8 @@ export function PromptDialog({
   initial?: string;
   placeholder?: string;
   submitLabel?: string;
+  /** 입력 없이 원클릭 제출 — 버튼 문구가 그대로 값이 된다 */
+  quickSubmit?: string;
   /** 값 검증 — 에러 메시지를 돌려주면 인라인 표시 + 저장 차단 */
   validate?: (value: string) => string | null;
   onSubmit: (value: string) => void;
@@ -127,6 +130,11 @@ export function PromptDialog({
         <Button size="sm" variant="utility" onClick={onCancel}>
           취소
         </Button>
+        {quickSubmit && (
+          <Button size="sm" variant="utility" className="whitespace-nowrap" onClick={() => onSubmit(quickSubmit)}>
+            {quickSubmit}
+          </Button>
+        )}
         <Button size="sm" variant="solid" onClick={submit} disabled={!value.trim() || !!invalid}>
           {submitLabel}
         </Button>
