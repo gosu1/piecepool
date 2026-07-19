@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Button, cn } from "../../ds";
 import { suggestRetitles } from "../../llm/retitle";
 import { planRetitles, type RetitlePlanRow } from "../../lib/retitlePlan";
+import { geminiKey } from "../../lib/settings";
 
 // ══ 위키 제목 일괄 정리 — 음차 제목을 관례 표기로 (공간 우클릭 → 위키 제목 정리) ══
 //
@@ -37,7 +38,7 @@ export function RetitleWikisDialog({
     let alive = true;
     setRows(null);
     setError("");
-    const key = (typeof localStorage !== "undefined" && localStorage.getItem("gemini-key")) || "";
+    const key = geminiKey(); // 설정 키 우선, 없으면 빌드 주입(VITE_GEMINI_API_KEY) 폴백
     suggestRetitles(
       wikis.map((w) => w.title),
       key,

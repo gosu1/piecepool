@@ -9,6 +9,17 @@ function ls(): Storage | null {
   return typeof localStorage !== "undefined" ? localStorage : null;
 }
 
+/**
+ * Gemini API 키 — 이 기기 설정(설정 모달 → localStorage["gemini-key"])이 우선,
+ * 없으면 빌드 시 주입된 값(`VITE_GEMINI_API_KEY`), 그것도 없으면 "" (휴리스틱 폴백).
+ * 데모 배포에서 심사위원이 키 발급 없이 바로 쓰게 하려면 빌드 시 주입한다 —
+ * 소스에 커밋하지 말 것(.env.local 또는 CI Secret). 절차는 RUN_GUIDE 참고.
+ */
+export function geminiKey(): string {
+  const stored = ls()?.getItem("gemini-key")?.trim();
+  return stored || import.meta.env.VITE_GEMINI_API_KEY || "";
+}
+
 export function getChunkSettings(): { enabled: boolean; percentile: number } {
   const store = ls();
   const enabled = store?.getItem(ENABLED_KEY) === "1";

@@ -12,6 +12,7 @@ import {
 } from "../../lib/quickMemo";
 import { useInboxDraftStore, EMPTY_DRAFT } from "../../store/inboxDraftStore";
 import { runTidy, TidyNoKeyError, TidyStreamError } from "../../llm/tidy";
+import { geminiKey } from "../../lib/settings";
 
 // ══ Quick Memo — 강의 중 파편을 흘려 담는 플로팅 메모장 ══
 // SSOT: docs/superpowers/specs/2026-07-13-quickmemo-per-note-design.md
@@ -36,7 +37,7 @@ function viewport(): { vw: number; vh: number } {
 type Phase = "edit" | "tidying" | "done";
 
 function apiKey(): string {
-  return (typeof localStorage !== "undefined" && localStorage.getItem("gemini-key")) || "";
+  return geminiKey(); // 설정 키 우선, 없으면 빌드 주입(VITE_GEMINI_API_KEY) 폴백
 }
 
 export function QuickMemo({ draftKey, onClose }: { draftKey: string; onClose: () => void }) {

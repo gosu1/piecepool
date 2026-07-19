@@ -41,6 +41,10 @@ jobs:
           workspaces: src-tauri
       - run: npm ci
       - name: Tauri build
+        # (선택) 데모용 Gemini 키 주입 — 리포지토리 Secret VITE_GEMINI_API_KEY 가 있으면 번들에 박힌다.
+        # Secret 미설정이면 빈 값 → 앱은 설정 모달 입력/휴리스틱 폴백으로 동작(무해). 소스엔 키가 남지 않는다.
+        env:
+          VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
         run: npm run tauri build -- ${{ matrix.args }}
       # 태그 빌드 → GitHub Release 에 첨부
       - name: Attach bundle to Release
