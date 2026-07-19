@@ -104,10 +104,14 @@
 ### 명령
 
 ```bash
-npm install          # 프론트 의존성
-npm run tauri dev    # 개발 모드 실행 (첫 빌드는 Rust 컴파일로 수 분 소요)
+npm install          # 프론트 의존성 (3~5분)
+npm run tauri dev    # 개발 모드 실행 (첫 실행은 Rust 전체 컴파일로 10~20분)
 npm run tauri build  # 배포 번들 생성 (macOS: .dmg / Windows: .exe)
 ```
+
+> ⏱️ **첫 `tauri dev` 는 Rust 의존성을 전부 컴파일하므로 10~20분 걸립니다** (장비에 따라 더 걸릴 수 있습니다). 진행이 멈춘 것처럼 보여도 정상이니 그대로 기다려 주세요 — 컴파일이 끝나면 앱 창이 자동으로 뜹니다. 두 번째 실행부터는 캐시가 남아 수십 초면 됩니다.
+>
+> 설치 파일(`.dmg`/`.exe`)로 실행하실 경우에는 이미 빌드된 앱이므로 **기다림 없이 바로 실행**됩니다.
 
 빌드 산출물 위치: `src-tauri/target/release/bundle/` (macOS `dmg/` · Windows `nsis/`)
 
