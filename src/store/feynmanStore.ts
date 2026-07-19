@@ -4,6 +4,7 @@ import { probeExplanation, analogyHint, type Turn, type AnalogyHint } from "../l
 import { splitFeynmanSection, joinFeynmanSection, bodyHash, type FeynmanSession, type FeynmanTurn } from "../lib/feynmanSection";
 import type { WikiPage } from "../lib/types";
 import * as ipc from "../lib/ipc";
+import { geminiKey } from "../lib/settings";
 
 // ══ 위키 파인만 — 페이지 하나(=개념 하나)를 자기 말로 설명하게 한다 ══
 //
@@ -85,11 +86,11 @@ function settledTurns(history: Turn[]): FeynmanTurn[] {
 }
 
 export function hasGeminiKey(): boolean {
-  return !!(typeof localStorage !== "undefined" && localStorage.getItem("gemini-key"));
+  return !!geminiKey(); // 설정 키 우선, 없으면 빌드 주입(VITE_GEMINI_API_KEY) 폴백
 }
 
 function apiKey(): string {
-  return (typeof localStorage !== "undefined" && localStorage.getItem("gemini-key")) || "";
+  return geminiKey(); // 설정 키 우선, 없으면 빌드 주입(VITE_GEMINI_API_KEY) 폴백
 }
 
 export const useFeynmanStore = create<FeynmanState>()(
