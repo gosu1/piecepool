@@ -90,9 +90,13 @@
 
 ## 5. 소스에서 직접 빌드
 
+> ⚠️ **소스 빌드에는 데모용 API 키가 포함되지 않습니다.** 데모 키는 배포용 설치 파일에만 주입되며, 공개 저장소에 키를 커밋하지 않기 위해 소스에는 담기지 않습니다.
+> 소스에서 빌드해 **AI 기능(위키 생성 · PDF 요약 · 파인만)까지 확인**하시려면, 앱 실행 후 사이드바 하단 **설정(⚙) → Gemini API 키** 에 키를 입력해 주세요. 키 발급: [Google AI Studio](https://aistudio.google.com/apikey) (무료 할당량으로 충분합니다).
+> 키 없이도 앱 실행 · 노트 작성 · PDF 열람 · 지식 그래프는 정상 동작하며, AI 기능은 키 없이 쓸 수 있는 기본 추출 방식으로 대체됩니다.
+
 ### 요구 사항
 
-- Node.js 20 이상 (개발은 22 기준)
+- Node.js 22 이상
 - Rust stable (rustup 권장) + OS별 Tauri 사전 요구 사항: [Tauri Prerequisites](https://v2.tauri.app/start/prerequisites/)
   - macOS: Xcode Command Line Tools
   - Windows: Microsoft C++ Build Tools, WebView2(Win11은 기본 내장)
@@ -116,4 +120,5 @@ npm run tauri build  # 배포 번들 생성 (macOS: .dmg / Windows: .exe)
 | (macOS) 앱이 "손상되었기 때문에 열 수 없음" | `xattr -cr /Applications/PiecePool.app` 실행 후 다시 열기 |
 | (Windows) SmartScreen 이 실행을 막음 | "추가 정보" → "실행" (코드 서명 미적용이라 뜨는 정상 경고입니다) |
 | PDF 텍스트 추출 실패 안내가 뜸 | 스캔본(이미지) PDF는 텍스트가 없을 수 있습니다 — 텍스트 기반 PDF로 시도해 주세요 |
+| (소스 빌드) AI 기능이 동작하지 않음 / "Gemini 키가 없어" 안내가 뜸 | 소스 빌드에는 데모 키가 포함되지 않습니다 — 설정(⚙)에서 Gemini API 키를 입력해 주세요 ([5. 소스에서 직접 빌드](#5-소스에서-직접-빌드) 참고) |
 | 데모 데이터를 초기화하고 싶음 | 앱 종료 후 홈 폴더의 `PiecePool` 폴더 삭제 → 재실행 시 다시 시드됩니다 |
