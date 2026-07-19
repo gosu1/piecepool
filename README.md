@@ -20,6 +20,7 @@
 - [진행 상태](#진행-상태)
 - [협업 규칙](#협업-규칙)
 - [추가 자료](#추가-자료)
+- [기술 스택 및 오픈소스](#기술-스택-및-오픈소스)
 - [라이선스](#라이선스)
 
 ---
@@ -180,6 +181,33 @@ npm run e2e           # Playwright e2e
 
 ---
 
+## 기술 스택 및 오픈소스
+
+PiecePool 은 아래 오픈소스 위에 구축되었습니다. 각 구성요소는 원 저작권자의 라이선스를 따릅니다.
+
+| 영역 | 구성요소 | 라이선스 |
+|---|---|---|
+| 앱 프레임워크 | Tauri v2 (Rust + WebView), tauri-plugin-opener, tauri-plugin-drag | MIT / Apache-2.0 |
+| 백엔드 (Rust) | serde · serde_json · ts-rs · pdf-extract · lopdf · windows-sys | MIT / Apache-2.0 |
+| 프론트엔드 | React 19 · react-dom · react-router-dom · Vite · TypeScript | MIT |
+| 스타일 | Tailwind CSS v4 | MIT |
+| 상태 관리 | Zustand | MIT |
+| 지식 그래프 | Cytoscape.js · d3-force | MIT |
+| 마크다운·수식 | react-markdown · remark-gfm · remark-math · rehype-katex · KaTeX | MIT |
+| 코드 에디터 | CodeMirror 6 (`@codemirror/*`) · @uiw/react-codemirror · @lezer/highlight | MIT |
+| PDF | react-pdf (pdf.js) · pdf-extract | MIT / Apache-2.0 |
+| 검증·테스트 | Ajv · Vitest · Playwright | MIT / Apache-2.0 |
+| LLM (외부 API) | Google Gemini (OpenAI 호환 엔드포인트) · Liner API | 각 서비스 이용약관 |
+
+**라이선스 고지**
+
+- 전체 의존성(npm 약 290개, Cargo 약 525개)은 **MIT · Apache-2.0 · BSD · ISC · Zlib · Unicode-3.0** 등 허용형(permissive) 라이선스입니다. **GPL/AGPL 등 강한 카피레프트 라이선스는 사용하지 않았습니다.**
+- 일부 빌드 도구는 **MPL-2.0**(예: `lightningcss`, `cssparser`/`selectors`)입니다 — 파일 단위의 약한 카피레프트로, 수정 없이 사용하며 최종 배포 번들에는 포함되지 않습니다.
+- 브라우저 호환성 데이터 `caniuse-lite` 는 **CC-BY-4.0** 이며 빌드 시에만 사용됩니다(데이터 출처: caniuse.com).
+- 각 패키지의 전체 라이선스 전문은 해당 패키지 저장소 및 `node_modules` / Cargo 레지스트리에서 확인할 수 있습니다.
+
 ## 라이선스
 
 독점 (All Rights Reserved). [`LICENSE`](LICENSE) 참조 — 무단 사용·복제·배포 금지. `package.json`은 `UNLICENSED`.
+
+> 위 오픈소스 구성요소는 각자의 라이선스를 따르며, 본 독점 라이선스는 **PiecePool 자체 코드**에 적용됩니다.
