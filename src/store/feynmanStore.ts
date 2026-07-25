@@ -6,6 +6,7 @@ import { judgeCoverage, clearOk, type CoverageResult } from "../llm/coverage";
 import { splitFeynmanSection, joinFeynmanSection, bodyHash, type FeynmanSession, type FeynmanTurn } from "../lib/feynmanSection";
 import type { WikiPage } from "../lib/types";
 import * as ipc from "../lib/ipc";
+import { geminiKey } from "../lib/settings";
 import { useUnderstandingStore } from "./understandingStore";
 
 // ══ 위키 파인만 — 페이지 하나(=개념 하나)를 자기 말로 설명하게 한다 ══
@@ -94,11 +95,11 @@ function settledTurns(history: Turn[]): FeynmanTurn[] {
 }
 
 export function hasGeminiKey(): boolean {
-  return !!(typeof localStorage !== "undefined" && localStorage.getItem("gemini-key"));
+  return !!geminiKey(); // 설정 키 우선, 없으면 빌드 주입(VITE_GEMINI_API_KEY) 폴백
 }
 
 function apiKey(): string {
-  return (typeof localStorage !== "undefined" && localStorage.getItem("gemini-key")) || "";
+  return geminiKey(); // 설정 키 우선, 없으면 빌드 주입(VITE_GEMINI_API_KEY) 폴백
 }
 
 // 커버리지 파이프라인 캐시(앱 세션 한정) — facet 은 위키 버전당 1회(캐시 키 = 본문 해시),
