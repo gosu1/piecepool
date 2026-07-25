@@ -77,6 +77,10 @@ export function graphStylesheet(t: GraphTokens): StylesheetStyle[] {
         "outline-opacity": 0.95,
       },
     },
+    // 이해 안개 — 상태 없음·hazy 는 흐리게(저불투명이 곧 저채도로 읽힌다), clear 는 기존 시각 그대로.
+    // 색(kind/sbg)·크기(priority)·링(review/선택) 채널은 그대로 두고 불투명도 채널만 쓴다.
+    // hover .faded(0.12, 마지막 규칙)가 이보다 낮아 이웃 강조는 안개 위에서도 그대로 동작한다.
+    { selector: "node[hazy]", style: { opacity: 0.35 } },
     // 배경 잡고 팬할 때 뜨는 회색 원(core active-bg) 제거.
     { selector: "core", style: { "active-bg-opacity": 0 } },
     {

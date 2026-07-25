@@ -133,8 +133,13 @@ export function FeynmanPanel({
     );
   }
 
-  const { history, probing, saving, error, hint, hinting, hintError } = mine;
+  const { history, probing, saving, error, hint, hinting, hintError, coverage, facets } = mine;
   const answered = history.some((t) => t.role === "user");
+
+  // 커버리지 거울(facet-coverage 설계) — 간극만 비춘다. 점수·총평·등급은 어디에도 없다.
+  const facetText = new Map((facets ?? []).map((f) => [f.id, f.text]));
+  const missing = coverage?.judgments.filter((j) => j.status === "missing") ?? [];
+  const contradicted = coverage?.judgments.filter((j) => j.status === "contradicted") ?? [];
 
   return (
     <div className="mt-4 space-y-3 rounded-md border border-primary/40 bg-primary/[0.04] p-3">
@@ -195,6 +200,37 @@ export function FeynmanPanel({
               {hint.questions.map((q, i) => (
                 <p key={q} className="text-[13px] leading-relaxed text-ink-2">
                   {i + 1}. {q}
+                </p>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 커버리지 거울 — 위키의 요점(facet) 대비 간극·어긋남만 보여준다. 채점이 아니다:
+          다 다뤘을 때 칭찬도, 점수도 띄우지 않는다(거울 원칙). 승급 여부는 스토어의 결정적 코드가 정한다. */}
+      {coverage?.pasteSuspected && (
+        <p className="text-[12px] text-ink-muted">위키 문장이 많이 섞여 있어요. 자기 말로 다시 써볼까요?</p>
+      )}
+      {(missing.length > 0 || contradicted.length > 0) && (
+        <div className="space-y-1.5 rounded border border-hairline bg-surface px-2.5 py-2">
+          {missing.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-[12px] font-semibold text-ink">위키의 이 요점을 설명에서 못 봤어요</p>
+              {missing.map((j) => (
+                <p key={j.id} className="text-[13px] leading-relaxed text-ink-2">
+                  · {facetText.get(j.id) ?? j.id}
+                </p>
+              ))}
+            </div>
+          )}
+          {/* 어긋남은 오류 선고가 아니라 확인 요청으로 말한다(설계 §5). */}
+          {contradicted.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-[12px] font-semibold text-ink">설명이 이 요점과 어긋나 보여요 — 한번 확인해볼까요?</p>
+              {contradicted.map((j) => (
+                <p key={j.id} className="text-[13px] leading-relaxed text-ink-2">
+                  · {facetText.get(j.id) ?? j.id}
                 </p>
               ))}
             </div>

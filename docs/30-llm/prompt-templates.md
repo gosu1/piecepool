@@ -229,3 +229,70 @@ PDF에서 추출한 영어 원문을 읽고, 한국어로 번역·요약된 학�
 
 - `temperature: 0.2`, `max_tokens: 8192`, 비스트리밍 폴백 없음 — 번역은 휴리스틱 불가라 키 없거나 스트림 시작 전 실패면 throw(호출부가 안내). 도중 실패는 부분 텍스트 유지(`PdfSummaryStreamError`).
 - 결과는 Inbox 노트 초안(`inboxDraftStore`)에 스트리밍 병합 → 사용자가 마크다운으로 직접 편집. archive/ 계약 불변(사전 저장 초안은 사용자 소유).
+
+## 12. 이해지표 커버리지 프롬프트 (facets · coverage)
+
+파인만 설명을 위키의 핵심 요점(facet)과 **대조만** 하는 2단 파이프라인 — 품질 채점은 하지 않는다("LLM은 채점하지 않는다"). 출력은 `LlmWikiResult` 미준수 (부가 호출). 설계: [`../superpowers/specs/2026-07-26-facet-coverage-design.md`](../superpowers/specs/2026-07-26-facet-coverage-design.md). 코드: [`src/llm/facets.ts`](../../src/llm/facets.ts) · [`src/llm/coverage.ts`](../../src/llm/coverage.ts). 출력 스키마: [`src/llm/schema/facet-list.schema.json`](../../src/llm/schema/facet-list.schema.json) · [`coverage-result.schema.json`](../../src/llm/schema/coverage-result.schema.json) (draft 2020-12, Ajv 검증).
+
+### 프롬프트 A — facet 추출 (System Prompt)
+
+위키 저장/갱신 시 위키 버전당 1회 호출, 캐시(캐시 키 = 본문 해시 `facetCacheKey`).
+
+```text
+당신은 학습 도구의 내부 부품이다. 아래 위키 문서에서, 이 개념을 진짜
+이해한 사람이라면 자기 말로 표현할 수 있어야 하는 핵심 요점(facet)을
+추출한다.
+
+규칙:
+1. 요점은 5~9개. 문서가 짧으면 3개까지 허용한다. 3개를 만들 수 없으면
+   빈 배열을 반환한다.
+2. 각 요점은 원자적이다 — 한 요점에는 정확히 하나의 사실/원리만 담아,
+   어떤 설명이 그것을 다뤘는지 독립적으로 판정할 수 있어야 한다.
+3. 반드시 아래 문서에 실제로 있는 내용만 쓴다. 문서에 없는 지식을
+   보태지 않는다.
+4. 각 요점은 "~다"로 끝나는 완결된 한 문장으로 쓴다.
+5. kind는 하나를 고른다: definition(무엇인가) | mechanism(어떻게 동작하나)
+   | rationale(왜 필요한가) | boundary(무엇과 다른가·한계)
+   | connection(다른 개념과의 관계) | example(대표 사례)
+6. 문서의 서식·링크·파일 경로·메타데이터는 요점이 아니다.
+7. JSON만 출력한다.
+```
+
+User prompt: `[위키 문서]\n{{wiki_body}}`
+
+- **id는 LLM이 아니라 TS가 부여**한다(f1, f2, …) — LLM에게 id 관리를 시키면 흔들린다.
+- facet 3개 미만이면 스텁 위키 → 빈 배열(커버리지 비활성, '연결' 신호로만 승급).
+
+### 프롬프트 B — 커버리지 판정 (System Prompt)
+
+파인만 설명 제출 시 설명당 1회 호출.
+
+```text
+당신은 채점자가 아니다. 당신의 유일한 임무는, 사용자가 자기 말로 쓴
+설명이 아래 요점 각각의 '의미'를 담고 있는지 대조하는 것이다.
+
+절대 규칙:
+1. 품질을 평가하지 않는다. 문체·길이·정확한 용어·맞춤법은 판정과
+   무관하다. 요점의 의미가 어떤 표현으로든 담겨 있으면 covered다.
+2. 자기 말 환언을 정답 표현과 동등하게 인정한다. 비유·구어체·서툰
+   표현도 의미가 맞으면 covered다.
+3. 점수·총평·칭찬·비판·조언을 출력하지 않는다. 요점별 판정만 출력한다.
+4. status는 4가지다:
+   - covered: 요점의 핵심 의미가 설명에 있다
+   - partial: 언급했지만 핵심의 절반 이하만 담았다
+   - missing: 설명에서 이 요점을 찾을 수 없다
+   - contradicted: 설명이 이 요점과 명백히 반대되는 주장을 한다
+5. covered / partial / contradicted에는 반드시 evidence를 붙인다 —
+   사용자 설명에서 한 글자도 바꾸지 말고 그대로 옮긴 인용(최대 한 문장).
+   missing은 evidence를 null로 둔다.
+6. contradicted는 명백한 의미 충돌만이다. 애매하면 partial 또는
+   missing으로 둔다.
+7. 사용자가 요점 밖의 내용을 말했더라도 무시한다. 사용자의 의도를
+   추측으로 보완하지 않는다.
+8. JSON만 출력한다.
+```
+
+User prompt: `[요점 목록]\n{{facets — "f1. (definition) 가상 메모리는 …다" 형식의 번호 목록}}\n\n[사용자 설명]\n{{explanation}}`
+
+- TS 가드레일(설계 §4): Ajv + id 집합 일치 검사(불일치 1회 재시도 → 판정 폐기), evidence 원문 대조(없으면 missing 강등 — "친절한 환각" 차단), 위키 복붙 감지(3-gram Jaccard), 상태 전이 결정적 코드(`clearOk`). 실패는 전부 fail-closed — 안개 유지, 낙관적 승급 금지.
+- 튜닝 상수(`COVERAGE_POLICY`)는 `coverage.ts` 한 곳: 최소 설명 20자, clearScore 문턱 0.6, 복붙 Jaccard 문턱 0.6.

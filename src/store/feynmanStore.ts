@@ -1,10 +1,13 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { probeExplanation, analogyHint, type Turn, type AnalogyHint } from "../llm/feynman";
+import { extractFacets, facetCacheKey, type Facet } from "../llm/facets";
+import { judgeCoverage, clearOk, type CoverageResult } from "../llm/coverage";
 import { splitFeynmanSection, joinFeynmanSection, bodyHash, type FeynmanSession, type FeynmanTurn } from "../lib/feynmanSection";
 import type { WikiPage } from "../lib/types";
 import * as ipc from "../lib/ipc";
 import { geminiKey } from "../lib/settings";
+import { useUnderstandingStore } from "./understandingStore";
 
 // ══ 위키 파인만 — 페이지 하나(=개념 하나)를 자기 말로 설명하게 한다 ══
 //
@@ -24,6 +27,8 @@ interface WikiSession {
   space: string;
   /** WikiPage.path — rename 에도 불변(commands/wiki.rs:106-107) */
   path: string;
+  /** WikiPage.conceptId — 커버리지 승급(이해 안개 hazy→clear)의 키 */
+  conceptId: string;
   title: string;
   /** 기록을 걷어낸 본문. probe 입력이자 bodyHash 의 재료. */
   body: string;
@@ -36,6 +41,10 @@ interface WikiSession {
   hint?: AnalogyHint;
   hinting?: boolean;
   hintError?: string;
+  /** 커버리지 판정(facet-coverage 설계 §3) — 요점별 대조 결과. 점수가 아니라 거울이다. */
+  coverage?: CoverageResult;
+  /** 판정에 쓴 facet 목록 — coverage.judgments 의 id → 요점 문장 매핑용 */
+  facets?: Facet[];
 }
 
 let sessionSeq = 0;
@@ -93,6 +102,18 @@ function apiKey(): string {
   return geminiKey(); // 설정 키 우선, 없으면 빌드 주입(VITE_GEMINI_API_KEY) 폴백
 }
 
+// 커버리지 파이프라인 캐시(앱 세션 한정) — facet 은 위키 버전당 1회(캐시 키 = 본문 해시),
+// 판정은 같은 (위키, 설명) 재제출 시 재호출하지 않는다(설계 §1·§5 디바운스).
+const facetCache = new Map<string, Facet[]>();
+const coverageCache = new Map<string, CoverageResult>();
+
+/** 커버리지 입력 = 이 세션에서 사용자가 말한 설명 전부(멀티턴 누적). */
+const userExplanation = (history: Turn[]) =>
+  history
+    .filter((t) => t.role === "user")
+    .map((t) => t.text)
+    .join("\n");
+
 export const useFeynmanStore = create<FeynmanState>()(
   persist(
     (set, get) => {
@@ -113,6 +134,40 @@ export const useFeynmanStore = create<FeynmanState>()(
         }
       };
 
+      // 커버리지 판정(이해 안개) — 되묻기(runProbe)와 병렬로 돈다. 판정은 부가 신호라 파인만
+      // 흐름을 절대 막지 않는다: 실패는 전부 조용한 경고 + 상태 불변(안개 유지, 낙관적 승급 금지).
+      // 설계: docs/superpowers/specs/2026-07-26-facet-coverage-design.md.
+      const runCoverage = async (sid: number, s: WikiSession, history: Turn[]) => {
+        const key = apiKey();
+        if (!key) return; // 키 없으면 커버리지도 없다 — 키 오류 안내는 probe 쪽이 이미 한다
+        const explanation = userExplanation(history);
+        try {
+          const ck = facetCacheKey(s.body);
+          let facets = facetCache.get(ck);
+          if (!facets) {
+            facets = await extractFacets(s.body, key);
+            facetCache.set(ck, facets);
+          }
+          if (facets.length === 0) return; // 스텁 위키 — 커버리지 비활성(설계 §5)
+          const jk = `${ck}::${facetCacheKey(explanation)}`;
+          let result = coverageCache.get(jk);
+          if (!result) {
+            result = await judgeCoverage(facets, explanation, s.body, key);
+            coverageCache.set(jk, result);
+          }
+          const cur = get().session;
+          if (cur?.id !== sid) return;
+          // 그 사이 더 새 설명이 제출됐다면 늦은 판정은 버린다 — runProbe 의 세션 대조와 같은 이유.
+          if (userExplanation(cur.history) !== explanation) return;
+          set((c) => ({ session: c.session && { ...c.session, coverage: result, facets } }));
+          // 승급은 결정적 코드(clearOk)만 결정한다 — 복붙·contradicted·문턱 미달이면 보류.
+          if (clearOk(result)) void useUnderstandingStore.getState().promote(s.space, s.conceptId);
+        } catch (e) {
+          // fail-closed — 상태 불변(안개 유지). 세션에 error 를 싣지 않는다(probe 흐름과 무관).
+          console.warn(`[coverage] 판정 실패 — 안개 유지: ${e}`);
+        }
+      };
+
       return {
         session: null,
         dismissed: {},
@@ -123,6 +178,7 @@ export const useFeynmanStore = create<FeynmanState>()(
               id: ++sessionSeq,
               space,
               path: page.path,
+              conceptId: page.conceptId,
               title: page.title,
               // 기록을 걷어낸 본문만 넘긴다 — 옛 발화가 note 로 들어가면 conversation 과
               // 이중 노출되고, 과거의 옳은 설명을 되물음이 인용하면 그게 곧 답 유출이다.
@@ -138,8 +194,9 @@ export const useFeynmanStore = create<FeynmanState>()(
           const said = text.trim();
           if (!s || !said || s.probing) return;
           const history: Turn[] = [...s.history, { role: "user", text: said }];
-          set({ session: { ...s, history, probing: true, error: undefined } });
-          await runProbe(s.id, s, history);
+          // 이전 판정은 걷어낸다 — 새 설명을 판정하는 동안 옛 간극 목록이 남아 있으면 거울이 어긋난다.
+          set({ session: { ...s, history, probing: true, error: undefined, coverage: undefined } });
+          await Promise.all([runProbe(s.id, s, history), runCoverage(s.id, s, history)]);
         },
 
         retryProbe: async () => {

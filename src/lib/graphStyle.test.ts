@@ -71,3 +71,19 @@ describe("graphStylesheet — 복습 링 vs 선택 링", () => {
     expect(toHex(nodeStyle({}, true, (n) => n.style("border-color")))).toBe(TOKENS.selection);
   });
 });
+
+describe("graphStylesheet — 이해 안개(hazy)", () => {
+  it("hazy 노드는 흐리고(저불투명) 색 채널은 유지된다", () => {
+    expect(parseFloat(nodeStyle({ hazy: 1 }, false, (n) => n.style("opacity")))).toBeCloseTo(0.35, 2);
+    // 안개는 불투명도 채널만 쓴다 — kind/sbg 색은 그대로다("기존 타입별 색 유지").
+    expect(toHex(nodeStyle({ hazy: 1 }, false, (n) => n.style("background-color")))).toBe(TOKENS.core);
+  });
+
+  it("hazy 없는(clear) 노드는 기존 시각 그대로(불투명 1)", () => {
+    expect(parseFloat(nodeStyle({}, false, (n) => n.style("opacity")))).toBe(1);
+  });
+
+  it("hazy 는 복습 링과 직교한다 — 안개 위에서도 빨간 링이 남는다", () => {
+    expect(toHex(nodeStyle({ hazy: 1, review: 1 }, false, (n) => n.style("outline-color")))).toBe(REVIEW_COLOR);
+  });
+});

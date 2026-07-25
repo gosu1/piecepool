@@ -9,6 +9,8 @@ import type {
   GraphData,
   PdfExtractResult,
   SourceType,
+  UnderstandingMap,
+  UnderstandingState,
 } from "./types";
 import { mock } from "./mockIpc";
 import { inTauri } from "./platform";
@@ -56,6 +58,9 @@ const real = {
     invoke<number>("mark_review_needed", { space, conceptId, sourceId, quotes }),
   unmarkReviewNeeded: (space: string, conceptId: string) =>
     invoke<number>("unmark_review_needed", { space, conceptId }),
+  getUnderstanding: (space: string) => invoke<UnderstandingMap>("get_understanding", { space }),
+  setUnderstanding: (space: string, conceptId: string, state: UnderstandingState) =>
+    invoke<UnderstandingMap>("set_understanding", { space, conceptId, state }),
 };
 
 const api = inTauri ? real : mock;
@@ -91,3 +96,5 @@ export const getGraph = api.getGraph;
 export const appendRelations = api.appendRelations;
 export const markReviewNeeded = api.markReviewNeeded;
 export const unmarkReviewNeeded = api.unmarkReviewNeeded;
+export const getUnderstanding = api.getUnderstanding;
+export const setUnderstanding = api.setUnderstanding;
