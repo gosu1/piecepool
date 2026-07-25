@@ -40,3 +40,17 @@ export interface GraphData {
   nodes: GraphNode[];
   relations: Relation[];
 }
+
+// ── 이해 상태 사이드카 (get_understanding / set_understanding 응답) ──
+// <space>/config/understanding.json — 파생 상태라 entities 계약이 아니다(GraphNode 전례).
+// 맵에 키가 없는 개념 = hazy(안개)가 기본값.
+
+export type UnderstandingState = "hazy" | "clear";
+
+export interface UnderstandingEntry {
+  state: UnderstandingState;
+  updatedAt: string;
+}
+
+/** conceptId → 항목 */
+export type UnderstandingMap = Record<string, UnderstandingEntry>;

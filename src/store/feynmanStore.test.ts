@@ -5,7 +5,20 @@ import type { WikiPage } from "../lib/types";
 vi.mock("../llm/feynman", () => ({ probeExplanation: vi.fn(), analogyHint: vi.fn() }));
 // finish 는 디스크 최신본 기준이라 readWiki 도 탄다.
 vi.mock("../lib/ipc", () => ({ saveWiki: vi.fn(), readWiki: vi.fn() }));
+// 커버리지 파이프라인 — LLM 호출부만 mock, facetCacheKey(캐시 키 규약)는 실물을 쓴다.
+// mock 안 하면 beforeEach 의 gemini-key 때문에 runCoverage 가 실제 네트워크로 나간다.
+vi.mock("../llm/facets", async (importOriginal) => {
+  const real = await importOriginal<typeof import("../llm/facets")>();
+  return { ...real, extractFacets: vi.fn() };
+});
+vi.mock("../llm/coverage", () => ({ judgeCoverage: vi.fn(), clearOk: vi.fn() }));
+const promoteMock = vi.hoisted(() => vi.fn());
+vi.mock("./understandingStore", () => ({
+  useUnderstandingStore: { getState: () => ({ promote: promoteMock }) },
+}));
 import { probeExplanation, analogyHint } from "../llm/feynman";
+import { extractFacets, type Facet } from "../llm/facets";
+import { judgeCoverage, clearOk, type CoverageResult } from "../llm/coverage";
 import * as ipc from "../lib/ipc";
 
 // Map 백엔드 fake localStorage — node vitest 환경엔 없다(settings.test.ts 와 동형).
@@ -64,6 +77,8 @@ beforeEach(() => {
   localStorage.setItem("gemini-key", "test-key");
   vi.mocked(ipc.saveWiki).mockImplementation(async (_s, p) => p as WikiPage);
   vi.mocked(ipc.readWiki).mockImplementation(async () => page());
+  // 기본: 스텁 위키(빈 facet) — 커버리지 경로가 조용히 꺼진 채 기존 시나리오가 돈다.
+  vi.mocked(extractFacets).mockResolvedValue([]);
 });
 
 describe("start / explain", () => {
@@ -112,6 +127,89 @@ describe("start / explain", () => {
     resolve({ probe: "늦은 되물음", targetGap: "why" });
     await p;
     expect(useFeynmanStore.getState().session!.history).toEqual([]);
+  });
+});
+
+describe("explain — 커버리지 판정(이해 안개 거울)", () => {
+  const FACETS: Facet[] = [
+    { id: "f1", text: "스레드는 프로세스 안의 실행 단위다.", kind: "definition" },
+    { id: "f2", text: "같은 프로세스의 스레드는 코드·데이터·힙을 공유한다.", kind: "mechanism" },
+  ];
+  const judged = (): CoverageResult => ({
+    judgments: [
+      { id: "f1", status: "covered", evidence: "실행 단위" },
+      { id: "f2", status: "missing", evidence: null },
+    ],
+    pasteSuspected: false,
+  });
+  const okProbe = () => vi.mocked(probeExplanation).mockResolvedValue({ probe: "왜요?", targetGap: "why" });
+
+  // 캐시(facetCache)가 모듈 전역이라 테스트마다 위키 본문을 다르게 쓴다.
+
+  it("판정 결과와 facet 목록이 세션에 실린다 — clearOk 아니면 승급 없음", async () => {
+    okProbe();
+    vi.mocked(extractFacets).mockResolvedValue(FACETS);
+    vi.mocked(judgeCoverage).mockResolvedValue(judged());
+    vi.mocked(clearOk).mockReturnValue(false);
+    useFeynmanStore.getState().start("sp", page({ markdown: "# 커버리지 본문 A" }));
+    await useFeynmanStore.getState().explain("스레드는 실행 단위다");
+    const s = useFeynmanStore.getState().session!;
+    expect(s.coverage).toEqual(judged());
+    expect(s.facets).toEqual(FACETS);
+    expect(promoteMock).not.toHaveBeenCalled();
+  });
+
+  it("clearOk=true 면 hazy→clear 승급을 부른다(space, conceptId)", async () => {
+    okProbe();
+    vi.mocked(extractFacets).mockResolvedValue(FACETS);
+    vi.mocked(judgeCoverage).mockResolvedValue(judged());
+    vi.mocked(clearOk).mockReturnValue(true);
+    useFeynmanStore.getState().start("sp", page({ markdown: "# 커버리지 본문 B" }));
+    await useFeynmanStore.getState().explain("스레드는 실행 단위고 자원을 공유한다");
+    expect(promoteMock).toHaveBeenCalledWith("sp", "concept-thread");
+  });
+
+  it("facet 빈 배열(스텁 위키)이면 판정하지 않는다", async () => {
+    okProbe();
+    vi.mocked(extractFacets).mockResolvedValue([]);
+    useFeynmanStore.getState().start("sp", page({ markdown: "# 커버리지 본문 C" }));
+    await useFeynmanStore.getState().explain("설명");
+    expect(judgeCoverage).not.toHaveBeenCalled();
+    expect(useFeynmanStore.getState().session!.coverage).toBeUndefined();
+  });
+
+  it("판정 실패는 조용히 삼킨다 — 세션 error 불변, 승급 없음(fail-closed)", async () => {
+    okProbe();
+    vi.mocked(extractFacets).mockResolvedValue(FACETS);
+    vi.mocked(judgeCoverage).mockRejectedValue(new Error("HTTP 503"));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    useFeynmanStore.getState().start("sp", page({ markdown: "# 커버리지 본문 D" }));
+    await useFeynmanStore.getState().explain("설명이다");
+    const s = useFeynmanStore.getState().session!;
+    expect(s.coverage).toBeUndefined();
+    expect(s.error).toBeUndefined(); // probe 는 성공 — 커버리지 실패가 파인만 흐름을 오염시키지 않는다
+    expect(promoteMock).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("키가 없으면 커버리지 파이프라인 자체를 태우지 않는다", async () => {
+    okProbe();
+    localStorage.removeItem("gemini-key");
+    useFeynmanStore.getState().start("sp", page({ markdown: "# 커버리지 본문 E" }));
+    await useFeynmanStore.getState().explain("설명");
+    expect(extractFacets).not.toHaveBeenCalled();
+  });
+
+  it("facet 은 위키 버전당 1회 — 같은 본문 재설명은 캐시를 쓴다", async () => {
+    okProbe();
+    vi.mocked(extractFacets).mockResolvedValue(FACETS);
+    vi.mocked(judgeCoverage).mockResolvedValue(judged());
+    vi.mocked(clearOk).mockReturnValue(false);
+    useFeynmanStore.getState().start("sp", page({ markdown: "# 커버리지 본문 F" }));
+    await useFeynmanStore.getState().explain("첫 설명");
+    await useFeynmanStore.getState().explain("이어지는 다른 설명");
+    expect(extractFacets).toHaveBeenCalledTimes(1);
+    expect(judgeCoverage).toHaveBeenCalledTimes(2);
   });
 });
 

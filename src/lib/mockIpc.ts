@@ -10,6 +10,8 @@ import type {
   GraphData,
   GraphNode,
   SourceType,
+  UnderstandingMap,
+  UnderstandingState,
 } from "./types";
 import { computePriorities } from "./priority";
 import { groupOf } from "./relationMeta";
@@ -207,6 +209,11 @@ const SUBJECTS: Record<string, Subject[]> = {
 };
 
 const delay = <T>(v: T) => new Promise<T>((r) => setTimeout(() => r(v), 60));
+
+// 이해 안개 사이드카 mock — '프로세스'만 또렷하게 시드해 브라우저에서 흐림/또렷 대비를 바로 본다.
+const memUnderstanding: Record<string, UnderstandingMap> = {
+  "운영체제": { "concept-process": { state: "clear", updatedAt: NOW } },
+};
 
 // graph.rs 의 dedup_key 미러. assoc 그룹(related_to·contrasts·confused_with)이 곧 대칭 관계이므로
 // (A,B) 와 (B,A) 를 같은 키로 접는다. 방향성 타입은 정렬하지 않는다 — 계층축(DAG)이 무너진다.
@@ -416,5 +423,11 @@ export const mock = {
       (r) => !(r.relationType === "review_needed" && r.sourceNodeId === conceptId && r.targetNodeId === conceptId),
     );
     return delay(RELATIONS[space].length);
+  },
+  getUnderstanding: (space: string) => delay(memUnderstanding[space] ?? {}),
+  setUnderstanding: (space: string, conceptId: string, state: UnderstandingState) => {
+    const m = { ...(memUnderstanding[space] ?? {}), [conceptId]: { state, updatedAt: NOW } };
+    memUnderstanding[space] = m;
+    return delay(m);
   },
 };

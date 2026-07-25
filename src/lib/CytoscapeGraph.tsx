@@ -150,12 +150,15 @@ export interface CytoscapeGraphProps {
   focus?: { id: string; n: number } | null;
   /** 지정 시(전체 과목 뷰) 노드를 소속 space 색으로 칠한다. slug → 색. 미지정이면 kind 색(기본). */
   spaceColors?: Record<string, string>;
+  /** 이해 안개 — clear 로 판정된 conceptId 집합. 지정 시 집합 밖 노드는 흐리게(hazy) 그린다.
+   *  미지정이면 안개 기능 꺼짐(모두 또렷). 상태 없음 = hazy 가 기본값(understanding 사이드카). */
+  clearIds?: Set<string>;
   /** 레이아웃: 자유 배치(force) ↔ 계층 보기(hier). 계층 관계 없으면 hier 도 force 로 폴백. */
   layout?: "force" | "hier";
   className?: string;
 }
 
-export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, typeFilter, reviewOnly, selectedId, focus, spaceColors, layout = "force", className }: CytoscapeGraphProps) {
+export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, typeFilter, reviewOnly, selectedId, focus, spaceColors, clearIds, layout = "force", className }: CytoscapeGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<Core | null>(null);
   const simRef = useRef<Simulation<SimNode, SimLink> | null>(null);
@@ -223,6 +226,8 @@ export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, t
         ...(reviewed.has(n.id) ? { review: 1 } : {}),
         // sbg 있으면 스타일이 space 색으로 덮어씀(전체 뷰). 없으면 kind 색 유지.
         ...(spaceColors && n.space ? { sbg: spaceColors[n.space] ?? "#a39e98" } : {}),
+        // 이해 안개 — clear 집합 밖은 흐리게. clearIds 미지정이면 기능 꺼짐(전부 또렷).
+        ...(clearIds && !clearIds.has(n.id) ? { hazy: 1 } : {}),
       },
     }));
     const edgeEls: ElementDefinition[] = rels.map((r) => ({
@@ -237,7 +242,7 @@ export function CytoscapeGraph({ data, onNode, onEdge, onClear, subjectFilter, t
       },
     }));
     return [...nodeEls, ...edgeEls];
-  }, [data, subjectFilter, typeFilter, reviewOnly, spaceColors]);
+  }, [data, subjectFilter, typeFilter, reviewOnly, spaceColors, clearIds]);
 
   // ── cy 생성(1회) + 이벤트 바인딩 ──
   useEffect(() => {

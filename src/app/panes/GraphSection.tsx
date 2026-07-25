@@ -17,6 +17,7 @@ import { Markdown } from "../../lib/markdown";
 import { stripFeynmanSection } from "../../lib/feynmanSection";
 import { PromptDialog } from "../shell/Dialogs";
 import { RelationQualityMeter } from "./RelationQuality";
+import { useUnderstandingStore } from "../../store/understandingStore";
 
 // 전체 과목 뷰 space별 구분 색 (8색 순환)
 const SPACE_PALETTE = ["#0075de", "#dd5b00", "#2a9d99", "#7048e8", "#e64980", "#1aae39", "#f08c00", "#1c7ed6"];
@@ -145,6 +146,22 @@ export function GraphSection({
       .then(setSubjects)
       .catch(() => setSubjects([]));
   }, [view, space]);
+
+  // 이해 안개 — 사이드카(understanding.json) 로드. 병합(전체) 뷰가 있으니 모든 공간을 읽는다.
+  const understandingBySpace = useUnderstandingStore((s) => s.bySpace);
+  const loadUnderstanding = useUnderstandingStore((s) => s.load);
+  useEffect(() => {
+    spaces.forEach((s) => void loadUnderstanding(s.slug));
+  }, [spaces, loadUnderstanding]);
+
+  // clear 로 판정된 conceptId 집합 — 집합 밖은 전부 안개(상태 없음 = hazy).
+  // 병합 뷰는 중복 conceptId 를 먼저 만난 노드로 접으므로, 한 공간에서라도 clear 면 또렷으로 본다.
+  const clearIds = useMemo(() => {
+    const out = new Set<string>();
+    for (const m of Object.values(understandingBySpace))
+      for (const [cid, e] of Object.entries(m)) if (e.state === "clear") out.add(cid);
+    return out;
+  }, [understandingBySpace]);
 
   // 노드에 소속 space 태깅 — 위키 파일명(concept-slug.md)이 space 간 충돌하므로 문서 열기 정합성에 필수.
   // space별 색·군집 배치도 이 태그로 한다.
@@ -402,6 +419,19 @@ export function GraphSection({
           </div>
         )}
 
+        {/* 이해 안개 범례 — 흐림(안개)=아직 자기 말로 설명하지 못한 개념, 또렷=커버리지 통과.
+            점수·등급이 아니라 거울이다(facet-coverage 설계). 스와치 불투명도가 그래프 인코딩 그대로. */}
+        <div className="flex flex-wrap gap-x-3 gap-y-1">
+          <span className="flex items-center gap-1.5 text-[12px] text-ink-2">
+            <span className="h-2.5 w-2.5 rounded-full bg-ink-faint opacity-40" />
+            흐림 — 아직 설명 전
+          </span>
+          <span className="flex items-center gap-1.5 text-[12px] text-ink-2">
+            <span className="h-2.5 w-2.5 rounded-full bg-ink-faint" />
+            또렷 — 자기 말로 설명한 개념
+          </span>
+        </div>
+
         {/* 관계 그룹 필터 — 칩이 곧 범례: 스와치(실선/점선·복습색)가 그래프 인코딩 그대로 */}
         {groupsPresent.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
@@ -460,6 +490,7 @@ export function GraphSection({
                 subjectFilter={subjectFilter}
                 reviewOnly={reviewOnly}
                 spaceColors={view ? undefined : spaceColors}
+                clearIds={clearIds}
                 selectedId={selNode}
                 focus={focus}
                 layout={!view || !hasHier ? "force" : layoutMode}

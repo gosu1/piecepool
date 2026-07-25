@@ -1174,6 +1174,8 @@ pub fn run() {
             commands::graph::append_relations,
             commands::graph::mark_review_needed,
             commands::graph::unmark_review_needed,
+            commands::understanding::get_understanding,
+            commands::understanding::set_understanding,
         ])
         .run(tauri::generate_context!())
         .expect("error while building tauri application");

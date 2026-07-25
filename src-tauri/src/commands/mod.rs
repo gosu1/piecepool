@@ -3,6 +3,7 @@
 
 pub mod graph;
 pub mod notes;
+pub mod understanding;
 pub mod wiki;
 pub mod workspace;
 
