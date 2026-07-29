@@ -45,7 +45,7 @@ export function buildOcrRequest(dataUrl: string, model: string = GEMINI_MODEL, l
 }
 
 // Chat Completions 응답 → 평문 텍스트.
-export const extractText = extractChatText;
+const extractText = extractChatText;
 
 const OFFLINE_FALLBACK =
   "## 원문\n\n(이미지 OCR은 설정에서 Gemini API 키를 입력하면 자동 인식됩니다. 지금은 원본만 첨부됩니다.)\n\n" +

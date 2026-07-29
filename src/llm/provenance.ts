@@ -12,7 +12,7 @@ export interface SourceMeta {
 }
 
 // tier 기본 신뢰도. 교수 PDF/원본=1차 높음, 사용자 필기/요약=2차 보통.
-export const DEFAULT_TRUST: Record<SourceTier, number> = { primary: 0.9, secondary: 0.5 };
+const DEFAULT_TRUST: Record<SourceTier, number> = { primary: 0.9, secondary: 0.5 };
 
 export interface ProvenanceSource {
   sourceId: string;
