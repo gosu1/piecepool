@@ -255,9 +255,9 @@ impl Fm {
             if let Some(rest) = t.strip_prefix("- ") {
                 out.push(vec![]);
                 if let Some((k, v)) = rest.split_once(':') {
-                    out.last_mut()
-                        .unwrap()
-                        .push((k.trim().to_string(), unquote(v)));
+                    if let Some(last) = out.last_mut() {
+                        last.push((k.trim().to_string(), unquote(v)));
+                    }
                 }
             } else if let Some((k, v)) = t.split_once(':') {
                 if let Some(last) = out.last_mut() {

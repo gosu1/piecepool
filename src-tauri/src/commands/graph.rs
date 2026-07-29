@@ -99,7 +99,7 @@ pub(crate) fn read_relations(space: &str) -> Result<Vec<Relation>, String> {
     if !storage::exists(&path) {
         return Ok(vec![]);
     }
-    let rels: Vec<Relation> = storage::read_json(&path).map_err(|e| e.to_string())?;
+    let rels: Vec<Relation> = storage::read_json(&path)?;
     // 저장 게이트를 우회해 들어온 과거 오염(대칭 중복·무효 self-loop)을 읽는 시점에 접는다.
     // 비파괴적 — 다음 write 때 정리본이 디스크에 영속된다.
     let mut seen = HashSet::new();
@@ -141,11 +141,11 @@ pub fn get_graph(space: String) -> Result<GraphData, String> {
 
     // wiki 파일 → 노드. 같은 순서로 RawFactors 를 모아 우선도를 일괄 산정한다.
     let dir = storage::space_subdir(&space, "wiki");
-    let files = storage::list_files(&dir, ".md").map_err(|e| e.to_string())?;
+    let files = storage::list_files(&dir, ".md")?;
     let mut nodes = vec![];
     let mut raws: Vec<RawFactors> = vec![];
     for f in files {
-        let md = storage::read_text(&dir.join(&f)).map_err(|e| e.to_string())?;
+        let md = storage::read_text(&dir.join(&f))?;
         let page: WikiPage = match frontmatter::md_to_wiki(&sp.id, &f, &md) {
             Ok(p) => p,
             Err(_) => continue,
@@ -246,13 +246,13 @@ pub fn append_relations(space: String, relations: Vec<Relation>) -> Result<usize
     }
 
     let path = storage::space_subdir(&space, "relations").join("relations.json");
-    storage::write_json(&path, &existing).map_err(|e| e.to_string())?;
+    storage::write_json(&path, &existing)?;
     Ok(existing.len())
 }
 
 fn write_relations(space: &str, rels: &[Relation]) -> Result<usize, String> {
     let path = storage::space_subdir(space, "relations").join("relations.json");
-    storage::write_json(&path, &rels.to_vec()).map_err(|e| e.to_string())?;
+    storage::write_json(&path, &rels.to_vec())?;
     Ok(rels.len())
 }
 

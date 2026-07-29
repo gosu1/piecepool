@@ -16,8 +16,7 @@ use crate::storage::{self, frontmatter};
 /// slug → KnowledgeSpace 조회 (spaces.json). command 들이 space_id 를 알아내는 공용 헬퍼.
 pub(crate) fn space_by_slug(slug: &str) -> Result<KnowledgeSpace, String> {
     let spaces: Vec<KnowledgeSpace> =
-        storage::read_json(&storage::config_dir().join("spaces.json"))
-            .map_err(|e| e.to_string())?;
+        storage::read_json(&storage::config_dir().join("spaces.json"))?;
     spaces
         .into_iter()
         .find(|s| s.slug == slug)
