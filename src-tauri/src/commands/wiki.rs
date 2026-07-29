@@ -80,7 +80,7 @@ pub fn delete_wiki(space: String, file: String) -> Result<usize, String> {
     storage::remove_file(&path)?;
 
     // dangling edge 방지: 삭제된 개념을 source/target 으로 갖는 관계 제거.
-    let relations = crate::commands::graph::read_relations(&space)?;
+    let relations = crate::graph::read_relations(&space)?;
     let before = relations.len();
     let kept: Vec<_> = relations
         .into_iter()
@@ -88,8 +88,7 @@ pub fn delete_wiki(space: String, file: String) -> Result<usize, String> {
         .collect();
     let pruned = before - kept.len();
     if pruned > 0 {
-        let rel_path = storage::space_subdir(&space, "relations").join("relations.json");
-        storage::write_json(&rel_path, &kept)?;
+        crate::graph::write_relations(&space, &kept)?;
     }
     Ok(pruned)
 }
