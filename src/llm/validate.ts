@@ -24,7 +24,7 @@ export function validateLlmWikiResult(data: unknown): ValidationResult {
 }
 
 /** SourceRef → 본문 임베드 문자열. frontmatter 와 본문이 같은 (file, page) 를 쓰게 하는 단일 규칙. */
-export function refEmbed(r: { file: string; page?: number }): string {
+function refEmbed(r: { file: string; page?: number }): string {
   return r.page ? `![[${r.file}#page=${r.page}]]` : `![[${r.file}]]`;
 }
 

@@ -1,7 +1,7 @@
 // 콜아웃(> [!easy] …) 파서 + remark 플러그인 — CM6(cmCallout)·markdown.tsx·테스트에서 공용.
 // 문법: 첫 줄 `> [!타입] 제목?`, 이어지는 `> ` 줄들. 규약: docs/40-frontend/markdown-callout-math.md
 
-export const CALLOUT_TYPES = { easy: "쉬운 설명", note: "노트" } as const;
+const CALLOUT_TYPES = { easy: "쉬운 설명", note: "노트" } as const;
 export type CalloutType = keyof typeof CALLOUT_TYPES;
 
 export interface MdNode {

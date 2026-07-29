@@ -16,3 +16,11 @@ impl std::fmt::Display for AppError {
 }
 
 impl std::error::Error for AppError {}
+
+/// commands 레이어 경계(Result<T, String>)로 나갈 때 `?` 한 번으로 변환한다.
+/// 문자열 형태는 Display("[kind] message")와 동일 — 기존 map_err(|e| e.to_string()) 와 같은 출력.
+impl From<AppError> for String {
+    fn from(e: AppError) -> Self {
+        e.to_string()
+    }
+}

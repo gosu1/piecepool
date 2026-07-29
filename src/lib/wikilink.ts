@@ -93,7 +93,7 @@ export function firstEmbedFile(markdown: string): { file: string; type: "pdf" | 
 }
 
 /** original-files 에 사는 원본(pdf + 이미지)인가 — firstEmbedFile 과 같은 확장자 규칙. */
-export function isOriginalFile(file: string): boolean {
+function isOriginalFile(file: string): boolean {
   const ext = file.split(".").pop()?.toLowerCase() ?? "";
   return ext === "pdf" || IMAGE_EXTS.has(ext);
 }

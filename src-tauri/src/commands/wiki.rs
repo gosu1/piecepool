@@ -8,15 +8,9 @@ use crate::storage::{self, frontmatter};
 #[tauri::command]
 pub fn list_wiki(space: String) -> Result<Vec<WikiPage>, String> {
     let sp = space_by_slug(&space)?;
-    let dir = storage::space_subdir(&space, "wiki");
-    let files = storage::list_files(&dir, ".md").map_err(|e| e.to_string())?;
-    let mut out = vec![];
-    for f in files {
-        let md = storage::read_text(&dir.join(&f)).map_err(|e| e.to_string())?;
-        if let Ok(p) = frontmatter::md_to_wiki(&sp.id, &f, &md) {
-            out.push(p);
-        }
-    }
+    let mut out = storage::list_parsed(&space, "wiki", |f, md| {
+        frontmatter::md_to_wiki(&sp.id, f, md).ok()
+    })?;
     out.sort_by(|a, b| a.title.cmp(&b.title));
     Ok(out)
 }
@@ -24,17 +18,16 @@ pub fn list_wiki(space: String) -> Result<Vec<WikiPage>, String> {
 #[tauri::command]
 pub fn read_wiki(space: String, file: String) -> Result<WikiPage, String> {
     let sp = space_by_slug(&space)?;
-    let path = storage::safe_join(&storage::space_subdir(&space, "wiki"), &file)
-        .map_err(|e| e.to_string())?;
-    let md = storage::read_text(&path).map_err(|e| e.to_string())?;
-    frontmatter::md_to_wiki(&sp.id, &file, &md).map_err(|e| e.to_string())
+    Ok(storage::read_parsed(&space, "wiki", &file, |f, md| {
+        frontmatter::md_to_wiki(&sp.id, f, md)
+    })?)
 }
 
 /// WikiPage 저장. archive 는 절대 건드리지 않는다(원문 보존). 파일명 = path 또는 concept slug.
 #[tauri::command(async)]
 pub fn save_wiki(space: String, page: WikiPage) -> Result<WikiPage, String> {
-    let subjects = crate::commands::subject_ids(&space);
-    let sources = crate::commands::source_ids(&space);
+    let subjects = storage::subject_ids(&space);
+    let sources = storage::source_ids(&space);
     save_wiki_with(&space, page, &subjects, &sources)
 }
 
@@ -42,8 +35,8 @@ pub fn save_wiki(space: String, page: WikiPage) -> Result<WikiPage, String> {
 /// subject/source 레지스트리(source_ids 는 archive 전체 스캔)를 페이지마다가 아니라 1회만 읽는다.
 #[tauri::command(async)]
 pub fn save_wiki_batch(space: String, pages: Vec<WikiPage>) -> Result<Vec<WikiPage>, String> {
-    let subjects = crate::commands::subject_ids(&space);
-    let sources = crate::commands::source_ids(&space);
+    let subjects = storage::subject_ids(&space);
+    let sources = storage::source_ids(&space);
     let mut out = Vec::with_capacity(pages.len());
     for page in pages {
         out.push(save_wiki_with(&space, page, &subjects, &sources)?);
@@ -69,12 +62,11 @@ fn save_wiki_with(
     }
     page.updated_at = storage::now_iso();
     // 저장 전 frontmatter 검증 (hard-fail)
-    frontmatter::validate_wiki(&page, subjects, sources).map_err(|e| e.to_string())?;
+    frontmatter::validate_wiki(&page, subjects, sources)?;
     // archive 보호: wiki 저장은 반드시 wiki/ 아래로만 (path-traversal 방어).
-    let path = storage::safe_join(&storage::space_subdir(space, "wiki"), &page.path)
-        .map_err(|e| e.to_string())?;
+    let path = storage::safe_join(&storage::space_subdir(space, "wiki"), &page.path)?;
     let md = frontmatter::wiki_to_md(&page);
-    storage::write_text(&path, &md).map_err(|e| e.to_string())?;
+    storage::write_text(&path, &md)?;
     Ok(page)
 }
 
@@ -82,14 +74,13 @@ fn save_wiki_with(
 #[tauri::command]
 pub fn delete_wiki(space: String, file: String) -> Result<usize, String> {
     let sp = space_by_slug(&space)?;
-    let path = storage::safe_join(&storage::space_subdir(&space, "wiki"), &file)
-        .map_err(|e| e.to_string())?;
-    let md = storage::read_text(&path).map_err(|e| e.to_string())?;
-    let page = frontmatter::md_to_wiki(&sp.id, &file, &md).map_err(|e| e.to_string())?;
-    storage::remove_file(&path).map_err(|e| e.to_string())?;
+    let path = storage::safe_join(&storage::space_subdir(&space, "wiki"), &file)?;
+    let md = storage::read_text(&path)?;
+    let page = frontmatter::md_to_wiki(&sp.id, &file, &md)?;
+    storage::remove_file(&path)?;
 
     // dangling edge 방지: 삭제된 개념을 source/target 으로 갖는 관계 제거.
-    let relations = crate::commands::graph::read_relations(&space)?;
+    let relations = crate::graph::read_relations(&space)?;
     let before = relations.len();
     let kept: Vec<_> = relations
         .into_iter()
@@ -97,8 +88,7 @@ pub fn delete_wiki(space: String, file: String) -> Result<usize, String> {
         .collect();
     let pruned = before - kept.len();
     if pruned > 0 {
-        let rel_path = storage::space_subdir(&space, "relations").join("relations.json");
-        storage::write_json(&rel_path, &kept).map_err(|e| e.to_string())?;
+        crate::graph::write_relations(&space, &kept)?;
     }
     Ok(pruned)
 }
@@ -111,18 +101,16 @@ pub fn rename_wiki(space: String, file: String, new_title: String) -> Result<Wik
         return Err("제목이 비어 있습니다".into());
     }
     let sp = space_by_slug(&space)?;
-    let path = storage::safe_join(&storage::space_subdir(&space, "wiki"), &file)
-        .map_err(|e| e.to_string())?;
-    let md = storage::read_text(&path).map_err(|e| e.to_string())?;
-    let mut page = frontmatter::md_to_wiki(&sp.id, &file, &md).map_err(|e| e.to_string())?;
+    let path = storage::safe_join(&storage::space_subdir(&space, "wiki"), &file)?;
+    let md = storage::read_text(&path)?;
+    let mut page = frontmatter::md_to_wiki(&sp.id, &file, &md)?;
     page.title = title;
     page.updated_at = storage::now_iso();
     frontmatter::validate_wiki(
         &page,
-        &crate::commands::subject_ids(&space),
-        &crate::commands::source_ids(&space),
-    )
-    .map_err(|e| e.to_string())?;
-    storage::write_text(&path, &frontmatter::wiki_to_md(&page)).map_err(|e| e.to_string())?;
+        &storage::subject_ids(&space),
+        &storage::source_ids(&space),
+    )?;
+    storage::write_text(&path, &frontmatter::wiki_to_md(&page))?;
     Ok(page)
 }

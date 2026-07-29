@@ -24,8 +24,8 @@ export interface TreeSort {
   dir: TreeSortDir;
 }
 
-export const SIDEBAR_MIN = 180;
-export const SIDEBAR_MAX = 480;
+const SIDEBAR_MIN = 180;
+const SIDEBAR_MAX = 480;
 export const SIDEBAR_DEFAULT = 240;
 
 interface WorkspaceState {

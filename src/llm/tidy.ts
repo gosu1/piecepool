@@ -11,6 +11,7 @@
 
 import { streamChatText } from "./stream";
 import { GEMINI_MODEL } from "./gemini";
+import { errMsg, isAbort, sleep } from "./http";
 
 export interface TidyOptions {
   onDelta?: (full: string) => void;
@@ -98,14 +99,4 @@ export async function runTidy(memo: string, apiKey?: string, opts?: TidyOptions)
     }
   }
   throw new Error(lastError || "정리에 실패했어요");
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
-}
-function isAbort(e: unknown): boolean {
-  return e instanceof DOMException && e.name === "AbortError";
-}
-function errMsg(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
 }

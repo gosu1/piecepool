@@ -1,5 +1,5 @@
 import Ajv2020, { type ValidateFunction } from "ajv/dist/2020";
-import { extractChatJson, GEMINI_OPENAI_ENDPOINT, GEMINI_MODEL } from "./gemini";
+import { chatJsonWithRetry, GEMINI_MODEL } from "./gemini";
 import schema from "./schema/facet-list.schema.json" with { type: "json" };
 
 // Facet 추출(프롬프트 A) — 이해지표 커버리지 판정 파이프라인의 1단.
@@ -27,11 +27,6 @@ export interface FacetDeps {
   maxRetries?: number; // gemini.ts 와 같은 규약(기본 2)
   backoffMs?: number; // 0 = 즉시(테스트용)
 }
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-// 429·5xx·네트워크만 재시도한다. 401/400 은 재시도해도 같은 답이라 즉시 던진다. (feynman.ts 와 동일 규약)
-const isRetriable = (status: number) => status === 429 || status >= 500;
 
 const ajv = new Ajv2020({ allErrors: true });
 type RawFacetList = { facets: Array<{ text: string; kind: FacetKind }> };
@@ -75,11 +70,6 @@ export async function extractFacets(wikiBody: string, apiKey: string, deps?: Fac
   const key = apiKey?.trim();
   if (!key) throw new Error("[provider=gemini] facets: API key 필요 — 설정에서 Gemini 키를 등록하세요");
 
-  const fetchFn = deps?.fetchFn ?? globalThis.fetch.bind(globalThis);
-  const endpoint = deps?.endpoint ?? GEMINI_OPENAI_ENDPOINT;
-  const maxRetries = deps?.maxRetries ?? 2;
-  const backoffMs = deps?.backoffMs ?? 250;
-
   const body = JSON.stringify({
     model: deps?.model ?? GEMINI_MODEL,
     messages: [
@@ -89,42 +79,17 @@ export async function extractFacets(wikiBody: string, apiKey: string, deps?: Fac
     response_format: { type: "json_schema", json_schema: { name: "FacetList", strict: false, schema } },
   });
 
-  let lastErr = "";
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    if (attempt > 0) await sleep(backoffMs * 2 ** (attempt - 1));
-    let res: Response;
-    try {
-      res = await fetchFn(`${endpoint}/chat/completions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-        body,
-      });
-    } catch (e) {
-      lastErr = `network: ${e instanceof Error ? e.message : String(e)}`;
-      continue; // 네트워크 오류는 재시도
-    }
-    if (!res.ok) {
-      lastErr = `HTTP ${res.status}`;
-      if (!isRetriable(res.status)) break;
-      continue;
-    }
-    // 파싱·스키마 실패도 재시도 대상 — gemini.ts attempt() 의 parse/schema 분류와 동일.
-    let parsed: unknown;
-    try {
-      parsed = extractChatJson(await res.json());
-    } catch {
-      lastErr = "LLM 응답 형식 오류 — 다시 시도해 주세요";
-      continue;
-    }
-    if (!validateFn(parsed)) {
-      lastErr = `schema violation: ${(validateFn.errors ?? [])
-        .map((e) => `${e.instancePath || "(root)"} ${e.message ?? "invalid"}`)
-        .join("; ")}`;
-      continue;
-    }
-    // 스텁 위키(3개 미만) → 커버리지 비활성. id 는 여기서 순서대로 부여한다.
-    if (parsed.facets.length < 3) return [];
-    return parsed.facets.map((f, i) => ({ id: `f${i + 1}`, text: f.text.trim(), kind: f.kind }));
-  }
-  throw new Error(`[provider=gemini] facets: ${lastErr}`);
+  // 스키마 실패도 재시도 대상 — gemini.ts attempt() 의 parse/schema 분류와 동일.
+  const parsed = (await chatJsonWithRetry("facets", key, body, deps, (p) =>
+    validateFn(p)
+      ? null
+      : {
+          err: `schema violation: ${(validateFn.errors ?? [])
+            .map((e) => `${e.instancePath || "(root)"} ${e.message ?? "invalid"}`)
+            .join("; ")}`,
+        },
+  )) as RawFacetList;
+  // 스텁 위키(3개 미만) → 커버리지 비활성. id 는 여기서 순서대로 부여한다.
+  if (parsed.facets.length < 3) return [];
+  return parsed.facets.map((f, i) => ({ id: `f${i + 1}`, text: f.text.trim(), kind: f.kind }));
 }

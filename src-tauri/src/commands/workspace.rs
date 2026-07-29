@@ -5,15 +5,19 @@ use crate::storage;
 /// Workspace 를 연다(없으면 시드 생성). config/workspace.json 을 읽어 반환.
 #[tauri::command]
 pub fn get_workspace() -> Result<Workspace, String> {
-    seed::ensure_seed().map_err(|e| e.to_string())?;
-    storage::read_json(&storage::config_dir().join("workspace.json")).map_err(|e| e.to_string())
+    seed::ensure_seed()?;
+    Ok(storage::read_json(
+        &storage::config_dir().join("workspace.json"),
+    )?)
 }
 
 /// 지식 영역 목록 (config/spaces.json).
 #[tauri::command]
 pub fn list_spaces() -> Result<Vec<KnowledgeSpace>, String> {
-    seed::ensure_seed().map_err(|e| e.to_string())?;
-    storage::read_json(&storage::config_dir().join("spaces.json")).map_err(|e| e.to_string())
+    seed::ensure_seed()?;
+    Ok(storage::read_json(
+        &storage::config_dir().join("spaces.json"),
+    )?)
 }
 
 /// 이름과 충돌하지 않는 지식 영역 폴더명을 고른다. 이미 있으면 `이름 2`, `이름 3` … 접미사.
@@ -40,19 +44,18 @@ fn unique_dir_name(name: &str, spaces: &[KnowledgeSpace]) -> String {
 /// 트리를 생성한 뒤 config/spaces.json 에 추가한다. 생성된 KnowledgeSpace 를 반환.
 #[tauri::command]
 pub fn create_space(name: String) -> Result<KnowledgeSpace, String> {
-    seed::ensure_seed().map_err(|e| e.to_string())?;
+    seed::ensure_seed()?;
     let name = name.trim();
     if name.is_empty() {
         return Err("공간 이름을 입력해 주세요".into());
     }
 
     let spaces_path = storage::config_dir().join("spaces.json");
-    let mut spaces: Vec<KnowledgeSpace> =
-        storage::read_json(&spaces_path).map_err(|e| e.to_string())?;
+    let mut spaces: Vec<KnowledgeSpace> = storage::read_json(&spaces_path)?;
 
     let slug = unique_dir_name(name, &spaces);
 
-    storage::ensure_space_tree(&slug).map_err(|e| e.to_string())?;
+    storage::ensure_space_tree(&slug)?;
 
     let now = storage::now_iso();
     let space = KnowledgeSpace {
@@ -64,7 +67,7 @@ pub fn create_space(name: String) -> Result<KnowledgeSpace, String> {
         updated_at: now,
     };
     spaces.push(space.clone());
-    storage::write_json(&spaces_path, &spaces).map_err(|e| e.to_string())?;
+    storage::write_json(&spaces_path, &spaces)?;
     Ok(space)
 }
 
@@ -77,8 +80,7 @@ pub fn rename_space(slug: String, new_name: String) -> Result<KnowledgeSpace, St
         return Err("공간 이름을 입력해 주세요".into());
     }
     let spaces_path = storage::config_dir().join("spaces.json");
-    let mut spaces: Vec<KnowledgeSpace> =
-        storage::read_json(&spaces_path).map_err(|e| e.to_string())?;
+    let mut spaces: Vec<KnowledgeSpace> = storage::read_json(&spaces_path)?;
     if !spaces.iter().any(|s| s.slug == slug) {
         return Err(format!("unknown space: {slug}"));
     }
@@ -87,18 +89,18 @@ pub fn rename_space(slug: String, new_name: String) -> Result<KnowledgeSpace, St
     let others: Vec<KnowledgeSpace> = spaces.iter().filter(|s| s.slug != slug).cloned().collect();
     let new_slug = unique_dir_name(name, &others);
 
-    storage::rename_space_dir(&slug, &new_slug).map_err(|e| e.to_string())?;
+    storage::rename_space_dir(&slug, &new_slug)?;
 
     let sp = spaces
         .iter_mut()
         .find(|s| s.slug == slug)
-        .expect("존재 확인 완료");
+        .ok_or_else(|| format!("unknown space: {slug}"))?;
     sp.name = name.to_string();
     sp.slug = new_slug.clone();
     sp.root_path = storage::space_dir(&new_slug).to_string_lossy().to_string();
     sp.updated_at = storage::now_iso();
     let updated = sp.clone();
-    storage::write_json(&spaces_path, &spaces).map_err(|e| e.to_string())?;
+    storage::write_json(&spaces_path, &spaces)?;
     Ok(updated)
 }
 
@@ -107,15 +109,14 @@ pub fn rename_space(slug: String, new_name: String) -> Result<KnowledgeSpace, St
 #[tauri::command]
 pub fn delete_space(slug: String) -> Result<(), String> {
     let spaces_path = storage::config_dir().join("spaces.json");
-    let mut spaces: Vec<KnowledgeSpace> =
-        storage::read_json(&spaces_path).map_err(|e| e.to_string())?;
+    let mut spaces: Vec<KnowledgeSpace> = storage::read_json(&spaces_path)?;
     let before = spaces.len();
     spaces.retain(|s| s.slug != slug);
     if spaces.len() == before {
         return Err(format!("unknown space: {slug}"));
     }
-    storage::remove_dir_all(&storage::space_dir(&slug)).map_err(|e| e.to_string())?;
-    storage::write_json(&spaces_path, &spaces).map_err(|e| e.to_string())?;
+    storage::remove_dir_all(&storage::space_dir(&slug))?;
+    storage::write_json(&spaces_path, &spaces)?;
     Ok(())
 }
 
@@ -126,14 +127,14 @@ pub fn list_subjects(space: String) -> Result<Vec<Subject>, String> {
     if !storage::exists(&path) {
         return Ok(vec![]);
     }
-    storage::read_json(&path).map_err(|e| e.to_string())
+    Ok(storage::read_json(&path)?)
 }
 
 /// 원본 파일 목록 (<space>/sources/original-files/). 모든 확장자.
 #[tauri::command]
 pub fn list_sources(space: String) -> Result<Vec<String>, String> {
     let dir = storage::space_subdir(&space, "sources/original-files");
-    storage::list_files(&dir, "").map_err(|e| e.to_string())
+    Ok(storage::list_files(&dir, "")?)
 }
 
 /// PDF 페이지별 텍스트 추출 (sources/original-files/<file>). page_count 는 #page=N 범위 SSOT.
@@ -146,9 +147,8 @@ pub fn extract_pdf_text(
     let path = storage::safe_join(
         &storage::space_subdir(&space, "sources/original-files"),
         &file,
-    )
-    .map_err(|e| e.to_string())?;
-    crate::pdf::extract(&path).map_err(|e| e.to_string())
+    )?;
+    Ok(crate::pdf::extract(&path)?)
 }
 
 /// 원본 파일 바이트를 base64 로 반환 (FilePreview: 이미지/PDF data URL). sources/original-files/ 하위만.
@@ -158,9 +158,8 @@ pub fn read_file_bytes(space: String, file: String) -> Result<String, String> {
     let path = storage::safe_join(
         &storage::space_subdir(&space, "sources/original-files"),
         &file,
-    )
-    .map_err(|e| e.to_string())?;
-    let bytes = storage::read_bytes(&path).map_err(|e| e.to_string())?;
+    )?;
+    let bytes = storage::read_bytes(&path)?;
     Ok(storage::to_base64(&bytes))
 }
 
@@ -171,9 +170,8 @@ pub fn delete_source(space: String, file: String) -> Result<(), String> {
     let path = storage::safe_join(
         &storage::space_subdir(&space, "sources/original-files"),
         &file,
-    )
-    .map_err(|e| e.to_string())?;
-    storage::remove_file(&path).map_err(|e| e.to_string())
+    )?;
+    Ok(storage::remove_file(&path)?)
 }
 
 /// base64 원본 파일을 <space>/sources/original-files/ 에 저장하고 최종 파일명을 반환.
@@ -186,7 +184,7 @@ pub fn save_source_file(
     data_base64: String,
 ) -> Result<String, String> {
     crate::commands::space_by_slug(&space)?;
-    let data = storage::from_base64(&data_base64).map_err(|e| e.to_string())?;
+    let data = storage::from_base64(&data_base64)?;
     if data.len() > 50 * 1024 * 1024 {
         return Err("파일이 너무 큽니다 (최대 50MB)".into());
     }
@@ -196,9 +194,9 @@ pub fn save_source_file(
     };
     let safe_name = format!("{}.{}", storage::slug_or_hash(stem), storage::slugify(ext));
     let dir = storage::space_subdir(&space, "sources/original-files");
-    let final_name = crate::commands::unique_file_name(&dir, &safe_name);
-    let path = storage::safe_join(&dir, &final_name).map_err(|e| e.to_string())?;
-    storage::write_bytes(&path, &data).map_err(|e| e.to_string())?;
+    let final_name = storage::unique_file_name(&dir, &safe_name);
+    let path = storage::safe_join(&dir, &final_name)?;
+    storage::write_bytes(&path, &data)?;
     Ok(final_name)
 }
 
@@ -215,18 +213,16 @@ pub fn move_source(from_space: String, to_space: String, file: String) -> Result
     let from = storage::safe_join(
         &storage::space_subdir(&from_space, "sources/original-files"),
         &file,
-    )
-    .map_err(|e| e.to_string())?;
+    )?;
     if !storage::exists(&from) {
         return Err(format!("원본 없음: {file}"));
     }
-    storage::ensure_space_tree(&to_space).map_err(|e| e.to_string())?;
+    storage::ensure_space_tree(&to_space)?;
     let to_dir = storage::space_subdir(&to_space, "sources/original-files");
-    let final_name = crate::commands::unique_file_name(&to_dir, &file);
-    let to = storage::safe_join(&to_dir, &final_name).map_err(|e| e.to_string())?;
+    let final_name = storage::unique_file_name(&to_dir, &file);
+    let to = storage::safe_join(&to_dir, &final_name)?;
 
-    let bytes = storage::read_bytes(&from).map_err(|e| e.to_string())?;
-    storage::write_bytes(&to, &bytes).map_err(|e| e.to_string())?;
+    storage::copy_file(&from, &to)?;
     // 대상 기록은 끝났다 — 소스 정리 실패(잠금 등)는 무해한 복사본만 남기므로 오류로 만들지 않는다.
     let _ = storage::remove_file(&from);
     Ok(final_name)

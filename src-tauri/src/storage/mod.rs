@@ -1,11 +1,13 @@
 //! 파일 I/O · 경로 해석 · frontmatter 코덱. SSOT: docs/10-contracts/workspace-layout.md.
 //! 외부 의존성 없이(서드파티 yaml/time/ulid crate 미사용) 최소 구현한다.
 
+use std::collections::HashSet;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::error::AppError;
+use crate::models::Subject;
 
 pub mod frontmatter;
 
@@ -278,6 +280,13 @@ pub fn write_bytes(p: &Path, data: &[u8]) -> Result<()> {
     fs::rename(&tmp, p).map_err(|e| io_err(&format!("rename {}", p.display()), e))
 }
 
+/// 파일 복사(읽고 원자적으로 쓰기). 이동 트랜잭션의 복사 단계 —
+/// 원본 삭제는 호출부가 대상 기록 성공을 확인한 뒤에 한다.
+pub fn copy_file(from: &Path, to: &Path) -> Result<()> {
+    let bytes = read_bytes(from)?;
+    write_bytes(to, &bytes)
+}
+
 /// 파일 삭제. 없는 파일은 io 오류로 반환한다.
 pub fn remove_file(p: &Path) -> Result<()> {
     fs::remove_file(p).map_err(|e| io_err(&format!("remove {}", p.display()), e))
@@ -357,6 +366,78 @@ pub fn list_files(dir: &Path, ext: &str) -> Result<Vec<String>> {
     }
     out.sort();
     Ok(out)
+}
+
+/// 공간 하위 디렉토리의 .md 전부를 읽어 parse 가 Some 을 준 것만 모은다.
+/// parse 는 (파일명, 본문)을 받는다. IO 오류는 전파, 파싱 실패(None)는 깨진 파일로 보고 건너뛴다.
+pub fn list_parsed<T>(
+    space: &str,
+    subdir: &str,
+    mut parse: impl FnMut(&str, &str) -> Option<T>,
+) -> Result<Vec<T>> {
+    let dir = space_subdir(space, subdir);
+    let mut out = vec![];
+    for f in list_files(&dir, ".md")? {
+        let md = read_text(&dir.join(&f))?;
+        if let Some(v) = parse(&f, &md) {
+            out.push(v);
+        }
+    }
+    Ok(out)
+}
+
+/// 공간 하위 디렉토리의 단일 파일을 safe_join 으로 열어 parse 한다.
+pub fn read_parsed<T>(
+    space: &str,
+    subdir: &str,
+    file: &str,
+    parse: impl FnOnce(&str, &str) -> Result<T>,
+) -> Result<T> {
+    let path = safe_join(&space_subdir(space, subdir), file)?;
+    let md = read_text(&path)?;
+    parse(file, &md)
+}
+
+// ── 참조 무결성 레지스트리 / 파일명 ─────────────────────────
+/// 해당 공간의 실제 Subject id 집합 (config/subjects.json).
+pub fn subject_ids(space: &str) -> HashSet<String> {
+    let path = space_subdir(space, "config").join("subjects.json");
+    let subjects: Vec<Subject> = read_json(&path).unwrap_or_default();
+    subjects.into_iter().map(|s| s.id).collect()
+}
+
+/// 실제 Source id 집합 (workspace-layout 에 sources.json 없음 → archive/*.md 의 sourceId 재구성).
+pub fn source_ids(space: &str) -> HashSet<String> {
+    let dir = space_subdir(space, "archive");
+    let files = list_files(&dir, ".md").unwrap_or_default();
+    let mut out = HashSet::new();
+    for f in files {
+        if let Ok(md) = read_text(&dir.join(&f)) {
+            if let Ok(note) = frontmatter::md_to_archive("", &f, &md) {
+                out.insert(note.source_id);
+            }
+        }
+    }
+    out
+}
+
+/// dir 안에서 name 이 이미 있으면 base-2.ext, base-3.ext … 접미사를 붙인 파일명 반환 (create_note 패턴).
+pub fn unique_file_name(dir: &Path, name: &str) -> String {
+    if !exists(&dir.join(name)) {
+        return name.to_string();
+    }
+    let (stem, ext) = match name.rsplit_once('.') {
+        Some((s, e)) if !s.is_empty() => (s.to_string(), format!(".{e}")),
+        _ => (name.to_string(), String::new()),
+    };
+    let mut n = 2;
+    loop {
+        let candidate = format!("{stem}-{n}{ext}");
+        if !exists(&dir.join(&candidate)) {
+            return candidate;
+        }
+        n += 1;
+    }
 }
 
 // ── 유틸: 시간 / slug ───────────────────────────────────────

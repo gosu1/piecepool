@@ -61,6 +61,6 @@ pub fn set_understanding(
             updated_at: storage::now_iso(),
         },
     );
-    storage::write_json(&sidecar_path(&space), &map).map_err(|e| e.to_string())?;
+    storage::write_json(&sidecar_path(&space), &map)?;
     Ok(map)
 }

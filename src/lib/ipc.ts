@@ -65,36 +65,38 @@ const real = {
 
 const api = inTauri ? real : mock;
 
-export const getWorkspace = api.getWorkspace;
-export const listSpaces = api.listSpaces;
-export const createSpace = api.createSpace;
-export const renameSpace = api.renameSpace;
-export const deleteSpace = api.deleteSpace;
-export const listSubjects = api.listSubjects;
-export const listSources = api.listSources;
-export const extractPdfText = api.extractPdfText;
-export const readFileBytes = api.readFileBytes;
-export const listNotes = api.listNotes;
-export const listSourceTypes = api.listSourceTypes;
-export const readNote = api.readNote;
-export const createNote = api.createNote;
-export const saveNote = api.saveNote;
-export const moveNote = api.moveNote;
-export const deleteNote = api.deleteNote;
-export const renameNote = api.renameNote;
-export const updateNoteSubjects = api.updateNoteSubjects;
-export const listWiki = api.listWiki;
-export const readWiki = api.readWiki;
-export const saveWiki = api.saveWiki;
-export const saveWikiBatch = api.saveWikiBatch;
-export const deleteWiki = api.deleteWiki;
-export const renameWiki = api.renameWiki;
-export const saveSourceFile = api.saveSourceFile;
-export const deleteSource = api.deleteSource;
-export const moveSource = api.moveSource;
-export const getGraph = api.getGraph;
-export const appendRelations = api.appendRelations;
-export const markReviewNeeded = api.markReviewNeeded;
-export const unmarkReviewNeeded = api.unmarkReviewNeeded;
-export const getUnderstanding = api.getUnderstanding;
-export const setUnderstanding = api.setUnderstanding;
+export const {
+  getWorkspace,
+  listSpaces,
+  createSpace,
+  renameSpace,
+  deleteSpace,
+  listSubjects,
+  listSources,
+  extractPdfText,
+  readFileBytes,
+  listNotes,
+  listSourceTypes,
+  readNote,
+  createNote,
+  saveNote,
+  moveNote,
+  deleteNote,
+  renameNote,
+  updateNoteSubjects,
+  listWiki,
+  readWiki,
+  saveWiki,
+  saveWikiBatch,
+  deleteWiki,
+  renameWiki,
+  saveSourceFile,
+  deleteSource,
+  moveSource,
+  getGraph,
+  appendRelations,
+  markReviewNeeded,
+  unmarkReviewNeeded,
+  getUnderstanding,
+  setUnderstanding,
+} = api;

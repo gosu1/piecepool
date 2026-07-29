@@ -1,4 +1,5 @@
 import type { LlmWikiResult, LlmRelation } from "./provider";
+import { errMsg, sleep } from "./http";
 
 // Liner 어댑터 (feature 3: 정보 간극 메우기 · fact-check 출처 검색).
 // SSOT: docs/30-llm/provider-config.md §3.3 — LLM 아님(위키 생성 X). 권위 있는 출처를 검색해
@@ -172,12 +173,4 @@ export async function factCheckRelations(
   );
   const relations = result.relations.map((r) => enriched.get(r) ?? r);
   return { result: { ...result, relations }, checked, failed };
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function errMsg(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
 }

@@ -82,7 +82,7 @@ export function isSynthesisPage(p: WikiPage): boolean {
   return p.conceptId.startsWith(SYN_CONCEPT_PREFIX);
 }
 
-export function synthesisConceptId(sourceId: string): string {
+function synthesisConceptId(sourceId: string): string {
   return `${SYN_CONCEPT_PREFIX}${sourceId}`;
 }
 
