@@ -1,4 +1,4 @@
-import { extractChatJson, GEMINI_OPENAI_ENDPOINT, GEMINI_MODEL } from "./gemini";
+import { chatJsonWithRetry, GEMINI_MODEL } from "./gemini";
 import { languageDirective, getOutputLanguage, type OutputLanguage } from "./language";
 
 // 파인만 — 사용자가 개념을 자기 말로 설명하면, LLM 이 그 설명의 구멍을 짚어 되묻는다.
@@ -35,49 +35,6 @@ export interface FeynmanDeps {
   maxRetries?: number; // gemini.ts 와 같은 규약(기본 2)
   backoffMs?: number; // 0 = 즉시(테스트용)
   lang?: OutputLanguage; // 미지정 시 설정값(getOutputLanguage)
-}
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-// 429·5xx·네트워크만 재시도한다. 401/400 은 재시도해도 같은 답이라 즉시 던진다.
-// (Gemini 는 503 overloaded 를 자주 낸다 — eval 첫 실행에서 5콜 중 1콜이 503이었다.)
-const isRetriable = (status: number) => status === 429 || status >= 500;
-
-// 재시도 포함 채팅 호출 — probe·hint 가 공유한다. tag 는 오류 메시지의 출처 표시.
-async function chatJsonWithRetry(tag: string, key: string, body: string, deps?: FeynmanDeps): Promise<unknown> {
-  const fetchFn = deps?.fetchFn ?? globalThis.fetch.bind(globalThis);
-  const endpoint = deps?.endpoint ?? GEMINI_OPENAI_ENDPOINT;
-  const maxRetries = deps?.maxRetries ?? 2;
-  const backoffMs = deps?.backoffMs ?? 250;
-
-  let lastErr = "";
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    if (attempt > 0) await sleep(backoffMs * 2 ** (attempt - 1));
-    let res: Response;
-    try {
-      res = await fetchFn(`${endpoint}/chat/completions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-        body,
-      });
-    } catch (e) {
-      lastErr = `network: ${e instanceof Error ? e.message : String(e)}`;
-      continue; // 네트워크 오류는 재시도
-    }
-    if (!res.ok) {
-      lastErr = `HTTP ${res.status}`;
-      if (!isRetriable(res.status)) break;
-      continue;
-    }
-    // 파싱 실패(마크다운 펜스 등 JSON 아닌 응답)도 재시도 대상 — gemini.ts attempt() 의 parse 분류와 동일.
-    // 루프 밖에서 파싱하면 첫 실패가 raw SyntaxError 로 그대로 패널에 노출된다.
-    try {
-      return extractChatJson(await res.json());
-    } catch {
-      lastErr = "LLM 응답 형식 오류 — 다시 시도해 주세요";
-    }
-  }
-  throw new Error(`[provider=gemini] ${tag}: ${lastErr}`);
 }
 
 const PROBE_SCHEMA = {

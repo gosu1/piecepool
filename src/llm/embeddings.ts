@@ -1,5 +1,6 @@
 import type { EmbedFn } from "./chunk";
 import { GEMINI_OPENAI_ENDPOINT } from "./gemini";
+import { errMsg, sleep } from "./http";
 
 // Gemini 임베딩 어댑터 — semantic chunking(chunk.ts §C)이 쓰는 실 EmbedFn 제공.
 // Gemini OpenAI 호환층 /embeddings 를 쓴다(OpenAI 임베딩 형태 그대로). 모델 gemini-embedding-001.
@@ -129,12 +130,4 @@ function readEnv(): Record<string, string | undefined> {
 function numEnv(raw: string | undefined, fallback: number): number {
   const n = raw ? Number(raw) : NaN;
   return Number.isFinite(n) ? n : fallback;
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function errMsg(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
 }

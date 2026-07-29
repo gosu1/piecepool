@@ -2,6 +2,7 @@ import type { LlmProvider, LlmWikiInput, LlmWikiResult } from "./provider";
 import { normalizeLlmResult, validateLlmWikiResult } from "./validate";
 import schema from "./schema/llm-wiki-result.schema.json" with { type: "json" };
 import { languageDirective, type OutputLanguage } from "./language";
+import { errMsg, isRetriable, sleep } from "./http";
 
 // Gemini (OpenAI 호환 엔드포인트 /chat/completions, response_format json_schema). SSOT: docs/30-llm/provider-config.md §3.2, §4.
 // Google 의 OpenAI 호환층(v1beta/openai)을 쓴다 — Bearer 인증 그대로, Chat Completions 형태.
@@ -151,6 +152,73 @@ export function extractChatText(resp: unknown): string {
   return r.choices?.[0]?.message?.content ?? "";
 }
 
+// ── 공용 재시도 채팅 호출 — feynman/retitle/facets/coverage 가 공유한다 ──
+
+export interface ChatRetryDeps {
+  fetchFn?: typeof fetch;
+  endpoint?: string;
+  maxRetries?: number; // 기본 2
+  backoffMs?: number; // 0 = 즉시(테스트용)
+}
+
+/** accept 의 semantic 검증 실패 반환값. fatal 이면 즉시 중단하고 던진다(호출부가 예산 관리). */
+export type ChatAccept = (parsed: unknown) => { err: string; fatal?: boolean } | null;
+
+/**
+ * 재시도 포함 채팅 호출. 네트워크·HTTP(429/5xx)·JSON 파싱 실패는 maxRetries 규약으로 재시도.
+ * 파싱 실패(마크다운 펜스 등)도 재시도 대상 — attempt() 의 parse 분류와 동일. 루프 밖에서
+ * 파싱하면 첫 실패가 raw SyntaxError 로 그대로 패널에 노출된다.
+ * 총 실패 시 "[provider=gemini] {tag}: {마지막 오류}" 로 던진다.
+ */
+export async function chatJsonWithRetry(
+  tag: string,
+  key: string,
+  body: string,
+  deps?: ChatRetryDeps,
+  accept?: ChatAccept,
+): Promise<unknown> {
+  const fetchFn = deps?.fetchFn ?? globalThis.fetch.bind(globalThis);
+  const endpoint = deps?.endpoint ?? GEMINI_OPENAI_ENDPOINT;
+  const maxRetries = deps?.maxRetries ?? 2;
+  const backoffMs = deps?.backoffMs ?? 250;
+
+  let lastErr = "";
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    if (attempt > 0) await sleep(backoffMs * 2 ** (attempt - 1));
+    let res: Response;
+    try {
+      res = await fetchFn(`${endpoint}/chat/completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+        body,
+      });
+    } catch (e) {
+      lastErr = `network: ${errMsg(e)}`;
+      continue; // 네트워크 오류는 재시도
+    }
+    if (!res.ok) {
+      lastErr = `HTTP ${res.status}`;
+      if (!isRetriable(res.status)) break;
+      continue;
+    }
+    let parsed: unknown;
+    try {
+      parsed = extractChatJson(await res.json());
+    } catch {
+      lastErr = "LLM 응답 형식 오류 — 다시 시도해 주세요";
+      continue;
+    }
+    const bad = accept?.(parsed);
+    if (bad) {
+      lastErr = bad.err;
+      if (bad.fatal) break;
+      continue;
+    }
+    return parsed;
+  }
+  throw new Error(`[provider=gemini] ${tag}: ${lastErr}`);
+}
+
 // 프롬프트 본문은 docs/30-llm/prompt-templates.md SSOT. 여기서는 최소 직렬화만.
 // 언어 규칙: 사용자 노출 텍스트 필드 전부(summary/explanation/examples/relations[].explanation)와
 // concepts[].title 이 directive 를 따른다. 제목은 원문 표기 기준(§4) — 규칙 없이는 Gemini 가
@@ -192,12 +260,4 @@ function readEnv(): Record<string, string | undefined> {
 function numEnv(raw: string | undefined, fallback: number): number {
   const n = raw ? Number(raw) : NaN;
   return Number.isFinite(n) ? n : fallback;
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function errMsg(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
 }

@@ -1,5 +1,5 @@
 import Ajv2020, { type ValidateFunction } from "ajv/dist/2020";
-import { extractChatJson, GEMINI_OPENAI_ENDPOINT, GEMINI_MODEL } from "./gemini";
+import { chatJsonWithRetry, GEMINI_MODEL } from "./gemini";
 import schema from "./schema/coverage-result.schema.json" with { type: "json" };
 import type { Facet } from "./facets";
 
@@ -49,11 +49,6 @@ export interface CoverageDeps {
   maxRetries?: number; // gemini.ts 와 같은 규약(기본 2)
   backoffMs?: number; // 0 = 즉시(테스트용)
 }
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-// 429·5xx·네트워크만 재시도한다. 401/400 은 재시도해도 같은 답이라 즉시 던진다. (feynman.ts 와 동일 규약)
-const isRetriable = (status: number) => status === 429 || status >= 500;
 
 const ajv = new Ajv2020({ allErrors: true });
 type RawCoverageResult = { judgments: Array<{ id: string; status: CoverageStatus; evidence: string | null }> };
@@ -168,11 +163,6 @@ export async function judgeCoverage(
   const key = apiKey?.trim();
   if (!key) throw new Error("[provider=gemini] coverage: API key 필요 — 설정에서 Gemini 키를 등록하세요");
 
-  const fetchFn = deps?.fetchFn ?? globalThis.fetch.bind(globalThis);
-  const endpoint = deps?.endpoint ?? GEMINI_OPENAI_ENDPOINT;
-  const maxRetries = deps?.maxRetries ?? 2;
-  const backoffMs = deps?.backoffMs ?? 250;
-
   const facetLines = facets.map((f) => `${f.id}. (${f.kind}) ${f.text}`).join("\n");
   const body = JSON.stringify({
     model: deps?.model ?? GEMINI_MODEL,
@@ -183,54 +173,28 @@ export async function judgeCoverage(
     response_format: { type: "json_schema", json_schema: { name: "CoverageResult", strict: false, schema } },
   });
 
-  // 스키마 위반·id 집합 불일치는 1회만 재시도하고 판정을 폐기한다(설계 §4-1).
-  // 네트워크·HTTP·파싱 실패는 feynman.ts 와 같은 규약(maxRetries)으로 재시도.
+  // 스키마 위반·id 집합 불일치는 1회만 재시도하고 판정을 폐기한다(설계 §4-1, fatal 예산).
+  // 네트워크·HTTP·파싱 실패는 공용 규약(maxRetries)으로 재시도.
   let semanticFails = 0;
-  let lastErr = "";
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    if (attempt > 0) await sleep(backoffMs * 2 ** (attempt - 1));
-    let res: Response;
-    try {
-      res = await fetchFn(`${endpoint}/chat/completions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-        body,
-      });
-    } catch (e) {
-      lastErr = `network: ${e instanceof Error ? e.message : String(e)}`;
-      continue; // 네트워크 오류는 재시도
+  const parsed = (await chatJsonWithRetry("coverage", key, body, deps, (p) => {
+    if (!validateFn(p)) {
+      return {
+        err: `schema violation: ${(validateFn.errors ?? [])
+          .map((e) => `${e.instancePath || "(root)"} ${e.message ?? "invalid"}`)
+          .join("; ")}`,
+        fatal: ++semanticFails > 1,
+      };
     }
-    if (!res.ok) {
-      lastErr = `HTTP ${res.status}`;
-      if (!isRetriable(res.status)) break;
-      continue;
+    if (!idSetMatches(p.judgments, facets)) {
+      return { err: "judgment id 집합이 facet 집합과 불일치", fatal: ++semanticFails > 1 };
     }
-    let parsed: unknown;
-    try {
-      parsed = extractChatJson(await res.json());
-    } catch {
-      lastErr = "LLM 응답 형식 오류 — 다시 시도해 주세요";
-      continue;
-    }
-    if (!validateFn(parsed)) {
-      lastErr = `schema violation: ${(validateFn.errors ?? [])
-        .map((e) => `${e.instancePath || "(root)"} ${e.message ?? "invalid"}`)
-        .join("; ")}`;
-      if (++semanticFails > 1) break;
-      continue;
-    }
-    if (!idSetMatches(parsed.judgments, facets)) {
-      lastErr = "judgment id 집합이 facet 집합과 불일치";
-      if (++semanticFails > 1) break;
-      continue;
-    }
-    // 판정을 facet 순서로 정렬해 돌려준다 — 출력 순서를 LLM 에 의존하지 않는다.
-    const byId = new Map(parsed.judgments.map((j) => [j.id, j]));
-    const judgments = enforceEvidence(
-      facets.map((f) => byId.get(f.id) as FacetJudgment),
-      explanation,
-    );
-    return { judgments, pasteSuspected };
-  }
-  throw new Error(`[provider=gemini] coverage: ${lastErr}`);
+    return null;
+  })) as RawCoverageResult;
+  // 판정을 facet 순서로 정렬해 돌려준다 — 출력 순서를 LLM 에 의존하지 않는다.
+  const byId = new Map(parsed.judgments.map((j) => [j.id, j]));
+  const judgments = enforceEvidence(
+    facets.map((f) => byId.get(f.id) as FacetJudgment),
+    explanation,
+  );
+  return { judgments, pasteSuspected };
 }

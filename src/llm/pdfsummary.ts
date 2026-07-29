@@ -6,6 +6,7 @@
 import { streamChatText } from "./stream";
 import { GEMINI_SUMMARY_MODEL } from "./gemini";
 import { getOutputLanguage, type OutputLanguage } from "./language";
+import { errMsg, isAbort, sleep } from "./http";
 
 export interface PdfSummaryInput {
   sourceTitle: string;
@@ -147,14 +148,4 @@ export async function runPdfSummary(
     }
   }
   throw new Error(lastError || "[pdfsummary] 실패");
-}
-
-function isAbort(e: unknown): boolean {
-  return e instanceof Error && e.name === "AbortError";
-}
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-function errMsg(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
 }

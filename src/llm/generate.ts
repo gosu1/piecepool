@@ -6,6 +6,7 @@ import { createGeminiEmbedder } from "./embeddings";
 import { promote } from "./promote";
 import { classify, type NodeType } from "./classify";
 import { getOutputLanguage, type OutputLanguage } from "./language";
+import { errMsg } from "./http";
 
 // LLM 위키 생성 오케스트레이션 (README §LLM ①).
 //  - apiKey 있으면 Gemini(OpenAI 호환 Chat Completions, 구조화 출력) 호출.
@@ -233,8 +234,4 @@ function cleanTitle(s: string): string {
 
 function normalize(s: string): string {
   return s.toLowerCase().replace(/\s+/g, " ").trim();
-}
-
-function errMsg(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
 }

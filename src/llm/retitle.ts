@@ -1,4 +1,4 @@
-import { extractChatJson, GEMINI_OPENAI_ENDPOINT, GEMINI_MODEL } from "./gemini";
+import { chatJsonWithRetry, GEMINI_MODEL } from "./gemini";
 
 // 위키 제목 일괄 정리 — 음차 제목("어텐션")을 관례 표기("Attention")로 고칠 후보를 고른다.
 // 방향은 위키 생성 프롬프트의 제목 규칙(gemini.ts buildMessages)과 같다: 영어 통용 용어의
@@ -20,11 +20,6 @@ export interface RetitleDeps {
   maxRetries?: number; // gemini.ts 와 같은 규약(기본 2)
   backoffMs?: number; // 0 = 즉시(테스트용)
 }
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-// 429·5xx·네트워크만 재시도한다. 401/400 은 재시도해도 같은 답이라 즉시 던진다. (feynman.ts 와 동일 규약)
-const isRetriable = (status: number) => status === 429 || status >= 500;
 
 const RETITLE_SCHEMA = {
   type: "object",
@@ -63,11 +58,6 @@ export async function suggestRetitles(titles: string[], apiKey: string, deps?: R
   if (!key) throw new Error("[provider=gemini] retitle: API key 필요 — 설정에서 Gemini 키를 등록하세요");
   if (!titles.length) return [];
 
-  const fetchFn = deps?.fetchFn ?? globalThis.fetch.bind(globalThis);
-  const endpoint = deps?.endpoint ?? GEMINI_OPENAI_ENDPOINT;
-  const maxRetries = deps?.maxRetries ?? 2;
-  const backoffMs = deps?.backoffMs ?? 250;
-
   const body = JSON.stringify({
     model: deps?.model ?? GEMINI_MODEL,
     messages: [
@@ -77,37 +67,7 @@ export async function suggestRetitles(titles: string[], apiKey: string, deps?: R
     response_format: { type: "json_schema", json_schema: { name: "RetitleResult", strict: false, schema: RETITLE_SCHEMA } },
   });
 
-  let parsed: { changes?: unknown } | null | undefined;
-  let gotJson = false;
-  let lastErr = "";
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    if (attempt > 0) await sleep(backoffMs * 2 ** (attempt - 1));
-    let res: Response;
-    try {
-      res = await fetchFn(`${endpoint}/chat/completions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-        body,
-      });
-    } catch (e) {
-      lastErr = `network: ${e instanceof Error ? e.message : String(e)}`;
-      continue; // 네트워크 오류는 재시도
-    }
-    if (!res.ok) {
-      lastErr = `HTTP ${res.status}`;
-      if (!isRetriable(res.status)) break;
-      continue;
-    }
-    // 파싱 실패(마크다운 펜스 등 JSON 아닌 응답)도 재시도 대상 — feynman.ts·gemini.ts attempt() 와 동일 분류.
-    try {
-      parsed = extractChatJson(await res.json()) as { changes?: unknown } | null;
-      gotJson = true;
-      break;
-    } catch {
-      lastErr = "LLM 응답 형식 오류 — 다시 시도해 주세요";
-    }
-  }
-  if (!gotJson) throw new Error(`[provider=gemini] retitle: ${lastErr}`);
+  const parsed = (await chatJsonWithRetry("retitle", key, body, deps)) as { changes?: unknown } | null;
   if (!parsed || !Array.isArray(parsed.changes)) throw new Error("[provider=gemini] retitle: no structured output");
 
   // LLM 출력을 그대로 믿지 않는다 — 입력에 없는 from·빈 to·제자리 제안·중복 from 은 버린다.
