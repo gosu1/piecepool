@@ -6,16 +6,9 @@ use crate::storage::{self, frontmatter};
 #[tauri::command]
 pub fn list_notes(space: String) -> Result<Vec<ArchiveNote>, String> {
     let sp = space_by_slug(&space)?;
-    let dir = storage::space_subdir(&space, "archive");
-    let files = storage::list_files(&dir, ".md")?;
-    let mut out = vec![];
-    for f in files {
-        let md = storage::read_text(&dir.join(&f))?;
-        match frontmatter::md_to_archive(&sp.id, &f, &md) {
-            Ok(n) => out.push(n),
-            Err(_) => continue, // 깨진 파일은 건너뛴다
-        }
-    }
+    let mut out = storage::list_parsed(&space, "archive", |f, md| {
+        frontmatter::md_to_archive(&sp.id, f, md).ok()
+    })?;
     out.sort_by(|a, b| b.created_at.cmp(&a.created_at));
     Ok(out)
 }
@@ -25,24 +18,19 @@ pub fn list_notes(space: String) -> Result<Vec<ArchiveNote>, String> {
 #[tauri::command]
 pub fn list_source_types(space: String) -> Result<Vec<(String, SourceType)>, String> {
     let sp = space_by_slug(&space)?;
-    let dir = storage::space_subdir(&space, "archive");
-    let files = storage::list_files(&dir, ".md")?;
-    let mut out = vec![];
-    for f in files {
-        let md = storage::read_text(&dir.join(&f))?;
-        if let Ok(n) = frontmatter::md_to_archive(&sp.id, &f, &md) {
-            out.push((n.source_id, frontmatter::archive_source_type(&md)));
-        }
-    }
-    Ok(out)
+    Ok(storage::list_parsed(&space, "archive", |f, md| {
+        frontmatter::md_to_archive(&sp.id, f, md)
+            .ok()
+            .map(|n| (n.source_id, frontmatter::archive_source_type(md)))
+    })?)
 }
 
 #[tauri::command]
 pub fn read_note(space: String, file: String) -> Result<ArchiveNote, String> {
     let sp = space_by_slug(&space)?;
-    let path = storage::safe_join(&storage::space_subdir(&space, "archive"), &file)?;
-    let md = storage::read_text(&path)?;
-    Ok(frontmatter::md_to_archive(&sp.id, &file, &md)?)
+    Ok(storage::read_parsed(&space, "archive", &file, |f, md| {
+        frontmatter::md_to_archive(&sp.id, f, md)
+    })?)
 }
 
 /// 새 노트 생성: inbox 입력 → archive/<today>-<slug>.md.

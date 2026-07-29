@@ -359,6 +359,36 @@ pub fn list_files(dir: &Path, ext: &str) -> Result<Vec<String>> {
     Ok(out)
 }
 
+/// 공간 하위 디렉토리의 .md 전부를 읽어 parse 가 Some 을 준 것만 모은다.
+/// parse 는 (파일명, 본문)을 받는다. IO 오류는 전파, 파싱 실패(None)는 깨진 파일로 보고 건너뛴다.
+pub fn list_parsed<T>(
+    space: &str,
+    subdir: &str,
+    mut parse: impl FnMut(&str, &str) -> Option<T>,
+) -> Result<Vec<T>> {
+    let dir = space_subdir(space, subdir);
+    let mut out = vec![];
+    for f in list_files(&dir, ".md")? {
+        let md = read_text(&dir.join(&f))?;
+        if let Some(v) = parse(&f, &md) {
+            out.push(v);
+        }
+    }
+    Ok(out)
+}
+
+/// 공간 하위 디렉토리의 단일 파일을 safe_join 으로 열어 parse 한다.
+pub fn read_parsed<T>(
+    space: &str,
+    subdir: &str,
+    file: &str,
+    parse: impl FnOnce(&str, &str) -> Result<T>,
+) -> Result<T> {
+    let path = safe_join(&space_subdir(space, subdir), file)?;
+    let md = read_text(&path)?;
+    parse(file, &md)
+}
+
 // ── 유틸: 시간 / slug ───────────────────────────────────────
 /// 현재 UTC 시각을 ISO 8601(`YYYY-MM-DDTHH:MM:SSZ`)로. 외부 crate 없이 계산.
 pub fn now_iso() -> String {

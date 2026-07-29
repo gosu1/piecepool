@@ -8,15 +8,9 @@ use crate::storage::{self, frontmatter};
 #[tauri::command]
 pub fn list_wiki(space: String) -> Result<Vec<WikiPage>, String> {
     let sp = space_by_slug(&space)?;
-    let dir = storage::space_subdir(&space, "wiki");
-    let files = storage::list_files(&dir, ".md")?;
-    let mut out = vec![];
-    for f in files {
-        let md = storage::read_text(&dir.join(&f))?;
-        if let Ok(p) = frontmatter::md_to_wiki(&sp.id, &f, &md) {
-            out.push(p);
-        }
-    }
+    let mut out = storage::list_parsed(&space, "wiki", |f, md| {
+        frontmatter::md_to_wiki(&sp.id, f, md).ok()
+    })?;
     out.sort_by(|a, b| a.title.cmp(&b.title));
     Ok(out)
 }
@@ -24,9 +18,9 @@ pub fn list_wiki(space: String) -> Result<Vec<WikiPage>, String> {
 #[tauri::command]
 pub fn read_wiki(space: String, file: String) -> Result<WikiPage, String> {
     let sp = space_by_slug(&space)?;
-    let path = storage::safe_join(&storage::space_subdir(&space, "wiki"), &file)?;
-    let md = storage::read_text(&path)?;
-    Ok(frontmatter::md_to_wiki(&sp.id, &file, &md)?)
+    Ok(storage::read_parsed(&space, "wiki", &file, |f, md| {
+        frontmatter::md_to_wiki(&sp.id, f, md)
+    })?)
 }
 
 /// WikiPage 저장. archive 는 절대 건드리지 않는다(원문 보존). 파일명 = path 또는 concept slug.
