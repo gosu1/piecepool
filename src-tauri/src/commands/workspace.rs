@@ -194,7 +194,7 @@ pub fn save_source_file(
     };
     let safe_name = format!("{}.{}", storage::slug_or_hash(stem), storage::slugify(ext));
     let dir = storage::space_subdir(&space, "sources/original-files");
-    let final_name = crate::commands::unique_file_name(&dir, &safe_name);
+    let final_name = storage::unique_file_name(&dir, &safe_name);
     let path = storage::safe_join(&dir, &final_name)?;
     storage::write_bytes(&path, &data)?;
     Ok(final_name)
@@ -219,11 +219,10 @@ pub fn move_source(from_space: String, to_space: String, file: String) -> Result
     }
     storage::ensure_space_tree(&to_space)?;
     let to_dir = storage::space_subdir(&to_space, "sources/original-files");
-    let final_name = crate::commands::unique_file_name(&to_dir, &file);
+    let final_name = storage::unique_file_name(&to_dir, &file);
     let to = storage::safe_join(&to_dir, &final_name)?;
 
-    let bytes = storage::read_bytes(&from)?;
-    storage::write_bytes(&to, &bytes)?;
+    storage::copy_file(&from, &to)?;
     // 대상 기록은 끝났다 — 소스 정리 실패(잠금 등)는 무해한 복사본만 남기므로 오류로 만들지 않는다.
     let _ = storage::remove_file(&from);
     Ok(final_name)

@@ -26,8 +26,8 @@ pub fn read_wiki(space: String, file: String) -> Result<WikiPage, String> {
 /// WikiPage 저장. archive 는 절대 건드리지 않는다(원문 보존). 파일명 = path 또는 concept slug.
 #[tauri::command(async)]
 pub fn save_wiki(space: String, page: WikiPage) -> Result<WikiPage, String> {
-    let subjects = crate::commands::subject_ids(&space);
-    let sources = crate::commands::source_ids(&space);
+    let subjects = storage::subject_ids(&space);
+    let sources = storage::source_ids(&space);
     save_wiki_with(&space, page, &subjects, &sources)
 }
 
@@ -35,8 +35,8 @@ pub fn save_wiki(space: String, page: WikiPage) -> Result<WikiPage, String> {
 /// subject/source 레지스트리(source_ids 는 archive 전체 스캔)를 페이지마다가 아니라 1회만 읽는다.
 #[tauri::command(async)]
 pub fn save_wiki_batch(space: String, pages: Vec<WikiPage>) -> Result<Vec<WikiPage>, String> {
-    let subjects = crate::commands::subject_ids(&space);
-    let sources = crate::commands::source_ids(&space);
+    let subjects = storage::subject_ids(&space);
+    let sources = storage::source_ids(&space);
     let mut out = Vec::with_capacity(pages.len());
     for page in pages {
         out.push(save_wiki_with(&space, page, &subjects, &sources)?);
@@ -108,8 +108,8 @@ pub fn rename_wiki(space: String, file: String, new_title: String) -> Result<Wik
     page.updated_at = storage::now_iso();
     frontmatter::validate_wiki(
         &page,
-        &crate::commands::subject_ids(&space),
-        &crate::commands::source_ids(&space),
+        &storage::subject_ids(&space),
+        &storage::source_ids(&space),
     )?;
     storage::write_text(&path, &frontmatter::wiki_to_md(&page))?;
     Ok(page)
