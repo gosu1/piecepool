@@ -1,0 +1,57 @@
+{
+  "id": "ocr",
+  "dry": false,
+  "metrics": {
+    "cases": 2,
+    "runFailed": 0,
+    "offlineFallback": 0,
+    "cerPrinted": 0,
+    "cerHandwritten": 0.046511627906976744,
+    "structureViolation": 0,
+    "emptyBlocks": 2,
+    "notKorean": 1
+  },
+  "gateFails": [
+    "빈 블록 0건 — 실측 2 (허용 <= 0)",
+    "한국어 비율 0.5 미만 0건 — 실측 1 (허용 <= 0)"
+  ],
+  "samples": [
+    {
+      "fixture": {
+        "id": "handwritten-bigo",
+        "imageFile": "images/handwritten-bigo.png",
+        "kind": "handwritten",
+        "groundTruth": "이진 탐색의 시간 복잡도는 O(log n)이다. 배열이 정렬되어 있어야 한다.",
+        "whyHard": "실제 사람이 태블릿에 흘려 쓴 필기다. 활자로는 재현되지 않는 실패 모드가 들어 있다 — 자모가 붙어 흐르고, 'O(log n)'의 대문자 O 가 숫자 0·한글 ㅇ 과 구별되지 않으며, 괄호와 소문자 g 가 아래로 길게 늘어져 다음 글자와 겹친다. PiecePool 의 실제 입력이 바로 이것이라 인쇄체보다 이 케이스가 대표성이 크다."
+      },
+      "out": {
+        "text": "## 원문\n이진탐색의 시간복잡도는 O(log n)이다.\n배열이 정렬되어 있어야 한다.\n\n## 구조\n### 이진 탐색 (Binary Search)\n* **시간 복잡도**: $O(\\log n)$\n* **전제 조건**: 배열이 정렬되어 있어야 함\n\n## 요약\n* 이진 탐색의 시간 복잡도는 $O(\\log n)$입니다.\n* 이진 탐색을 사용하기 위해서는 배열이 사전에 정렬되어 있어야 합니다.",
+        "engine": "gemini",
+        "cer": 0.046511627906976744,
+        "blocks": 4,
+        "emptyBlocks": 1,
+        "korean": true
+      },
+      "latencyMs": 3261
+    },
+    {
+      "fixture": {
+        "id": "printed-attention",
+        "imageFile": "images/printed-attention.png",
+        "kind": "printed",
+        "groundTruth": "Self-Attention의 계산량은 O(n^2 · d)이다. softmax(QK^T / sqrt(d_k))로 가중치를 구한다. 입력 길이 n이 2배면 연산은 4배로 늘어난다.",
+        "whyHard": "손글씨 케이스의 대조군이다. 활자라 자형은 깨끗하지만 한영 혼용과 수식 표기가 함정이다 — 'QK^T' 의 캐럿·위첨자 해석, 'd_k' 의 밑줄 첨자, 가운뎃점 '·' 을 마침표로 옮기는 것, 'O(n^2 · d)' 의 괄호 중첩. 인쇄체가 손글씨보다 못 나오면 문제는 자형이 아니라 수식 처리에 있다는 뜻이다. 이미지는 맑은 고딕으로 렌더링해 만들었고 정답 문자열이 렌더링 원문과 정확히 일치한다."
+      },
+      "out": {
+        "text": "## 원문\n\nSelf-Attention의 계산량은 O(n^2 · d)이다.\n\nsoftmax(QK^T / sqrt(d_k))로 가중치를 구한다.\n\n입력 길이 n이 2배면 연산은 4배로 늘어난다.\n\n## 구조\n\n### [Self-Attention의 연산 특징 및 가중치 계산]\n\n*   **계산 복잡도 (Computational Complexity)**\n    *   Self-Attention의 계산량: $O(n^2 \\cdot d)$\n    *   입력 길이 $n$이 2배로 증가할 때, 연산량은 4배로 증가 (제곱 비례 관계)\n*   **가중치 계산 (Weight Computation)**\n    *   가중치 계산 공식: $\\text{softmax}(QK^T / \\sqrt{d_k})$\n\n## 요약\n\n*   Self-Attention의 계산량은 $O(n^2 \\cdot d)$의 복잡도를 가집니다.\n*   가중치는 $\\text{softmax}(QK^T / \\sqrt{d_k})$ 식을 통해 구합니다.\n*   입력 길이 $n$이 2배가 되면 연산량은 4배로 늘어나는 이차적인 증가 특성을 보입니다.",
+        "engine": "gemini",
+        "cer": 0,
+        "blocks": 4,
+        "emptyBlocks": 1,
+        "korean": false
+      },
+      "latencyMs": 3881
+    }
+  ],
+  "runAt": "2026-08-02T06:52:09.868Z"
+}
