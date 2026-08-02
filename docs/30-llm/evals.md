@@ -214,3 +214,56 @@ must_not.confused            ✅
 - 본 문서는 신규 작성이다. 초안 = [Phase 4 tracking #3 (LLM)](https://github.com/gosu1/piecepool/issues/3) + [sub-issue #32](https://github.com/gosu1/piecepool/issues/32) 기반.
 - 골든 케이스 7건은 MVP scope. `fixtures/*.json`과 `expected/*.json` 실제 작성은 별도 PR.
 - §5.2 CI 통합 / §5.3 baseline 갱신 / §8 도구 선택 → 결정 보류, [`open-questions.md`](../00-overview/open-questions.md) 추가 예정.
+
+---
+
+## 10. 기능별 eval 인덱스
+
+LLM을 쓰는 기능마다 지표·합격선·baseline을 따로 둔다. 공용 러너는 `scripts/evals/`이고, 기능별 상세는 각 README에 있다.
+
+| 기능 | 러너 | 상세 | 모델 호출 |
+|---|---|---|---|
+| 위키 생성 | `npm run eval:generate` | [generate/README.md](evals/generate/README.md) | 필요 |
+| 위키 합성 | `npm run eval:synthesize` | [synthesize/README.md](evals/synthesize/README.md) | 필요 |
+| 위키 병합 | `npm run eval:mergeWiki` | [mergeWiki/README.md](evals/mergeWiki/README.md) | 필요 |
+| 개념 중복제거 | `npm run eval:dedupConcepts` | [dedupConcepts/README.md](evals/dedupConcepts/README.md) | 불필요 |
+| 파인만 | `npm run eval:feynman` | [feynman/README.md](evals/feynman/README.md) | 필요 |
+| 청킹 | `npm run eval:chunk` | [chunk/README.md](evals/chunk/README.md) | 불필요 |
+| 분류 | `npm run eval:classify` | [classify/README.md](evals/classify/README.md) | 불필요 |
+| OCR | `npm run eval:ocr` | [ocr/README.md](evals/ocr/README.md) | 필요 |
+| PDF 요약 | `npm run eval:pdfsummary` | [pdfsummary/README.md](evals/pdfsummary/README.md) | 필요 |
+
+`npm run eval:all`은 전체를 순서대로 돌린다. `--dry`를 붙이면 모델 호출 지표를 생략하고 코드로 잡는 지표만 본다.
+
+**실행 위치는 로컬이다.** CI에 올리지 않는다 — API 키가 필요하고 비결정적이라 PR마다 돌리면 비용과 flaky가 생긴다. baseline은 각 기능의 `results/latest.json` 커밋으로 비교한다. `run-*.json`은 `.gitignore` 대상이다.
+
+## 11. 게이트 작성 규칙
+
+1. 게이트는 `지표 op 임계값` 형태만 쓴다. "좋아졌다", "자연스럽다" 같은 자유서술 판정은 게이트가 될 수 없다.
+2. **지표가 산출되지 않으면 통과가 아니라 실패다.** 러너 코어가 이 규칙을 강제한다 (`scripts/evals/core.ts` `evaluateGates`).
+3. LLM judge를 쓰는 지표는 반드시 (a) 근거 인용을 강제하고 (b) 애매하면 더 심한 쪽을 고르게 하고 (c) 중립 라벨로 도망갈 수 없게 강제 분류한다. 게이트는 라벨의 개수·비율만 본다.
+4. 임계값을 조정할 때는 **실측 근거**를 README `변경 이력`에 남긴다. 게이트가 깨졌다는 이유만으로 임계값을 낮추지 않는다.
+
+## 12. 판정 담당
+
+> 평가지표를 만드는 사람과 그 지표로 판정하는 사람은 갈라야 한다. LLM Core 코드를 소유한 사람이 자기 기준으로 자기 코드를 판정하면 지표가 게이트로 기능하지 않는다.
+
+**규칙**
+
+- 어떤 기능의 `src/llm/*` 코드를 소유한 사람은 그 기능의 **합격선을 단독으로 승인할 수 없다.**
+- 합격선 변경(임계값 조정·게이트 추가/삭제)은 판정 담당의 승인이 필요하다.
+- 지표가 깨졌을 때 "이건 오탐이다"를 판단하는 것도 판정 담당이다.
+
+| 기능 | 코드 소유자 | 판정 담당 |
+|---|---|---|
+| 위키 생성 | | |
+| 위키 합성 | | |
+| 위키 병합 | | |
+| 개념 중복제거 | | |
+| 파인만 | | |
+| 청킹 | | |
+| 분류 | | |
+| OCR | | |
+| PDF 요약 | | |
+
+*빈 칸은 사람이 채운다. 에이전트가 이름을 추측해 채우지 않는다.*
