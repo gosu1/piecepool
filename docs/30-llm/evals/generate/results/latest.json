@@ -1,0 +1,751 @@
+{
+  "id": "generate",
+  "dry": false,
+  "metrics": {
+    "cases": 5,
+    "runFailed": 0,
+    "mustFail": 0,
+    "schemaInvalid": 0,
+    "relatedToRatioMax": 0.3333333333333333,
+    "shouldMetRatio": 0.5217391304347826,
+    "thinConcepts": 1,
+    "latencyP50": 11416,
+    "latencyMax": 70507
+  },
+  "gateFails": [
+    "related_to 비율 ≤ 30% (잠정) — 실측 0.3333 (허용 <= 0.3)",
+    "should 충족률 ≥ 60% (잠정) — 실측 0.5217 (허용 >= 0.6)",
+    "설명 50자 미만 개념 0건 (잠정) — 실측 1 (허용 <= 0)"
+  ],
+  "samples": [
+    {
+      "fixture": {
+        "id": "case-001-self-attention",
+        "title": "Self-Attention 단일 source 추출",
+        "input": {
+          "sourceTitle": "Transformer 강의 3주차",
+          "sourceText": "Self-Attention은 sequence 안의 각 token이 다른 token과의 관계를 계산해 문맥 표현을 만드는 attention mechanism이다. Transformer의 핵심 layer 중 하나로, Multi-Head Attention의 기본 단위가 된다.",
+          "sourceFiles": [],
+          "subjects": [
+            {
+              "id": "subject-ai",
+              "name": "AI"
+            }
+          ],
+          "existingConcepts": []
+        },
+        "tags": [
+          "single-source",
+          "concept-extraction",
+          "relation-part-of"
+        ]
+      },
+      "out": {
+        "result": {
+          "concepts": [
+            {
+              "title": "Self-Attention",
+              "aliases": [
+                "self-attention"
+              ],
+              "summary": "sequence 안의 각 token이 다른 token과의 관계를 계산해 문맥 표현을 만드는 attention mechanism",
+              "explanation": "Self-Attention은 입력 sequence 내의 모든 token 쌍 간의 유사도 혹은 관계를 계산하여, 각 token이 문맥 정보를 풍부하게 담은 vector 표현을 생성할 수 있게 하는 attention mechanism입니다. 이는 Transformer의 핵심 layer 중 하나로 작동합니다.",
+              "examples": [
+                "문장 내에서 대명사 'it'이 어떤 명사를 가리키는지 판단하기 위해 다른 단어들과의 연관성을 계산하는 과정"
+              ],
+              "sourceRefs": [],
+              "sourceEmbeds": [],
+              "confusingConcepts": [],
+              "relatedQuestions": []
+            },
+            {
+              "title": "Multi-Head Attention",
+              "aliases": [],
+              "summary": "Self-Attention을 병렬로 수행하는 Transformer의 핵심 layer",
+              "explanation": "Multi-Head Attention은 Self-Attention을 기본 단위로 삼아, 이를 여러 개의 head로 나누어 병렬적으로 수행하는 구조입니다. 이를 통해 모델은 문장 내의 다양한 위치와 관점에서 정보를 동시에 학습할 수 있습니다.",
+              "examples": [
+                "입력 문장에 대해 여러 개의 head가 각각 다른 문맥적 관계(예: 주어-동사 관계, 대명사-지시어 관계 등)를 독립적으로 포착하는 것"
+              ],
+              "sourceRefs": [],
+              "sourceEmbeds": [],
+              "confusingConcepts": [],
+              "relatedQuestions": []
+            },
+            {
+              "title": "Transformer",
+              "aliases": [],
+              "summary": "Self-Attention 메커니즘을 기반으로 한 딥러닝 아키텍처",
+              "explanation": "Transformer는 기존의 순환 신경망(RNN) 대신 Self-Attention 메커니즘을 핵심 구조로 삼아 sequence 데이터를 처리하는 신경망 모델입니다.",
+              "examples": [
+                "BERT",
+                "GPT"
+              ],
+              "sourceRefs": [],
+              "sourceEmbeds": [],
+              "confusingConcepts": [],
+              "relatedQuestions": []
+            }
+          ],
+          "relations": [
+            {
+              "sourceConceptTitle": "Self-Attention",
+              "targetConceptTitle": "Multi-Head Attention",
+              "relationType": "used_in",
+              "strength": 0.9,
+              "confidence": 0.95,
+              "explanation": "Self-Attention은 Multi-Head Attention을 구성하는 기본 단위로 사용됩니다.",
+              "evidence": [
+                {
+                  "sourceId": "subject-ai",
+                  "reason": "원문에서 'Self-Attention은... Multi-Head Attention의 기본 단위가 된다'고 직접 기술되어 있습니다."
+                }
+              ]
+            },
+            {
+              "sourceConceptTitle": "Self-Attention",
+              "targetConceptTitle": "Transformer",
+              "relationType": "part_of",
+              "strength": 0.9,
+              "confidence": 0.95,
+              "explanation": "Self-Attention은 Transformer 아키텍처의 핵심 layer 중 하나를 구성합니다.",
+              "evidence": [
+                {
+                  "sourceId": "subject-ai",
+                  "reason": "원문에서 'Transformer의 핵심 layer 중 하나로...'라고 기술되어 있습니다."
+                }
+              ]
+            }
+          ]
+        },
+        "ok": true,
+        "failures": [],
+        "warnings": [
+          "should.relation Self-Attention -[part_of]-> Multi-Head Attention 미발견"
+        ],
+        "passes": 3,
+        "shouldTotal": 4,
+        "schemaValid": true,
+        "relatedToRatio": 0,
+        "thinConcepts": 0
+      },
+      "latencyMs": 10656
+    },
+    {
+      "fixture": {
+        "id": "case-002-deadlock",
+        "title": "Deadlock OS 강의 한 단락",
+        "input": {
+          "sourceTitle": "운영체제 강의 6주차 - 교착상태",
+          "sourceText": "데드락(Deadlock)은 두 개 이상의 프로세스가 서로 상대방이 점유한 자원을 기다리며 무한히 대기하는 상태다. 데드락이 발생하면 시스템은 해당 프로세스들을 더 이상 진행시키지 못하고 멈추게 된다(System Hang). 데드락의 네 가지 필요조건은 상호 배제(Mutual Exclusion), 점유 대기(Hold and Wait), 비선점(No Preemption), 환형 대기(Circular Wait)다.",
+          "sourceFiles": [],
+          "subjects": [
+            {
+              "id": "subject-os",
+              "name": "운영체제"
+            }
+          ],
+          "existingConcepts": []
+        },
+        "tags": [
+          "single-source",
+          "concept-extraction",
+          "relation-causes"
+        ]
+      },
+      "out": {
+        "result": {
+          "concepts": [
+            {
+              "title": "데드락",
+              "aliases": [
+                "Deadlock"
+              ],
+              "summary": "두 개 이상의 프로세스가 서로 상대방이 점유한 자원을 기다리며 무한히 대기하는 상태를 뜻합니다.",
+              "explanation": "데드락이 발생하면 시스템은 해당 프로세스들을 더 이상 진행시키지 못하고 멈추게 됩니다(System Hang). 데드락이 성립하려면 네 가지 필요조건(상호 배제, 점유 대기, 비선점, 환형 대기)이 모두 충족되어야 합니다.",
+              "examples": [
+                "프로세스 A가 자원 1을 점유한 채 자원 2를 기다리고, 프로세스 B가 자원 2를 점유한 채 자원 1을 기다리는 무한 대기 상태"
+              ],
+              "sourceRefs": [],
+              "sourceEmbeds": []
+            },
+            {
+              "title": "상호 배제",
+              "aliases": [
+                "Mutual Exclusion"
+              ],
+              "summary": "데드락의 네 가지 필요조건 중 하나로, 한 번에 한 프로세스만 특정 자원을 사용할 수 있는 성질입니다.",
+              "explanation": "자원을 여러 프로세스가 공유해서 동시에 사용할 수 없고, 하나의 프로세스만이 독점적으로 사용할 수 있을 때 데드락의 기반 조건이 형성됩니다.",
+              "examples": [
+                "하나의 프린터를 여러 컴퓨터가 동시에 사용하지 못하고 순차적으로만 사용할 수 있는 상태"
+              ],
+              "sourceRefs": [],
+              "sourceEmbeds": []
+            },
+            {
+              "title": "점유 대기",
+              "aliases": [
+                "Hold and Wait"
+              ],
+              "summary": "데드락의 네 가지 필요조건 중 하나로, 자원을 보유한 상태에서 다른 자원을 추가로 얻기 위해 대기하는 프로세스가 존재하는 상태입니다.",
+              "explanation": "이미 최소한 하나의 자원을 확보하여 점유(Hold)하고 있으면서, 동시에 다른 프로세스가 점유하고 있는 추가 자원을 획득하기 위해 대기(Wait)하는 조건입니다.",
+              "examples": [
+                "파일 A를 열어둔 상태로 파일 B에 대한 접근 권한을 기다리는 프로세스"
+              ],
+              "sourceRefs": [],
+              "sourceEmbeds": []
+            },
+            {
+              "title": "비선점",
+              "aliases": [
+                "No Preemption"
+              ],
+              "summary": "데드락의 네 가지 필요조건 중 하나로, 이미 다른 프로세스에 할당된 자원을 강제로 빼앗을 수 없는 성질입니다.",
+              "explanation": "어떤 프로세스가 자원을 사용 중일 때, 운영체제나 다른 프로세스가 그 자원을 중간에 강제로 해제하거나 회수할 수 없어야 데드락 상태가 유지됩니다. 자원은 해당 프로세스가 자발적으로 해제할 때만 방출됩니다.",
+              "examples": [
+                "작업을 마칠 때까지 CPU 점유권을 강제로 빼앗기지 않는 CPU 비선점 스케줄링"
+              ],
+              "sourceRefs": [],
+              "sourceEmbeds": []
+            },
+            {
+              "title": "환형 대기",
+              "aliases": [
+                "Circular Wait"
+              ],
+              "summary": "데드락의 네 가지 필요조건 중 하나로, 대기하고 있는 프로세스들이 서로를 꼬리에 꼬리를 무는 순환 형태로 기다리는 상태입니다.",
+              "explanation": "프로세스 집합 {P0, P1, ..., Pn}에서 P0은 P1이 가진 자원을 기다리고, P1은 P2가 가진 자원을 기다리며, 마지막 Pn은 P0이 가진 자원을 대기하는 순환적(Circular) 대기 체인이 형성되어야 합니다.",
+              "examples": [
+                "프로세스 1이 프로세스 2의 자원을 기다리고, 프로세스 2가 프로세스 1의 자원을 서로 무한히 대기하는 상황"
+              ],
+              "sourceRefs": [],
+              "sourceEmbeds": []
+            }
+          ],
+          "relations": [
+            {
+              "sourceConceptTitle": "상호 배제",
+              "targetConceptTitle": "데드락",
+              "relationType": "prerequisite",
+              "strength": 0.9,
+              "confidence": 0.95,
+              "explanation": "상호 배제(Mutual Exclusion)는 데드락이 발생하기 위해 만족해야 하는 네 가지 필요조건 중 하나입니다.",
+              "evidence": [
+                {
+                  "sourceId": "lecture-6",
+                  "reason": "텍스트에서 상호 배제를 데드락의 네 가지 필요조건 중 하나로 명시하고 있습니다."
+                }
+              ]
+            },
+            {
+              "sourceConceptTitle": "점유 대기",
+              "targetConceptTitle": "데드락",
+              "relationType": "prerequisite",
+              "strength": 0.9,
+              "confidence": 0.95,
+              "explanation": "점유 대기(Hold and Wait)는 데드락이 발생하기 위해 만족해야 하는 네 가지 필요조건 중 하나입니다.",
+              "evidence": [
+                {
+                  "sourceId": "lecture-6",
+                  "reason": "텍스트에서 점유 대기를 데드락의 네 가지 필요조건 중 하나로 명시하고 있습니다."
+                }
+              ]
+            },
+            {
+              "sourceConceptTitle": "비선점",
+              "targetConceptTitle": "데드락",
+              "relationType": "prerequisite",
+              "strength": 0.9,
+              "confidence": 0.95,
+              "explanation": "비선점(No Preemption)은 데드락이 발생하기 위해 만족해야 하는 네 가지 필요조건 중 하나입니다.",
+              "evidence": [
+                {
+                  "sourceId": "lecture-6",
+                  "reason": "텍스트에서 비선점을 데드락의 네 가지 필요조건 중 하나로 명시하고 있습니다."
+                }
+              ]
+            },
+            {
+              "sourceConceptTitle": "환형 대기",
+              "targetConceptTitle": "데드락",
+              "relationType": "prerequisite",
+              "strength": 0.9,
+              "confidence": 0.95,
+              "explanation": "환형 대기(Circular Wait)는 데드락이 발생하기 위해 만족해야 하는 네 가지 필요조건 중 하나입니다.",
+              "evidence": [
+                {
+                  "sourceId": "lecture-6",
+                  "reason": "텍스트에서 환형 대기를 데드락의 네 가지 필요조건 중 하나로 명시하고 있습니다."
+                }
+              ]
+            }
+          ]
+        },
+        "ok": true,
+        "failures": [],
+        "warnings": [
+          "should.relation 데드락 -[causes]-> 시스템 행 미발견",
+          "should.relatedConcept \"시스템 행\" 미등장",
+          "should.relatedConcept \"Mutual Exclusion\" 미등장",
+          "should.relatedConcept \"Circular Wait\" 미등장"
+        ],
+        "passes": 3,
+        "shouldTotal": 6,
+        "schemaValid": true,
+        "relatedToRatio": 0,
+        "thinConcepts": 0
+      },
+      "latencyMs": 11946
+    },
+    {
+      "fixture": {
+        "id": "case-003-graph-vs-gnn",
+        "title": "자료구조 Graph + AI GNN 누적 입력",
+        "input": {
+          "sourceTitle": "자료구조 Graph와 GNN 비교 노트",
+          "sourceText": "그래프(Graph)는 정점(Vertex)과 간선(Edge)으로 구성된 자료구조다. 소셜 네트워크, 지도, 의존성 분석 등 다양한 분야에 활용된다. 그래프 신경망(GNN, Graph Neural Network)은 그래프 구조 데이터를 딥러닝으로 처리하는 모델이다. GNN은 자료구조의 Graph 개념을 AI 모델에 응용한 것으로, 노드 분류, 링크 예측, 그래프 분류 작업에 사용된다.",
+          "sourceFiles": [],
+          "subjects": [
+            {
+              "id": "subject-ds",
+              "name": "자료구조"
+            },
+            {
+              "id": "subject-ai",
+              "name": "AI"
+            }
+          ],
+          "existingConcepts": []
+        },
+        "tags": [
+          "cross-subject",
+          "relation-used-in",
+          "relation-related-to"
+        ]
+      },
+      "out": {
+        "result": {
+          "concepts": [
+            {
+              "title": "Graph",
+              "aliases": [
+                "그래프",
+                "정점",
+                "간선",
+                "Vertex",
+                "Edge"
+              ],
+              "summary": "정점(Vertex)과 간선(Edge)으로 구성된 자료구조다.",
+              "explanation": "정점과 그 정점들을 연결하는 간선으로 관계를 표현하는 비선형 자료구조이다. 소셜 네트워크, 지도, 의존성 분석 등 관계성 데이터를 나타내는 다양한 분야에 활용된다.",
+              "examples": [
+                "소셜 네트워크",
+                "지도",
+                "의존성 분석"
+              ],
+              "sourceRefs": [],
+              "sourceEmbeds": [],
+              "confusingConcepts": [
+                "GNN"
+              ]
+            },
+            {
+              "title": "GNN",
+              "aliases": [
+                "Graph Neural Network",
+                "그래프 신경망"
+              ],
+              "summary": "그래프 구조 데이터를 딥러닝으로 처리하는 모델이다.",
+              "explanation": "자료구조의 Graph 개념을 AI 모델에 응용한 신경망 모델 구조이다. 그래프 데이터를 입력받아 노드 분류, 링크 예측, 그래프 분류 등의 다양한 그래프 관련 태스크를 처리하며 딥러닝을 적용하여 분석 성능을 극대화한다.",
+              "examples": [
+                "노드 분류",
+                "링크 예측",
+                "그래프 분류"
+              ],
+              "sourceRefs": [],
+              "sourceEmbeds": [],
+              "confusingConcepts": [
+                "Graph"
+              ]
+            }
+          ],
+          "relations": [
+            {
+              "sourceConceptTitle": "Graph",
+              "targetConceptTitle": "GNN",
+              "relationType": "used_in",
+              "strength": 0.9,
+              "confidence": 0.95,
+              "explanation": "Graph 자료구조의 개념이 GNN 모델 구조의 기반 및 처리 대상 데이터 구조로 응용된다.",
+              "evidence": [
+                {
+                  "sourceId": "subject-ai",
+                  "quote": "GNN은 자료구조의 Graph 개념을 AI 모델에 응용한 것으로",
+                  "reason": "자료구조의 Graph 개념이 AI 모델인 GNN으로 확장 및 응용됨을 명시하고 있다."
+                }
+              ]
+            }
+          ]
+        },
+        "ok": true,
+        "failures": [],
+        "warnings": [
+          "should.relation GNN -[used_in]-> Graph 미발견",
+          "should.relatedConcept \"그래프 신경망\" 미등장",
+          "should.relatedConcept \"Vertex\" 미등장",
+          "should.relatedConcept \"Edge\" 미등장"
+        ],
+        "passes": 3,
+        "shouldTotal": 5,
+        "schemaValid": true,
+        "relatedToRatio": 0,
+        "thinConcepts": 0
+      },
+      "latencyMs": 8388
+    },
+    {
+      "fixture": {
+        "id": "case-004-confusing-pair",
+        "title": "Process vs Thread 대조",
+        "input": {
+          "sourceTitle": "운영체제 - 프로세스와 스레드 비교",
+          "sourceText": "프로세스(Process)와 스레드(Thread)는 자주 혼동되는 개념이다. 프로세스는 독립적인 메모리 공간을 가지며 운영체제로부터 자원을 할당받는 실행 단위다. 스레드는 프로세스 내에서 실행되는 흐름으로, 같은 프로세스의 스레드들은 힙 메모리와 전역 변수를 공유한다. 프로세스 간 전환(Context Switching)은 스레드 간 전환보다 비용이 크다.",
+          "sourceFiles": [],
+          "subjects": [
+            {
+              "id": "subject-os",
+              "name": "운영체제"
+            }
+          ],
+          "existingConcepts": []
+        },
+        "tags": [
+          "confusing-pair",
+          "relation-confused-with",
+          "relation-contrasts"
+        ]
+      },
+      "out": {
+        "result": {
+          "concepts": [
+            {
+              "title": "프로세스",
+              "aliases": [
+                "Process"
+              ],
+              "summary": "독립적인 메모리 공간을 가지며 운영체제로부터 자원을 할당받는 실행 단위",
+              "explanation": "프로세스는 운영체제에서 독립된 자원을 할당받아 실행되는 프로그램의 인스턴스입니다. 각 프로세스는 독립된 주소 공간(코드, 데이터, 스택, 힙)을 가집니다. 이로 인해 한 프로세스가 비정상 종료되어도 다른 프로세스에 영향을 주지 않지만, 프로세스 간 통신을 위해서는 IPC 등 별도의 메커니즘이 필요합니다.",
+              "examples": [
+                "실행 중인 웹 브라우저",
+                "텍스트 에디터"
+              ],
+              "sourceRefs": [],
+              "sourceEmbeds": [],
+              "confusingConcepts": [
+                "스레드"
+              ],
+              "relatedQuestions": [
+                "프로세스와 스레드의 차이는 무엇인가요?",
+                "프로세스 간 통신은 어떻게 이루어지나요?"
+              ]
+            },
+            {
+              "title": "스레드",
+              "aliases": [
+                "Thread"
+              ],
+              "summary": "프로세스 내에서 실행되는 흐름의 단위",
+              "explanation": "스레드는 프로세스 내에서 실행되는 실행 흐름의 단위입니다. 같은 프로세스 내의 스레드들은 프로세스의 힙(heap) 메모리와 전역 변수 등의 자원을 공유합니다. 자원을 공유하므로 스레드 간 통신이 빠르고 메모리 낭비가 적지만, 하나의 스레드에 문제가 생기면 프로세스 전체가 영향을 받을 수 있습니다.",
+              "examples": [
+                "웹 브라우저에서 화면을 그리면서 동시에 파일을 다운로드하는 두 개의 실행 흐름"
+              ],
+              "sourceRefs": [],
+              "sourceEmbeds": [],
+              "confusingConcepts": [
+                "프로세스"
+              ],
+              "relatedQuestions": [
+                "스레드가 자원을 공유할 때 발생하는 문제점은 무엇인가요?"
+              ]
+            },
+            {
+              "title": "Context Switching",
+              "aliases": [
+                "프로세스 간 전환",
+                "스레드 간 전환"
+              ],
+              "summary": "CPU가 한 프로세스나 스레드에서 다른 프로세스나 스레드로 실행을 전환하는 과정",
+              "explanation": "CPU가 현재 실행 중인 작업의 상태(Context)를 보존하고, 새롭게 실행할 작업의 상태를 복구하여 실행권을 넘기는 과정입니다. 프로세스 간 Context Switching은 가상 메모리 주소 공간 등을 물리적으로 완전히 전환해야 하므로 캐시 초기화 등이 일어나 비용이 크지만, 스레드 간 Context Switching은 주소 공간을 공유하므로 상대적으로 전환 비용이 저렴합니다.",
+              "examples": [
+                "멀티태스킹 환경에서 여러 프로그램이 동시에 실행되는 것처럼 느껴지도록 CPU가 빠르게 실행 단위를 전환하는 동작"
+              ],
+              "sourceRefs": [],
+              "sourceEmbeds": [],
+              "confusingConcepts": [],
+              "relatedQuestions": [
+                "Context Switching의 비용을 줄이기 위한 방법은 무엇이 있나요?"
+              ]
+            }
+          ],
+          "relations": [
+            {
+              "sourceConceptTitle": "스레드",
+              "targetConceptTitle": "프로세스",
+              "relationType": "part_of",
+              "strength": 0.9,
+              "confidence": 1,
+              "explanation": "스레드는 독립된 개체가 아니며, 반드시 하나의 프로세스 내부에서 생성되고 실행되는 흐름의 일부입니다.",
+              "evidence": [
+                {
+                  "sourceId": "source-1",
+                  "reason": "원문에서 '스레드는 프로세스 내에서 실행되는 흐름'이라고 기술되어 있습니다. "
+                }
+              ]
+            },
+            {
+              "sourceConceptTitle": "프로세스",
+              "targetConceptTitle": "스레드",
+              "relationType": "contrasts",
+              "strength": 0.8,
+              "confidence": 1,
+              "explanation": "프로세스는 독립된 메모리 영역을 갖는 반면, 스레드는 프로세스의 힙 메모리와 전역 변수를 공유한다는 점에서 대비됩니다.",
+              "evidence": [
+                {
+                  "sourceId": "source-1",
+                  "reason": "독립적인 메모리 공간을 가지는 프로세스와 힙 및 전역 변수를 공유하는 스레드의 자원 할당 특성을 대비하여 설명합니다."
+                }
+              ]
+            },
+            {
+              "sourceConceptTitle": "Context Switching",
+              "targetConceptTitle": "프로세스",
+              "relationType": "related_to",
+              "strength": 0.7,
+              "confidence": 0.95,
+              "explanation": "프로세스 간 Context Switching은 메모리 공간 전환 오버헤드가 수반되어 스레드 간 전환보다 비용이 크게 발생합니다.",
+              "evidence": [
+                {
+                  "sourceId": "source-1",
+                  "reason": "원문에서 '프로세스 간 전환(Context Switching)은 스레드 간 전환보다 비용이 크다'고 명시하고 있습니다."
+                }
+              ]
+            }
+          ]
+        },
+        "ok": true,
+        "failures": [],
+        "warnings": [
+          "should.relation 스레드 -[confused_with]-> 프로세스 미발견",
+          "should.relatedConcept \"컨텍스트 스위칭\" 미등장"
+        ],
+        "passes": 5,
+        "shouldTotal": 3,
+        "schemaValid": true,
+        "relatedToRatio": 0.3333333333333333,
+        "thinConcepts": 0
+      },
+      "latencyMs": 70507
+    },
+    {
+      "fixture": {
+        "id": "case-007-related-to-abuse",
+        "title": "related_to 과다 응답 경고 검증",
+        "input": {
+          "sourceTitle": "컴퓨터 과학 개요",
+          "sourceText": "컴퓨터 과학(Computer Science)은 알고리즘, 자료구조, 운영체제, 네트워크, 데이터베이스, 인공지능 등 다양한 분야를 포함한다. 알고리즘은 문제를 해결하는 절차다. 자료구조는 데이터를 효율적으로 저장하고 접근하는 방법이다. 운영체제는 하드웨어와 소프트웨어 사이의 인터페이스다. 네트워크는 컴퓨터들이 서로 통신하는 체계다. 데이터베이스는 데이터를 구조적으로 저장하고 관리하는 시스템이다.",
+          "sourceFiles": [],
+          "subjects": [
+            {
+              "id": "subject-cs",
+              "name": "컴퓨터과학"
+            }
+          ],
+          "existingConcepts": []
+        },
+        "tags": [
+          "related-to-ratio",
+          "warning-log"
+        ]
+      },
+      "out": {
+        "result": {
+          "concepts": [
+            {
+              "title": "컴퓨터 과학",
+              "aliases": [
+                "Computer Science"
+              ],
+              "summary": "알고리즘, 자료구조, 운영체제, 네트워크, 데이터베이스 등을 포함하여 컴퓨터 시스템과 정보 처리를 연구하는 학문 분야.",
+              "explanation": "컴퓨터 과학은 정보 처리를 위한 이론과 기술을 다루는 학문입니다. 알고리즘, 자료구조, 운영체제, 네트워크, 데이터베이스, 인공지능 등 다양한 하위 분야를 포괄하고 있습니다.",
+              "examples": [],
+              "sourceRefs": [],
+              "sourceEmbeds": [],
+              "confusingConcepts": [],
+              "relatedQuestions": []
+            },
+            {
+              "title": "알고리즘",
+              "aliases": [],
+              "summary": "문제를 해결하기 위한 유한하고 명확한 절차나 명령어의 집합.",
+              "explanation": "컴퓨터 과학에서 특정 작업을 수행하거나 문제를 해결하기 위해 정의된 단계별 절차입니다.",
+              "examples": [
+                "정렬 알고리즘 (퀵 정렬, 병합 정렬)",
+                "탐색 알고리즘"
+              ],
+              "sourceRefs": [],
+              "sourceEmbeds": [],
+              "confusingConcepts": [],
+              "relatedQuestions": []
+            },
+            {
+              "title": "자료구조",
+              "aliases": [],
+              "summary": "데이터를 효율적으로 저장하고 관리하며 접근하기 위한 컴퓨터 과학의 구조적 방법.",
+              "explanation": "데이터를 체계적으로 저장하여 프로그램의 실행 속도를 높이고 메모리 공간을 효율적으로 사용하기 위한 방법입니다.",
+              "examples": [
+                "배열 (Array)",
+                "연결 리스트 (Linked List)",
+                "스택 (Stack)",
+                "큐 (Queue)"
+              ],
+              "sourceRefs": [],
+              "sourceEmbeds": [],
+              "confusingConcepts": [],
+              "relatedQuestions": []
+            },
+            {
+              "title": "운영체제",
+              "aliases": [],
+              "summary": "컴퓨터 하드웨어와 응용 소프트웨어 간의 상호작용을 관리하는 인터페이스 역할을 하는 시스템 소프트웨어.",
+              "explanation": "컴퓨터 하드웨어를 직접 제어하고 관리하며, 사용자와 다른 소프트웨어가 하드웨어를 효율적으로 사용할 수 있도록 돕는 시스템입니다.",
+              "examples": [
+                "Windows",
+                "Linux",
+                "macOS"
+              ],
+              "sourceRefs": [],
+              "sourceEmbeds": [],
+              "confusingConcepts": [],
+              "relatedQuestions": []
+            },
+            {
+              "title": "네트워크",
+              "aliases": [],
+              "summary": "독립된 컴퓨터들이 서로 연결되어 데이터를 교환하고 통신하는 시스템.",
+              "explanation": "컴퓨터들이 상호 연결되어 자원을 공유하고 통신할 수 있도록 지원하는 네트워크 기술과 체계를 의미합니다.",
+              "examples": [
+                "인터넷 (Internet)",
+                "LAN (Local Area Network)",
+                "WAN (Wide Area Network)"
+              ],
+              "sourceRefs": [],
+              "sourceEmbeds": [],
+              "confusingConcepts": [],
+              "relatedQuestions": []
+            },
+            {
+              "title": "데이터베이스",
+              "aliases": [],
+              "summary": "데이터를 구조적으로 저장하고 관리하는 컴퓨터 시스템.",
+              "explanation": "데이터를 효율적으로 검색, 수정, 저장 및 관리할 수 있도록 설계된 컴퓨터 시스템의 핵심 요소입니다.",
+              "examples": [
+                "MySQL",
+                "PostgreSQL",
+                "Oracle Database"
+              ],
+              "sourceRefs": [],
+              "sourceEmbeds": [],
+              "confusingConcepts": [],
+              "relatedQuestions": []
+            }
+          ],
+          "relations": [
+            {
+              "sourceConceptTitle": "알고리즘",
+              "targetConceptTitle": "컴퓨터 과학",
+              "relationType": "part_of",
+              "strength": 0.9,
+              "confidence": 0.95,
+              "explanation": "알고리즘은 컴퓨터 과학의 핵심 하위 분야 중 하나입니다.",
+              "evidence": [
+                {
+                  "sourceId": "subject-cs",
+                  "quote": "컴퓨터 과학(Computer Science)은 알고리즘, 자료구조, 운영체제, 네트워크, 데이터베이스, 인공지능 등 다양한 분야를 포함한다.",
+                  "reason": "본문에서 컴퓨터 과학은 알고리즘을 포함한다고 명시함."
+                }
+              ]
+            },
+            {
+              "sourceConceptTitle": "자료구조",
+              "targetConceptTitle": "컴퓨터 과학",
+              "relationType": "part_of",
+              "strength": 0.9,
+              "confidence": 0.95,
+              "explanation": "자료구조는 컴퓨터 과학의 핵심 하위 분야 중 하나입니다.",
+              "evidence": [
+                {
+                  "sourceId": "subject-cs",
+                  "quote": "컴퓨터 과학(Computer Science)은 알고리즘, 자료구조, 운영체제, 네트워크, 데이터베이스, 인공지능 등 다양한 분야를 포함한다.",
+                  "reason": "본문에서 컴퓨터 과학은 자료구조를 포함한다고 명시함."
+                }
+              ]
+            },
+            {
+              "sourceConceptTitle": "운영체제",
+              "targetConceptTitle": "컴퓨터 과학",
+              "relationType": "part_of",
+              "strength": 0.9,
+              "confidence": 0.95,
+              "explanation": "운영체제는 컴퓨터 과학의 핵심 하위 분야 중 하나입니다.",
+              "evidence": [
+                {
+                  "sourceId": "subject-cs",
+                  "quote": "컴퓨터 과학(Computer Science)은 알고리즘, 자료구조, 운영체제, 네트워크, 데이터베이스, 인공지능 등 다양한 분야를 포함한다.",
+                  "reason": "본문에서 컴퓨터 과학은 운영체제를 포함한다고 명시함."
+                }
+              ]
+            },
+            {
+              "sourceConceptTitle": "네트워크",
+              "targetConceptTitle": "컴퓨터 과학",
+              "relationType": "part_of",
+              "strength": 0.9,
+              "confidence": 0.95,
+              "explanation": "네트워크는 컴퓨터 과학의 핵심 하위 분야 중 하나입니다.",
+              "evidence": [
+                {
+                  "sourceId": "subject-cs",
+                  "quote": "컴퓨터 과학(Computer Science)은 알고리즘, 자료구조, 운영체제, 네트워크, 데이터베이스, 인공지능 등 다양한 분야를 포함한다.",
+                  "reason": "본문에서 컴퓨터 과학은 네트워크를 포함한다고 명시함."
+                }
+              ]
+            },
+            {
+              "sourceConceptTitle": "데이터베이스",
+              "targetConceptTitle": "컴퓨터 과학",
+              "relationType": "part_of",
+              "strength": 0.9,
+              "confidence": 0.95,
+              "explanation": "데이터베이스는 컴퓨터 과학의 핵심 하위 분야 중 하나입니다.",
+              "evidence": [
+                {
+                  "sourceId": "subject-cs",
+                  "quote": "컴퓨터 과학(Computer Science)은 알고리즘, 자료구조, 운영체제, 네트워크, 데이터베이스, 인공지능 등 다양한 분야를 포함한다.",
+                  "reason": "본문에서 컴퓨터 과학은 데이터베이스를 포함한다고 명시함."
+                }
+              ]
+            }
+          ]
+        },
+        "ok": true,
+        "failures": [],
+        "warnings": [],
+        "passes": 3,
+        "shouldTotal": 5,
+        "schemaValid": true,
+        "relatedToRatio": 0,
+        "thinConcepts": 1
+      },
+      "latencyMs": 11416
+    }
+  ],
+  "runAt": "2026-08-02T06:46:43.993Z"
+}

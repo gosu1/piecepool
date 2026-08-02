@@ -1,0 +1,54 @@
+{
+  "id": "synthesize",
+  "dry": false,
+  "metrics": {
+    "cases": 1,
+    "runFailed": 0,
+    "heuristicFallback": 0,
+    "keyPointRecall": 1,
+    "absentFactLeak": 0,
+    "noHeading": 0,
+    "notKorean": 0,
+    "charsPerKeyPointMin": 32,
+    "hallucination": 0,
+    "contradiction": 0,
+    "judgeFail": 0
+  },
+  "gateFails": [],
+  "samples": [
+    {
+      "fixture": {
+        "id": "os-deadlock",
+        "input": {
+          "sourceTitle": "교착상태",
+          "sourceText": "# 운영체제 3주차\n교착상태는 둘 이상의 프로세스가 서로 상대가 점유한 자원을 기다리며 아무도 진행하지 못하는 상태다.\n발생하려면 상호배제, 점유대기, 비선점, 순환대기 네 조건이 동시에 성립해야 한다.\n예방은 이 중 하나를 깨는 방식으로 한다. 은행원 알고리즘은 회피(avoidance) 기법이다."
+        },
+        "keyPoints": [
+          "상호배제",
+          "점유대기",
+          "비선점",
+          "순환대기",
+          "은행원 알고리즘"
+        ],
+        "absentFacts": [
+          "세마포어",
+          "뮤텍스",
+          "라운드로빈",
+          "페이지 폴트"
+        ],
+        "whyHard": "네 조건을 다 담으면서 원문에 없는 동기화 용어를 끌어오지 않아야 한다."
+      },
+      "out": {
+        "markdown": "# 교착상태 정리\n\n## 교착상태의 정의\n교착상태는 둘 이상의 프로세스가 서로 상대가 점유한 자원을 기다리며 아무도 진행하지 못하는 상태를 뜻한다.\n\n## 교착상태 발생 조건\n교착상태가 발생하려면 다음 네 가지 조건이 동시에 성립해야 한다.\n* 상호배제\n* 점유대기\n* 비선점\n* 순환대기\n\n## 교착상태 해결 방법\n* **예방**: 네 가지 발생 조건 중 하나를 깨는 방식으로 교착상태를 예방한다.\n* **회피**: 은행원 알고리즘은 대표적인 회피(avoidance) 기법이다.",
+        "engine": "gemini",
+        "keyPointHits": 5,
+        "absentHits": [],
+        "hasHeading": true,
+        "korean": true,
+        "charsPerKeyPoint": 32
+      },
+      "latencyMs": 4950
+    }
+  ],
+  "runAt": "2026-08-02T06:46:52.902Z"
+}
