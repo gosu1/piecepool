@@ -7,5 +7,7 @@ export const ADAPTERS: Record<string, () => Promise<EvalAdapter<any, any>>> = {
   dedupConcepts: async () => (await import("./adapters/dedupConcepts")).default,
   generate: async () => (await import("./adapters/generate")).default,
   mergeWiki: async () => (await import("./adapters/mergeWiki")).default,
+  ocr: async () => (await import("./adapters/ocr")).default,
+  pdfsummary: async () => (await import("./adapters/pdfsummary")).default,
   synthesize: async () => (await import("./adapters/synthesize")).default,
 };

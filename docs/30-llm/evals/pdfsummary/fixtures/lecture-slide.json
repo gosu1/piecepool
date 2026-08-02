@@ -1,0 +1,12 @@
+{
+  "id": "lecture-slide",
+  "input": {
+    "sourceTitle": "Chapter 3. Process Scheduling",
+    "sourceText": "Chapter 3. Process Scheduling\n\n3.1 Objectives\nMaximize CPU utilization. Minimize turnaround time.\n\n3.2 Algorithms\nFCFS: first come first served, non-preemptive.\nSJF: shortest job first, optimal average waiting time.\nRound Robin: time quantum q, preemptive.\n\n3.3 Formula\nWaiting time W = T_turnaround - T_burst."
+  },
+  "expectSections": ["Objectives", "Algorithms", "Formula"],
+  "expectTerms": ["FCFS", "SJF", "Round Robin"],
+  "absentFacts": ["교착상태", "페이지 폴트", "세마포어"],
+  "expectFormula": "T_turnaround",
+  "whyHard": "영어 원문을 한국어로 요약하면서 알고리즘 이름과 수식 기호는 보존해야 한다."
+}
