@@ -1,0 +1,121 @@
+# 위키 합성 eval
+
+파편 노트 → 정리 글 합성([`src/llm/synthesize.ts`](../../../../src/llm/synthesize.ts))을 측정한다. 러너: `npm run eval:synthesize`
+
+```bash
+export GEMINI_API_KEY=...
+npm run eval:synthesize                       # 전체 fixture (judge 포함)
+npm run eval:synthesize -- --dry              # judge만 생략 — 대상 모델 호출은 나간다
+npm run eval:synthesize -- --case os-deadlock # 하나만
+```
+
+## 왜 단위 테스트가 아닌가
+
+`synthesize.test.ts`는 요청 모양·스트리밍 delta·재시도·폴백 전환을 본다. 전부 **배관**이다. 합성의 실제 위험은 다른 데 있다.
+
+- **환각** — 원문에 없는 용어·기제를 끌어와 그럴듯하게 붙인다. 학습 노트에서는 이게 최악이다. 사용자는 자기가 쓴 것과 모델이 보탠 것을 구별하지 못한 채 그걸 외운다.
+- **누락** — 파편에 있던 사실이 정리 과정에서 조용히 빠진다.
+
+둘 다 출력 문자열의 **내용**에 대한 판정이라 `expect().toBe()`로 쓸 수 없다.
+
+## 판정 층
+
+**cheap checks** (코드) — `keyPoints` 재현율, `absentFacts` 등장 여부, 헤딩 존재, 한국어 여부, 엔진 종류.
+
+**LLM-as-judge** (Gemini, `temperature: 0`, [`scripts/evals/judge.ts`](../../../../scripts/evals/judge.ts)) — 환각과 원문 모순을 본다. 판정자가 관대해지는 것을 막는 장치 셋을 프롬프트에 박았다.
+
+1. **근거 인용 강제** — `hallucinationEvidence` / `contradictionEvidence`에 문제 문장을 그대로 인용해야 한다. 플래그가 `false`일 때만 빈 문자열이 허용된다.
+2. **의심스러우면 더 심한 쪽** — *"When in doubt, set the flag to true. A lenient auditor makes this metric useless."*
+3. **재서술과 환각의 경계를 명시** — 원문을 바꿔 쓰거나 재배열하는 것은 환각이 **아니고**, 원문에 없는 기술 용어를 새로 넣는 것은 환각이다. 이 선을 안 그으면 판정자가 요약 자체를 환각으로 몰거나 반대로 다 봐준다.
+
+`--dry`는 **judge 호출만** 생략한다. 대상 모델 호출은 그대로 나가므로 dry에도 키가 필요하다. 러너 코어가 dry에서는 미산출 지표를 건너뛰므로 거짓 경보가 나지 않는다.
+
+### 휴리스틱 폴백은 그 자체가 회귀다
+
+`runSynthesis`는 키가 없거나 스트림 시작 전 실패하면 **throw하지 않고** `heuristicSynthesis`의 결정적 재배열 결과를 돌려준다(`engine: "heuristic"`). 앱에서는 옳은 동작이다 — 키 없이도 뭔가는 보여줘야 한다.
+
+**eval에서는 그게 함정이다.** 휴리스틱은 파편을 그대로 재배열하므로 `keyPointRecall`이 1.0이고 `absentFactLeak`이 0이며 헤딩도 한국어도 만족한다. 게이트를 전부 통과하면서 **모델은 한 번도 호출되지 않는다.** 그래서 `heuristicFallback`을 별도 지표로 두고 0으로 막는다.
+
+이 게이트가 실제로 잡은 사례 둘: (1) 러너가 dry에서 키 검사를 면제하던 시절, **키 없이 돌린 `--dry` 실행이 `게이트 통과 ✅`로 끝났다**(실측). 지금은 dry에도 키를 요구하므로 이 경로는 막혔다. (2) `--model this-model-does-not-exist-xyz`로 돌리면 404가 나는데 폴백이 그것을 삼켜 `runFailed 0`이 된다 — 이 게이트만이 잡는다. **키가 있어도 재현되는 경로**라 게이트는 여전히 필요하다.
+
+## 합격선
+
+깨지면 러너가 `exit 1`.
+
+| 지표 | 허용 |
+|---|---|
+| `runFailed` | 0 — 실행 실패 0 |
+| `heuristicFallback` | 0 — 휴리스틱 폴백 채택 0건 |
+| `absentFactLeak` | 0 — 원문에 없는 용어 등장 0건 |
+| `notKorean` | 0 — 한국어 비율 0.5 미만 0건 |
+| `noHeading` | 0 — 헤딩 없는 출력 0건 |
+| `keyPointRecall` | ≥ 0.8 — 핵심포인트 재현율 ≥ 0.8 *(잠정, baseline 측정 후 확정)* |
+| `charsPerKeyPointMin` | ≥ 20 — 핵심포인트당 본문 ≥ 20자 *(잠정, baseline 측정 후 확정)* |
+| `hallucination` | 0 — 환각 0건 *(잠정, baseline 측정 후 확정)* |
+| `contradiction` | 0 — 원문 모순 0건 *(잠정, baseline 측정 후 확정)* |
+| `judgeFail` | 0 — judge 실패 0건 |
+
+`judgeFail`을 0으로 두는 이유: 판정이 실패하면 환각 수가 과소 집계된다. 판정 실패를 통과로 취급하면 judge를 끄는 것과 같다.
+
+## 현재 결과 — `results/latest.json`
+
+**실측 완료 — 게이트 전부 통과** (`gemini-3.5-flash`, judge `gemini-3.5-flash`, 2026-08-02, fixture 1종).
+
+| 지표 | 실측 | 허용 |
+|---|---|---|
+| `runFailed` / `heuristicFallback` | 0 / 0 | 0 |
+| `keyPointRecall` | 1.0 | ≥ 0.8 |
+| `absentFactLeak` / `noHeading` / `notKorean` | 0 / 0 / 0 | 0 |
+| `charsPerKeyPointMin` | 32.4 | ≥ 20 |
+| `hallucination` / `contradiction` / `judgeFail` | 0 / 0 / 0 | 0 |
+
+**전부 통과지만 fixture가 1건이다.** 한 번 굴려 한 번 통과한 것이므로 "이 기능이 안전하다"의 근거로는 약하다. 회귀 감지에는 쓸 수 있어도 모델 간 비교에는 못 쓴다.
+
+`heuristicFallback` 게이트가 실제로 값을 한 사례가 있다. 키 없이 `--dry`로 돌리면 `runSynthesis`가 throw하지 않고 휴리스틱 폴백을 돌려주는데, 그때 `keyPointRecall 1`이 나온다 — 모델을 부르지도 않고 만점이다. 이 게이트가 없었다면 조용히 통과했다. 모델명을 일부러 틀리게 준 `--model this-model-does-not-exist-xyz` 실행에서도 404를 폴백이 삼켜 `runFailed 0`이 나왔고, 이 게이트만이 그것을 잡았다.
+
+## 적대적 검증
+
+README의 합격선만 보고 "게이트를 전부 통과하면서 쓸모없는 출력"을 만들어 봤다. 지표를 만들지 않은 사람이 어댑터 구현을 보기 전에 공격을 설계했고, 그 다음 mock `run()`으로 실제 러너에 넣어 확인했다.
+
+| 시도한 공격 | 게이트가 잡았나 | 조치 |
+|---|---|---|
+| 핵심어만 불릿으로 나열하고 설명 0 (`- 상호배제` `- 점유대기` …) | ❌ **통과함** — `keyPointRecall 1.0`, 헤딩·한국어·환각 전부 만족 | `charsPerKeyPointMin` 지표 추가 (실측: 공격 4.4 / 휴리스틱 합성 29.6) |
+| 영어 본문에 한글 용어만 몇 개 섞기 | ❌ **통과함** — `notKorean`이 `/[가-힣]/` 존재 여부만 봤다 | 한국어 **비율**(`koreanRatio`)로 교체, 0.5 미만이면 위반 (실측: 공격 0.17) |
+| 원문을 재배열만 한 휴리스틱 폴백 | ✅ `heuristicFallback`이 잡음 | 없음 |
+| 원문에 없는 동기화 용어 주입 | ✅ `absentFactLeak` + judge 환각이 잡음 | 없음 |
+
+**자동으로 못 잡는 것:**
+
+- **`charsPerKeyPointMin`은 길이의 하한일 뿐 설명의 질을 재지 않는다.** 같은 말을 늘려 쓰거나 원문을 그대로 복붙해 길이를 채우면 통과한다. 원문 복붙은 `keyPointRecall`·`absentFactLeak`·judge를 전부 만족하므로 **어떤 게이트도 잡지 못한다** — 합성이 아니라 복사인지는 사람 표본 검수가 필요하다.
+- 문단 순서가 뒤엉켜 읽기 나쁜 글은 어떤 지표에도 걸리지 않는다.
+
+## fixture 추가하기
+
+`fixtures/<id>.json` 하나가 케이스 하나다.
+
+```jsonc
+{
+  "id": "os-deadlock",
+  "input": {                    // SynthesisInput (src/llm/synthesize.ts)
+    "sourceTitle": "교착상태",
+    "sourceText": "…파편 노트 원문…"
+  },
+  "keyPoints":   ["상호배제", "점유대기"],        // 요약이 반드시 담아야 할 원문 사실
+  "absentFacts": ["세마포어", "뮤텍스"],          // 원문에 없다 — 나오면 환각
+  "whyHard": "이 케이스가 어떻게 함정인가"
+}
+```
+
+- `keyPoints` / `absentFacts`는 **부분 문자열 포함**으로 센다. 짧고 고유한 어휘를 고른다 — "상태" 같은 흔한 단어는 우연히 맞는다.
+- `absentFacts`는 원문 주제의 **이웃 개념**으로 고른다. 교착상태 노트에 "세마포어"가 나오면 모델이 배경지식을 끌어온 것이다. 완전히 무관한 단어("바나나")를 넣으면 아무것도 잡히지 않는다.
+
+**좋은 fixture는 파편성이 심하다.** 불릿과 반문장이 섞이고 순서가 뒤엉킨 실제 수업 메모여야 합성 능력이 드러난다. 이미 잘 정리된 글을 넣으면 모델이 복사만 해도 만점이다.
+
+## 변경 이력
+
+임계값·측정 범위를 바꿀 때마다 **실측 근거와 함께** 여기에 남긴다 (evals.md §11 규칙 4). 게이트가 깨졌다는 이유만으로 임계값을 낮추지 않는다.
+
+| 날짜 | 바꾼 것 | 근거 |
+|---|---|---|
+| 2026-08-02 | `heuristicFallback` 게이트 신설 | 키 없이 `--dry` 실행이 휴리스틱 폴백으로 `keyPointRecall 1` 만점을 받고 조용히 통과했다 |
+| 2026-08-02 | `charsPerKeyPointMin` 지표 신설 | 적대적 검증에서 키워드만 나열하고 설명 0인 출력이 전 게이트를 통과했다 |

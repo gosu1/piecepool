@@ -1,0 +1,7 @@
+{
+  "id": "printed-attention",
+  "imageFile": "images/printed-attention.png",
+  "kind": "printed",
+  "groundTruth": "Self-Attention의 계산량은 O(n^2 · d)이다. softmax(QK^T / sqrt(d_k))로 가중치를 구한다. 입력 길이 n이 2배면 연산은 4배로 늘어난다.",
+  "whyHard": "손글씨 케이스의 대조군이다. 활자라 자형은 깨끗하지만 한영 혼용과 수식 표기가 함정이다 — 'QK^T' 의 캐럿·위첨자 해석, 'd_k' 의 밑줄 첨자, 가운뎃점 '·' 을 마침표로 옮기는 것, 'O(n^2 · d)' 의 괄호 중첩. 인쇄체가 손글씨보다 못 나오면 문제는 자형이 아니라 수식 처리에 있다는 뜻이다. 이미지는 맑은 고딕으로 렌더링해 만들었고 정답 문자열이 렌더링 원문과 정확히 일치한다."
+}

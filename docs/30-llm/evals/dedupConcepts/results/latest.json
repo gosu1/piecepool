@@ -1,0 +1,119 @@
+{
+  "id": "dedupConcepts",
+  "dry": false,
+  "model": null,
+  "baseUrl": null,
+  "judgeModel": null,
+  "metrics": {
+    "runFailed": 0,
+    "falseMerge": 0,
+    "missedMergeRatio": 0.25,
+    "lostText": 0,
+    "lostFields": 0,
+    "pairsChecked": 21
+  },
+  "gateFails": [
+    "미병합 ≤ 10% — 실측 0.2500 (허용 <= 0.1)"
+  ],
+  "samples": [
+    {
+      "fixture": {
+        "id": "pairs",
+        "concepts": [
+          {
+            "title": "Self-Attention",
+            "summary": "쿼리·키·값으로 토큰 간 가중치를 계산한다.",
+            "explanation": "각 토큰이 다른 토큰을 얼마나 볼지 정한다."
+          },
+          {
+            "title": "self-attention",
+            "summary": "",
+            "explanation": "스케일드 닷프로덕트를 쓴다.",
+            "examples": [
+              "QK^T/sqrt(d)"
+            ]
+          },
+          {
+            "title": "Self-Attention ",
+            "summary": "중복 표기 변형",
+            "explanation": ""
+          },
+          {
+            "title": "Multi-Head Attention",
+            "summary": "여러 헤드로 나눠 병렬 어텐션.",
+            "explanation": ""
+          },
+          {
+            "title": "교착상태",
+            "summary": "네 조건이 동시에 성립할 때 발생.",
+            "explanation": ""
+          },
+          {
+            "title": "교착 상태",
+            "summary": "공백 변형",
+            "explanation": "예방 기법이 있다."
+          },
+          {
+            "title": "기아 상태",
+            "summary": "교착과 다른 개념 — 병합되면 안 된다.",
+            "explanation": ""
+          }
+        ],
+        "expectedGroups": [
+          [
+            "Self-Attention",
+            "self-attention",
+            "Self-Attention "
+          ],
+          [
+            "Multi-Head Attention"
+          ],
+          [
+            "교착상태",
+            "교착 상태"
+          ],
+          [
+            "기아 상태"
+          ]
+        ]
+      },
+      "out": {
+        "merged": [
+          {
+            "title": "Self-Attention",
+            "summary": "쿼리·키·값으로 토큰 간 가중치를 계산한다.",
+            "explanation": "각 토큰이 다른 토큰을 얼마나 볼지 정한다.\n\n스케일드 닷프로덕트를 쓴다.",
+            "examples": [
+              "QK^T/sqrt(d)"
+            ],
+            "sourceRefs": [],
+            "sourceEmbeds": []
+          },
+          {
+            "title": "Multi-Head Attention",
+            "summary": "여러 헤드로 나눠 병렬 어텐션.",
+            "explanation": ""
+          },
+          {
+            "title": "교착상태",
+            "summary": "네 조건이 동시에 성립할 때 발생.",
+            "explanation": ""
+          },
+          {
+            "title": "교착 상태",
+            "summary": "공백 변형",
+            "explanation": "예방 기법이 있다."
+          },
+          {
+            "title": "기아 상태",
+            "summary": "교착과 다른 개념 — 병합되면 안 된다.",
+            "explanation": ""
+          }
+        ],
+        "groupOf": {}
+      },
+      "latencyMs": 1
+    }
+  ],
+  "runAt": "2026-08-02T07:23:23.245Z"
+}

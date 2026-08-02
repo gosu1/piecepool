@@ -1,0 +1,8 @@
+{
+  "id": "single-topic",
+  "text": "스택은 LIFO 자료구조다. 마지막에 넣은 것이 먼저 나온다. push와 pop으로 조작한다.",
+  "vectors": [[1, 0], [1, 0], [1, 0]],
+  "goldBoundaries": [],
+  "options": { "percentile": 10, "minSentences": 1 },
+  "whyHard": "유사도가 전부 같다. 억지로 하위 N%를 잘라 경계를 만들어내면 실패."
+}
