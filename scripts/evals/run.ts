@@ -1,6 +1,6 @@
 // eval 러너 CLI. 실행:
 //   npm run eval:chunk                 # 어댑터 하나
-//   npm run eval:chunk -- --dry        # 모델 호출 생략(cheap 지표만), 게이트는 있는 지표만 판정
+//   npm run eval:chunk -- --dry        # judge(LLM-as-judge) 호출만 생략 — 대상 모델 호출은 그대로 나간다
 //   npm run eval:chunk -- --case <id>  # fixture 하나
 //   npm run eval:all                   # 전체 어댑터
 //   npm run eval:llm -- --adapter generate --model gemini-3.1-flash-lite   # 모델 축을 바꿔 비교
@@ -108,8 +108,11 @@ async function main(): Promise<void> {
       process.exit(2);
     }
     const adapter = await load();
-    if (adapter.needsApiKey && !dry && !apiKey) {
-      console.error(`[${id}] GEMINI_API_KEY 필요 — 실제 모델 행동이 측정 대상이다. --dry 로 cheap 지표만 볼 수 있다.`);
+    // --dry 는 judge 만 생략한다 — 대상 모델 호출은 그대로 나가므로 키 요구를 면제하지 않는다.
+    // (전에는 !dry 조건이 붙어 있어, 키 없이 --dry 를 돌리면 "싸게 스모크" 인 줄 알고
+    //  어댑터마다 제각각인 auth 실패를 보게 됐다.)
+    if (adapter.needsApiKey && !apiKey) {
+      console.error(`[${id}] GEMINI_API_KEY 필요 — 대상 모델 호출이 측정 대상이다. --dry 도 대상 호출은 나간다(judge 만 생략).`);
       process.exit(2);
     }
 

@@ -5,7 +5,7 @@
 ```bash
 export GEMINI_API_KEY=...
 npm run eval:synthesize                       # 전체 fixture (judge 포함)
-npm run eval:synthesize -- --dry              # judge 생략 — 코드로 잡는 지표만
+npm run eval:synthesize -- --dry              # judge만 생략 — 대상 모델 호출은 나간다
 npm run eval:synthesize -- --case os-deadlock # 하나만
 ```
 
@@ -28,13 +28,15 @@ npm run eval:synthesize -- --case os-deadlock # 하나만
 2. **의심스러우면 더 심한 쪽** — *"When in doubt, set the flag to true. A lenient auditor makes this metric useless."*
 3. **재서술과 환각의 경계를 명시** — 원문을 바꿔 쓰거나 재배열하는 것은 환각이 **아니고**, 원문에 없는 기술 용어를 새로 넣는 것은 환각이다. 이 선을 안 그으면 판정자가 요약 자체를 환각으로 몰거나 반대로 다 봐준다.
 
-`--dry`에서는 judge 지표를 아예 만들지 않는다. 러너 코어가 dry에서는 없는 지표를 건너뛰므로 거짓 경보가 나지 않는다.
+`--dry`는 **judge 호출만** 생략한다. 대상 모델 호출은 그대로 나가므로 dry에도 키가 필요하다. 러너 코어가 dry에서는 미산출 지표를 건너뛰므로 거짓 경보가 나지 않는다.
 
 ### 휴리스틱 폴백은 그 자체가 회귀다
 
 `runSynthesis`는 키가 없거나 스트림 시작 전 실패하면 **throw하지 않고** `heuristicSynthesis`의 결정적 재배열 결과를 돌려준다(`engine: "heuristic"`). 앱에서는 옳은 동작이다 — 키 없이도 뭔가는 보여줘야 한다.
 
-**eval에서는 그게 함정이다.** 휴리스틱은 파편을 그대로 재배열하므로 `keyPointRecall`이 1.0이고 `absentFactLeak`이 0이며 헤딩도 한국어도 만족한다. 게이트를 전부 통과하면서 **모델은 한 번도 호출되지 않는다.** 그래서 `heuristicFallback`을 별도 지표로 두고 0으로 막는다. 이 게이트가 없었다면 키 없이 돌린 `--dry` 실행이 `게이트 통과 ✅`로 끝났다(실측으로 확인).
+**eval에서는 그게 함정이다.** 휴리스틱은 파편을 그대로 재배열하므로 `keyPointRecall`이 1.0이고 `absentFactLeak`이 0이며 헤딩도 한국어도 만족한다. 게이트를 전부 통과하면서 **모델은 한 번도 호출되지 않는다.** 그래서 `heuristicFallback`을 별도 지표로 두고 0으로 막는다.
+
+이 게이트가 실제로 잡은 사례 둘: (1) 러너가 dry에서 키 검사를 면제하던 시절, **키 없이 돌린 `--dry` 실행이 `게이트 통과 ✅`로 끝났다**(실측). 지금은 dry에도 키를 요구하므로 이 경로는 막혔다. (2) `--model this-model-does-not-exist-xyz`로 돌리면 404가 나는데 폴백이 그것을 삼켜 `runFailed 0`이 된다 — 이 게이트만이 잡는다. **키가 있어도 재현되는 경로**라 게이트는 여전히 필요하다.
 
 ## 합격선
 
@@ -57,16 +59,19 @@ npm run eval:synthesize -- --case os-deadlock # 하나만
 
 ## 현재 결과 — `results/latest.json`
 
-**미측정 — 2차.** 모델 호출이 필요하다.
+**실측 완료 — 게이트 전부 통과** (`gemini-3.5-flash`, judge `gemini-3.5-flash`, 2026-08-02, fixture 1종).
 
-배선은 확인했다. 키 없이 `npm run eval:synthesize -- --dry`를 돌리면:
+| 지표 | 실측 | 허용 |
+|---|---|---|
+| `runFailed` / `heuristicFallback` | 0 / 0 | 0 |
+| `keyPointRecall` | 1.0 | ≥ 0.8 |
+| `absentFactLeak` / `noHeading` / `notKorean` | 0 / 0 / 0 | 0 |
+| `charsPerKeyPointMin` | 32.4 | ≥ 20 |
+| `hallucination` / `contradiction` / `judgeFail` | 0 / 0 / 0 | 0 |
 
-```
-cases 1  runFailed 0  heuristicFallback 1  keyPointRecall 1  absentFactLeak 0  noHeading 0  notKorean 0  charsPerKeyPointMin 29.6
-게이트 실패: 휴리스틱 폴백 채택 0건 — 실측 1 (허용 <= 0)   →  exit 1
-```
+**전부 통과지만 fixture가 1건이다.** 한 번 굴려 한 번 통과한 것이므로 "이 기능이 안전하다"의 근거로는 약하다. 회귀 감지에는 쓸 수 있어도 모델 간 비교에는 못 쓴다.
 
-`keyPointRecall 1`이 나왔지만 그건 휴리스틱 재배열의 결과다 — 위에서 설명한 함정이 실제로 재현된 것이고, `heuristicFallback` 게이트가 그것을 잡았다.
+`heuristicFallback` 게이트가 실제로 값을 한 사례가 있다. 키 없이 `--dry`로 돌리면 `runSynthesis`가 throw하지 않고 휴리스틱 폴백을 돌려주는데, 그때 `keyPointRecall 1`이 나온다 — 모델을 부르지도 않고 만점이다. 이 게이트가 없었다면 조용히 통과했다. 모델명을 일부러 틀리게 준 `--model this-model-does-not-exist-xyz` 실행에서도 404를 폴백이 삼켜 `runFailed 0`이 나왔고, 이 게이트만이 그것을 잡았다.
 
 ## 적대적 검증
 
@@ -105,3 +110,12 @@ README의 합격선만 보고 "게이트를 전부 통과하면서 쓸모없는 
 - `absentFacts`는 원문 주제의 **이웃 개념**으로 고른다. 교착상태 노트에 "세마포어"가 나오면 모델이 배경지식을 끌어온 것이다. 완전히 무관한 단어("바나나")를 넣으면 아무것도 잡히지 않는다.
 
 **좋은 fixture는 파편성이 심하다.** 불릿과 반문장이 섞이고 순서가 뒤엉킨 실제 수업 메모여야 합성 능력이 드러난다. 이미 잘 정리된 글을 넣으면 모델이 복사만 해도 만점이다.
+
+## 변경 이력
+
+임계값·측정 범위를 바꿀 때마다 **실측 근거와 함께** 여기에 남긴다 (evals.md §11 규칙 4). 게이트가 깨졌다는 이유만으로 임계값을 낮추지 않는다.
+
+| 날짜 | 바꾼 것 | 근거 |
+|---|---|---|
+| 2026-08-02 | `heuristicFallback` 게이트 신설 | 키 없이 `--dry` 실행이 휴리스틱 폴백으로 `keyPointRecall 1` 만점을 받고 조용히 통과했다 |
+| 2026-08-02 | `charsPerKeyPointMin` 지표 신설 | 적대적 검증에서 키워드만 나열하고 설명 0인 출력이 전 게이트를 통과했다 |

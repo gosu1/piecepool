@@ -5,7 +5,7 @@ PDF 추출 영어 텍스트 → 한국어 번역·요약([`src/llm/pdfsummary.ts
 ```bash
 export GEMINI_API_KEY=...
 npm run eval:pdfsummary                          # 전체 fixture (judge 포함)
-npm run eval:pdfsummary -- --dry                 # judge 생략 — 코드로 잡는 지표만
+npm run eval:pdfsummary -- --dry                 # judge만 생략 — 대상 모델 호출은 나간다
 npm run eval:pdfsummary -- --case lecture-slide  # 하나만
 ```
 
@@ -74,15 +74,21 @@ eval은 그 플래그를 `unexpectedTruncation`으로 받아 0을 요구한다. 
 
 ## 현재 결과 — `results/latest.json`
 
-**미측정 — 2차.** 모델 호출이 필요하다. 번역 기능이라 오프라인 폴백이 없어 키가 없으면 곧바로 throw한다.
+**실측 완료 — 게이트 1개 실패** (`gemini-3.1-flash-lite`, judge `gemini-3.5-flash`, 2026-08-02, fixture 1종).
 
-배선은 확인했다. 키 없이 `npm run eval:pdfsummary -- --dry`를 돌리면:
+| 지표 | 실측 | 허용 |
+|---|---|---|
+| `runFailed` | 0 | 0 |
+| `sectionRecall` / `termRecall` | 1.0 / 1.0 | ≥ 0.8 |
+| `absentFactLeak` | 0 | 0 |
+| **`formulaBroken`** | **1** | 0 ❌ |
+| `notKorean` / `unexpectedTruncation` | 0 / 0 | 0 |
+| `charsPerSectionMin` | 290.3 | ≥ 40 |
+| `hallucination` / `judgeFail` | 0 / 0 | 0 |
 
-```
-💥 lecture-slide [pdfsummary] auth: GEMINI 키 없음
-runFailed 1   sectionRecall 0   termRecall 0
-게이트 실패: 실행 실패 0 / 섹션 재현율 ≥ 0.8 / 용어 재현율 ≥ 0.8   →  exit 1
-```
+**대상 모델이 다른 기능과 다르다.** 프로덕션이 속도 때문에 `GEMINI_SUMMARY_MODEL`(lite)로 고정하고 있어 baseline도 lite로 측정됐다. `--model`을 주면 그 값이 우선하므로, 다른 기능과 같은 조건으로 비교하려면 `--model`을 명시해야 한다. 심판은 lite가 아니라 `gemini-3.5-flash` 고정이다.
+
+`formulaBroken 1` — 원문의 `T_turnaround`가 요약에서 사라졌다. 섹션과 용어는 100% 재현했으므로 **내용을 못 읽은 게 아니라 수식 기호를 옮기지 않은 것**이다. 번역 요약에서 서술은 한국어로 바꾸되 기호는 그대로 둬야 한다는 이중 제약을 모델이 한쪽만 지켰다. lite 모델의 한계인지 프롬프트가 기호 보존을 충분히 강제하지 않는지는 **아직 안 갈랐다** — `--model`로 상위 모델을 물려 재보면 구분된다.
 
 ## 적대적 검증
 
@@ -130,3 +136,12 @@ README의 합격선만 보고 "게이트를 전부 통과하면서 쓸모없는 
 - `expectFormula`는 기호 하나만 잡아도 된다 — 수식 전체를 넣으면 공백·줄바꿈 차이로 오탐이 난다.
 
 **좋은 fixture는 번역 유혹이 강한 용어를 담는다.** 한국어 정착 번역어가 있는 영어 약어(`FCFS` → "선입선출", `RAM` → "주기억장치"), 첨자·그리스 문자가 섞인 수식, 절 제목이 번호로만 구분된 슬라이드.
+
+## 변경 이력
+
+임계값·측정 범위를 바꿀 때마다 **실측 근거와 함께** 여기에 남긴다 (evals.md §11 규칙 4). 게이트가 깨졌다는 이유만으로 임계값을 낮추지 않는다.
+
+| 날짜 | 바꾼 것 | 근거 |
+|---|---|---|
+| 2026-08-02 | `charsPerSectionMin` 지표 신설 | 적대적 검증에서 용어만 덤프한 출력이 `sectionRecall`·`termRecall` 만점을 받았다 |
+| 2026-08-02 | 임계값 **무변경** — `formulaBroken 0` 실패(실측 1)를 그대로 둠 | 섹션·용어는 100% 재현했으므로 못 읽은 게 아니라 기호를 안 옮긴 것이다. lite 모델 한계인지 프롬프트 문제인지 미분리 |

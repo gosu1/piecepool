@@ -6,7 +6,7 @@
 export GEMINI_API_KEY=...
 npm run eval:mergeWiki                            # 전체 fixture
 npm run eval:mergeWiki -- --case append-section   # 하나만
-npm run eval:mergeWiki -- --dry                   # 배선만 확인
+npm run eval:mergeWiki -- --dry                   # judge만 생략 — 대상 모델 호출은 나간다(키 필요)
 ```
 
 ## 왜 단위 테스트가 아닌가
@@ -49,14 +49,19 @@ npm run eval:mergeWiki -- --dry                   # 배선만 확인
 
 ## 현재 결과 — `results/latest.json`
 
-**미측정 — 2차.** 모델 호출이 필요하다.
+**실측 완료 — 게이트 전부 통과** (`gemini-3.5-flash`, 2026-08-02, fixture 1종).
 
-배선은 확인했다. 키 없이 `npm run eval:mergeWiki -- --dry`를 돌리면:
+| 지표 | 실측 | 허용 |
+|---|---|---|
+| `runFailed` | 0 | 0 |
+| `lostLines` | 0 | 0 |
+| `duplicateHeadings` | 0 | 0 |
+| `missingHeadings` | 0 | 0 |
+| `newContentMissing` | 0 | 0 |
 
-```
-💥 append-section [mergeWiki] auth: GEMINI 키 없음
-runFailed 1  →  게이트 실패: 실행 실패 0 — 실측 1 (허용 <= 0)  →  exit 1
-```
+`newContentMissing`은 적대적 검증에서 **무연산 병합이 만점을 받은 뒤** 추가된 지표다(아래 절 참조). 지금 통과했다는 것은 모델이 기존 본문을 지키면서 새 내용도 실제로 넣었다는 뜻이다.
+
+**fixture가 1건이다.** 이 기능의 최악은 사용자가 쓴 글의 소실인데, 케이스 하나로는 "안 지운다"를 주장할 수 없다. 병합 유형(절 추가·같은 절 보강·모순 내용 유입)별로 케이스가 더 필요하다.
 
 ## 적대적 검증
 
@@ -105,3 +110,11 @@ README의 합격선만 보고 "게이트를 전부 통과하면서 쓸모없는 
 - `expectHeadings`에는 **결과를 예측할 수 있는 헤딩만** 넣는다. `incoming`이 `LlmConcept`이라 새로 생길 절의 제목은 모델이 정하므로 예측할 수 없다. 반면 첫 줄 `# <title>`은 `buildMergeBody`의 시스템 프롬프트 규칙 5가 강제하므로 넣어도 된다.
 
 **좋은 fixture는 유실 유혹을 만든다.** 기존 본문과 새 내용이 겹치는 케이스(모델이 "중복이니 하나만 남기자"고 판단할 여지), 사용자가 쓴 것처럼 보이는 개인 메모가 섞인 본문(*"시험에 나온다"* 같은 줄 — 프롬프트 규칙 3이 보호 대상으로 지정한 것), `[[위키링크]]`와 `![[임베드]]`가 박힌 본문(규칙 4가 글자 그대로 유지를 요구한다).
+
+## 변경 이력
+
+임계값·측정 범위를 바꿀 때마다 **실측 근거와 함께** 여기에 남긴다 (evals.md §11 규칙 4). 게이트가 깨졌다는 이유만으로 임계값을 낮추지 않는다.
+
+| 날짜 | 바꾼 것 | 근거 |
+|---|---|---|
+| 2026-08-02 | `newContentMissing` 지표 + fixture `mustAddTerms` 신설 | 적대적 검증에서 **무연산 병합**(기존 본문 그대로 반환, 새 내용 전부 무시)이 만점을 받았다. 모든 지표가 "잃지 않았는가"만 묻고 "얻었는가"를 안 물었다 |

@@ -249,13 +249,15 @@ LLM을 쓰는 기능마다 지표·합격선·baseline을 따로 둔다. 공용 
 | 위키 합성 | `npm run eval:synthesize` | [synthesize/README.md](evals/synthesize/README.md) | 필요 |
 | 위키 병합 | `npm run eval:mergeWiki` | [mergeWiki/README.md](evals/mergeWiki/README.md) | 필요 |
 | 개념 중복제거 | `npm run eval:dedupConcepts` | [dedupConcepts/README.md](evals/dedupConcepts/README.md) | 불필요 |
-| 파인만 | `npm run eval:feynman` | [feynman/README.md](evals/feynman/README.md) | 필요 |
+| 파인만 | `npm run eval:feynman` ※별도 러너 | [feynman/README.md](evals/feynman/README.md) | 필요 |
 | 청킹 | `npm run eval:chunk` | [chunk/README.md](evals/chunk/README.md) | 불필요 |
 | 분류 | `npm run eval:classify` | [classify/README.md](evals/classify/README.md) | 불필요 |
 | OCR | `npm run eval:ocr` | [ocr/README.md](evals/ocr/README.md) | 필요 |
 | PDF 요약 | `npm run eval:pdfsummary` | [pdfsummary/README.md](evals/pdfsummary/README.md) | 필요 |
 
-`npm run eval:all`은 전체를 순서대로 돌린다. `--dry`를 붙이면 모델 호출 지표를 생략하고 코드로 잡는 지표만 본다.
+`npm run eval:all`은 **공용 러너에 등록된 8종**을 순서대로 돌린다. **파인만은 포함되지 않는다** — 검증된 전용 러너(`scripts/feynman-eval.ts`)를 그대로 두기로 했기 때문이며, 따로 `npm run eval:feynman`으로 돌린다.
+
+`--dry`는 **judge(LLM-as-judge) 호출만 생략한다. 대상 모델 호출은 그대로 나간다.** 파인만 러너의 `--dry`와 같은 의미다(probe는 부르고 judge만 건너뛴다). 그래서 dry라도 `GEMINI_API_KEY`가 필요하고 쿼터를 쓴다 — "무료 스모크"가 아니다. 코드로 잡는 지표만 보고 싶다면 모델을 호출하지 않는 세 기능(`chunk`·`classify`·`dedupConcepts`)을 돌리면 된다.
 
 **실행 위치는 로컬이다.** CI에 올리지 않는다 — API 키가 필요하고 비결정적이라 PR마다 돌리면 비용과 flaky가 생긴다. baseline은 각 기능의 `results/latest.json` 커밋으로 비교한다. `run-*.json`은 `.gitignore` 대상이다.
 
@@ -266,6 +268,8 @@ LLM을 쓰는 기능마다 지표·합격선·baseline을 따로 둔다. 공용 
 3. LLM judge를 쓰는 지표는 반드시 (a) 근거 인용을 강제하고 (b) 애매하면 더 심한 쪽을 고르게 하고 (c) 중립 라벨로 도망갈 수 없게 강제 분류한다. 게이트는 라벨의 개수·비율만 본다.
 4. 임계값을 조정할 때는 **실측 근거**를 README `변경 이력`에 남긴다. 게이트가 깨졌다는 이유만으로 임계값을 낮추지 않는다.
 5. 새 게이트는 **적대적 검증을 거친다.** 지표를 만들지 않은 사람이 합격선 표만 보고 "전 게이트를 통과하면서 쓸모없는 출력"을 설계하고, mock으로 실제 통과하는지 확인한다. 결과는 각 README의 `## 적대적 검증`에 표로 남기고, 자동으로 못 잡는 것은 그 절에 명시한다. **뚫린 게이트는 지표를 추가해 막고, 임계값을 낮춰 통과시키지 않는다.**
+6. **README의 수치·모델명은 `results/latest.json`에서만 옮겨 적는다.** 기억이나 짐작으로 쓰지 않는다. 실제로 ocr README가 모델명을 `gemini-2.5-flash`로 적었는데 코드 상수는 줄곧 `gemini-3.5-flash`였다 — 실측 파일을 안 보고 손으로 지은 결과다. `latest.json`에 `model`·`judgeModel`·`baseUrl`·`runAt`이 기록되므로 그대로 인용한다.
+7. **게이트가 깨진 채로도 baseline을 남긴다.** 통과한 것만 적으면 완료 조건의 증거가 아니라 홍보물이 된다. 실패한 게이트는 실측값과 함께 `## 현재 결과`에 그대로 적고, 원인을 아는 만큼 쓴다.
 
 ## 12. 판정 담당
 
