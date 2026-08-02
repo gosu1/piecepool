@@ -41,8 +41,11 @@ npm run eval:mergeWiki -- --dry                   # 배선만 확인
 | `lostLines` | 0 — 기존 내용 삭제 0건 |
 | `duplicateHeadings` | 0 — 중복 헤딩 0건 |
 | `missingHeadings` | 0 — 기대 헤딩 누락 0건 *(잠정, baseline 측정 후 확정)* |
+| `newContentMissing` | 0 — 새 내용 누락 0건 *(잠정, baseline 측정 후 확정)* |
 
 `lostLines`는 타협 불가다. 이 게이트가 이 eval의 존재 이유다.
+
+`newContentMissing`은 `mustAddTerms`(새 노트 쪽에서 반드시 살아남아야 할 짧은 어휘)가 결과에 있는지 센다. 유실만 재면 **아무것도 하지 않은 병합이 만점**이 되기 때문이다 — 아래 적대적 검증 참조.
 
 ## 현재 결과 — `results/latest.json`
 
@@ -54,6 +57,24 @@ npm run eval:mergeWiki -- --dry                   # 배선만 확인
 💥 append-section [mergeWiki] auth: GEMINI 키 없음
 runFailed 1  →  게이트 실패: 실행 실패 0 — 실측 1 (허용 <= 0)  →  exit 1
 ```
+
+## 적대적 검증
+
+README의 합격선만 보고 "게이트를 전부 통과하면서 쓸모없는 병합"을 설계한 뒤, mock `run()`으로 확인했다.
+
+| 시도한 공격 | 게이트가 잡았나 | 조치 |
+|---|---|---|
+| **무연산 병합** — 기존 본문을 글자 그대로 돌려주고 새 노트 내용을 통째로 무시 | ❌ **통과함** — `lostLines 0` · `duplicateHeadings 0` · `missingHeadings 0`, `게이트 통과 ✅` **exit 0** | fixture에 `mustAddTerms` 추가 + `newContentMissing` 지표 추가 (실측: 공격 2건) |
+| 기존 본문의 한 줄을 삭제 | ✅ `lostLines`가 잡음 | 없음 |
+| 통합 대신 같은 헤딩으로 새 절 덧붙이기 | ✅ `duplicateHeadings`가 잡음 | 없음 |
+
+무연산 병합이 만점을 받은 이유는 단순하다 — **모든 지표가 "잃지 않았는가"만 물었고 "얻었는가"를 묻지 않았다.** 병합은 교체가 아니라 축적이므로 양쪽을 다 봐야 한다.
+
+**자동으로 못 잡는 것:**
+
+- **헤딩 텍스트를 조금 바꿔 새 절을 덧붙이는 것**(`## 필요조건` 옆에 `## 발생 필요조건`)은 `duplicateHeadings`가 정확 일치로만 세므로 잡히지 않는다. 통합이 아니라 나열이어도 초록불이다.
+- `mustAddTerms`는 **부분 문자열 포함**이라 새 내용이 문맥 없이 단어만 박혀 있어도 통과한다. 새 내용이 실제로 기존 글에 녹아들었는지는 사람 표본 검수가 필요하다.
+- **사용자가 직접 쓴 문단의 재작성**(프롬프트 규칙 3이 금지한 것)은 `mustKeepLines`에 그 줄을 명시적으로 넣지 않는 한 잡히지 않는다. 유실이 아니라 변형이므로 글자 대조를 빠져나간다.
 
 ## fixture 추가하기
 
@@ -73,12 +94,14 @@ runFailed 1  →  게이트 실패: 실행 실패 0 — 실측 1 (허용 <= 0)  
   },
   "source": { "sourceId": "src-os-week3", "title": "운영체제 3주차" },   // MergeSource
   "mustKeepLines": ["…기존 본문의 한 줄…"],
+  "mustAddTerms": ["전역 순서", "오름차순"],                  // incoming 쪽에서 반드시 살아남아야 할 어휘
   "expectHeadings": ["교착상태", "정의", "필요조건"],
   "whyHard": "이 케이스가 어떻게 함정인가"
 }
 ```
 
 - `mustKeepLines`는 `existing`에서 **정확히 복사**한다. 한 글자라도 다르면 정상 병합인데도 유실로 잡힌다.
+- `mustAddTerms`는 `incoming`의 `explanation`/`examples`에서 **짧고 고유한 기술 용어**를 고른다. 모델이 문장을 다시 쓰더라도 유지할 어휘여야 한다 — 문장 전체를 넣으면 재서술만으로 오탐이 난다. 프롬프트 규칙 2("주어진 두 재료 안에 있는 것만 쓴다")가 이 어휘의 보존을 강제한다.
 - `expectHeadings`에는 **결과를 예측할 수 있는 헤딩만** 넣는다. `incoming`이 `LlmConcept`이라 새로 생길 절의 제목은 모델이 정하므로 예측할 수 없다. 반면 첫 줄 `# <title>`은 `buildMergeBody`의 시스템 프롬프트 규칙 5가 강제하므로 넣어도 된다.
 
 **좋은 fixture는 유실 유혹을 만든다.** 기존 본문과 새 내용이 겹치는 케이스(모델이 "중복이니 하나만 남기자"고 판단할 여지), 사용자가 쓴 것처럼 보이는 개인 메모가 섞인 본문(*"시험에 나온다"* 같은 줄 — 프롬프트 규칙 3이 보호 대상으로 지정한 것), `[[위키링크]]`와 `![[임베드]]`가 박힌 본문(규칙 4가 글자 그대로 유지를 요구한다).

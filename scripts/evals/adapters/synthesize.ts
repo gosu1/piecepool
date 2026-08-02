@@ -6,7 +6,13 @@
 import { join } from "node:path";
 import { runSynthesis, type SynthesisInput } from "../../../src/llm/synthesize";
 import { judgeJson } from "../judge";
-import type { EvalAdapter, Metrics, Sample } from "../core";
+import { bodyChars, koreanRatio, type EvalAdapter, type Metrics, type Sample } from "../core";
+
+// 핵심포인트당 최소 본문 길이. 핵심어만 나열하고 설명이 0인 목록이 keyPointRecall 1.0 으로
+// 전 게이트를 통과한다(적대적 검증에서 실증). 길이는 설명의 하한일 뿐 질을 재지 않는다.
+const MIN_CHARS_PER_KEYPOINT = 20;
+// 서술 언어. "한글이 한 글자라도 있는가" 는 영어 본문에 용어만 한글로 섞으면 통과한다.
+const MIN_KOREAN_RATIO = 0.5;
 
 type Fixture = { id: string; input: SynthesisInput; keyPoints: string[]; absentFacts: string[]; whyHard: string };
 type Out = {
@@ -16,6 +22,7 @@ type Out = {
   absentHits: string[];
   hasHeading: boolean;
   korean: boolean;
+  charsPerKeyPoint: number;
 };
 
 type Verdict = { hallucination: boolean; hallucinationEvidence: string; contradiction: boolean; contradictionEvidence: string };
@@ -56,7 +63,8 @@ const adapter: EvalAdapter<Fixture, Out> = {
       keyPointHits: fx.keyPoints.filter((k) => md.includes(k)).length,
       absentHits: fx.absentFacts.filter((a) => md.includes(a)),
       hasHeading: /^#{1,6}\s/m.test(md),
-      korean: /[가-힣]/.test(md),
+      korean: koreanRatio(md) >= MIN_KOREAN_RATIO,
+      charsPerKeyPoint: fx.keyPoints.length ? bodyChars(md) / fx.keyPoints.length : NaN,
     };
   },
 
@@ -73,6 +81,8 @@ const adapter: EvalAdapter<Fixture, Out> = {
       absentFactLeak: outs.reduce((a, s) => a + s.out!.absentHits.length, 0),
       noHeading: outs.filter((s) => !s.out!.hasHeading).length,
       notKorean: outs.filter((s) => !s.out!.korean).length,
+      // 케이스별 최소 — 평균으로 재면 설명이 텅 빈 케이스를 긴 케이스가 가린다.
+      charsPerKeyPointMin: outs.length ? Math.min(...outs.map((s) => s.out!.charsPerKeyPoint)) : NaN,
     };
 
     if (ctx.dry) return m; // judge 지표는 만들지 않는다 — 코어가 dry 에서 건너뛴다
@@ -101,8 +111,14 @@ const adapter: EvalAdapter<Fixture, Out> = {
     { metric: "runFailed", op: "<=", threshold: 0, label: "실행 실패 0" },
     { metric: "heuristicFallback", op: "<=", threshold: 0, label: "휴리스틱 폴백 채택 0건" },
     { metric: "absentFactLeak", op: "<=", threshold: 0, label: "원문에 없는 용어 등장 0건" },
-    { metric: "notKorean", op: "<=", threshold: 0, label: "한국어 아님 0건" },
+    { metric: "notKorean", op: "<=", threshold: 0, label: `한국어 비율 ${MIN_KOREAN_RATIO} 미만 0건` },
     { metric: "noHeading", op: "<=", threshold: 0, label: "헤딩 없는 출력 0건" },
+    {
+      metric: "charsPerKeyPointMin",
+      op: ">=",
+      threshold: MIN_CHARS_PER_KEYPOINT,
+      label: `핵심포인트당 본문 ≥ ${MIN_CHARS_PER_KEYPOINT}자 (잠정)`,
+    },
     { metric: "keyPointRecall", op: ">=", threshold: 0.8, label: "핵심포인트 재현율 ≥ 0.8 (잠정)" },
     { metric: "hallucination", op: "<=", threshold: 0, label: "환각 0건 (잠정)" },
     { metric: "contradiction", op: "<=", threshold: 0, label: "원문 모순 0건 (잠정)" },

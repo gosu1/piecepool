@@ -37,7 +37,8 @@ npm run eval:dedupConcepts -- --case pairs   # 하나만
 |---|---|
 | `runFailed` | 0 — 실행 실패 0 |
 | `falseMerge` | 0 — 오병합 0건 |
-| `lostText` | 0 — 병합 중 본문 유실 0건 |
+| `lostText` | 0 — 병합 중 본문(`explanation`) 유실 0건 |
+| `lostFields` | 0 — 병합 중 필드 유실 0건 (`examples`·`sourceEmbeds`·`sourceRefs`) |
 | `missedMergeRatio` | ≤ 0.1 — 미병합 ≤ 10% |
 
 모델을 호출하지 않아 실측이 이번에 끝났으므로 `(잠정)` 표기를 달지 않는다.
@@ -47,7 +48,7 @@ npm run eval:dedupConcepts -- --case pairs   # 하나만
 fixture 1종(`pairs`, 개념 7건 → 쌍 21건), 2026-08-02 측정.
 
 ```
-pairsChecked 21   falseMerge 0   lostText 0   missedMergeRatio 0.25   runFailed 0
+pairsChecked 21   falseMerge 0   lostText 0   lostFields 0   missedMergeRatio 0.25   runFailed 0
 ```
 
 **게이트 실패:** `미병합 ≤ 10% — 실측 0.2500 (허용 <= 0.1)`
@@ -61,6 +62,24 @@ mergeDuplicateConcepts 결과 제목: "Self-Attention", "Multi-Head Attention", 
 `Self-Attention` / `self-attention` / `Self-Attention ` 세 표기는 정상적으로 하나로 접혔지만, `교착상태`와 `교착 상태`는 별도 개념으로 남았다. 같은 강의에서 띄어쓰기를 다르게 적으면 위키 파일이 둘로 갈라진다는 뜻이다.
 
 **임계값을 낮추지 않았다.** 고치려면 `norm`과 `llmApply.normalizeTitle`을 함께 바꿔야 하고, 공백을 제거하면 영어 다어절 제목(`Multi Head Attention` vs `MultiHeadAttention`)의 판정도 같이 바뀌므로 별도 검토가 필요하다.
+
+## 적대적 검증
+
+README의 합격선만 보고 "게이트를 전부 통과하면서 데이터를 잃는 병합"을 설계한 뒤, 병합 결과를 조작하는 mock으로 확인했다.
+
+| 시도한 공격 | 게이트가 잡았나 | 조치 |
+|---|---|---|
+| 병합은 정확히 하되 `examples`·`sourceRefs`·`sourceEmbeds`를 버림 | ❌ **통과함** — `lostText`가 `explanation`만 보므로 지표가 깨끗한 실행과 **한 글자도 다르지 않았다** | `lostFields` 지표 추가 (실측: 공격 1, 정상 0) |
+| 아무것도 병합하지 않기 | ✅ `missedMergeRatio 1.0`이 잡음 | 없음 |
+| 전부 하나로 병합하기 | ✅ `falseMerge`가 잡음 | 없음 |
+
+**임계값은 낮추지 않았다.** 현재 실패 중인 `missedMergeRatio 0.25`는 그대로 뒀다 — 원인은 `norm`의 공백 처리이고, 고치려면 `llmApply.normalizeTitle`과 함께 바꿔야 한다(위 참조).
+
+**자동으로 못 잡는 것:**
+
+- **`summary` 유실은 지표가 없다.** `mergeConcept`은 `a.summary`가 비어 있지 않으면 `b.summary`를 **버린다**(첫 표기 유지가 의도된 설계). 현재 fixture에서도 `"중복 표기 변형"` 요약이 실제로 사라진다. 의도된 동작이라 0으로 못박는 게이트를 걸지 않았다 — 이 설계를 바꾸려면 먼저 `dedupConcepts.ts`의 의도를 다시 정해야 한다.
+- 병합 후 대표 제목이 어느 표기로 정해지는지는 게이트가 보지 않는다. 사용자에게 보이는 위키 파일명이 걸린 문제인데 자동 판정 기준이 없다.
+- `expectedGroups`가 전부 단독 그룹인 fixture만 넣으면 `missedMergeRatio`가 0으로 고정된다(합쳐야 할 쌍이 0건). **0건 측정하고 초록불**이 되므로 fixture에는 반드시 합쳐야 할 쌍을 넣어야 한다.
 
 ## fixture 추가하기
 

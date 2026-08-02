@@ -14,11 +14,18 @@ type Fixture = {
   incoming: LlmConcept;
   source: MergeSource;
   mustKeepLines: string[];
+  mustAddTerms: string[];
   expectHeadings: string[];
   whyHard: string;
 };
 
-type Out = { merged: string; lostLines: string[]; duplicateHeadings: string[]; missingHeadings: string[] };
+type Out = {
+  merged: string;
+  lostLines: string[];
+  duplicateHeadings: string[];
+  missingHeadings: string[];
+  missingNewTerms: string[];
+};
 
 function headings(md: string): string[] {
   return [...md.matchAll(/^#{1,6}\s+(.+)$/gm)].map((m) => m[1].trim());
@@ -43,6 +50,9 @@ const adapter: EvalAdapter<Fixture, Out> = {
       lostLines: fx.mustKeepLines.filter((l) => !md.includes(l)),
       duplicateHeadings: dup,
       missingHeadings: fx.expectHeadings.filter((h) => !hs.some((x) => x.includes(h))),
+      // 유실만 보면 "기존 본문을 그대로 돌려주는" 무연산 병합이 만점을 받는다(적대적 검증에서 실증).
+      // 병합은 축적이므로 새 노트 쪽 내용도 들어와야 한다.
+      missingNewTerms: (fx.mustAddTerms ?? []).filter((t) => !md.includes(t)),
     };
   },
 
@@ -54,6 +64,7 @@ const adapter: EvalAdapter<Fixture, Out> = {
       lostLines: outs.reduce((a, s) => a + s.out!.lostLines.length, 0),
       duplicateHeadings: outs.reduce((a, s) => a + s.out!.duplicateHeadings.length, 0),
       missingHeadings: outs.reduce((a, s) => a + s.out!.missingHeadings.length, 0),
+      newContentMissing: outs.reduce((a, s) => a + s.out!.missingNewTerms.length, 0),
     };
   },
 
@@ -62,6 +73,7 @@ const adapter: EvalAdapter<Fixture, Out> = {
     { metric: "lostLines", op: "<=", threshold: 0, label: "기존 내용 삭제 0건" },
     { metric: "duplicateHeadings", op: "<=", threshold: 0, label: "중복 헤딩 0건" },
     { metric: "missingHeadings", op: "<=", threshold: 0, label: "기대 헤딩 누락 0건 (잠정)" },
+    { metric: "newContentMissing", op: "<=", threshold: 0, label: "새 내용 누락 0건 (잠정)" },
   ],
 };
 

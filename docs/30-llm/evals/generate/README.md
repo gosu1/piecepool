@@ -42,6 +42,7 @@ judge 없음. 골든 케이스 채점으로 충분하다.
 | `schemaInvalid` | 0 — 스키마 위반 0건 |
 | `relatedToRatioMax` | ≤ 0.3 — related_to 비율 ≤ 30% *(잠정, baseline 측정 후 확정)* |
 | `shouldMetRatio` | ≥ 0.6 — should 충족률 ≥ 60% *(잠정, baseline 측정 후 확정)* |
+| `thinConcepts` | 0 — 설명 50자 미만 개념 0건 *(잠정, baseline 측정 후 확정)* |
 
 `related_to ≤ 30%`는 이 eval이 정한 숫자가 아니다. [`docs/10-contracts/relation-types.md`](../../../10-contracts/relation-types.md)가 **`related_to`는 최후의 수단이며 저장된 관계의 30%를 넘으면 review에서 플래그한다**고 규정한다. 그 규정을 게이트로 옮긴 것이다. 모델이 관계 유형을 고민하지 않고 전부 `related_to`로 던지면 그래프가 의미를 잃는다.
 
@@ -59,6 +60,24 @@ runFailed 1  →  게이트 실패: 실행 실패 0 — 실측 1 (허용 <= 0)  
 ```
 
 키가 있으면 실제 호출이 나가고 지표가 채워진다. **CLI는 `process.env.GEMINI_API_KEY`를 읽는다** — 앱의 `localStorage["gemini-key"]`가 아니다.
+
+## 적대적 검증
+
+README의 합격선만 보고 "골든 케이스를 전부 통과하면서 위키가 텅 비는 응답"을 설계한 뒤, mock 응답을 넣어 5개 케이스 전부에서 확인했다.
+
+| 시도한 공격 | 게이트가 잡았나 | 조치 |
+|---|---|---|
+| `must`·`should` 제목만 정확히 채우고 모든 `summary`/`explanation`을 `"."` 한 글자로 | ❌ **통과함** — `mustFail 0`, `schemaInvalid 0`, `relatedToRatioMax 0`, **`shouldMetRatio 1.0` 만점** | `thinConcepts` 지표 추가 (실측: 공격 23건) |
+| 관계를 전부 `related_to`로 던지기 | ✅ `relatedToRatioMax`가 잡음 — **케이스 최대값**이라 한 케이스만 무너져도 걸린다(평균이었으면 가려졌을 것) | 없음 |
+| 관계를 0개로 내보내기 | ✅ `must.relationsAtLeast`가 잡음 | 없음 |
+
+스키마의 `explanation`은 `minLength: 1`이라 마침표 한 글자도 유효하다. `assertCase`는 **제목의 존재**와 **관계 개수**만 보므로 본문이 비어 있는지 알 방법이 없었다.
+
+**자동으로 못 잡는 것:**
+
+- **`thinConcepts`는 길이의 하한일 뿐이다.** 50자를 채운 무의미한 문장(같은 말 반복, 원문 복붙)은 통과한다. 설명이 실제로 개념을 설명하는지는 사람 표본 검수가 필요하다.
+- **`should` 판정에는 계산 결함이 있다.** `shouldMetRatio = (shouldTotal - warnings.length) / shouldTotal`인데 `assertCase`의 `warnings`에는 `should` 미충족 외에 **`related_to 비율 > 50%` 경고도 섞여 들어간다**(`scripts/eval.ts`). 그 경고가 뜨면 충족률이 실제보다 낮게(경우에 따라 음수로) 계산된다. `eval.ts`는 이번 작업에서 고치지 않기로 한 파일이라 **보고만 한다.**
+- 개념 제목만 맞고 내용이 엉뚱한 개념을 설명하는 경우는 골든 케이스로 잡히지 않는다.
 
 ## fixture 추가하기
 

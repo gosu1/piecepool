@@ -79,6 +79,25 @@ export function cer(reference: string, hypothesis: string): number {
   return levenshtein(ref, hyp) / ref.length;
 }
 
+// 한국어 비율. 한글 / (한글 + 라틴문자).
+// "한글이 한 글자라도 있는가" 로 재면 영어 본문에 한글 용어 몇 개만 섞어도 통과한다
+// (적대적 검증에서 실증됨). 서술 언어는 존재 여부가 아니라 비중으로 봐야 한다.
+// 문자가 하나도 없으면 1 — 언어 지표가 다른 결함(빈 출력)을 대신 잡지 않게 한다.
+export function koreanRatio(text: string): number {
+  const hangul = (text.match(/[가-힣]/g) ?? []).length;
+  const latin = (text.match(/[A-Za-z]/g) ?? []).length;
+  return hangul + latin === 0 ? 1 : hangul / (hangul + latin);
+}
+
+// 헤딩·불릿 마커를 걷어낸 본문 글자수(공백 제외). 핵심어만 나열한 목록과 실제 설명을 가른다.
+// 길이는 설명의 **하한**일 뿐 질을 재지 않는다 — 한계는 각 README 의 적대적 검증 절에 적었다.
+export function bodyChars(md: string): number {
+  return md
+    .replace(/^#{1,6}\s+.*$/gm, "") // 헤딩 줄 제거
+    .replace(/^[\s>]*[-*+]\s+/gm, "") // 불릿 마커 제거
+    .replace(/\s+/g, "").length;
+}
+
 // 경계 F1. tolerance 문장 이내면 맞은 것으로 본다. 골드 하나는 예측 하나에만 매칭(그리디).
 export function boundaryF1(gold: number[], pred: number[], tolerance: number): number {
   if (gold.length === 0 && pred.length === 0) return 1;

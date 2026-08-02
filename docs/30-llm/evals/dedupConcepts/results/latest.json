@@ -6,6 +6,7 @@
     "falseMerge": 0,
     "missedMergeRatio": 0.25,
     "lostText": 0,
+    "lostFields": 0,
     "pairsChecked": 21
   },
   "gateFails": [
@@ -108,8 +109,8 @@
         ],
         "groupOf": {}
       },
-      "latencyMs": 1
+      "latencyMs": 0
     }
   ],
-  "runAt": "2026-08-02T05:40:49.204Z"
+  "runAt": "2026-08-02T06:27:06.369Z"
 }

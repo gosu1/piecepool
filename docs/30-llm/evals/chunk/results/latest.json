@@ -5,6 +5,7 @@
     "runFailed": 0,
     "cases": 2,
     "boundaryF1": 1,
+    "boundaryF1Min": 1,
     "sentenceLoss": 0,
     "minSentencesViolation": 0
   },
@@ -99,5 +100,5 @@
       "latencyMs": 0
     }
   ],
-  "runAt": "2026-08-02T05:43:28.494Z"
+  "runAt": "2026-08-02T06:27:02.835Z"
 }

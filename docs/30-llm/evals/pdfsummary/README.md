@@ -51,8 +51,9 @@ eval은 그 플래그를 `unexpectedTruncation`으로 받아 0을 요구한다. 
 | `runFailed` | 0 — 실행 실패 0 |
 | `absentFactLeak` | 0 — 원문에 없는 용어 등장 0건 |
 | `formulaBroken` | 0 — 수식 기호 유실 0건 |
-| `notKorean` | 0 — 한국어 아님 0건 |
+| `notKorean` | 0 — 한국어 비율 0.4 미만 0건 |
 | `unexpectedTruncation` | 0 — 예상치 못한 잘림 0건 |
+| `charsPerSectionMin` | ≥ 25 — 절당 본문 ≥ 25자 *(잠정, baseline 측정 후 확정)* |
 | `sectionRecall` | ≥ 0.8 — 섹션 재현율 ≥ 0.8 *(잠정, baseline 측정 후 확정)* |
 | `termRecall` | ≥ 0.8 — 용어 재현율 ≥ 0.8 *(잠정, baseline 측정 후 확정)* |
 | `hallucination` | 0 — 환각 0건 *(잠정, baseline 측정 후 확정)* |
@@ -69,6 +70,28 @@ eval은 그 플래그를 `unexpectedTruncation`으로 받아 0을 요구한다. 
 runFailed 1   sectionRecall 0   termRecall 0
 게이트 실패: 실행 실패 0 / 섹션 재현율 ≥ 0.8 / 용어 재현율 ≥ 0.8   →  exit 1
 ```
+
+## 적대적 검증
+
+README의 합격선만 보고 "게이트를 전부 통과하면서 쓸모없는 요약"을 설계한 뒤, mock `run()`으로 확인했다.
+
+| 시도한 공격 | 게이트가 잡았나 | 조치 |
+|---|---|---|
+| **용어 덤프** — 절 제목 3개를 헤딩으로 박고 `FCFS, SJF, Round Robin, T_turnaround 입니다.` 한 줄 | ❌ **통과함** — `sectionRecall 1.0` · `termRecall 1.0` · `formulaBroken 0` · `notKorean 0` · 환각 0, `게이트 통과 ✅` | `charsPerSectionMin` 지표 추가 (실측: 공격 12 / 정상 요약 51) |
+| 번역하지 않고 영어 원문에 한글 한 줄만 섞기 | ❌ **통과함** — `notKorean`이 `/[가-힣]/` 존재 여부만 봤다 | 한국어 **비율** 0.4 미만 위반으로 교체 (실측: 공격 0.05 / 정상 요약 0.61) |
+| 용어를 한국어로 번역해 버리기(`FCFS` → "선입선출") | ✅ `termRecall`이 잡음 | 없음 |
+| 수식 기호를 문장으로 풀어 쓰기 | ✅ `formulaBroken`이 잡음 | 없음 |
+| 원문에 없는 이웃 주제(교착상태) 끌어오기 | ✅ `absentFactLeak` + judge 환각이 잡음 | 없음 |
+
+`sectionRecall`·`termRecall`이 전부 **부분 문자열 포함**이라, 절 제목과 용어를 나열하기만 해도 만점이 나온다. 재현율은 "빠뜨리지 않았는가"만 묻고 "설명했는가"를 묻지 않는다.
+
+한국어 비율 임계값이 synthesize(0.5)보다 낮은 0.4인 이유: 이 기능은 **원문 용어와 절 제목을 영문으로 보존하는 것이 요구사항**이라 라틴 문자 비중이 구조적으로 높다. 실측한 정상 요약이 0.61이므로 0.4는 여유를 두면서 공격(0.05)을 확실히 거른다.
+
+**자동으로 못 잡는 것:**
+
+- **`charsPerSectionMin`은 길이의 하한일 뿐이다.** 원문을 기계 번역해 그대로 붙이면 길이도 채우고 용어·수식·한국어 비율도 만족한다 — **요약이 아니라 번역인지는 어떤 게이트도 구별하지 못한다.** 사람 표본 검수가 필요하다.
+- 번역이 **틀렸는지**는 judge가 환각만 보므로 잡히지 않는다. 원문에 있는 내용을 잘못 옮긴 오역은 "원문에 없는 개념"이 아니라서 통과한다.
+- baseline이 아직 없다. 위 수치는 mock으로 확인한 것이고 실제 모델 값은 **미측정**이다.
 
 ## fixture 추가하기
 

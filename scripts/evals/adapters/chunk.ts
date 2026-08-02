@@ -41,10 +41,13 @@ const adapter: EvalAdapter<Fixture, Out> = {
 
   async metrics(samples: Sample<Fixture, Out>[]): Promise<Metrics> {
     let f1sum = 0, n = 0, lost = 0, minViolation = 0;
+    const f1s: number[] = [];
     for (const s of samples) {
       if (!s.out) continue;
       n++;
-      f1sum += boundaryF1(s.fixture.goldBoundaries, s.out.boundaries, 1);
+      const f1 = boundaryF1(s.fixture.goldBoundaries, s.out.boundaries, 1);
+      f1s.push(f1);
+      f1sum += f1;
       // 청크를 이어붙이면 원래 문장열과 정확히 같아야 한다 — 순서·개수 모두.
       if (s.out.joined !== s.out.sentences.join(" ")) lost++;
       const min = s.fixture.options.minSentences ?? 1;
@@ -54,6 +57,9 @@ const adapter: EvalAdapter<Fixture, Out> = {
       runFailed: samples.filter((s) => s.error).length,
       cases: n,
       boundaryF1: n ? f1sum / n : NaN,
+      // 케이스별 최소. 평균만 보면 한 케이스가 통째로 무너져도 다른 케이스가 가린다 —
+      // 과분할 회귀에서 topic-shift 가 0.5 로 떨어졌는데 평균 0.75 라 통과했다(적대적 검증).
+      boundaryF1Min: f1s.length ? Math.min(...f1s) : NaN,
       sentenceLoss: lost,
       minSentencesViolation: minViolation,
     };
@@ -64,6 +70,7 @@ const adapter: EvalAdapter<Fixture, Out> = {
     { metric: "sentenceLoss", op: "<=", threshold: 0, label: "문장 유실 0건" },
     { metric: "minSentencesViolation", op: "<=", threshold: 0, label: "minSentences 위반 0건" },
     { metric: "boundaryF1", op: ">=", threshold: 0.7, label: "경계 F1 ≥ 0.7 (잠정)" },
+    { metric: "boundaryF1Min", op: ">=", threshold: 0.7, label: "케이스별 최소 경계 F1 ≥ 0.7 (잠정)" },
   ],
 };
 

@@ -29,7 +29,7 @@ const adapter: EvalAdapter<Fixture, Out> = {
   },
 
   async metrics(samples: Sample<Fixture, Out>[]): Promise<Metrics> {
-    let sameOk = 0, sameTotal = 0, diffBad = 0, diffTotal = 0, lostText = 0;
+    let sameOk = 0, sameTotal = 0, diffBad = 0, diffTotal = 0, lostText = 0, lostFields = 0;
 
     for (const s of samples) {
       if (!s.out) continue;
@@ -58,6 +58,18 @@ const adapter: EvalAdapter<Fixture, Out> = {
         const t = c.explanation?.trim();
         if (t && !blob.includes(t)) lostText++;
       }
+
+      // explanation 만 보면 배열 필드가 통째로 사라져도 지표가 꿈쩍 않는다(적대적 검증에서 실증).
+      // examples·sourceEmbeds 는 사용자에게 보이는 내용이고, sourceRefs 는 근거 링크다.
+      const mergedExamples = new Set(merged.flatMap((m) => m.examples ?? []));
+      const mergedEmbeds = new Set(merged.flatMap((m) => m.sourceEmbeds ?? []));
+      const refKey = (r: { sourceId: string; file: string; page?: number }) => `${r.sourceId}|${r.file}|${r.page ?? ""}`;
+      const mergedRefs = new Set(merged.flatMap((m) => (m.sourceRefs ?? []).map(refKey)));
+      for (const c of s.fixture.concepts) {
+        for (const e of c.examples ?? []) if (!mergedExamples.has(e)) lostFields++;
+        for (const e of c.sourceEmbeds ?? []) if (!mergedEmbeds.has(e)) lostFields++;
+        for (const r of c.sourceRefs ?? []) if (!mergedRefs.has(refKey(r))) lostFields++;
+      }
     }
 
     return {
@@ -65,6 +77,7 @@ const adapter: EvalAdapter<Fixture, Out> = {
       falseMerge: diffBad, // 합치면 안 될 쌍을 합침 — 0이어야 한다
       missedMergeRatio: sameTotal ? 1 - sameOk / sameTotal : 0,
       lostText,
+      lostFields, // examples·sourceEmbeds·sourceRefs 유실
       pairsChecked: sameTotal + diffTotal,
     };
   },
@@ -73,6 +86,7 @@ const adapter: EvalAdapter<Fixture, Out> = {
     { metric: "runFailed", op: "<=", threshold: 0, label: "실행 실패 0" },
     { metric: "falseMerge", op: "<=", threshold: 0, label: "오병합 0건" },
     { metric: "lostText", op: "<=", threshold: 0, label: "병합 중 본문 유실 0건" },
+    { metric: "lostFields", op: "<=", threshold: 0, label: "병합 중 필드 유실 0건 (examples·sourceEmbeds·sourceRefs)" },
     { metric: "missedMergeRatio", op: "<=", threshold: 0.1, label: "미병합 ≤ 10%" },
   ],
 };

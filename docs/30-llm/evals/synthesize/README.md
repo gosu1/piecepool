@@ -45,9 +45,10 @@ npm run eval:synthesize -- --case os-deadlock # 하나만
 | `runFailed` | 0 — 실행 실패 0 |
 | `heuristicFallback` | 0 — 휴리스틱 폴백 채택 0건 |
 | `absentFactLeak` | 0 — 원문에 없는 용어 등장 0건 |
-| `notKorean` | 0 — 한국어 아님 0건 |
+| `notKorean` | 0 — 한국어 비율 0.5 미만 0건 |
 | `noHeading` | 0 — 헤딩 없는 출력 0건 |
 | `keyPointRecall` | ≥ 0.8 — 핵심포인트 재현율 ≥ 0.8 *(잠정, baseline 측정 후 확정)* |
+| `charsPerKeyPointMin` | ≥ 20 — 핵심포인트당 본문 ≥ 20자 *(잠정, baseline 측정 후 확정)* |
 | `hallucination` | 0 — 환각 0건 *(잠정, baseline 측정 후 확정)* |
 | `contradiction` | 0 — 원문 모순 0건 *(잠정, baseline 측정 후 확정)* |
 | `judgeFail` | 0 — judge 실패 0건 |
@@ -61,11 +62,27 @@ npm run eval:synthesize -- --case os-deadlock # 하나만
 배선은 확인했다. 키 없이 `npm run eval:synthesize -- --dry`를 돌리면:
 
 ```
-cases 1  runFailed 0  heuristicFallback 1  keyPointRecall 1  absentFactLeak 0  noHeading 0  notKorean 0
+cases 1  runFailed 0  heuristicFallback 1  keyPointRecall 1  absentFactLeak 0  noHeading 0  notKorean 0  charsPerKeyPointMin 29.6
 게이트 실패: 휴리스틱 폴백 채택 0건 — 실측 1 (허용 <= 0)   →  exit 1
 ```
 
 `keyPointRecall 1`이 나왔지만 그건 휴리스틱 재배열의 결과다 — 위에서 설명한 함정이 실제로 재현된 것이고, `heuristicFallback` 게이트가 그것을 잡았다.
+
+## 적대적 검증
+
+README의 합격선만 보고 "게이트를 전부 통과하면서 쓸모없는 출력"을 만들어 봤다. 지표를 만들지 않은 사람이 어댑터 구현을 보기 전에 공격을 설계했고, 그 다음 mock `run()`으로 실제 러너에 넣어 확인했다.
+
+| 시도한 공격 | 게이트가 잡았나 | 조치 |
+|---|---|---|
+| 핵심어만 불릿으로 나열하고 설명 0 (`- 상호배제` `- 점유대기` …) | ❌ **통과함** — `keyPointRecall 1.0`, 헤딩·한국어·환각 전부 만족 | `charsPerKeyPointMin` 지표 추가 (실측: 공격 4.4 / 휴리스틱 합성 29.6) |
+| 영어 본문에 한글 용어만 몇 개 섞기 | ❌ **통과함** — `notKorean`이 `/[가-힣]/` 존재 여부만 봤다 | 한국어 **비율**(`koreanRatio`)로 교체, 0.5 미만이면 위반 (실측: 공격 0.17) |
+| 원문을 재배열만 한 휴리스틱 폴백 | ✅ `heuristicFallback`이 잡음 | 없음 |
+| 원문에 없는 동기화 용어 주입 | ✅ `absentFactLeak` + judge 환각이 잡음 | 없음 |
+
+**자동으로 못 잡는 것:**
+
+- **`charsPerKeyPointMin`은 길이의 하한일 뿐 설명의 질을 재지 않는다.** 같은 말을 늘려 쓰거나 원문을 그대로 복붙해 길이를 채우면 통과한다. 원문 복붙은 `keyPointRecall`·`absentFactLeak`·judge를 전부 만족하므로 **어떤 게이트도 잡지 못한다** — 합성이 아니라 복사인지는 사람 표본 검수가 필요하다.
+- 문단 순서가 뒤엉켜 읽기 나쁜 글은 어떤 지표에도 걸리지 않는다.
 
 ## fixture 추가하기
 
