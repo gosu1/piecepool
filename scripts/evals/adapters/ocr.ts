@@ -28,12 +28,19 @@ function countBlocks(md: string): number {
 }
 
 // 헤딩별 (제목, 본문). 3-block 각각이 실제로 채워졌는지는 헤딩 개수만으로 알 수 없다.
+// 블록 경계는 **최상위 헤딩**만이다. `## 구조` 아래에 `### 이진 탐색` 처럼 하위 헤딩으로
+// 재구성하는 것은 buildOcrRequest 가 지시하는 올바른 출력인데, 모든 헤딩을 경계로 삼으면
+// `## 구조` 의 본문이 바로 다음 하위 헤딩 직전까지가 되어 빈 문자열이 된다 — 올바른 출력이
+// emptyBlocks 로 잡혔다(실측 2건, README 적대적 검증). 하위 헤딩은 상위 블록의 본문으로 본다.
 function blocks(md: string): { heading: string; body: string }[] {
-  const marks = [...md.matchAll(/^#{1,6}\s+(.+)$/gm)];
+  const all = [...md.matchAll(/^(#{1,6})\s+(.+)$/gm)];
+  if (!all.length) return [];
+  const top = Math.min(...all.map((m) => m[1].length));
+  const marks = all.filter((m) => m[1].length === top);
   return marks.map((m, i) => {
     const start = (m.index ?? 0) + m[0].length;
     const end = i + 1 < marks.length ? (marks[i + 1].index ?? md.length) : md.length;
-    return { heading: m[1].trim(), body: md.slice(start, end).trim() };
+    return { heading: m[2].trim(), body: md.slice(start, end).trim() };
   });
 }
 
@@ -44,6 +51,19 @@ function blocks(md: string): { heading: string; body: string }[] {
 function originalBlock(md: string): string {
   const b = blocks(md).find((x) => /^(원문|Original)/i.test(x.heading));
   return b ? b.body : md.trim();
+}
+
+// 서술 언어를 재는 대상. `## 원문` 은 이미지에 보이는 것을 그대로 옮긴 블록이라 원문이 영문·수식이면
+// 출력도 그런 것이 맞다 — 서술 언어 검사에서 뺀다. 수식($…$)·인라인 코드도 언어가 아니라 표기다.
+// 출력 전체로 재면 영문 논문 캡처(printed-attention)의 **정상 출력**이 0.4750 으로 잡혔다(실측 오탐).
+function narrativeText(md: string): string {
+  return blocks(md)
+    .filter((b) => !/^(원문|Original)/i.test(b.heading))
+    .map((b) => `${b.heading}\n${b.body}`)
+    .join("\n")
+    .replace(/\$\$[\s\S]*?\$\$/g, " ")
+    .replace(/\$[^$\n]*\$/g, " ")
+    .replace(/`[^`\n]*`/g, " ");
 }
 
 const adapter: EvalAdapter<Fixture, Out> = {
@@ -64,7 +84,7 @@ const adapter: EvalAdapter<Fixture, Out> = {
       cer: cer(fx.groundTruth, originalBlock(text)),
       blocks: countBlocks(text),
       emptyBlocks: blocks(text).filter((b) => b.body.length === 0).length,
-      korean: koreanRatio(text) >= MIN_KOREAN_RATIO,
+      korean: koreanRatio(narrativeText(text)) >= MIN_KOREAN_RATIO,
     };
   },
 
