@@ -5,4 +5,5 @@ export const ADAPTERS: Record<string, () => Promise<EvalAdapter<any, any>>> = {
   chunk: async () => (await import("./adapters/chunk")).default,
   classify: async () => (await import("./adapters/classify")).default,
   dedupConcepts: async () => (await import("./adapters/dedupConcepts")).default,
+  generate: async () => (await import("./adapters/generate")).default,
 };
