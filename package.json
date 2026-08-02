@@ -44,7 +44,17 @@
     "provenance": "tsx --env-file-if-exists=.env scripts/provenance-preview.ts",
     "tauri": "tauri",
     "icon": "tauri icon app-icon.svg",
-    "eval:feynman": "tsx --env-file-if-exists=.env scripts/feynman-eval.ts"
+    "eval:feynman": "tsx --env-file-if-exists=.env scripts/feynman-eval.ts",
+    "eval:llm": "tsx --env-file-if-exists=.env scripts/evals/run.ts",
+    "eval:all": "npm run eval:llm -- --all",
+    "eval:generate": "npm run eval:llm -- --adapter generate",
+    "eval:synthesize": "npm run eval:llm -- --adapter synthesize",
+    "eval:mergeWiki": "npm run eval:llm -- --adapter mergeWiki",
+    "eval:dedupConcepts": "npm run eval:llm -- --adapter dedupConcepts",
+    "eval:chunk": "npm run eval:llm -- --adapter chunk",
+    "eval:classify": "npm run eval:llm -- --adapter classify",
+    "eval:ocr": "npm run eval:llm -- --adapter ocr",
+    "eval:pdfsummary": "npm run eval:llm -- --adapter pdfsummary"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
