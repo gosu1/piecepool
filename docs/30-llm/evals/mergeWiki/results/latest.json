@@ -1,6 +1,9 @@
 {
   "id": "mergeWiki",
   "dry": false,
+  "model": "gemini-3.5-flash",
+  "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai",
+  "judgeModel": "gemini-3.5-flash",
   "metrics": {
     "cases": 1,
     "runFailed": 0,
@@ -45,14 +48,14 @@
         "whyHard": "새 내용을 붙이면서 기존 두 절을 한 글자도 지우면 안 된다. 헤딩 중복도 안 된다. 새로 생길 절의 제목은 모델이 정하므로 기대 헤딩에 넣지 않는다 — 첫 줄 '# 교착상태' 는 mergeWiki 프롬프트 규칙 5가 강제한다."
       },
       "out": {
-        "merged": "# 교착상태\n\n## 정의\n교착상태는 프로세스들이 서로의 자원을 기다리는 상태다.\n\n## 필요조건\n상호배제, 점유대기, 비선점, 순환대기.\n\n## 예방\n예방은 네 필요조건 중 하나를 깨는 방식으로 한다.\n\n* **설명**: 순환대기를 깨려면 자원에 전역 순서를 부여한다.\n* **예시**:\n  * 자원 번호 오름차순으로만 요청하도록 강제한다.",
+        "merged": "# 교착상태\n\n## 정의\n교착상태는 프로세스들이 서로의 자원을 기다리는 상태다.\n\n## 필요조건\n상호배제, 점유대기, 비선점, 순환대기.\n\n## 예방\n예방은 네 필요조건 중 하나를 깨는 방식으로 한다.\n\n### 순환대기 깨기\n순환대기를 깨려면 자원에 전역 순서를 부여한다.\n- 예시: 자원 번호 오름차순으로만 요청하도록 강제한다.",
         "lostLines": [],
         "duplicateHeadings": [],
         "missingHeadings": [],
         "missingNewTerms": []
       },
-      "latencyMs": 5634
+      "latencyMs": 5280
     }
   ],
-  "runAt": "2026-08-02T06:44:39.589Z"
+  "runAt": "2026-08-02T07:24:28.025Z"
 }

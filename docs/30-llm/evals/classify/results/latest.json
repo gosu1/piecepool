@@ -1,6 +1,9 @@
 {
   "id": "classify",
   "dry": false,
+  "model": null,
+  "baseUrl": null,
+  "judgeModel": null,
   "metrics": {
     "total": 24,
     "accuracy": 1,
@@ -276,5 +279,5 @@
       "latencyMs": 1
     }
   ],
-  "runAt": "2026-08-02T06:27:04.592Z"
+  "runAt": "2026-08-02T07:23:23.219Z"
 }

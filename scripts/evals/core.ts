@@ -15,6 +15,12 @@ export interface Gate {
 export interface RunCtx {
   dry: boolean; // judge 등 모델 호출을 생략하는 저비용 모드
   apiKey: string; // GEMINI_API_KEY (dry 이거나 needsApiKey=false 면 빈 문자열 가능)
+  // 측정 축: 채점 **대상**(subject) 모델·엔드포인트. undefined 면 각 기능 함수의 기본값이
+  // 그대로 쓰인다(기본 동작 무변경) — 어댑터는 undefined 를 그대로 opts 에 넘겨도 안전하다.
+  model?: string;
+  baseUrl?: string;
+  // 심판 모델. subject 와 **분리된 축**이다 — 자세한 이유는 judge.ts 주석.
+  judgeModel?: string;
 }
 
 export interface Sample<F, O> {
@@ -28,6 +34,10 @@ export interface EvalAdapter<F, O> {
   id: string; // "chunk" — npm run eval:chunk 와 일치
   fixturesDir: string; // 절대 경로
   needsApiKey: boolean; // false 면 키 없이도 돈다 (순수 함수 기능)
+  // ctx.model 이 없을 때 이 어댑터가 실제로 쓰는 모델. 결과 JSON 에 "어느 모델로 잰
+  // baseline 인가" 를 정확히 적기 위한 것 — pdfsummary 만 lite 고정이라 러너가 알 방법이 없다.
+  // 미지정이면 GEMINI_MODEL 로 본다.
+  defaultModel?: string;
   run(fixture: F, ctx: RunCtx): Promise<O>;
   metrics(samples: Sample<F, O>[], ctx: RunCtx): Promise<Metrics>;
   gates: Gate[];

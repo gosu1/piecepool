@@ -36,6 +36,19 @@ npm run eval:pdfsummary -- --case lecture-slide  # 하나만
 
 `--dry`에서는 judge 지표를 만들지 않는다.
 
+### 이 기능만 모델이 다르다 — lite 고정
+
+프로덕션의 PDF 요약은 `GEMINI_SUMMARY_MODEL`(`gemini-3.1-flash-lite`) **고정**이다. 다른 기능은 전부 `GEMINI_MODEL`을 쓴다 — 요약은 입력이 길고 호출이 잦아 속도·무료 티어 여유를 택한 것이다.
+
+eval도 기본은 그 lite 모델로 잰다(`defaultModel`, [`scripts/evals/adapters/pdfsummary.ts`](../../../../scripts/evals/adapters/pdfsummary.ts)). 단 **`--model`을 주면 그 값이 우선한다** — lite 고정은 이 어댑터의 기본값일 뿐 잠금이 아니다.
+
+```bash
+npm run eval:pdfsummary                                        # gemini-3.1-flash-lite (프로덕션과 동일)
+npm run eval:llm -- --adapter pdfsummary --model gemini-3.5-flash   # 상위 모델로 바꿔 비교
+```
+
+`results/latest.json`의 `model` 필드에 실제로 쓴 모델이 적힌다. 여기가 다른 baseline끼리는 점수를 비교하면 안 된다.
+
 ### `SUMMARY_MAX_CHARS` 잘림 처리
 
 입력 상한은 `SUMMARY_MAX_CHARS = 48000`자다. 넘으면 초과분을 잘라 보내고 **잘렸다는 사실을 모델에게 알린 뒤** 결과에 `truncated: true`를 세운다. 호출부가 사용자에게 안내하는 용도다.

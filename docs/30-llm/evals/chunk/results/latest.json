@@ -1,6 +1,9 @@
 {
   "id": "chunk",
   "dry": false,
+  "model": null,
+  "baseUrl": null,
+  "judgeModel": null,
   "metrics": {
     "runFailed": 0,
     "cases": 2,
@@ -48,7 +51,7 @@
         ],
         "joined": "스택은 LIFO 자료구조다. 마지막에 넣은 것이 먼저 나온다. push와 pop으로 조작한다."
       },
-      "latencyMs": 1
+      "latencyMs": 0
     },
     {
       "fixture": {
@@ -97,8 +100,8 @@
         ],
         "joined": "교착상태는 프로세스들이 서로 자원을 기다리는 상태다. 네 가지 조건이 동시에 성립해야 발생한다. p-value는 귀무가설 하에서 관측값 이상이 나올 확률이다. 유의수준과 비교해 기각 여부를 정한다."
       },
-      "latencyMs": 0
+      "latencyMs": 1
     }
   ],
-  "runAt": "2026-08-02T06:27:02.835Z"
+  "runAt": "2026-08-02T07:23:23.208Z"
 }

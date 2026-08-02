@@ -4,7 +4,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { assertCase } from "../../eval";
-import { selectProvider, type LlmWikiInput, type LlmWikiResult } from "../../../src/llm/index";
+import { GeminiProvider, type GeminiProviderConfig } from "../../../src/llm/gemini";
+import type { LlmWikiInput, LlmWikiResult } from "../../../src/llm/index";
 import { validateLlmWikiResult } from "../../../src/llm/validate";
 import type { EvalAdapter, Metrics, Sample } from "../core";
 
@@ -37,8 +38,15 @@ const adapter: EvalAdapter<Fixture, Out> = {
   fixturesDir: join(EVALS, "fixtures"),
   needsApiKey: true,
 
-  async run(fx) {
-    const provider = selectProvider("gemini");
+  async run(fx, ctx) {
+    // selectProvider("gemini") 는 `new GeminiProvider()` 와 같고 설정을 주입할 통로가 없다.
+    // 여기서 하는 것은 로직 재구현이 아니라 **같은 GeminiProvider 클래스에 설정만 주입**하는 것이다
+    // — 프로바이더 동작(재시도·검증·정규화)은 앱과 완전히 동일하다.
+    // 주어진 필드만 넣는다: undefined 를 넣으면 envConfig() 기본값을 덮어써 죽는다.
+    const config: Partial<GeminiProviderConfig> = {};
+    if (ctx.model) config.model = ctx.model;
+    if (ctx.baseUrl) config.endpoint = ctx.baseUrl;
+    const provider = new GeminiProvider({ config });
     const result = await provider.generateWikiStructured(fx.input);
     const v = validateLlmWikiResult(result);
     const expected = loadExpected(fx.id);

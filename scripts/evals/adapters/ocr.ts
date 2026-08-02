@@ -76,7 +76,8 @@ const adapter: EvalAdapter<Fixture, Out> = {
     if (!existsSync(path)) throw new Error(`이미지 없음: ${fx.imageFile} — fixture 에 실제 이미지를 넣어야 한다`);
     const b64 = readFileSync(path).toString("base64");
     const dataUrl = `data:image/png;base64,${b64}`;
-    const r = await runImageOcr(dataUrl, ctx.apiKey);
+    // 모델·엔드포인트 축(undefined 면 runImageOcr 의 기본값 그대로).
+    const r = await runImageOcr(dataUrl, ctx.apiKey, { endpoint: ctx.baseUrl, model: ctx.model });
     const text = r.markdown;
     return {
       text,

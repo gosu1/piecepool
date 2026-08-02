@@ -140,6 +140,28 @@ must_not.confused            ✅
 - 실행: **TypeScript 자체 스크립트 + tsx 실행** (결정 2026-06-29). 이유: provider가 TS(`selectProvider().generateWikiStructured()`)라 in-process 직호출 — Python은 브리지 비용, vitest는 배치 출력과 어긋남. tsx는 기존 extensionless import를 config 없이 구동(devDep 1개). `npm run eval -- <args>` → `tsx scripts/eval.ts` (구현 완료 — `selectProvider`/`validate.ts` 직접 import, fixtures case-001~004·007 salvage. case-005/006은 후속).
 - assertion: ajv (schema, `src/llm/validate.ts` keystone 재사용) + 자체 비교 로직 (should/must_not)
 
+### 4.5 모델·엔드포인트를 바꿔 돌리기 (`eval:llm` 러너)
+
+모델을 바꿨을 때 점수가 어떻게 변하는지가 eval의 존재 이유다. 기능별 러너(`scripts/evals/run.ts`)는 **측정 축**을 CLI로 받는다.
+
+```bash
+npm run eval:llm -- --adapter generate --model gemini-3.1-flash-lite   # 대상 모델 교체
+npm run eval:llm -- --adapter generate --base-url http://localhost:1234/v1   # OpenAI 호환 엔드포인트 교체
+npm run eval:all -- --model gemini-3.1-flash-lite                      # 전체를 같은 모델로
+PIECEPOOL_LLM_MODEL=gemini-3.1-flash-lite npm run eval:ocr             # env 로도 된다
+```
+
+| 축 | CLI | env | 기본값 |
+|---|---|---|---|
+| 대상 모델 | `--model <name>` | `PIECEPOOL_LLM_MODEL` | 각 기능 함수의 기본값(대부분 `GEMINI_MODEL`, pdfsummary만 lite) |
+| 대상 엔드포인트 | `--base-url <url>` | `PIECEPOOL_LLM_BASE_URL` | `GEMINI_OPENAI_ENDPOINT` |
+| **심판 모델** | `--judge-model <name>` | `PIECEPOOL_JUDGE_MODEL` | `GEMINI_MODEL` **고정** |
+
+- 아무것도 안 주면 `undefined`가 그대로 내려가 각 기능 함수의 기본값이 쓰인다 — **기본 실행 동작은 이 축이 생기기 전과 같다.**
+- **심판은 대상 모델을 따라가지 않는다.** `--model`로 채점 대상을 바꿔도 judge는 그대로다 — 같이 바뀌면 점수 차이가 대상 모델 차이인지 심판 차이인지 가를 수 없어 비교가 성립하지 않는다. 분리 지점은 `scripts/evals/judge.ts`의 `resolveJudgeModel()`이고, `--base-url`도 judge 엔드포인트에는 적용되지 않는다.
+- 결과 JSON(`results/run-*.json`, `latest.json`)에 실제로 쓴 `model` / `baseUrl` / `judgeModel`이 기록된다. 모델을 안 부르는 어댑터(chunk·classify·dedupConcepts)는 `null`이다. **모델이 안 적힌 baseline은 비교 근거가 못 된다.**
+- 없는 모델명을 주면 모델 호출 어댑터 전부가 게이트에서 깨진다(HTTP 404 → `runFailed`, synthesize만 휴리스틱 폴백이라 `heuristicFallback`). 축이 실제로 먹는지 확인하는 가장 싼 방법이다.
+
 ---
 
 ## 5. 회귀 방지 정책

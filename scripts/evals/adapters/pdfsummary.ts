@@ -3,6 +3,7 @@
 // 실제 시그니처: runPdfSummary(input, apiKey?, opts?) → PdfSummaryResult{markdown, truncated, warning?}
 // (src/llm/pdfsummary.ts). 키가 없으면 throw 한다 — 오프라인 폴백이 없어 runFailed 로 잡힌다.
 import { join } from "node:path";
+import { GEMINI_SUMMARY_MODEL } from "../../../src/llm/gemini";
 import { runPdfSummary, type PdfSummaryInput } from "../../../src/llm/pdfsummary";
 import { judgeJson } from "../judge";
 import { bodyChars, koreanRatio, type EvalAdapter, type Metrics, type Sample } from "../core";
@@ -57,9 +58,13 @@ const adapter: EvalAdapter<Fixture, Out> = {
   id: "pdfsummary",
   fixturesDir: join(process.cwd(), "docs/30-llm/evals/pdfsummary/fixtures"),
   needsApiKey: true,
+  // 이 기능만 프로덕션에서 lite 모델 고정(속도)이다 — 결과 JSON 에 그대로 기록하기 위해 선언한다.
+  // --model 을 주면 그 값이 우선한다(모델 축 비교용).
+  defaultModel: GEMINI_SUMMARY_MODEL,
 
   async run(fx, ctx) {
-    const r = await runPdfSummary(fx.input, ctx.apiKey);
+    // 모델·엔드포인트 축(undefined 면 runPdfSummary 의 기본값 = lite 모델 그대로).
+    const r = await runPdfSummary(fx.input, ctx.apiKey, { endpoint: ctx.baseUrl, model: ctx.model });
     const md = r.markdown;
     return {
       markdown: md,
@@ -100,6 +105,7 @@ const adapter: EvalAdapter<Fixture, Out> = {
           { source: s.fixture.input, summary: s.out!.markdown },
           VERDICT_SCHEMA,
           ctx.apiKey,
+          ctx.judgeModel, // subject(ctx.model)가 아니다 — judge.ts 주석 참조
         );
         if (v.hallucination) hallu++;
       } catch {

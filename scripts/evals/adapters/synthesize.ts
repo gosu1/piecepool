@@ -55,7 +55,8 @@ const adapter: EvalAdapter<Fixture, Out> = {
   needsApiKey: true,
 
   async run(fx, ctx) {
-    const r = await runSynthesis(fx.input, ctx.apiKey);
+    // 모델·엔드포인트 축(undefined 면 runSynthesis 의 기본값 그대로).
+    const r = await runSynthesis(fx.input, ctx.apiKey, { endpoint: ctx.baseUrl, model: ctx.model });
     const md = r.markdown;
     return {
       markdown: md,
@@ -94,6 +95,7 @@ const adapter: EvalAdapter<Fixture, Out> = {
           { sourceNotes: s.fixture.input, synthesis: s.out!.markdown },
           VERDICT_SCHEMA,
           ctx.apiKey,
+          ctx.judgeModel, // subject(ctx.model)가 아니다 — judge.ts 주석 참조
         );
         if (v.hallucination) hallu++;
         if (v.contradiction) contra++;

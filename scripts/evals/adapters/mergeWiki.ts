@@ -37,7 +37,11 @@ const adapter: EvalAdapter<Fixture, Out> = {
   needsApiKey: true,
 
   async run(fx, ctx) {
-    const md = await runWikiMerge(fx.existing, fx.incoming, fx.source, ctx.apiKey);
+    // 모델·엔드포인트 축(undefined 면 runWikiMerge 의 기본값 그대로).
+    const md = await runWikiMerge(fx.existing, fx.incoming, fx.source, ctx.apiKey, {
+      endpoint: ctx.baseUrl,
+      model: ctx.model,
+    });
     const hs = headings(md);
     const seen = new Set<string>();
     const dup: string[] = [];
