@@ -1,0 +1,103 @@
+{
+  "id": "chunk",
+  "dry": false,
+  "metrics": {
+    "runFailed": 0,
+    "cases": 2,
+    "boundaryF1": 1,
+    "sentenceLoss": 0,
+    "minSentencesViolation": 0
+  },
+  "gateFails": [],
+  "samples": [
+    {
+      "fixture": {
+        "id": "single-topic",
+        "text": "스택은 LIFO 자료구조다. 마지막에 넣은 것이 먼저 나온다. push와 pop으로 조작한다.",
+        "vectors": [
+          [
+            1,
+            0
+          ],
+          [
+            1,
+            0
+          ],
+          [
+            1,
+            0
+          ]
+        ],
+        "goldBoundaries": [],
+        "options": {
+          "percentile": 10,
+          "minSentences": 1
+        },
+        "whyHard": "유사도가 전부 같다. 억지로 하위 N%를 잘라 경계를 만들어내면 실패."
+      },
+      "out": {
+        "boundaries": [],
+        "sentences": [
+          "스택은 LIFO 자료구조다.",
+          "마지막에 넣은 것이 먼저 나온다.",
+          "push와 pop으로 조작한다."
+        ],
+        "chunkSizes": [
+          3
+        ],
+        "joined": "스택은 LIFO 자료구조다. 마지막에 넣은 것이 먼저 나온다. push와 pop으로 조작한다."
+      },
+      "latencyMs": 1
+    },
+    {
+      "fixture": {
+        "id": "topic-shift",
+        "text": "교착상태는 프로세스들이 서로 자원을 기다리는 상태다. 네 가지 조건이 동시에 성립해야 발생한다. p-value는 귀무가설 하에서 관측값 이상이 나올 확률이다. 유의수준과 비교해 기각 여부를 정한다.",
+        "vectors": [
+          [
+            1,
+            0
+          ],
+          [
+            1,
+            0
+          ],
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            1
+          ]
+        ],
+        "goldBoundaries": [
+          1
+        ],
+        "options": {
+          "percentile": 50,
+          "minSentences": 1
+        },
+        "whyHard": "주제가 정확히 한 번 바뀐다. 경계를 못 찾거나 여러 개로 쪼개면 실패."
+      },
+      "out": {
+        "boundaries": [
+          1
+        ],
+        "sentences": [
+          "교착상태는 프로세스들이 서로 자원을 기다리는 상태다.",
+          "네 가지 조건이 동시에 성립해야 발생한다.",
+          "p-value는 귀무가설 하에서 관측값 이상이 나올 확률이다.",
+          "유의수준과 비교해 기각 여부를 정한다."
+        ],
+        "chunkSizes": [
+          2,
+          2
+        ],
+        "joined": "교착상태는 프로세스들이 서로 자원을 기다리는 상태다. 네 가지 조건이 동시에 성립해야 발생한다. p-value는 귀무가설 하에서 관측값 이상이 나올 확률이다. 유의수준과 비교해 기각 여부를 정한다."
+      },
+      "latencyMs": 0
+    }
+  ],
+  "runAt": "2026-08-02T05:43:28.494Z"
+}
