@@ -83,7 +83,7 @@ eval은 그 플래그를 `unexpectedTruncation`으로 받아 0을 요구한다. 
 | `absentFactLeak` | 0 | 0 |
 | **`formulaBroken`** | **1** | 0 ❌ |
 | `notKorean` / `unexpectedTruncation` | 0 / 0 | 0 |
-| `charsPerSectionMin` | 290.3 | ≥ 40 |
+| `charsPerSectionMin` | 290.3 | ≥ 25 |
 | `hallucination` / `judgeFail` | 0 / 0 | 0 |
 
 **대상 모델이 다른 기능과 다르다.** 프로덕션이 속도 때문에 `GEMINI_SUMMARY_MODEL`(lite)로 고정하고 있어 baseline도 lite로 측정됐다. `--model`을 주면 그 값이 우선하므로, 다른 기능과 같은 조건으로 비교하려면 `--model`을 명시해야 한다. 심판은 lite가 아니라 `gemini-3.5-flash` 고정이다.
