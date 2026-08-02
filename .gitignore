@@ -39,3 +39,6 @@ docs/30-llm/evals/results/
 
 # feynman eval 실행 결과 — run-*.json 은 매 실행마다 쌓인다. latest.json 만 커밋한다.
 docs/30-llm/evals/feynman/results/run-*.json
+
+# Claude Code 로컬 설정 (개인 권한 허용목록 — 커밋하지 않는다)
+.claude/settings.local.json
