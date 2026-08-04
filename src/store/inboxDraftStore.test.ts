@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { useInboxDraftStore, partialize } from "./inboxDraftStore";
 import { runPdfSummary, PdfSummaryStreamError, type PdfSummaryOptions } from "../llm/pdfsummary";
 
@@ -268,5 +268,36 @@ describe("remapSpace — 공간 slug 변경 리매핑", () => {
     const before = useInboxDraftStore.getState().drafts[KEY];
     useInboxDraftStore.getState().remapSpace("old", "new");
     expect(useInboxDraftStore.getState().drafts[KEY]).toBe(before);
+  });
+});
+
+// PIE-41: 설정의 LLM 엔드포인트가 PDF 요약 호출로 전달되는지.
+describe("runSummary — LLM 엔드포인트 배선 (PIE-41)", () => {
+  // node vitest 환경엔 localStorage 가 없다 — 설정을 읽는 경로만 최소로 심는다.
+  const store = new Map<string, string>();
+  const g = globalThis as { localStorage?: Storage };
+  beforeEach(() => {
+    store.clear();
+    g.localStorage = {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+      removeItem: (k: string) => void store.delete(k),
+    } as unknown as Storage;
+  });
+  afterEach(() => {
+    delete g.localStorage;
+  });
+
+  it("설정값을 runPdfSummary 에 넘긴다", async () => {
+    localStorage.setItem("llm-endpoint", "http://localhost:11434/v1");
+    vi.mocked(runPdfSummary).mockResolvedValue({ markdown: "# 요약", truncated: false });
+    await useInboxDraftStore.getState().runSummary(RUN);
+    expect(vi.mocked(runPdfSummary).mock.calls[0][2]).toMatchObject({ endpoint: "http://localhost:11434/v1" });
+  });
+
+  it("미설정이면 endpoint 는 undefined (기존 동작 불변)", async () => {
+    vi.mocked(runPdfSummary).mockResolvedValue({ markdown: "# 요약", truncated: false });
+    await useInboxDraftStore.getState().runSummary(RUN);
+    expect(vi.mocked(runPdfSummary).mock.calls[0][2]?.endpoint).toBeUndefined();
   });
 });

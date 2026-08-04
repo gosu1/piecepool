@@ -187,3 +187,60 @@ describe("heuristicWiki 언어 설정", () => {
     expect(locks?.summary).toContain("concept overview");
   });
 });
+
+// PIE-41: 설정의 LLM 엔드포인트가 위키 생성 경로(provider·embedder) 끝까지 전달되는지.
+// 여기만 provider 를 주입하지 않는다 — 내부에서 만드는 GeminiProvider/embedder 배선이 검증 대상.
+describe("runWikiGeneration — endpoint 전달", () => {
+  const INPUT: LlmWikiInput = {
+    sourceTitle: "OS 노트",
+    sourceText: "프로세스는 실행 중인 프로그램이다. 스레드는 실행 흐름이다. 임계 구역은 상호 배제가 필요하다.",
+    subjects: [],
+    existingConcepts: [],
+  };
+  const WIKI = { concepts: [{ title: "프로세스", summary: "요약", explanation: "설명", examples: [], sourceRefs: [], sourceEmbeds: [] }], relations: [] };
+
+  function stubFetch() {
+    const urls: string[] = [];
+    const orig = globalThis.fetch;
+    globalThis.fetch = (async (url: unknown) => {
+      urls.push(String(url));
+      const body = String(url).includes("/embeddings")
+        ? { data: [{ index: 0, embedding: [1, 0] }] }
+        : { choices: [{ message: { content: JSON.stringify(WIKI) } }] };
+      return new Response(JSON.stringify(body), { status: 200 });
+    }) as unknown as typeof fetch;
+    return { urls, restore: () => { globalThis.fetch = orig; } };
+  }
+
+  it("opts.endpoint 를 주면 Gemini 호출이 그 주소로 나간다", async () => {
+    const { urls, restore } = stubFetch();
+    try {
+      const r = await runWikiGeneration(INPUT, "k", { endpoint: "http://localhost:11434/v1" });
+      expect(r.engine).toBe("gemini");
+    } finally {
+      restore();
+    }
+    expect(urls).toEqual(["http://localhost:11434/v1/chat/completions"]);
+  });
+
+  it("청킹 경로의 임베딩 호출도 같은 주소로 나간다", async () => {
+    const { urls, restore } = stubFetch();
+    try {
+      await runWikiGeneration(INPUT, "k", { endpoint: "http://localhost:11434/v1", chunk: { enabled: true } });
+    } finally {
+      restore();
+    }
+    expect(urls.some((u) => u === "http://localhost:11434/v1/embeddings")).toBe(true);
+    expect(urls.every((u) => u.startsWith("http://localhost:11434/v1"))).toBe(true);
+  });
+
+  it("endpoint 없으면 Gemini 기본 주소 (기존 동작 불변)", async () => {
+    const { urls, restore } = stubFetch();
+    try {
+      await runWikiGeneration(INPUT, "k");
+    } finally {
+      restore();
+    }
+    expect(urls[0]).toBe("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions");
+  });
+});

@@ -22,6 +22,15 @@ type FetchFn = typeof fetch;
 // Gemini OpenAI 호환 base URL. /chat/completions · /embeddings 를 append 한다.
 export const GEMINI_OPENAI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/openai";
 
+/**
+ * 호출부가 endpoint 를 안 넘겼을 때의 base URL.
+ * 우선순위: 호출부 인자 > PIECEPOOL_LLM_BASE_URL(env — CLI·eval, `--base-url` 과 같은 이름) > Gemini 기본값.
+ * 앱(webview)에는 process.env 가 없어 항상 Gemini 기본값 — 앱 설정값은 호출부가 인자로 넘긴다(llmEndpoint()).
+ */
+export function defaultEndpoint(): string {
+  return readEnv().PIECEPOOL_LLM_BASE_URL || GEMINI_OPENAI_ENDPOINT;
+}
+
 // Gemini 채팅 모델 — 기본값을 여기서만 관리한다. 모델은 예고 없이 단종된다:
 //   gemini-2.5-flash    → 404 NOT_FOUND ("no longer available to new users", 2026-07)
 //   gemini-3.5-flash    → 블라인드 A/B 판정 승자로 승격 (`npm run eval:ab` 13케이스, 2026-07-12).
@@ -178,7 +187,7 @@ export async function chatJsonWithRetry(
   accept?: ChatAccept,
 ): Promise<unknown> {
   const fetchFn = deps?.fetchFn ?? globalThis.fetch.bind(globalThis);
-  const endpoint = deps?.endpoint ?? GEMINI_OPENAI_ENDPOINT;
+  const endpoint = deps?.endpoint ?? defaultEndpoint();
   const maxRetries = deps?.maxRetries ?? 2;
   const backoffMs = deps?.backoffMs ?? 250;
 
@@ -243,7 +252,7 @@ function envConfig(): GeminiProviderConfig {
   const env = readEnv();
   return {
     apiKey: env.GEMINI_API_KEY || "",
-    endpoint: DEFAULTS.endpoint,
+    endpoint: env.PIECEPOOL_LLM_BASE_URL || DEFAULTS.endpoint,
     model: env.PIECEPOOL_LLM_MODEL || GEMINI_MODEL,
     timeoutMs: numEnv(env.PIECEPOOL_LLM_TIMEOUT_MS, DEFAULTS.timeoutMs),
     maxRetries: numEnv(env.PIECEPOOL_LLM_MAX_RETRIES, DEFAULTS.maxRetries),

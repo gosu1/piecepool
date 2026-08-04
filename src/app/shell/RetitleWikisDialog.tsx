@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Button, cn } from "../../ds";
 import { suggestRetitles } from "../../llm/retitle";
 import { planRetitles, type RetitlePlanRow } from "../../lib/retitlePlan";
-import { geminiKey } from "../../lib/settings";
+import { geminiKey, llmEndpoint } from "../../lib/settings";
 
 // ══ 위키 제목 일괄 정리 — 음차 제목을 관례 표기로 (공간 우클릭 → 위키 제목 정리) ══
 //
@@ -42,6 +42,7 @@ export function RetitleWikisDialog({
     suggestRetitles(
       wikis.map((w) => w.title),
       key,
+      { endpoint: llmEndpoint() },
     )
       .then((sug) => {
         if (!alive) return;

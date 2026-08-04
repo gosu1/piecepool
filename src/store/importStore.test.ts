@@ -9,7 +9,11 @@ vi.mock("../lib/factCheck", () => ({
 }));
 // importStore 는 apiKey() 로 settings.geminiKey 를 쓴다 — 목에서 빠지면 "No geminiKey export" 로 죽는다.
 // 기본값은 키 없음("") — 휴리스틱 폴백 경로를 그대로 검증한다.
-vi.mock("../lib/settings", () => ({ chunkOpts: () => ({}), geminiKey: () => "" }));
+vi.mock("../lib/settings", () => ({
+  chunkOpts: () => ({}),
+  geminiKey: () => "",
+  llmEndpoint: () => "http://localhost:11434/v1",
+}));
 // buildInput 이 쓰는 embedSourceFiles/toExistingConcepts/normalizeTitle 은 실물, 저장(applyLlmResult)만 대체.
 vi.mock("../lib/llmApply", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../lib/llmApply")>()),
@@ -97,6 +101,15 @@ describe("runImport — writing 단계 실패", () => {
     const res = await useImportStore.getState().runImport(PARAMS);
     expect(res.status).toBe("completed");
     expect(useImportStore.getState().job?.status).toBe("completed");
+  });
+});
+
+describe("runImport — LLM 엔드포인트 배선 (PIE-41)", () => {
+  it("설정의 엔드포인트를 runWikiGeneration 에 넘긴다", async () => {
+    vi.mocked(applyLlmResult).mockResolvedValue({ pages: [], relationCount: 0, merged: 0 });
+    vi.mocked(runWikiGeneration).mockResolvedValue({ result: { concepts: [], relations: [] }, engine: "heuristic" });
+    await useImportStore.getState().runImport(PARAMS);
+    expect(vi.mocked(runWikiGeneration).mock.calls[0][2]).toMatchObject({ endpoint: "http://localhost:11434/v1" });
   });
 });
 

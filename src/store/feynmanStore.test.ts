@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { splitFeynmanSection, joinFeynmanSection, bodyHash } from "../lib/feynmanSection";
 import type { WikiPage } from "../lib/types";
 
@@ -365,7 +365,7 @@ describe("requestHint — [아직 모르겠어요] 1단계", () => {
     });
     useFeynmanStore.getState().start("sp", withRecord);
     await useFeynmanStore.getState().requestHint();
-    expect(vi.mocked(analogyHint)).toHaveBeenCalledWith("스레드", BODY, "test-key");
+    expect(vi.mocked(analogyHint)).toHaveBeenCalledWith("스레드", BODY, "test-key", { endpoint: undefined });
     const s = useFeynmanStore.getState().session!;
     expect(s.hint).toEqual(HINT);
     expect(s.hinting).toBe(false);
@@ -494,5 +494,32 @@ describe("remapSpace — 공간 slug 변경 리매핑", () => {
     const st = useFeynmanStore.getState();
     expect(st.session!.space).toBe("other");
     expect(st.dismissed[wikiKey("other", "thread.md")]).toBeTruthy();
+  });
+});
+
+// PIE-41: 설정의 LLM 엔드포인트가 파인만 경로(되묻기·facet·커버리지)로 전달되는지.
+describe("LLM 엔드포인트 배선 (PIE-41)", () => {
+  afterEach(() => {
+    localStorage.removeItem("llm-endpoint"); // 모듈 전역이라 다음 describe 로 새면 안 된다
+  });
+
+  it("설정값을 probeExplanation·extractFacets·judgeCoverage 에 넘긴다", async () => {
+    localStorage.setItem("llm-endpoint", "http://localhost:11434/v1");
+    vi.mocked(probeExplanation).mockResolvedValue({ probe: "왜죠?", targetGap: "why" });
+    vi.mocked(extractFacets).mockResolvedValue([{ id: "f1", text: "스레드는 실행 흐름이다.", kind: "definition" } as Facet]);
+    vi.mocked(judgeCoverage).mockResolvedValue({ judgments: [], score: 0, pasted: false } as unknown as CoverageResult);
+    // facet/coverage 캐시는 본문 해시 기준 모듈 전역 — 본문을 유일하게 만들어 캐시 히트를 피한다.
+    useFeynmanStore.getState().start("sp", page({ markdown: `${BODY}\n\nPIE-41 전용 본문` }));
+    await useFeynmanStore.getState().explain("스레드는 실행 흐름이다");
+    expect(vi.mocked(probeExplanation).mock.calls[0][4]).toMatchObject({ endpoint: "http://localhost:11434/v1" });
+    expect(vi.mocked(extractFacets).mock.calls[0][2]).toMatchObject({ endpoint: "http://localhost:11434/v1" });
+    expect(vi.mocked(judgeCoverage).mock.calls[0][4]).toMatchObject({ endpoint: "http://localhost:11434/v1" });
+  });
+
+  it("미설정이면 deps.endpoint 는 undefined (기존 동작 불변)", async () => {
+    vi.mocked(probeExplanation).mockResolvedValue({ probe: "왜죠?", targetGap: "why" });
+    useFeynmanStore.getState().start("sp", page());
+    await useFeynmanStore.getState().explain("설명");
+    expect(vi.mocked(probeExplanation).mock.calls[0][4]?.endpoint).toBeUndefined();
   });
 });

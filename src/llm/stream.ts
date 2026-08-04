@@ -2,7 +2,7 @@
 // delta.content 를 누적하고 finish_reason 으로 종결을 판단한다(`data: [DONE]` 프레임은 건너뛴다).
 // 구조화 출력(단발 호출)은 gemini.ts 소관 — 본 모듈은 plain text 스트리밍 전용.
 
-import { GEMINI_OPENAI_ENDPOINT, extractChatText } from "./gemini";
+import { defaultEndpoint, extractChatText } from "./gemini";
 
 export interface SseEvent {
   type: string;
@@ -51,7 +51,7 @@ export interface StreamTextOptions {
 }
 
 export async function streamChatText(opts: StreamTextOptions): Promise<StreamTextResult> {
-  const endpoint = opts.endpoint ?? GEMINI_OPENAI_ENDPOINT;
+  const endpoint = opts.endpoint ?? defaultEndpoint();
   const fetchFn = opts.fetchFn ?? globalThis.fetch.bind(globalThis);
   const headers = { "content-type": "application/json", authorization: `Bearer ${opts.apiKey}` };
 

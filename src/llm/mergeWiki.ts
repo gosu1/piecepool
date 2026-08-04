@@ -5,7 +5,7 @@
 // 한계(프로토타입 A 의 핵심 트레이드오프): LLM 이 기존 문장을 다시 쓴다. 사용자가 위키 편집기로
 // 직접 쓴 문단을 건드리지 말라고 프롬프트로 지시하지만, 그것은 지시일 뿐 보장이 아니다.
 
-import { GEMINI_OPENAI_ENDPOINT, GEMINI_MODEL, extractChatText } from "./gemini";
+import { defaultEndpoint, GEMINI_MODEL, extractChatText } from "./gemini";
 import { languageDirective, getOutputLanguage, type OutputLanguage } from "./language";
 import type { LlmConcept } from "./provider";
 
@@ -79,7 +79,7 @@ export async function runWikiMerge(
 ): Promise<string> {
   const key = apiKey?.trim();
   if (!key) throw new Error("[mergeWiki] auth: GEMINI 키 없음");
-  const endpoint = opts?.endpoint ?? GEMINI_OPENAI_ENDPOINT;
+  const endpoint = opts?.endpoint ?? defaultEndpoint();
   const fetchFn = opts?.fetchFn ?? globalThis.fetch.bind(globalThis);
   const res = await fetchFn(`${endpoint}/chat/completions`, {
     method: "POST",

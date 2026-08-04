@@ -27,6 +27,7 @@ import {
   INBOX_PANE_DEFAULTS,
   getOutputLanguage,
   geminiKey,
+  llmEndpoint,
   type InboxPanelKey,
   type InboxPaneKey,
 } from "../../lib/settings";
@@ -591,7 +592,7 @@ export function InboxSection({
           }
           const apiKey = geminiKey(); // 설정 키 우선, 없으면 빌드 주입(VITE_GEMINI_API_KEY) 폴백
           try {
-            const { markdown } = await runImageOcr(dataUrl, apiKey);
+            const { markdown } = await runImageOcr(dataUrl, apiKey, { endpoint: llmEndpoint() });
             appendBody(embed + markdown);
           } catch {
             appendBody(`${embed}> ${f.name} OCR 실패 — 텍스트를 직접 입력하세요.`);

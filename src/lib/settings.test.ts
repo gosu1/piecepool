@@ -14,6 +14,8 @@ import {
   setBodyFontSize,
   BODY_FONT_MIN,
   BODY_FONT_MAX,
+  llmEndpoint,
+  setLlmEndpoint,
 } from "./settings";
 
 // Map 백엔드 fake localStorage — node vitest 환경엔 없으므로 주입.
@@ -101,6 +103,30 @@ describe("output language (LLM 생성 언어)", () => {
   it("무효 저장값은 ko로 폴백", () => {
     localStorage.setItem("output-language", "jp");
     expect(getOutputLanguage()).toBe("ko");
+  });
+});
+
+describe("LLM 엔드포인트", () => {
+  beforeEach(() => {
+    g.localStorage = new FakeStorage() as unknown as Storage;
+  });
+  afterEach(() => {
+    delete g.localStorage;
+  });
+
+  it("미설정이면 undefined — 호출부가 모듈 기본값(Gemini)을 그대로 쓴다", () => {
+    expect(llmEndpoint()).toBeUndefined();
+  });
+
+  it("set/get 라운드트립 — 앞뒤 공백은 제거", () => {
+    setLlmEndpoint("  http://localhost:11434/v1  ");
+    expect(llmEndpoint()).toBe("http://localhost:11434/v1");
+  });
+
+  it("빈 값·공백만이면 undefined (빈 문자열이 기본값을 덮어쓰면 안 된다)", () => {
+    setLlmEndpoint("http://localhost:11434/v1");
+    setLlmEndpoint("   ");
+    expect(llmEndpoint()).toBeUndefined();
   });
 });
 
