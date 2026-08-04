@@ -26,7 +26,7 @@ npm run eval:pdfsummary -- --case lecture-slide  # 하나만
 
 ## 판정 층
 
-**cheap checks** (코드) — 섹션 재현율, 용어 재현율, `absentFacts` 등장, 수식 기호 보존, 한국어 여부, 잘림 플래그.
+**cheap checks** (코드) — 섹션 재현율, 용어 재현율, `absentFacts` 등장, 수식 기호 보존, 한국어 여부, 잘림 플래그, `[!easy]` 콜아웃 형식 준수율, 스트리밍 지연(TTFT·완료).
 
 **LLM-as-judge** (Gemini, `temperature: 0`, [`scripts/evals/judge.ts`](../../../../scripts/evals/judge.ts)) — 환각만 본다. 판정자 관대화 방지 장치는 합성 eval과 같다.
 
@@ -35,6 +35,28 @@ npm run eval:pdfsummary -- --case lecture-slide  # 하나만
 3. **번역·압축과 환각의 경계 명시** — 번역과 요약은 환각이 **아니고**, 원문에 없는 개념을 넣는 것은 환각이다. 이 선이 없으면 판정자가 번역 전체를 "원문에 없는 문장"으로 몬다.
 
 `--dry`에서는 judge 지표를 만들지 않는다.
+
+### `[!easy]` 콜아웃 형식 준수율 — `calloutCompliance`
+
+프롬프트([`src/llm/pdfsummary.ts`](../../../../src/llm/pdfsummary.ts) `SYSTEM_PROMPT` §5)는 **"모든 `##` 섹션마다 예외 없이"** 마지막에 쉬운 설명 콜아웃을 넣고 **"콜아웃의 모든 줄은 `> ` 로 시작"** 하라고 요구한다. 이건 내용 판정이 아니라 형식 판정이라 코드로 정확히 잰다 — 이 제약이 깨지면 앱에서 콜아웃이 콜아웃으로 렌더링되지 않는다(줄 하나만 인용을 벗어나도 블록이 갈라진다).
+
+출력의 `## ` 섹션 하나가 준수로 세어지는 조건:
+
+1. 섹션 안에 `> [!easy]` 헤더 줄이 있다.
+2. 그 헤더 줄부터 **섹션 끝까지**(뒤쪽 빈 줄 제외) 모든 줄이 인용 줄이다. 콜아웃은 섹션 마지막에 오게 돼 있으므로, 도중에 인용 접두사가 끊기면 위반이다.
+3. 헤더 말고 **내용이 있는 인용 줄이 최소 1줄** 있다. (`> [!easy] 쉬운 설명` 한 줄만 찍는 우회 차단)
+
+인용 줄 = `>` 뒤에 공백 또는 줄끝. 빈 줄을 `>` 하나로만 쓰는 것은 실제 출력의 정상 형태라 허용하고, 선행 공백 3칸까지는 CommonMark가 같은 인용문으로 렌더링하므로 허용한다.
+
+`calloutCompliance` = 전 케이스의 준수 섹션 수 / 전 케이스의 `##` 섹션 수. **출력에 `##` 섹션이 하나도 없으면 분모가 0이라 `NaN`이고, 코어 규약상 `NaN`은 통과가 아니라 게이트 실패다**(`scripts/evals/core.ts`).
+
+### 스트리밍 지연 — `ttftMsMax` · `totalMsMax` (게이트 없음)
+
+이 기능은 결과가 delta로 화면에 흘러나오므로 **첫 글자까지의 지연이 사용자 체감**이고 완료 시간은 별개다. 러너의 `latencyMs`는 완료 시간만 재서 둘을 못 가른다 — 그래서 어댑터가 `onDelta` 첫 호출 시각을 직접 잡는다.
+
+**게이트를 걸지 않는다.** 지연은 하드웨어·네트워크·모델 크기에 종속이라 임계값을 하나로 정할 근거가 없다. 로컬 모델 vs Gemini를 같은 fixture로 비교하는 **기록용**이다(PIE-45 측정 항목).
+
+평균이 아니라 **최대**를 지표로 올린다 — 스트리밍 UX에서 사용자가 겪는 것은 평균이 아니라 가장 오래 기다린 케이스다. 케이스별 값은 결과 JSON의 `samples[].out.ttftMs` / `totalMs`에 그대로 남으므로 평균이 필요하면 거기서 낸다.
 
 ### 이 기능만 모델이 다르다 — lite 고정
 
@@ -53,7 +75,12 @@ npm run eval:llm -- --adapter pdfsummary --model gemini-3.5-flash   # 상위 모
 
 입력 상한은 `SUMMARY_MAX_CHARS = 48000`자다. 넘으면 초과분을 잘라 보내고 **잘렸다는 사실을 모델에게 알린 뒤** 결과에 `truncated: true`를 세운다. 호출부가 사용자에게 안내하는 용도다.
 
-eval은 그 플래그를 `unexpectedTruncation`으로 받아 0을 요구한다. fixture는 상한보다 훨씬 짧게 만드므로 **여기서 `truncated`가 참이면 상한 계산이나 입력 구성이 깨진 것**이다. 긴 PDF의 잘림 동작 자체를 재려면 상한을 넘는 전용 fixture를 따로 만들고 그때는 이 게이트의 의미를 다시 정해야 한다.
+eval은 그 플래그를 `unexpectedTruncation`으로 받아 0을 요구한다. 다만 이건 **"잘렸는가"가 아니라 "예상과 다르게 잘렸는가"** 다 — fixture의 `expectTruncated`(미지정 = `false`)와 실제 `truncated`가 다른 케이스만 센다.
+
+- **`expectTruncated`가 없는 fixture**(대부분): 상한보다 훨씬 짧게 만들므로 `truncated`가 참이면 상한 계산이나 입력 구성이 깨진 것이다. 기존 게이트 의미(잘림 0) 그대로다.
+- **`expectTruncated: true` fixture**(`long-truncated` 하나): 잘리는 것이 정상이다. 반대로 **안 잘리면** 그것이 위반이다 — `SUMMARY_MAX_CHARS`가 바뀌었거나 clip 로직이 죽은 것이므로 양방향 불일치를 다 센다.
+
+즉 잘림 동작 자체가 이제 회귀 대상이다. 상한을 넘는 입력에서 잘림 플래그가 켜지고, 잘린 뒤 구간의 내용이 요약에 나오지 않는지를 `long-truncated` fixture가 본다(아래 `fixture 추가하기` 참조).
 
 ## 합격선
 
@@ -65,12 +92,15 @@ eval은 그 플래그를 `unexpectedTruncation`으로 받아 0을 요구한다. 
 | `absentFactLeak` | 0 — 원문에 없는 용어 등장 0건 |
 | `formulaBroken` | 0 — 수식 기호 유실 0건 |
 | `notKorean` | 0 — 한국어 비율 0.4 미만 0건 |
-| `unexpectedTruncation` | 0 — 예상치 못한 잘림 0건 |
+| `unexpectedTruncation` | 0 — 예상과 다른 잘림 0건 |
+| `calloutCompliance` | ≥ 1.0 — `[!easy]` 콜아웃 형식 준수율 1.0 *(잠정, baseline 측정 후 확정)* |
 | `charsPerSectionMin` | ≥ 25 — 절당 본문 ≥ 25자 *(잠정, baseline 측정 후 확정)* |
 | `sectionRecall` | ≥ 0.8 — 섹션 재현율 ≥ 0.8 *(잠정, baseline 측정 후 확정)* |
 | `termRecall` | ≥ 0.8 — 용어 재현율 ≥ 0.8 *(잠정, baseline 측정 후 확정)* |
 | `hallucination` | 0 — 환각 0건 *(잠정, baseline 측정 후 확정)* |
 | `judgeFail` | 0 — judge 실패 0건 |
+
+`ttftMsMax`(첫 delta까지) · `totalMsMax`(완료)는 **게이트가 없다** — 기록만 한다. 위 이유는 `스트리밍 지연` 절.
 
 ## 현재 결과 — `results/latest.json`
 
@@ -85,6 +115,14 @@ eval은 그 플래그를 `unexpectedTruncation`으로 받아 0을 요구한다. 
 | `notKorean` / `unexpectedTruncation` | 0 / 0 | 0 |
 | `charsPerSectionMin` | 290.3 | ≥ 25 |
 | `hallucination` / `judgeFail` | 0 / 0 | 0 |
+| `calloutCompliance` | 1.0 *(재계산)* | ≥ 1.0 |
+| `ttftMsMax` / `totalMsMax` | **미측정** | 게이트 없음 |
+
+**`calloutCompliance` 1.0은 새 실행이 아니라 재계산이다.** 지표를 만들기 전 실행이라 `latest.json`의 `metrics`에는 없다 — `latest.json`에 기록된 출력 마크다운을 지표 코드로 다시 채점해 3개 섹션 전부 준수(3/3)를 얻었다. 이 계산은 [`scripts/evals/adapters/pdfsummary.test.ts`](../../../../scripts/evals/adapters/pdfsummary.test.ts)가 매번 다시 검증한다(`실제 baseline 출력은 3개 섹션 전부 준수`).
+
+**지연은 미측정이다.** 그때는 스트리밍 계측이 없었고 러너의 완료 시간 `latencyMs: 2832`만 남아 있다. `ttftMsMax`는 다음 실행부터 나온다.
+
+**새 fixture 3종(`formula-heavy` · `term-trap` · `long-truncated`)도 미측정이다.** 위 표는 `lecture-slide` 1종만의 값이다.
 
 **대상 모델이 다른 기능과 다르다.** 프로덕션이 속도 때문에 `GEMINI_SUMMARY_MODEL`(lite)로 고정하고 있어 baseline도 lite로 측정됐다. `--model`을 주면 그 값이 우선하므로, 다른 기능과 같은 조건으로 비교하려면 `--model`을 명시해야 한다. 심판은 lite가 아니라 `gemini-3.5-flash` 고정이다.
 
@@ -101,13 +139,23 @@ README의 합격선만 보고 "게이트를 전부 통과하면서 쓸모없는 
 | 용어를 한국어로 번역해 버리기(`FCFS` → "선입선출") | ✅ `termRecall`이 잡음 | 없음 |
 | 수식 기호를 문장으로 풀어 쓰기 | ✅ `formulaBroken`이 잡음 | 없음 |
 | 원문에 없는 이웃 주제(교착상태) 끌어오기 | ✅ `absentFactLeak` + judge 환각이 잡음 | 없음 |
+| **콜아웃을 아예 안 넣기** | ✅ `calloutCompliance 0` (mock 실측) | 없음 |
+| **`> [!easy] 쉬운 설명` 헤더 한 줄만 찍기** | ✅ `calloutCompliance 0` — 내용 인용 줄 1줄 이상을 요구한다 (mock 실측) | 없음 |
+| **콜아웃 도중 `> ` 접두사를 흘리기**(둘째 줄부터 평문) | ✅ `calloutCompliance 0` — 헤더부터 섹션 끝까지 전부 인용이어야 한다 (mock 실측) | 없음 |
+| **섹션을 하나만 만들고 거기에만 콜아웃 달기** | ⚠️ `calloutCompliance 1.0` 으로 **통과** — 비율은 만든 섹션만 본다 | `sectionRecall`이 잡는다 (mock 실측: 기대 절 3개 중 1개 = 0.333 < 0.8) |
+| **`##` 섹션 없이 통짜 본문**으로 분모를 0으로 만들기 | ✅ `calloutCompliance NaN` → 코어 규약상 게이트 실패 (mock 실측) | 없음 |
+| **상한 초과 fixture로 `unexpectedTruncation`을 흔들기** | ✅ `expectTruncated`와 실제가 다를 때만 센다. 상한이 바뀌어 안 잘려도 위반으로 잡는다 (mock 실측: 4가지 조합 전부) | 없음 |
 
 `sectionRecall`·`termRecall`이 전부 **부분 문자열 포함**이라, 절 제목과 용어를 나열하기만 해도 만점이 나온다. 재현율은 "빠뜨리지 않았는가"만 묻고 "설명했는가"를 묻지 않는다.
 
 한국어 비율 임계값이 synthesize(0.5)보다 낮은 0.4인 이유: 이 기능은 **원문 용어와 절 제목을 영문으로 보존하는 것이 요구사항**이라 라틴 문자 비중이 구조적으로 높다. 실측한 정상 요약이 0.61이므로 0.4는 여유를 두면서 공격(0.05)을 확실히 거른다.
 
+위 공격들은 전부 [`scripts/evals/adapters/pdfsummary.test.ts`](../../../../scripts/evals/adapters/pdfsummary.test.ts)에 mock 출력으로 박아 두었다 — 표의 숫자를 바꾸려면 그 테스트부터 바꿔야 한다.
+
 **자동으로 못 잡는 것:**
 
+- **`calloutCompliance`는 형식만 본다.** `> [!easy]` 아래에 원문 용어를 그대로 재나열해도, 중학생이 못 알아들을 말로 써도 형식만 맞으면 1.0이다. "쉬운 설명인가"는 사람이 봐야 한다.
+- **지연은 게이트가 아니다.** `ttftMsMax`가 30초여도 러너는 초록이다. 로컬 모델을 판정하려면 기록된 값을 사람이 읽고 판단해야 한다.
 - **`charsPerSectionMin`은 길이의 하한일 뿐이다.** 원문을 기계 번역해 그대로 붙이면 길이도 채우고 용어·수식·한국어 비율도 만족한다 — **요약이 아니라 번역인지는 어떤 게이트도 구별하지 못한다.** 사람 표본 검수가 필요하다.
 - 번역이 **틀렸는지**는 judge가 환각만 보므로 잡히지 않는다. 원문에 있는 내용을 잘못 옮긴 오역은 "원문에 없는 개념"이 아니라서 통과한다.
 - baseline이 아직 없다. 위 수치는 mock으로 확인한 것이고 실제 모델 값은 **미측정**이다.
@@ -127,6 +175,7 @@ README의 합격선만 보고 "게이트를 전부 통과하면서 쓸모없는 
   "expectTerms":    ["FCFS", "SJF", "Round Robin"],            // 번역하면 안 되는 원문 용어
   "absentFacts":    ["교착상태", "페이지 폴트"],                // 원문에 없다 — 나오면 환각
   "expectFormula":  "T_turnaround",                            // 보존돼야 할 수식 기호
+  "expectTruncated": false,                                    // 생략 가능(기본 false) — 아래 참조
   "whyHard": "이 케이스가 어떻게 함정인가"
 }
 ```
@@ -135,7 +184,18 @@ README의 합격선만 보고 "게이트를 전부 통과하면서 쓸모없는 
 - `absentFacts`는 같은 과목의 **이웃 주제**로 고른다. 스케줄링 슬라이드 요약에 "교착상태"가 나오면 모델이 교과서 지식을 끌어온 것이다.
 - `expectFormula`는 기호 하나만 잡아도 된다 — 수식 전체를 넣으면 공백·줄바꿈 차이로 오탐이 난다.
 
+- `expectTruncated`는 **입력이 `SUMMARY_MAX_CHARS`(48,000자)를 넘어 잘리는 것이 정상인 케이스**에만 `true`로 둔다. 생략하면 `false`이고, 그때는 잘리는 것 자체가 위반이다. `true`인 fixture는 **기대 절·용어·수식을 잘리지 않는 앞 48,000자 안에 전부** 넣어야 한다 — 상한 뒤 내용을 기대하면 그 케이스는 영원히 실패한다.
+
 **좋은 fixture는 번역 유혹이 강한 용어를 담는다.** 한국어 정착 번역어가 있는 영어 약어(`FCFS` → "선입선출", `RAM` → "주기억장치"), 첨자·그리스 문자가 섞인 수식, 절 제목이 번호로만 구분된 슬라이드.
+
+### 현재 fixture
+
+| id | 무엇을 거는가 |
+|---|---|
+| `lecture-slide` | 기본 케이스. 알고리즘 약어(`FCFS`·`SJF`) 보존 + 수식 기호 `T_turnaround` |
+| `formula-heavy` | 원문이 이미 KaTeX. 그리스 문자·첨자가 절마다 나온다(`\alpha`·`\beta`·`\theta`·`\sigma`·`\nabla`). 기호를 "학습률"로 풀어 쓰면 원문 대조가 깨진다 |
+| `term-trap` | 한국어 정착 번역어가 있는 약어 7개(`MMU`·`TLB`·`LRU`·`FIFO`·`DMA`·`IRQ`·`ISR`). 번역어만 쓰면 슬라이드로 돌아갔을 때 대응 항목을 못 찾는다 |
+| `long-truncated` | 입력 50,647자 — 상한을 넘겨 **잘림 동작 자체**를 본다. `expectTruncated: true`. 기대값은 전부 앞부분(≤ 1,300자)에 있고, 상한 뒤에는 교착상태(Coffman 조건·wait-for 그래프)만 둔다 — 요약에 그게 나오면 잘림이 안 일어났거나 모델이 교과서 지식을 끌어온 것이라 `absentFacts`가 잡는다 |
 
 ## 변경 이력
 
@@ -145,3 +205,7 @@ README의 합격선만 보고 "게이트를 전부 통과하면서 쓸모없는 
 |---|---|---|
 | 2026-08-02 | `charsPerSectionMin` 지표 신설 | 적대적 검증에서 용어만 덤프한 출력이 `sectionRecall`·`termRecall` 만점을 받았다 |
 | 2026-08-02 | 임계값 **무변경** — `formulaBroken 0` 실패(실측 1)를 그대로 둠 | 섹션·용어는 100% 재현했으므로 못 읽은 게 아니라 기호를 안 옮긴 것이다. lite 모델 한계인지 프롬프트 문제인지 미분리 |
+| 2026-08-04 | `calloutCompliance` 지표 신설 + 게이트 `≥ 1.0` (잠정) | 프롬프트가 "모든 `##` 섹션마다 예외 없이"를 요구하므로 사양상 1.0 말고 다른 값이 없다. 근거는 **기존 baseline 출력 재계산 3/3 = 1.0** — `results/latest.json`에 기록된 마크다운을 지표 코드로 채점했고, 그 계산을 `pdfsummary.test.ts`가 고정한다. 게이트는 baseline 재측정 전까지 잠정 |
+| 2026-08-04 | `unexpectedTruncation` 의미 변경 — "잘렸는가" → "예상(`expectTruncated`)과 다르게 잘렸는가" | 상한 초과 fixture(`long-truncated`)를 넣으려면 잘림이 정상인 케이스가 생긴다. `expectTruncated` 미지정 fixture의 게이트 의미(잘림 0)는 그대로고, `true`인 fixture는 안 잘려도 위반이다. mock 실측: 4가지 조합(기대×실제) 전부 `pdfsummary.test.ts`에서 확인 |
+| 2026-08-04 | `ttftMsMax`·`totalMsMax` 지표 신설, **게이트 없음** | PIE-45 측정 항목(첫 토큰까지 지연·완료 시간). 지연은 하드웨어·네트워크·모델 크기 종속이라 단일 임계값의 근거가 없다 — 로컬 vs Gemini 비교 기록용. 평균 대신 최대: 스트리밍 UX의 체감은 최악 케이스다 |
+| 2026-08-04 | fixture 3종 추가(`formula-heavy`·`term-trap`·`long-truncated`) | 임계값 변경 아님. 기존 fixture가 `lecture-slide` 1종뿐이라 수식 밀집·용어 함정·상한 초과가 측정 밖이었다. 셋 다 **미측정** |
