@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { runPdfSummary, PdfSummaryStreamError } from "../llm/pdfsummary";
-import { geminiKey } from "../lib/settings";
+import { geminiKey, llmEndpoint } from "../lib/settings";
 
 // Inbox 노트 초안을 스토어로 끌어올린다 — 노트 = 탭 하나(웹 탭 모델)이고, InboxSection 은 다른 탭으로
 // 전환하면 언마운트되므로(활성 탭만 렌더) 로컬 useState 면 작성 중이던 노트·스트리밍 요약이 사라진다.
@@ -196,6 +196,7 @@ export const useInboxDraftStore = create<InboxDraftState>()(
             const r = await runPdfSummary({ sourceTitle: p.title, sourceText: p.text }, apiKey(), {
               onDelta,
               signal: myAc.signal,
+              endpoint: llmEndpoint(),
             });
             finish(p.noteKey, r.markdown, { status: "done", text: r.markdown, truncated: r.truncated, warning: r.warning });
             return "done";

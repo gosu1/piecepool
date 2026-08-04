@@ -6,7 +6,7 @@ import { judgeCoverage, clearOk, type CoverageResult } from "../llm/coverage";
 import { splitFeynmanSection, joinFeynmanSection, bodyHash, type FeynmanSession, type FeynmanTurn } from "../lib/feynmanSection";
 import type { WikiPage } from "../lib/types";
 import * as ipc from "../lib/ipc";
-import { geminiKey } from "../lib/settings";
+import { geminiKey, llmEndpoint } from "../lib/settings";
 import { useUnderstandingStore } from "./understandingStore";
 
 // ══ 위키 파인만 — 페이지 하나(=개념 하나)를 자기 말로 설명하게 한다 ══
@@ -122,7 +122,7 @@ export const useFeynmanStore = create<FeynmanState>()(
       const runProbe = async (sid: number, s: WikiSession, history: Turn[]) => {
         const fresh = () => get().session?.id === sid;
         try {
-          const { probe } = await probeExplanation(s.title, s.body, history, apiKey());
+          const { probe } = await probeExplanation(s.title, s.body, history, apiKey(), { endpoint: llmEndpoint() });
           if (!fresh()) return;
           set((c) => ({
             session: c.session && { ...c.session, history: [...history, { role: "probe", text: probe }], probing: false },
@@ -145,14 +145,14 @@ export const useFeynmanStore = create<FeynmanState>()(
           const ck = facetCacheKey(s.body);
           let facets = facetCache.get(ck);
           if (!facets) {
-            facets = await extractFacets(s.body, key);
+            facets = await extractFacets(s.body, key, { endpoint: llmEndpoint() });
             facetCache.set(ck, facets);
           }
           if (facets.length === 0) return; // 스텁 위키 — 커버리지 비활성(설계 §5)
           const jk = `${ck}::${facetCacheKey(explanation)}`;
           let result = coverageCache.get(jk);
           if (!result) {
-            result = await judgeCoverage(facets, explanation, s.body, key);
+            result = await judgeCoverage(facets, explanation, s.body, key, { endpoint: llmEndpoint() });
             coverageCache.set(jk, result);
           }
           const cur = get().session;
@@ -214,7 +214,7 @@ export const useFeynmanStore = create<FeynmanState>()(
           // 늦은 힌트가 다른 페이지·닫힌 세션에 붙으면 안 된다 — runProbe 와 같은 가드.
           const fresh = () => get().session?.id === s.id;
           try {
-            const hint = await analogyHint(s.title, s.body, apiKey());
+            const hint = await analogyHint(s.title, s.body, apiKey(), { endpoint: llmEndpoint() });
             if (!fresh()) return;
             set((c) => ({ session: c.session && { ...c.session, hint, hinting: false } }));
           } catch (e) {

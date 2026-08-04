@@ -6,7 +6,7 @@ import { runWikiMerge } from "../llm/mergeWiki";
 import type { LlmWikiInput, LlmWikiResult } from "../llm/provider";
 import { applyLlmResult, embedSourceFiles, toExistingConcepts, normalizeTitle } from "../lib/llmApply";
 import { maybeFactCheck } from "../lib/factCheck";
-import { chunkOpts, geminiKey } from "../lib/settings";
+import { chunkOpts, geminiKey, llmEndpoint } from "../lib/settings";
 
 // ImportJob 상태머신 소유 = TS 오케스트레이터(결정 A). useImportStore 가 상태 전이 + Rust atomic-step
 // 커맨드(create_note/save_wiki/append_relations) + LLM 어댑터 호출을 조율한다.
@@ -133,7 +133,7 @@ export const useImportStore = create<ImportState>((set) => {
       p.existing,
       {
         // 본문 축적(방식 A) — 기존 개념에 얹힐 때만 2차 LLM 호출로 통합한다.
-        mergeMarkdown: (md, c, src) => runWikiMerge(md, c, src, apiKey()),
+        mergeMarkdown: (md, c, src) => runWikiMerge(md, c, src, apiKey(), { endpoint: llmEndpoint() }),
         // 폴더 간 관계용 타 공간 개념 — 관계 resolve 에만 쓰이고 위키 저장/병합엔 영향 없다.
         cross: p.crossConcepts,
       },
@@ -178,7 +178,7 @@ export const useImportStore = create<ImportState>((set) => {
         const input = buildInput(note, p.existing, p.crossConcepts);
 
         const key = apiKey();
-        const gen = await runWikiGeneration(input, key, { chunk: chunkOpts() });
+        const gen = await runWikiGeneration(input, key, { chunk: chunkOpts(), endpoint: llmEndpoint() });
         // 휴리스틱으로 조용히 내려간 이유를 사용자 문구로 구성해 job.warning 에 싣는다(engine 과 같은 수명).
         const warning = gen.warning
           ? `LLM 호출 실패로 기본 추출로 만들었어요: ${gen.warning}`

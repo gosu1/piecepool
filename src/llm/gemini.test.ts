@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { buildMessages, GEMINI_MODEL, GeminiProvider } from "./gemini";
+import { buildMessages, GEMINI_MODEL, GEMINI_OPENAI_ENDPOINT, GeminiProvider } from "./gemini";
 import type { LlmConcept, LlmWikiInput } from "./provider";
 
 const INPUT = { sourceId: "s1", sourceTitle: "T", sourceText: "본문" } as unknown as LlmWikiInput;
@@ -67,6 +67,7 @@ describe("GeminiProvider — 구조화 호출", () => {
 
   afterEach(() => {
     delete nodeEnv.PIECEPOOL_LLM_MODEL;
+    delete nodeEnv.PIECEPOOL_LLM_BASE_URL;
   });
 
   it("기본 모델로 1회 호출, 응답을 정규화해 돌려준다", async () => {
@@ -82,6 +83,27 @@ describe("GeminiProvider — 구조화 호출", () => {
     const { bodies, fetchFn } = fetchMock(() => chatJson(RESULT));
     await makeProvider(fetchFn).generateWikiStructured(WIKI_INPUT);
     expect(bodies[0].model).toBe("gemini-env-pinned");
+  });
+
+  it("PIECEPOOL_LLM_BASE_URL(env) 가 엔드포인트를 덮는다 (CLI·eval 로컬 LLM)", async () => {
+    nodeEnv.PIECEPOOL_LLM_BASE_URL = "http://localhost:11434/v1";
+    const urls: string[] = [];
+    const fetchFn = (async (url: unknown) => {
+      urls.push(String(url));
+      return chatJson(RESULT);
+    }) as unknown as typeof fetch;
+    await makeProvider(fetchFn).generateWikiStructured(WIKI_INPUT);
+    expect(urls[0]).toBe("http://localhost:11434/v1/chat/completions");
+  });
+
+  it("env 미설정이면 Gemini 기본 엔드포인트 (기존 동작 불변)", async () => {
+    const urls: string[] = [];
+    const fetchFn = (async (url: unknown) => {
+      urls.push(String(url));
+      return chatJson(RESULT);
+    }) as unknown as typeof fetch;
+    await makeProvider(fetchFn).generateWikiStructured(WIKI_INPUT);
+    expect(urls[0]).toBe(`${GEMINI_OPENAI_ENDPOINT}/chat/completions`);
   });
 
   it("스키마 위반 응답은 재시도 후 성공", async () => {

@@ -2,7 +2,7 @@
 // SSOT: docs/30-llm/provider-config.md. 정답 주입 금지 — 이미지에 있는 것만 옮긴다.
 // OCR 품질(실사진)은 사람 검증 대상. 요청 모양/오프라인 폴백/파싱은 자체검증.
 
-import { GEMINI_OPENAI_ENDPOINT, GEMINI_MODEL, extractChatText } from "./gemini";
+import { defaultEndpoint, GEMINI_MODEL, extractChatText } from "./gemini";
 import { getOutputLanguage, type OutputLanguage } from "./language";
 
 export interface OcrResult {
@@ -58,7 +58,7 @@ export async function runImageOcr(
   opts?: { endpoint?: string; model?: string; fetchFn?: typeof fetch; lang?: OutputLanguage },
 ): Promise<OcrResult> {
   if (!apiKey) return { engine: "none", markdown: OFFLINE_FALLBACK };
-  const endpoint = opts?.endpoint ?? GEMINI_OPENAI_ENDPOINT;
+  const endpoint = opts?.endpoint ?? defaultEndpoint();
   const fetchFn = opts?.fetchFn ?? globalThis.fetch.bind(globalThis);
   const lang = opts?.lang ?? getOutputLanguage();
   const res = await fetchFn(`${endpoint}/chat/completions`, {

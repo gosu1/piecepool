@@ -12,7 +12,7 @@ import {
 } from "../../lib/quickMemo";
 import { useInboxDraftStore, EMPTY_DRAFT } from "../../store/inboxDraftStore";
 import { runTidy, TidyNoKeyError, TidyStreamError } from "../../llm/tidy";
-import { geminiKey } from "../../lib/settings";
+import { geminiKey, llmEndpoint } from "../../lib/settings";
 
 // ══ Quick Memo — 강의 중 파편을 흘려 담는 플로팅 메모장 ══
 // SSOT: docs/superpowers/specs/2026-07-13-quickmemo-per-note-design.md
@@ -128,7 +128,7 @@ export function QuickMemo({ draftKey, onClose }: { draftKey: string; onClose: ()
     setError(null);
     setTidied("");
     try {
-      const text = await runTidy(draft, apiKey(), { onDelta: setTidied, signal: ac.signal });
+      const text = await runTidy(draft, apiKey(), { onDelta: setTidied, signal: ac.signal, endpoint: llmEndpoint() });
       setTidied(text);
       setPhase("done");
     } catch (e) {

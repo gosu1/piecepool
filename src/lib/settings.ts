@@ -27,6 +27,28 @@ export function geminiKey(): string {
   return injected || "";
 }
 
+/**
+ * LLM 엔드포인트(OpenAI 호환 base URL) — 비워두면 undefined 를 돌려 각 모듈의 기본값
+ * (Gemini OpenAI 호환층)이 그대로 쓰이게 한다. 로컬 LLM(Ollama 등)으로 갈아끼우는 유일한 스위치.
+ * 빈 문자열을 그대로 넘기면 `opts?.endpoint ?? DEFAULT` 가 빈 주소를 채택해버린다 → 반드시 undefined.
+ */
+const LLM_ENDPOINT_KEY = "llm-endpoint";
+
+export function llmEndpoint(): string | undefined {
+  return ls()?.getItem(LLM_ENDPOINT_KEY)?.trim() || undefined;
+}
+
+export function setLlmEndpoint(url: string): void {
+  ls()?.setItem(LLM_ENDPOINT_KEY, url.trim());
+}
+
+/** 설정 모달 "LLM 엔진" 뱃지 문구. 저장 전 입력값으로 바로 판정하도록 인자를 받는다.
+ *  키가 없으면 호출 자체를 안 하므로(휴리스틱 폴백) 엔드포인트를 넣었어도 로컬이라고 하지 않는다. */
+export function engineLabel(key: string, endpoint: string): "Gemini" | "로컬" | "휴리스틱(오프라인)" {
+  if (!key.trim()) return "휴리스틱(오프라인)";
+  return endpoint.trim() ? "로컬" : "Gemini";
+}
+
 export function getChunkSettings(): { enabled: boolean; percentile: number } {
   const store = ls();
   const enabled = store?.getItem(ENABLED_KEY) === "1";

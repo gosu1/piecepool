@@ -38,6 +38,7 @@ export interface WikiGenOptions {
     embed?: EmbedFn; // 주입(테스트/대체). 기본 createGeminiEmbedder(apiKey).
   };
   provider?: LlmProvider; // 주입(테스트/대체). 기본 new GeminiProvider(apiKey).
+  endpoint?: string; // OpenAI 호환 base URL(설정 → llmEndpoint()). 없으면 Gemini 기본값.
 }
 
 export async function runWikiGeneration(
@@ -46,7 +47,9 @@ export async function runWikiGeneration(
   opts?: WikiGenOptions,
 ): Promise<WikiGenResult> {
   const key = apiKey?.trim();
-  const provider = opts?.provider ?? (key ? new GeminiProvider({ config: { apiKey: key } }) : null);
+  // endpoint 는 있을 때만 얹는다 — undefined 를 그대로 넘기면 provider 기본값을 덮어써 빈 주소가 된다.
+  const ep = opts?.endpoint ? { endpoint: opts.endpoint } : {};
+  const provider = opts?.provider ?? (key ? new GeminiProvider({ config: { apiKey: key, ...ep } }) : null);
 
   if (!provider) {
     // 키 없음 → 휴리스틱(기능은 동작시킨다)
@@ -55,7 +58,7 @@ export async function runWikiGeneration(
 
   try {
     if (opts?.chunk?.enabled) {
-      const { result, chunkCount, nodeTypes } = await chunkedExtract(input, provider, opts.chunk, key);
+      const { result, chunkCount, nodeTypes } = await chunkedExtract(input, provider, opts.chunk, key, opts.endpoint);
       return withPromotion({ result, engine: "gemini", chunks: chunkCount, nodeTypes });
     }
     const result = await provider.generateWikiStructured(input);
@@ -74,8 +77,11 @@ async function chunkedExtract(
   provider: LlmProvider,
   chunkOpts: NonNullable<WikiGenOptions["chunk"]>,
   key?: string,
+  endpoint?: string,
 ): Promise<{ result: LlmWikiResult; chunkCount: number; nodeTypes: Partial<Record<NodeType, number>> }> {
-  const embed = chunkOpts.embed ?? createGeminiEmbedder({ config: { apiKey: key ?? "" } });
+  const embed =
+    chunkOpts.embed ??
+    createGeminiEmbedder({ config: { apiKey: key ?? "", ...(endpoint ? { endpoint } : {}) } });
   const { chunks } = await semanticChunk(input.sourceText, {
     embed,
     percentile: chunkOpts.percentile,

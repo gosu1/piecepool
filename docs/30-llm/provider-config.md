@@ -41,6 +41,7 @@ interface LlmWikiInput {
 | 변수 | 기본값 | 설명 |
 |---|---|---|
 | `PIECEPOOL_LLM_MODEL` | `GEMINI_MODEL` (§3.1) | 모델명 override (CLI·eval 용) — provider 경유 위키 생성에 적용 |
+| `PIECEPOOL_LLM_BASE_URL` | `GEMINI_OPENAI_ENDPOINT` (§3.2) | OpenAI 호환 base URL override (CLI·eval 용, `--base-url` 과 같은 이름). 앱은 `.env` 를 안 읽으므로 설정 모달 → `localStorage["llm-endpoint"]` 을 쓴다 — 비우면 Gemini 기본값(기존 동작 불변) |
 | `GEMINI_API_KEY` | (CLI 필수) | Gemini 호출 키 (LLM). CLI/eval 스크립트 전용 — 데스크톱 앱은 설정 모달 → `localStorage["gemini-key"]` 사용, `.env` 안 읽음 |
 | `LINER_API_KEY` | (feature 3 필수) | Liner 출처 검색·검증 키 |
 | `LINER_API_ENDPOINT` | 기본 endpoint | Liner API endpoint override |

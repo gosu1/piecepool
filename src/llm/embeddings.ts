@@ -112,7 +112,7 @@ function envConfig(): GeminiEmbedConfig {
   const env = readEnv();
   return {
     apiKey: env.GEMINI_API_KEY || "",
-    endpoint: DEFAULTS.endpoint,
+    endpoint: env.PIECEPOOL_LLM_BASE_URL || DEFAULTS.endpoint,
     model: env.PIECEPOOL_EMBED_MODEL || DEFAULTS.model,
     timeoutMs: numEnv(env.PIECEPOOL_LLM_TIMEOUT_MS, DEFAULTS.timeoutMs),
     maxRetries: numEnv(env.PIECEPOOL_LLM_MAX_RETRIES, DEFAULTS.maxRetries),

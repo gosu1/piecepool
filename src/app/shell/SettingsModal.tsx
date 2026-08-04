@@ -13,6 +13,9 @@ import {
   getBodyFontSize,
   setBodyFontSize,
   applyBodyFontSize,
+  llmEndpoint,
+  setLlmEndpoint,
+  engineLabel,
   BODY_FONT_MIN,
   BODY_FONT_MAX,
 } from "../../lib/settings";
@@ -28,6 +31,13 @@ export function SettingsModal({ onClose, workspacePath }: { onClose: () => void;
   const [pct, setPct] = useState(getChunkSettings().percentile);
   const [liner, setLiner] = useState(getLinerKey());
   const [linerSaved, setLinerSaved] = useState(false);
+  const [endpoint, setEndpoint] = useState(llmEndpoint() ?? "");
+  const [endpointSaved, setEndpointSaved] = useState(false);
+  const saveEndpoint = () => {
+    setLlmEndpoint(endpoint);
+    setEndpointSaved(true);
+    setTimeout(() => setEndpointSaved(false), 1500);
+  };
   const [factOn, setFactOn] = useState(getFactCheck());
   const [lang, setLang] = useState<OutputLanguage>(getOutputLanguage());
   const changeLang = (v: OutputLanguage) => {
@@ -108,10 +118,28 @@ export function SettingsModal({ onClose, workspacePath }: { onClose: () => void;
               </Button>
             </div>
           </div>
+          <div className="space-y-1.5">
+            <label className="text-[14px] font-semibold text-ink">LLM 엔드포인트</label>
+            <p className="text-[12px] text-ink-muted">
+              OpenAI 호환 base URL. 비우면 Gemini를 사용합니다. 로컬 LLM 예: http://localhost:11434/v1
+            </p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={endpoint}
+                onChange={(e) => setEndpoint(e.target.value)}
+                placeholder="https://generativelanguage.googleapis.com/v1beta/openai"
+                className="flex-1 rounded-md border border-hairline bg-surface px-3 py-2 text-[14px] text-ink outline-none focus-visible:shadow-soft"
+              />
+              <Button variant="solid" onClick={saveEndpoint}>
+                {endpointSaved ? "저장됨" : "저장"}
+              </Button>
+            </div>
+          </div>
           <div className="flex items-center justify-between rounded-md border border-hairline p-3">
             <span className="text-[14px] text-ink-2">LLM 엔진</span>
             <span className={cn("rounded-full px-2 py-0.5 text-[12px] font-semibold", hasKey ? "bg-primary text-on-primary" : "bg-surface-soft text-ink-muted")}>
-              {hasKey ? "Gemini" : "휴리스틱(오프라인)"}
+              {engineLabel(key, endpoint)}
             </span>
           </div>
           <div className="flex items-center justify-between rounded-md border border-hairline p-3">

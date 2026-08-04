@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import { createSseParser, streamChatText, type SseEvent } from "./stream";
 
 // ── 헬퍼: SSE 프레임/스트림 Response 구성 ─────────────────────────
@@ -155,5 +155,36 @@ describe("streamChatText", () => {
     expect(seen).toEqual(["버퍼링 폴백"]);
     expect(calls[0]).toContain('"stream":true');
     expect(calls[1]).not.toContain('"stream":true');
+  });
+});
+
+// PIE-41: 스트리밍 경로(파인만·정리·PDF 요약)도 CLI env 로 엔드포인트를 바꿀 수 있어야 한다.
+describe("streamChatText — 기본 엔드포인트", () => {
+  const nodeEnv = (globalThis as unknown as { process: { env: Record<string, string | undefined> } }).process.env;
+  afterEach(() => {
+    delete nodeEnv.PIECEPOOL_LLM_BASE_URL;
+  });
+
+  function urlCapture() {
+    const urls: string[] = [];
+    const fetchFn = (async (url: unknown) => {
+      urls.push(String(url));
+      return streamRes([new TextEncoder().encode(delta("hi") + COMPLETED)]);
+    }) as unknown as typeof fetch;
+    return { urls, fetchFn };
+  }
+
+  it("PIECEPOOL_LLM_BASE_URL(env) 가 기본 엔드포인트를 덮는다", async () => {
+    nodeEnv.PIECEPOOL_LLM_BASE_URL = "http://localhost:11434/v1";
+    const { urls, fetchFn } = urlCapture();
+    await streamChatText({ apiKey: "k", body: {}, fetchFn });
+    expect(urls[0]).toBe("http://localhost:11434/v1/chat/completions");
+  });
+
+  it("opts.endpoint 가 env 보다 우선 (앱 설정 주입)", async () => {
+    nodeEnv.PIECEPOOL_LLM_BASE_URL = "http://env:1/v1";
+    const { urls, fetchFn } = urlCapture();
+    await streamChatText({ apiKey: "k", body: {}, endpoint: "http://app:2/v1", fetchFn });
+    expect(urls[0]).toBe("http://app:2/v1/chat/completions");
   });
 });
