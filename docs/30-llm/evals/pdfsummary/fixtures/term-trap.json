@@ -1,0 +1,29 @@
+{
+  "id": "term-trap",
+  "input": {
+    "sourceTitle": "Chapter 9. Virtual Memory and I/O",
+    "sourceText": "Chapter 9. Virtual Memory and I/O\n\n9.1 Address Translation\nThe MMU translates a virtual address into a physical address using the page table. Each entry holds a frame number and protection bits. A page table walk costs one extra memory reference, so the MMU caches recent translations in the TLB.\n\n9.2 TLB Performance\nLet $h$ be the TLB hit ratio, $t_{mem}$ the memory access time, and $t_{walk}$ the page table walk time. The effective access time is\n$$EAT = h \\cdot t_{mem} + (1 - h) \\cdot (t_{walk} + t_{mem})$$\nWith $h = 0.98$ and $t_{mem} = 100$ ns the walk cost is largely amortized away.\n\n9.3 Page Replacement\nWhen no free frame remains, the OS evicts a page. FIFO evicts the oldest page and can suffer Belady's anomaly. LRU evicts the least recently used page and approximates OPT. Clock, also called second chance, approximates LRU with a single reference bit per frame.\n\n9.4 DMA and Interrupts\nA DMA controller moves blocks between a device and RAM without the CPU copying each word. The device raises an IRQ when the transfer completes and the CPU then runs the ISR. Programmed I/O, in contrast, busy-waits on a status register and burns CPU cycles."
+  },
+  "expectSections": [
+    "Address Translation",
+    "TLB",
+    "Page Replacement",
+    "DMA"
+  ],
+  "expectTerms": [
+    "MMU",
+    "TLB",
+    "LRU",
+    "FIFO",
+    "DMA",
+    "IRQ",
+    "ISR"
+  ],
+  "absentFacts": [
+    "스레싱",
+    "작업 집합",
+    "세그먼테이션"
+  ],
+  "expectFormula": "t_{mem}",
+  "whyHard": "약어마다 한국어 정착 번역어가 있다(MMU 메모리 관리 장치, TLB 변환 색인 버퍼, LRU 최근 최소 사용, FIFO 선입선출, DMA 직접 메모리 접근, IRQ 인터럽트 요청, ISR 인터럽트 서비스 루틴). 번역어만 쓰면 사용자가 슬라이드로 돌아갔을 때 대응 항목을 못 찾는다 — 병기해야 통과한다."
+}

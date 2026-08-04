@@ -1,0 +1,25 @@
+{
+  "id": "formula-heavy",
+  "input": {
+    "sourceTitle": "Lecture 7. Optimization for Neural Networks",
+    "sourceText": "Lecture 7. Optimization for Neural Networks\n\n7.1 Gradient Descent\nLet $\\theta \\in \\mathbb{R}^d$ be the parameter vector, $\\alpha > 0$ the learning rate, and $L(\\theta)$ the training loss.\nThe update rule is\n$$\\theta_{t+1} = \\theta_t - \\alpha \\nabla_\\theta L(\\theta_t)$$\nIn SGD the gradient is estimated on a mini-batch $B$ with $|B| = m$ examples:\n$$\\nabla_\\theta L \\approx \\frac{1}{m} \\sum_{i \\in B} \\nabla_\\theta \\ell(x_i, y_i; \\theta)$$\n\n7.2 Momentum\nMomentum keeps an exponentially decayed average of past gradients with coefficient $\\beta \\in [0, 1)$:\n$$v_{t+1} = \\beta v_t + (1 - \\beta) \\nabla_\\theta L(\\theta_t), \\qquad \\theta_{t+1} = \\theta_t - \\alpha v_{t+1}$$\nTypical values are $\\beta = 0.9$ and $\\alpha = 10^{-3}$.\n\n7.3 Softmax\nFor a logit vector $z \\in \\mathbb{R}^K$ the softmax is\n$$\\sigma(z)_i = \\frac{e^{z_i}}{\\sum_{j=1}^{K} e^{z_j}}$$\nso that $\\sum_{i=1}^{K} \\sigma(z)_i = 1$ and $\\sigma(z)_i > 0$ for every $i$.\n\n7.4 Cross-Entropy\nFor a one-hot target $y$ and prediction $\\hat{y} = \\sigma(z)$ the cross-entropy loss is\n$$L = -\\sum_{i=1}^{K} y_i \\log \\hat{y}_i$$\nIts gradient with respect to the logits collapses to $\\partial L / \\partial z = \\hat{y} - y$, which is why softmax and cross-entropy are fused into a single op.\n\n7.5 Learning Rate Schedule\nStep decay multiplies $\\alpha$ by $\\gamma = 0.1$ every $s$ epochs: $\\alpha_t = \\alpha_0 \\gamma^{\\lfloor t / s \\rfloor}$.\nCosine annealing instead follows $\\alpha_t = \\alpha_{\\min} + \\frac{1}{2}(\\alpha_0 - \\alpha_{\\min})(1 + \\cos(\\pi t / T))$."
+  },
+  "expectSections": [
+    "Gradient Descent",
+    "Momentum",
+    "Softmax",
+    "Cross-Entropy"
+  ],
+  "expectTerms": [
+    "SGD",
+    "logit",
+    "mini-batch"
+  ],
+  "absentFacts": [
+    "드롭아웃",
+    "배치 정규화",
+    "과적합"
+  ],
+  "expectFormula": "\\alpha",
+  "whyHard": "원문이 이미 KaTeX 로 쓰여 있고 그리스 문자(alpha·beta·theta·sigma·gamma)와 첨자가 절마다 나온다. 서술을 한국어로 옮기면서 기호를 풀어 쓰면(예: alpha 를 '학습률'로만) 원문 대조가 깨진다."
+}
