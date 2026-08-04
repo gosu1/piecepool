@@ -42,6 +42,13 @@ export function setLlmEndpoint(url: string): void {
   ls()?.setItem(LLM_ENDPOINT_KEY, url.trim());
 }
 
+/** 설정 모달 "LLM 엔진" 뱃지 문구. 저장 전 입력값으로 바로 판정하도록 인자를 받는다.
+ *  키가 없으면 호출 자체를 안 하므로(휴리스틱 폴백) 엔드포인트를 넣었어도 로컬이라고 하지 않는다. */
+export function engineLabel(key: string, endpoint: string): "Gemini" | "로컬" | "휴리스틱(오프라인)" {
+  if (!key.trim()) return "휴리스틱(오프라인)";
+  return endpoint.trim() ? "로컬" : "Gemini";
+}
+
 export function getChunkSettings(): { enabled: boolean; percentile: number } {
   const store = ls();
   const enabled = store?.getItem(ENABLED_KEY) === "1";

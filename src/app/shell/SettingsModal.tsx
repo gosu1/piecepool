@@ -15,6 +15,7 @@ import {
   applyBodyFontSize,
   llmEndpoint,
   setLlmEndpoint,
+  engineLabel,
   BODY_FONT_MIN,
   BODY_FONT_MAX,
 } from "../../lib/settings";
@@ -138,7 +139,7 @@ export function SettingsModal({ onClose, workspacePath }: { onClose: () => void;
           <div className="flex items-center justify-between rounded-md border border-hairline p-3">
             <span className="text-[14px] text-ink-2">LLM 엔진</span>
             <span className={cn("rounded-full px-2 py-0.5 text-[12px] font-semibold", hasKey ? "bg-primary text-on-primary" : "bg-surface-soft text-ink-muted")}>
-              {hasKey ? "Gemini" : "휴리스틱(오프라인)"}
+              {engineLabel(key, endpoint)}
             </span>
           </div>
           <div className="flex items-center justify-between rounded-md border border-hairline p-3">
