@@ -9,19 +9,27 @@ vi.mock("../../../src/llm/pdfsummary", () => ({ runPdfSummary: vi.fn() }));
 import { runPdfSummary } from "../../../src/llm/pdfsummary";
 import adapter, { calloutStats } from "./pdfsummary";
 
-// 실제 baseline 출력(results/latest.json, gemini-3.1-flash-lite, 2026-08-02)을 그대로 채점한다.
-// README 에 적는 "정상 요약 1.0" 은 이 파일에서 계산한 값이지 손으로 지은 값이 아니다.
-const baselineMd: string = JSON.parse(
-  readFileSync(join(process.cwd(), "docs/30-llm/evals/pdfsummary/results/latest.json"), "utf-8"),
-).samples[0].out.markdown;
+// 실제 baseline 실행(results/latest.json)의 기록된 출력으로 지표를 되돌려 검증한다.
+// 러너가 기록한 calloutSections/calloutCompliant 가 지금 코드로 다시 계산해도 같아야 한다 —
+// 여기가 깨지면 README 의 실측치와 코드가 갈라진 것이다.
+const baseline: { samples: { fixture: { id: string }; out?: { markdown: string; calloutSections: number; calloutCompliant: number } }[] } =
+  JSON.parse(readFileSync(join(process.cwd(), "docs/30-llm/evals/pdfsummary/results/latest.json"), "utf-8"));
 
 const SECTION = "## 1. 목표(Objectives)\n- CPU 이용률을 높인다.\n";
 const GOOD_CALLOUT =
   "> [!easy] 쉬운 설명\n> **한마디로:** CPU가 쉬지 않게 하는 것이다.\n>\n> #### 핵심\n> - **이용률:** 노는 시간을 줄인다.\n";
 
 describe("calloutStats", () => {
-  it("실제 baseline 출력은 3개 섹션 전부 준수 — 1.0", () => {
-    expect(calloutStats(baselineMd)).toEqual({ sections: 3, compliant: 3 });
+  it("baseline 실행에 기록된 콜아웃 수치를 그대로 재현한다", () => {
+    const outs = baseline.samples.filter((s) => s.out);
+    expect(outs.length).toBeGreaterThan(0);
+    for (const s of outs) {
+      expect({ id: s.fixture.id, ...calloutStats(s.out!.markdown) }).toEqual({
+        id: s.fixture.id,
+        sections: s.out!.calloutSections,
+        compliant: s.out!.calloutCompliant,
+      });
+    }
   });
 
   it("콜아웃이 아예 없는 섹션은 비준수", () => {

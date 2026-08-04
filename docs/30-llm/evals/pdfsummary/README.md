@@ -104,29 +104,60 @@ eval은 그 플래그를 `unexpectedTruncation`으로 받아 0을 요구한다. 
 
 ## 현재 결과 — `results/latest.json`
 
-**실측 완료 — 게이트 1개 실패** (`gemini-3.1-flash-lite`, judge `gemini-3.5-flash`, 2026-08-02, fixture 1종).
+**실측 완료 — 게이트 2개 실패** (`gemini-3.1-flash-lite`, judge `gemini-3.5-flash`, `runAt 2026-08-04T12:59:04.446Z`, fixture 4종).
 
 | 지표 | 실측 | 허용 |
 |---|---|---|
 | `runFailed` | 0 | 0 |
-| `sectionRecall` / `termRecall` | 1.0 / 1.0 | ≥ 0.8 |
+| `sectionRecall` / `termRecall` | 1.0 / 0.8235 | ≥ 0.8 |
 | `absentFactLeak` | 0 | 0 |
-| **`formulaBroken`** | **1** | 0 ❌ |
+| **`formulaBroken`** | **2** | 0 ❌ |
 | `notKorean` / `unexpectedTruncation` | 0 / 0 | 0 |
-| `charsPerSectionMin` | 290.3 | ≥ 25 |
-| `hallucination` / `judgeFail` | 0 / 0 | 0 |
-| `calloutCompliance` | 1.0 *(재계산)* | ≥ 1.0 |
-| `ttftMsMax` / `totalMsMax` | **미측정** | 게이트 없음 |
+| `calloutCompliance` | 1.0 | ≥ 1.0 |
+| `charsPerSectionMin` | 278.7 | ≥ 25 |
+| `hallucination` | 0 *(표본 0 — 아래 참조)* | 0 |
+| **`judgeFail`** | **4** | 0 ❌ |
+| `ttftMsMax` / `totalMsMax` | 1,060ms / 10,613ms | 게이트 없음 |
 
-**`calloutCompliance` 1.0은 새 실행이 아니라 재계산이다.** 지표를 만들기 전 실행이라 `latest.json`의 `metrics`에는 없다 — `latest.json`에 기록된 출력 마크다운을 지표 코드로 다시 채점해 3개 섹션 전부 준수(3/3)를 얻었다. 이 계산은 [`scripts/evals/adapters/pdfsummary.test.ts`](../../../../scripts/evals/adapters/pdfsummary.test.ts)가 매번 다시 검증한다(`실제 baseline 출력은 3개 섹션 전부 준수`).
+**`judgeFail 4` — 판정이 한 건도 성립하지 않았다.** 심판 모델 `gemini-3.5-flash`가 이날 내내 막혀 있었다: 처음에는 `HTTP 503 UNAVAILABLE`("high demand"), 이후에는 `HTTP 429 RESOURCE_EXHAUSTED`(`generate_content_free_tier_requests, limit: 20`). 대상 모델 `gemini-3.1-flash-lite`는 같은 키로 정상 응답했으므로 키 문제가 아니라 **심판 모델의 가용성·무료 티어 한도** 문제다. 그래서 **`hallucination 0`은 "환각이 없었다"가 아니라 "판정 표본이 0"이다** — 이 게이트는 통과로 세면 안 된다. 환각 축은 심판 한도가 풀린 뒤 재측정해야 한다.
 
-**지연은 미측정이다.** 그때는 스트리밍 계측이 없었고 러너의 완료 시간 `latencyMs: 2832`만 남아 있다. `ttftMsMax`는 다음 실행부터 나온다.
+> 운영 메모: `judge.ts`는 호출당 최대 3회 재시도한다. fixture 4종 × 재시도 3회 × 실행 5회면 무료 티어 일일 한도(20)를 한 번에 태운다. 로컬 모델 비교처럼 여러 번 돌리는 날은 심판 예산을 먼저 확인하는 편이 낫다.
 
-**새 fixture 3종(`formula-heavy` · `term-trap` · `long-truncated`)도 미측정이다.** 위 표는 `lecture-slide` 1종만의 값이다.
+**`formulaBroken 2`** — `lecture-slide`의 `T_turnaround`(2026-08-02와 같은 실패)와 `long-truncated`의 `t_{elect}`가 사라졌다. 두 케이스 모두 `sectionRecall`은 만점이라 **내용을 못 읽은 게 아니라 기호를 옮기지 않은 것**이다. 반대로 원문이 이미 KaTeX로 쓰인 `formula-heavy`(`\alpha`)와 `term-trap`(`t_{mem}`)은 보존했다 — **원문이 KaTeX면 그대로 복사하고, 평문 첨자(`T_turnaround`)면 자기 표기(`T_{turnaround}`)로 고쳐 쓴다**가 지금까지의 관찰이다.
+
+`termRecall 0.8235`(14/17)에서 빠진 것: `formula-heavy`의 `logit`·`mini-batch`(둘 다 한국어로만 옮김), `long-truncated`의 `RPC`. 게이트(≥ 0.8)는 통과했다.
 
 **대상 모델이 다른 기능과 다르다.** 프로덕션이 속도 때문에 `GEMINI_SUMMARY_MODEL`(lite)로 고정하고 있어 baseline도 lite로 측정됐다. `--model`을 주면 그 값이 우선하므로, 다른 기능과 같은 조건으로 비교하려면 `--model`을 명시해야 한다. 심판은 lite가 아니라 `gemini-3.5-flash` 고정이다.
 
-`formulaBroken 1` — 원문의 `T_turnaround`가 요약에서 사라졌다. 섹션과 용어는 100% 재현했으므로 **내용을 못 읽은 게 아니라 수식 기호를 옮기지 않은 것**이다. 번역 요약에서 서술은 한국어로 바꾸되 기호는 그대로 둬야 한다는 이중 제약을 모델이 한쪽만 지켰다. lite 모델의 한계인지 프롬프트가 기호 보존을 충분히 강제하지 않는지는 **아직 안 갈랐다** — `--model`로 상위 모델을 물려 재보면 구분된다.
+## 로컬 모델 비교 (PIE-45)
+
+"키 없이 첫 경험"이 성립하려면 이 기능이 로컬 모델로 돌아야 한다([PIE-45](https://linear.app/piecepool/issue/PIE-45)). 같은 fixture 4종·같은 프롬프트로 로컬 4모델을 재고, 프로덕션 기준선(Gemini lite)과 나란히 놓았다.
+
+측정 조건: Ollama 0.32.5 OpenAI 호환 엔드포인트(`--base-url http://localhost:11434/v1`), `OLLAMA_CONTEXT_LENGTH=40960`(모델 상한으로 clamp), 2026-08-04. 각 모델 실행 전 이전 모델을 `ollama stop`으로 내려 VRAM을 비웠다. 숫자 출처는 실행별 `results/run-local-*.json`(gitignore 대상 — 로컬 보존).
+
+| 모델 | 게이트 | 실패한 게이트 | `calloutCompliance` | `sectionRecall` | `termRecall` | `formulaBroken` | `ttftMsMax` | `totalMsMax` | CONTEXT |
+|---|---|---|---|---|---|---|---|---|---|
+| **gemini-3.1-flash-lite** (기준선) | 9/11 | `formulaBroken 2`, `judgeFail 4` | **1.0** | **1.0** | 0.8235 | 2 | **1.06s** | **10.6s** | — |
+| **qwen3:8b** | 8/11 | `sectionRecall 0.6667`, `termRecall 0.7647`, `judgeFail 4` | **1.0** | 0.6667 | 0.7647 | **0** | 77.9s | **1,421.7s** | 40960 |
+| **qwen3:4b** | 7/11 | `formulaBroken 2`, `sectionRecall 0.2`, `termRecall 0.5882`, `judgeFail 4` | **1.0** | 0.2 | 0.5882 | 2 | 246.0s | 293.5s | 40960 |
+| **A.X-4.0-Light Q4_K_M** | 7/11 | `formulaBroken 1`, `calloutCompliance 0.1667`, `sectionRecall 0.6667`, `judgeFail 4` | 0.1667 | 0.6667 | **0.8235** | 1 | **7.0s** | **34.2s** | 16384 |
+| **exaone3.5:7.8b** *(라이선스 NC — 참고 전용, 제품 후보 아님)* | 6/11 | `formulaBroken 2`, `calloutCompliance 0.0588`, `sectionRecall 0.6667`, `termRecall 0.7647`, `judgeFail 4` | 0.0588 | 0.6667 | 0.7647 | 2 | 96.2s | 155.2s | 32768 |
+
+`judgeFail 4`는 5개 실행 전부에 공통이다 — 위 `현재 결과`의 심판 503/429 때문이고 모델 품질과 무관하다. **심판 축을 빼면 로컬 최고는 qwen3:8b(8/10)이고, 그중 실패는 재현율 2개뿐이다.** `runFailed`·`absentFactLeak`·`notKorean`·`unexpectedTruncation`·`charsPerSectionMin`은 **다섯 모델 전부 통과**했다 — 로컬 모델도 한국어로 쓰고, 원문에 없는 사실을 끌어오지 않고, 잘림 플래그를 정상 처리했다.
+
+### 관찰
+
+**1. qwen3 계열의 thinking이 TTFT를 지배한다.** 프로덕션 경로(`runPdfSummary`)는 `reasoning_effort`를 보내지 않으므로 기본값 그대로 측정했다. 출력 본문에 사고 과정이 섞여 나오지는 않았다(Ollama가 `reasoning_content`로 분리) — 대신 **첫 content delta가 그만큼 늦는다**: qwen3:4b 246초, qwen3:8b 78초. 같은 입력에서 A.X는 7초다. 스트리밍 UX 관점에서 사용자는 4분 동안 빈 화면을 본다. 품질을 위해 qwen3:8b를 쓴다면 thinking 표시가 필요하다(후속 이슈 감).
+
+**2. `long-truncated`에서 qwen3:8b가 23.7분 걸렸다.** 40960 컨텍스트에서 8B q4가 VRAM에 다 안 올라가 `ollama ps` 기준 **29%/71% CPU/GPU** 분할로 돌았다. 같은 케이스가 qwen3:4b는 4.9분, A.X는 34초(100% GPU)다. 48,000자 입력은 8B/40K 조합에서 **실사용 불가 수준**이다 — 컨텍스트를 줄이거나(`chunk.ts`) 더 작은 모델을 써야 한다.
+
+**3. A.X는 16,384 컨텍스트인데도 `HTTP 400`이 나지 않았다.** 48,000자(영어) ≈ 12K 토큰이라 상한 안에 들어갔다. 잘림 플래그도 정상(`truncated: true`, `unexpectedTruncation 0`)이고 앞부분 절 4개를 전부 재현했다. **한국어 원문이면 토큰이 늘어 같은 글자 수로도 초과할 수 있다** — 이 결론을 한국어 PDF로 옮기지 말 것.
+
+**4. 콜아웃 형식이 로컬 모델을 가르는 지점이다.** qwen3 계열은 두 크기 모두 1.0인데, A.X는 0.1667(36섹션 중 6개), exaone3.5는 0.0588(17섹션 중 1개)이다. 실패 형태는 대부분 **콜아웃을 아예 안 쓰거나 `> ` 인용 밖으로 흘리는 것**이다. 프롬프트가 "모든 `##` 섹션마다 예외 없이"라고 못 박았는데도 지켜지지 않으므로, 이 축은 모델 선택 기준이 된다.
+
+**5. 섹션 제목 병기는 지시가 없으면 안 한다.** `lecture-slide`에서 로컬 4모델 전부 `sectionRecall 0`이다 — `## 1. 목표`처럼 한국어로만 옮겨 `Objectives`가 사라졌다. Gemini lite만 `## 1. 목표(Objectives)`로 병기했다. 프롬프트 §2는 "한국어로 번역한 섹션 제목"만 요구하고 원어 병기를 요구하지 않으므로 **모델이 틀린 게 아니라 fixture의 기대가 프롬프트보다 강하다.** `expectSections`를 원문 영어로 잡는 방식 자체를 재검토할 것(후속).
+
+**6. `hallucination` 축은 이번 비교에서 비어 있다.** 다섯 모델 전부 심판 실패라 환각 비교는 못 했다. 로컬 모델의 가장 큰 위험(작은 모델일수록 지어내기)이 **측정되지 않은 채 남아 있다.**
 
 ## 적대적 검증
 
@@ -155,10 +186,10 @@ README의 합격선만 보고 "게이트를 전부 통과하면서 쓸모없는 
 **자동으로 못 잡는 것:**
 
 - **`calloutCompliance`는 형식만 본다.** `> [!easy]` 아래에 원문 용어를 그대로 재나열해도, 중학생이 못 알아들을 말로 써도 형식만 맞으면 1.0이다. "쉬운 설명인가"는 사람이 봐야 한다.
-- **지연은 게이트가 아니다.** `ttftMsMax`가 30초여도 러너는 초록이다. 로컬 모델을 판정하려면 기록된 값을 사람이 읽고 판단해야 한다.
 - **`charsPerSectionMin`은 길이의 하한일 뿐이다.** 원문을 기계 번역해 그대로 붙이면 길이도 채우고 용어·수식·한국어 비율도 만족한다 — **요약이 아니라 번역인지는 어떤 게이트도 구별하지 못한다.** 사람 표본 검수가 필요하다.
 - 번역이 **틀렸는지**는 judge가 환각만 보므로 잡히지 않는다. 원문에 있는 내용을 잘못 옮긴 오역은 "원문에 없는 개념"이 아니라서 통과한다.
-- baseline이 아직 없다. 위 수치는 mock으로 확인한 것이고 실제 모델 값은 **미측정**이다.
+- 위 공격 표의 수치는 mock으로 확인한 것이다. 실제 모델 baseline은 `## 현재 결과`(Gemini lite 4-fixture)와 `## 로컬 모델 비교`에 따로 있다.
+- **`ttftMsMax`가 30초여도 러너는 초록이다** — 지연 게이트가 없으니, 로컬 모델을 쓸지는 기록된 값을 사람이 읽고 정해야 한다. 실제로 qwen3:4b는 첫 글자까지 246초였는데 게이트는 통과했다.
 
 ## fixture 추가하기
 
@@ -205,7 +236,9 @@ README의 합격선만 보고 "게이트를 전부 통과하면서 쓸모없는 
 |---|---|---|
 | 2026-08-02 | `charsPerSectionMin` 지표 신설 | 적대적 검증에서 용어만 덤프한 출력이 `sectionRecall`·`termRecall` 만점을 받았다 |
 | 2026-08-02 | 임계값 **무변경** — `formulaBroken 0` 실패(실측 1)를 그대로 둠 | 섹션·용어는 100% 재현했으므로 못 읽은 게 아니라 기호를 안 옮긴 것이다. lite 모델 한계인지 프롬프트 문제인지 미분리 |
-| 2026-08-04 | `calloutCompliance` 지표 신설 + 게이트 `≥ 1.0` (잠정) | 프롬프트가 "모든 `##` 섹션마다 예외 없이"를 요구하므로 사양상 1.0 말고 다른 값이 없다. 근거는 **기존 baseline 출력 재계산 3/3 = 1.0** — `results/latest.json`에 기록된 마크다운을 지표 코드로 채점했고, 그 계산을 `pdfsummary.test.ts`가 고정한다. 게이트는 baseline 재측정 전까지 잠정 |
+| 2026-08-04 | `calloutCompliance` 지표 신설 + 게이트 `≥ 1.0` (잠정) | 프롬프트가 "모든 `##` 섹션마다 예외 없이"를 요구하므로 사양상 1.0 말고 다른 값이 없다. 근거는 **당시 baseline(1-fixture) 출력 재계산 3/3 = 1.0** — 기록된 마크다운을 지표 코드로 채점했다. 그 `latest.json`은 아래 행에서 4-fixture 실측치로 교체됐고, `pdfsummary.test.ts`는 이제 "기록된 콜아웃 수치를 코드가 재현하는가"를 고정한다 |
 | 2026-08-04 | `unexpectedTruncation` 의미 변경 — "잘렸는가" → "예상(`expectTruncated`)과 다르게 잘렸는가" | 상한 초과 fixture(`long-truncated`)를 넣으려면 잘림이 정상인 케이스가 생긴다. `expectTruncated` 미지정 fixture의 게이트 의미(잘림 0)는 그대로고, `true`인 fixture는 안 잘려도 위반이다. mock 실측: 4가지 조합(기대×실제) 전부 `pdfsummary.test.ts`에서 확인 |
 | 2026-08-04 | `ttftMsMax`·`totalMsMax` 지표 신설, **게이트 없음** | PIE-45 측정 항목(첫 토큰까지 지연·완료 시간). 지연은 하드웨어·네트워크·모델 크기 종속이라 단일 임계값의 근거가 없다 — 로컬 vs Gemini 비교 기록용. 평균 대신 최대: 스트리밍 UX의 체감은 최악 케이스다 |
-| 2026-08-04 | fixture 3종 추가(`formula-heavy`·`term-trap`·`long-truncated`) | 임계값 변경 아님. 기존 fixture가 `lecture-slide` 1종뿐이라 수식 밀집·용어 함정·상한 초과가 측정 밖이었다. 셋 다 **미측정** |
+| 2026-08-04 | fixture 3종 추가(`formula-heavy`·`term-trap`·`long-truncated`) | 임계값 변경 아님. 기존 fixture가 `lecture-slide` 1종뿐이라 수식 밀집·용어 함정·상한 초과가 측정 밖이었다 |
+| 2026-08-04 | `results/latest.json`을 lite 4-fixture 실측치로 교체 (`runAt 2026-08-04T12:59:04.446Z`) | 1-fixture baseline은 새 지표(`calloutCompliance`·지연)와 새 fixture를 담지 못한다. `calloutCompliance`는 이제 재계산이 아니라 실측 1.0이다. **임계값은 무변경** — `formulaBroken` 실측 2, `judgeFail` 실측 4를 실패인 채로 공개한다 |
+| 2026-08-04 | 로컬 모델 4종 실측 기록(PIE-45) — 임계값 변경 없음 | Ollama 0.32.5로 exaone3.5:7.8b · qwen3:8b · qwen3:4b · A.X-4.0-Light Q4_K_M 측정. 게이트를 로컬 기준으로 낮추지 않았다 — **로컬이 얼마나 모자란지가 PIE-45의 질문이라 임계값을 건드리면 답이 사라진다** |
