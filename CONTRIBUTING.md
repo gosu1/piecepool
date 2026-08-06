@@ -102,7 +102,9 @@ cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
 
 ## 리뷰 할당
 
-[`.github/CODEOWNERS`](.github/CODEOWNERS)에 폴더별 리뷰어가 적혀 있습니다. **다만 이 저장소는 비공개 + GitHub Free 플랜이라 CODEOWNERS 자동 리뷰어 지정이 동작하지 않습니다.** 파일을 보고 해당 담당자에게 직접 리뷰를 요청하세요. 저장소를 공개로 전환하거나 유료 플랜으로 올리면 자동 지정이 켜집니다.
+[`.github/CODEOWNERS`](.github/CODEOWNERS)에 경로별 리뷰어가 적혀 있습니다.
+
+이 저장소는 비공개 + GitHub Free 플랜이라 **깃허브의 CODEOWNERS 자동 지정 기능은 꺼져 있습니다.** 대신 [`assign-reviewers`](.github/workflows/assign-reviewers.yml) 워크플로가 PR이 열릴 때 CODEOWNERS를 직접 읽어 리뷰어를 요청합니다. 결과는 같고 플랜과 무관하게 동작합니다. 같은 워크플로가 `docs/10-contracts/` 변경을 감지하면 `contracts-change` 라벨도 붙입니다.
 
 행동 규범은 [행동 강령](.github/CODE_OF_CONDUCT.md)을 따릅니다.
 
@@ -113,7 +115,7 @@ cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
 - `main` 직접 push — 기술적으로 막혀 있지 않다. 그래도 하지 않는다.
 - CI 빨간불 머지 — 머지 버튼이 눌린다. 그래도 하지 않는다.
 - 최소 1인 승인 — 강제되지 않는다. 그래도 받는다.
-- CODEOWNERS 자동 리뷰어 지정 — 동작하지 않는다. 손으로 요청한다.
+- CODEOWNERS 자동 리뷰어 지정 — 깃허브 기능은 꺼져 있으나 `assign-reviewers` 워크플로가 대신한다.
 
 저장소를 공개로 전환하거나 유료 플랜(Pro/Team)으로 올리면 위 네 가지가 전부 켜진다. 어느 쪽으로 갈지는 팀 결정 사항이다.
 
