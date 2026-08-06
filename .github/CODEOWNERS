@@ -1,63 +1,21 @@
 # PiecePool CODEOWNERS
 # https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-security/customizing-your-repository/about-code-owners
 #
-# 규칙: 폴더별 owner. 후행 패턴이 우선.
-# - 10-contracts는 SSOT라 계약 담당 1인이 게이트다 (역할 배분표 §5-1).
-#   기존 "4역할 전원 승인"은 6인 팀에서 실제로 돌지 않아 폐기했다 — PIE-5.
-# - 변경 절차: CONTRIBUTING.md + docs/10-contracts/README.md "변경 절차" 참조.
+# 여기 적힌 사람에게 해당 경로가 바뀐 PR 의 리뷰 요청이 자동으로 간다.
+# 역할 배분표 기준 — 슬라이스 owner 가 코드를 쓰고 겸직 담당이 그 PR 을 리뷰한다.
+# 깃허브가 PR 작성자를 리뷰 요청에서 자동 제외하므로 이 구조가 그대로 성립한다.
+#
+# 규칙 두 가지:
+# - 후행 패턴이 우선. 같은 경로를 두 번 적으면 뒤 줄이 앞 줄을 조용히 덮는다.
+# - 기본 owner(`*`) 를 두지 않는다. 팀장은 방향을 정하는 역할이지 리뷰 게이트가 아니다.
+#   아래에 안 걸리는 경로는 자동 리뷰어가 없다 = 아직 주인이 정해지지 않았다는 뜻이다.
+#   주인 미정 목록은 PIE-5 후속 이슈에 모아뒀다. 회의에서 정해지면 여기 추가한다.
+#
+# 10-contracts 는 SSOT 라 계약 담당 1인이 게이트다 (역할 배분표 §5-1).
+# 기존 "4역할 전원 승인" 은 6인 팀에서 실제로 돌지 않아 폐기했다 — PIE-5.
+# 변경 절차: CONTRIBUTING.md + docs/10-contracts/README.md "변경 절차" 참조.
 
-# 기본 (모든 파일) — PM/Tech Lead
-*                                @gosu1
-
-# 00-overview: 비전·범위 (PM)
-/docs/00-overview/               @gosu1
-
-# 10-contracts: 🔒 SSOT — 계약 담당 1인 게이트
-/docs/10-contracts/              @ChangSik88
-
-# 20-backend: Backend
-/docs/20-backend/                @gosu1 @ChangSik88 @O6west
-
-# 30-llm / 40-frontend 은 아래 "소스 코드 리뷰어" 절에서 슬라이스 담당에게 넘긴다.
-
-# 50-design: 겸직 ③ 디자인시스템 — 담당 미정이라 기본 owner 박서준(@gosu1)로 넘긴다.
-#   정현우(@Black-Tiger-h)는 플러그인·비용 대시보드로 옮겼다. 회의에서 확정 필요.
-
-# 60-qa: 겸직 ⑤ QA/E2E — 윤무진(@ChangSik88)
-/docs/60-qa/                     @ChangSik88
-
-# 70-roadmap: PM
-/docs/70-roadmap/                @gosu1
-
-# archive: 읽기 전용 — PM만 수정
-/docs/archive/                   @gosu1
-
-# .github/: PM
-/.github/                        @gosu1
-
-# ── 소스 코드 리뷰어 ──────────────────────────────────────────
-# 역할 배분표 기준. 슬라이스 owner 가 코드를 쓰고, 겸직 담당이 그 PR 을 리뷰한다.
-# GitHub 은 PR 작성자를 리뷰 요청에서 자동 제외하므로, 여기 적힌 사람이 실제 리뷰어가 된다.
-# 후행 패턴이 우선 — 아래 줄이 위의 `*  @gosu1` 을 덮는다.
-# 주인이 확정되지 않은 영역(슬라이스 1 Ingest, 겸직 ③ 디자인시스템 등)은 일부러 비워
-# 기본 owner 로 흘려보낸다. 확정되면 여기 추가한다.
-
-# 슬라이스 4 LLM Core + 겸직 ④ LLM 평가·비용 — 왕민(@kingmin-1225)
-/src/llm/                        @kingmin-1225
-/scripts/evals/                  @kingmin-1225
-/docs/30-llm/                    @kingmin-1225
-
-# 슬라이스 3 Knowledge Graph — 윤세훈(@dbstpgns789-eng)
-/src-tauri/src/graph/            @dbstpgns789-eng
-/src-tauri/src/priority/         @dbstpgns789-eng
-/src/lib/CytoscapeGraph.tsx      @dbstpgns789-eng
-/src/lib/MiniGraph.tsx           @dbstpgns789-eng
-/src/lib/conceptGraph.ts         @dbstpgns789-eng
-/src/lib/graphStyle.ts           @dbstpgns789-eng
-/src/lib/relationMeta.ts         @dbstpgns789-eng
-/src/lib/priority.ts             @dbstpgns789-eng
-
-# 슬라이스 2 Authoring (읽고 쓰기) — 오준서(@O6west)
+# ── 슬라이스 2 Authoring (읽고 쓰기) — 오준서(@O6west) ──────────
 /src/lib/SlashBlockEditor.tsx    @O6west
 /src/lib/cmCallout.ts            @O6west
 /src/lib/cmFormat.ts             @O6west
@@ -67,12 +25,34 @@
 /src/lib/wikilink.ts             @O6west
 /docs/40-frontend/               @O6west
 
-# 슬라이스 6 Platform + 겸직 ① 컨트랙트 · ⑤ QA/E2E — 윤무진(@ChangSik88)
-# (겸직 ② 릴리즈/CI 담당이 확정되기 전까지 워크플로도 여기서 본다)
+# ── 슬라이스 3 Knowledge Graph — 윤세훈(@dbstpgns789-eng) ───────
+/src-tauri/src/graph/            @dbstpgns789-eng
+/src-tauri/src/priority/         @dbstpgns789-eng
+/src/lib/CytoscapeGraph.tsx      @dbstpgns789-eng
+/src/lib/MiniGraph.tsx           @dbstpgns789-eng
+/src/lib/conceptGraph.ts         @dbstpgns789-eng
+/src/lib/graphStyle.ts           @dbstpgns789-eng
+/src/lib/relationMeta.ts         @dbstpgns789-eng
+/src/lib/priority.ts             @dbstpgns789-eng
+
+# ── 슬라이스 4 LLM Core + 겸직 ④ LLM 평가·비용 — 왕민(@kingmin-1225) ──
+/src/llm/                        @kingmin-1225
+/scripts/evals/                  @kingmin-1225
+/docs/30-llm/                    @kingmin-1225
+
+# ── 슬라이스 6 Platform + 겸직 ① 컨트랙트 · ⑤ QA/E2E — 윤무진(@ChangSik88) ──
+# 겸직 ② 릴리즈/CI 담당이 확정되기 전까지 워크플로도 여기서 본다.
+/docs/10-contracts/              @ChangSik88
+/docs/60-qa/                     @ChangSik88
 /src-tauri/src/models/           @ChangSik88
 /src-tauri/tests/                @ChangSik88
 /.github/workflows/              @ChangSik88
 /e2e/                            @ChangSik88
 
-# 루트 메타 문서
-/README.md                       @gosu1
+# ── 주인 미정 — 일부러 비워둔다 (PIE-5 후속 이슈) ───────────────
+# 슬라이스 1 Ingest      src/lib/pdfText·pdfView·PdfViewer, src-tauri/src/pdf, import
+# 슬라이스 5 Learning Loop  src/llm/feynman·liner·provenance, src/lib/factCheck
+# 겸직 ③ 디자인시스템     docs/50-design, src/ds
+#   (정현우(@Black-Tiger-h)는 플러그인·비용 대시보드로 옮겼다)
+# 겸직 ⑥ 문서/사용자      docs/00-overview, docs/70-roadmap, README.md
+# 그 외                   docs/20-backend, docs/archive, .github(workflows 제외)
