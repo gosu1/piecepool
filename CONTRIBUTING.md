@@ -50,7 +50,7 @@ npm run tauri dev      # Tauri + Vite 동시 실행
 ## 브랜치 & PR
 
 - **`main`에 직접 push 금지.** feature branch → PR → review → merge.
-- 일반 변경: 최소 1인 리뷰. `docs/10-contracts/` 변경: `contracts-change` 라벨 + 4역할(Backend·Frontend·LLM·Design) 승인.
+- 일반 변경: 최소 1인 리뷰. `docs/10-contracts/` 변경: `contracts-change` 라벨 + 계약 담당 1인 승인.
 - CI(`docs-check`, `code-check`)가 red면 merge 금지.
 - merge 후 feature branch 삭제.
 - **UI/UX 변경 PR은 비포·애프터 스크린샷 첨부** — 리뷰어가 시각 변화를 코드 없이 확인할 수 있게. PR 템플릿 체크리스트에 포함.
@@ -81,7 +81,7 @@ docs(contracts): Source.tags 필드 추가
 | LLM 출력 schema | `llm-output-schema.md` |
 
 - Rust `models/`는 `entities.md`를 1:1 미러 (`#[serde(rename_all = "camelCase")]`). TS 타입은 `npm run gen:types`로 자동 생성 — `src/lib/generated/`는 손으로 수정 금지.
-- 계약 변경 절차: `contracts-change` 라벨 PR → 4역할 승인 → 의존 문서 동기화.
+- 계약 변경 절차: `contracts-change` 라벨 PR → 계약 담당 1인 승인 → 의존 문서 동기화.
 
 ## 백엔드 모듈 경계 (Rust)
 
@@ -109,7 +109,7 @@ cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
 `main`은 GitHub Settings → Branches에서 보호 규칙을 적용한다(관리자 수동 또는 `gh api`):
 
 - 필수 상태 체크: `code-check`, `docs-check`
-- merge 전 최소 1인 review + CODEOWNERS review (`docs/10-contracts/`는 4역할)
+- merge 전 최소 1인 review + CODEOWNERS review (`docs/10-contracts/`는 계약 담당 1인)
 - stale approval 자동 해제, merge 후 브랜치 자동 삭제
 - `main` 직접 push 금지 (관리자 포함)
 

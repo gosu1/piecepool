@@ -114,7 +114,7 @@ PiecePool 용어 정의. **모든 역할 필독**. 협업 시 용어 표류 방�
 | 용어 | 정의 |
 |---|---|
 | **SSOT** | Single Source of Truth. `docs/10-contracts/`만 정의. 다른 곳 복붙 금지 |
-| **contracts-change** | SSOT 수정 PR에 부착하는 라벨. 4역할 owner review 필수 |
+| **contracts-change** | SSOT 수정 PR에 부착하는 라벨. 계약 담당 1인 승인 필수 |
 | **CODEOWNERS** | GitHub 폴더별 owner 매핑 파일 (`.github/CODEOWNERS`) |
 | **Tracking issue** | 역할별 Phase 4 작업 추적 이슈 (Backend #1, Frontend #2, LLM #3, Design #4, Contracts #5) |
 | **Phase** | PRD_REFACTOR_PLAN의 5단계. 1=Skeleton, 2=SSOT, 3=Overview, 4=Roles, 5=QA/Roadmap |

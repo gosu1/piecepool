@@ -168,7 +168,7 @@ Google Gemini is the only LLM provider (ADR-0009 supersedes ADR-0001). Liner is 
 
 - **Never push directly to `main`.** Always: feature branch → PR → review → merge.
 - General changes: minimum **1 reviewer** before merge.
-- Any change to `docs/10-contracts/`: requires **all 4 role owners** (Backend + Frontend + LLM + Design) to approve. Add the `contracts-change` PR label.
+- Any change to `docs/10-contracts/`: requires **one approval from the contracts owner** (@ChangSik88). Add the `contracts-change` PR label. The former "all 4 role owners" rule is retired — see `docs/10-contracts/README.md`.
 - If CI (`docs-check`) is red, **do not merge**.
 - Delete the feature branch after merge.
 - Do not copy-paste TS types or JSON Schema into backend source files — CI's `ssot-check` job will reject the PR.
