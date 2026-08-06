@@ -18,20 +18,13 @@
 # 20-backend: Backend
 /docs/20-backend/                @gosu1 @ChangSik88 @O6west
 
-# 30-llm: LLM (adapter/validation/evals)
-/docs/30-llm/                    @gosu1
+# 30-llm / 40-frontend 은 아래 "소스 코드 리뷰어" 절에서 슬라이스 담당에게 넘긴다.
 
-# prompt-templates: Backend 주도 + LLM 공동 review (도메인 프롬프트 설계)
-/docs/30-llm/prompt-templates.md @gosu1 @ChangSik88 @O6west
+# 50-design: 겸직 ③ 디자인시스템 — 담당 미정이라 기본 owner 박서준(@gosu1)로 넘긴다.
+#   정현우(@Black-Tiger-h)는 플러그인·비용 대시보드로 옮겼다. 회의에서 확정 필요.
 
-# 40-frontend: Frontend
-/docs/40-frontend/               @gosu1 @dbstpgns789-eng
-
-# 50-design: Figma 디자이너
-/docs/50-design/                 @Black-Tiger-h
-
-# 60-qa: QA / PM
-/docs/60-qa/                     @gosu1
+# 60-qa: 겸직 ⑤ QA/E2E — 윤무진(@ChangSik88)
+/docs/60-qa/                     @ChangSik88
 
 # 70-roadmap: PM
 /docs/70-roadmap/                @gosu1
@@ -41,6 +34,45 @@
 
 # .github/: PM
 /.github/                        @gosu1
+
+# ── 소스 코드 리뷰어 ──────────────────────────────────────────
+# 역할 배분표 기준. 슬라이스 owner 가 코드를 쓰고, 겸직 담당이 그 PR 을 리뷰한다.
+# GitHub 은 PR 작성자를 리뷰 요청에서 자동 제외하므로, 여기 적힌 사람이 실제 리뷰어가 된다.
+# 후행 패턴이 우선 — 아래 줄이 위의 `*  @gosu1` 을 덮는다.
+# 주인이 확정되지 않은 영역(슬라이스 1 Ingest, 겸직 ③ 디자인시스템 등)은 일부러 비워
+# 기본 owner 로 흘려보낸다. 확정되면 여기 추가한다.
+
+# 슬라이스 4 LLM Core + 겸직 ④ LLM 평가·비용 — 왕민(@kingmin-1225)
+/src/llm/                        @kingmin-1225
+/scripts/evals/                  @kingmin-1225
+/docs/30-llm/                    @kingmin-1225
+
+# 슬라이스 3 Knowledge Graph — 윤세훈(@dbstpgns789-eng)
+/src-tauri/src/graph/            @dbstpgns789-eng
+/src-tauri/src/priority/         @dbstpgns789-eng
+/src/lib/CytoscapeGraph.tsx      @dbstpgns789-eng
+/src/lib/MiniGraph.tsx           @dbstpgns789-eng
+/src/lib/conceptGraph.ts         @dbstpgns789-eng
+/src/lib/graphStyle.ts           @dbstpgns789-eng
+/src/lib/relationMeta.ts         @dbstpgns789-eng
+/src/lib/priority.ts             @dbstpgns789-eng
+
+# 슬라이스 2 Authoring (읽고 쓰기) — 오준서(@O6west)
+/src/lib/SlashBlockEditor.tsx    @O6west
+/src/lib/cmCallout.ts            @O6west
+/src/lib/cmFormat.ts             @O6west
+/src/lib/cmMath.ts               @O6west
+/src/lib/cmWikiTerm.ts           @O6west
+/src/lib/markdown.tsx            @O6west
+/src/lib/wikilink.ts             @O6west
+/docs/40-frontend/               @O6west
+
+# 슬라이스 6 Platform + 겸직 ① 컨트랙트 · ⑤ QA/E2E — 윤무진(@ChangSik88)
+# (겸직 ② 릴리즈/CI 담당이 확정되기 전까지 워크플로도 여기서 본다)
+/src-tauri/src/models/           @ChangSik88
+/src-tauri/tests/                @ChangSik88
+/.github/workflows/              @ChangSik88
+/e2e/                            @ChangSik88
 
 # 루트 메타 문서
 /README.md                       @gosu1
