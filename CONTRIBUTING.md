@@ -102,11 +102,22 @@ cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
 
 ## 리뷰 할당
 
-[`.github/CODEOWNERS`](.github/CODEOWNERS)가 폴더별 리뷰어를 자동 지정합니다. 행동 규범은 [행동 강령](.github/CODE_OF_CONDUCT.md)을 따릅니다.
+[`.github/CODEOWNERS`](.github/CODEOWNERS)에 폴더별 리뷰어가 적혀 있습니다. **다만 이 저장소는 비공개 + GitHub Free 플랜이라 CODEOWNERS 자동 리뷰어 지정이 동작하지 않습니다.** 파일을 보고 해당 담당자에게 직접 리뷰를 요청하세요. 저장소를 공개로 전환하거나 유료 플랜으로 올리면 자동 지정이 켜집니다.
 
-## 브랜치 보호
+행동 규범은 [행동 강령](.github/CODE_OF_CONDUCT.md)을 따릅니다.
 
-`main`은 GitHub Settings → Branches에서 보호 규칙을 적용한다(관리자 수동 또는 `gh api`):
+## 브랜치 보호 — 지금은 없다
+
+**이 저장소는 비공개 + GitHub Free 플랜이라 브랜치 보호 규칙을 설정할 수 없다.** 아래는 전부 사람이 지키는 약속이며, 기계가 막아주지 않는다.
+
+- `main` 직접 push — 기술적으로 막혀 있지 않다. 그래도 하지 않는다.
+- CI 빨간불 머지 — 머지 버튼이 눌린다. 그래도 하지 않는다.
+- 최소 1인 승인 — 강제되지 않는다. 그래도 받는다.
+- CODEOWNERS 자동 리뷰어 지정 — 동작하지 않는다. 손으로 요청한다.
+
+저장소를 공개로 전환하거나 유료 플랜(Pro/Team)으로 올리면 위 네 가지가 전부 켜진다. 어느 쪽으로 갈지는 팀 결정 사항이다.
+
+그때 적용할 설정:
 
 - 필수 상태 체크: `code-check`, `docs-check`
 - merge 전 최소 1인 review + CODEOWNERS review (`docs/10-contracts/`는 계약 담당 1인)

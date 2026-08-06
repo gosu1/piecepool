@@ -1,9 +1,14 @@
 # PiecePool CODEOWNERS
 # https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-security/customizing-your-repository/about-code-owners
 #
-# 여기 적힌 사람에게 해당 경로가 바뀐 PR 의 리뷰 요청이 자동으로 간다.
-# 역할 배분표 기준 — 슬라이스 owner 가 코드를 쓰고 겸직 담당이 그 PR 을 리뷰한다.
-# 깃허브가 PR 작성자를 리뷰 요청에서 자동 제외하므로 이 구조가 그대로 성립한다.
+# 경로별 리뷰 담당. 역할 배분표 기준 — 슬라이스 owner 가 코드를 쓰고 겸직 담당이 그 PR 을 리뷰한다.
+#
+# ⚠️ 지금 이 파일은 자동으로 동작하지 않는다.
+#    비공개 저장소 + GitHub Free 플랜에서는 CODEOWNERS 자동 리뷰어 지정 기능이 꺼져 있다.
+#    (확인: PR #266 리뷰어 0명, PR #103 의 리뷰어 4명은 사람이 손으로 지정한 것)
+#    당분간은 이 파일을 보고 담당자에게 직접 리뷰를 요청한다.
+#    저장소를 공개로 전환하거나 유료 플랜으로 올리면 그 시점부터 자동 지정이 켜진다.
+#    그때 깃허브는 PR 작성자를 리뷰 요청에서 자동 제외하므로 이 구조가 그대로 성립한다.
 #
 # 규칙 두 가지:
 # - 후행 패턴이 우선. 같은 경로를 두 번 적으면 뒤 줄이 앞 줄을 조용히 덮는다.

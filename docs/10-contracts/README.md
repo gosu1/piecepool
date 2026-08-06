@@ -23,7 +23,7 @@ CI workflow `docs-check.yml`의 `ssot-check` job이 grep으로 누출 자동 차
 ### 변경 절차
 1. 본 폴더 수정 PR 생성
 2. PR 라벨 `contracts-change` 부착
-3. 계약 담당 1인 승인 (CODEOWNERS가 자동 지정)
+3. 계약 담당(@ChangSik88)에게 리뷰를 요청하고 승인받는다 — **손으로 지정한다**
 4. 영향받는 역할에게 PR 링크를 공유 — 승인 게이트는 아니지만 통보는 한다
 5. merge 후 의존 문서(`20-backend`, `30-llm`, `40-frontend`, `50-design`) 동기화 PR을 issue로 trace
 
