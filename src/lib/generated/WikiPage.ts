@@ -4,4 +4,4 @@ import type { SourceRef } from "./SourceRef";
 /**
  * entities.md#wikipage
  */
-export type WikiPage = { id: string, spaceId: string, conceptId: string, title: string, path: string, subjectIds: Array<string>, sourceIds: Array<string>, sourceRefs: Array<SourceRef>, markdown: string, createdAt: string, updatedAt: string, };
+export type WikiPage = { id: string, spaceId: string, conceptId: string, title: string, path: string, subjectIds: Array<string>, tags?: Array<string>, sourceIds: Array<string>, sourceRefs: Array<SourceRef>, markdown: string, createdAt: string, updatedAt: string, };

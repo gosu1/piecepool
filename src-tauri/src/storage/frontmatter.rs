@@ -318,6 +318,10 @@ pub fn archive_to_md(
     fm.push_str(&format!("sourceType: {}\n", source_type_str(source_type)));
     yaml_scalar(&mut fm, "title", &note.title);
     yaml_list(&mut fm, "subjectIds", &note.subject_ids);
+    // tags 는 선택 필드(§2.1) — 없으면 줄 자체를 쓰지 않는다 (빈 `tags: []` 금지)
+    if let Some(tags) = note.tags.as_deref().filter(|t| !t.is_empty()) {
+        yaml_list(&mut fm, "tags", tags);
+    }
     yaml_scalar(&mut fm, "sourceId", &note.source_id);
     if let Some(p) = original_file_path {
         yaml_scalar(&mut fm, "originalFilePath", p);
@@ -343,9 +347,19 @@ pub fn md_to_archive(
         title: fm.scalar("title").unwrap_or_default(),
         markdown: body.trim_start_matches('\n').to_string(),
         subject_ids: fm.list("subjectIds"),
+        tags: some_if_nonempty(fm.list("tags")),
         created_at: fm.scalar("createdAt").unwrap_or_default(),
         updated_at: fm.scalar("updatedAt").unwrap_or_default(),
     })
+}
+
+/// 선택 리스트 필드(§2.1 tags) — 부재와 빈 목록을 구분하지 않고 None 으로 접는다.
+fn some_if_nonempty(v: Vec<String>) -> Option<Vec<String>> {
+    if v.is_empty() {
+        None
+    } else {
+        Some(v)
+    }
 }
 
 /// archive 파일의 sourceType(본문 표시용은 아니지만 보존). 현재는 사용처에서 필요 없으면 무시.
@@ -369,6 +383,10 @@ pub fn wiki_to_md(page: &WikiPage) -> String {
     yaml_scalar(&mut fm, "conceptId", &page.concept_id);
     yaml_scalar(&mut fm, "title", &page.title);
     yaml_list(&mut fm, "subjectIds", &page.subject_ids);
+    // tags 는 선택 필드(§3.1) — 없으면 줄 자체를 쓰지 않는다
+    if let Some(tags) = page.tags.as_deref().filter(|t| !t.is_empty()) {
+        yaml_list(&mut fm, "tags", tags);
+    }
     yaml_list(&mut fm, "sourceIds", &page.source_ids);
     fm.push_str("sourceRefs:\n");
     if page.source_refs.is_empty() {
@@ -424,6 +442,7 @@ pub fn md_to_wiki(space_id: &str, path: &str, md: &str) -> std::result::Result<W
         title: fm.scalar("title").unwrap_or_default(),
         path: path.to_string(),
         subject_ids: fm.list("subjectIds"),
+        tags: some_if_nonempty(fm.list("tags")),
         source_ids: fm.list("sourceIds"),
         source_refs,
         markdown: body.trim_start_matches('\n').to_string(),

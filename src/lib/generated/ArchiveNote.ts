@@ -3,4 +3,4 @@
 /**
  * entities.md#archivenote
  */
-export type ArchiveNote = { id: string, spaceId: string, sourceId: string, path: string, title: string, markdown: string, subjectIds: Array<string>, createdAt: string, updatedAt: string, };
+export type ArchiveNote = { id: string, spaceId: string, sourceId: string, path: string, title: string, markdown: string, subjectIds: Array<string>, tags?: Array<string>, createdAt: string, updatedAt: string, };

@@ -651,6 +651,7 @@ fn seed_and_read_back() {
             title: "PDF 노트".into(),
             markdown: "pdf body".into(),
             subject_ids: vec![],
+            tags: None,
             created_at: "2026-07-01T00:00:00Z".into(),
             updated_at: "2026-07-01T00:00:00Z".into(),
         };
@@ -931,6 +932,7 @@ fn frontmatter_validation() {
         title: "t".into(),
         markdown: "b".into(),
         subject_ids: ids.into_iter().map(String::from).collect(),
+        tags: None,
         created_at: created.into(),
         updated_at: String::new(),
     };
@@ -990,6 +992,7 @@ fn frontmatter_validation() {
         title: "P".into(),
         path: "p.md".into(),
         subject_ids: vec!["subject-os".into()],
+        tags: None,
         source_ids: vec![],
         source_refs: vec![],
         markdown: "b".into(),
@@ -1047,6 +1050,7 @@ fn frontmatter_quote_roundtrip() {
             title: title.into(),
             markdown: "본문".into(),
             subject_ids: vec![],
+            tags: None,
             created_at: "2026-07-01T00:00:00Z".into(),
             updated_at: String::new(),
         };
