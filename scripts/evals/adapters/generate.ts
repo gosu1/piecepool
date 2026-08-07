@@ -71,7 +71,11 @@ const adapter: EvalAdapter<Fixture, Out> = {
     const outs = samples.map((s) => s.out).filter((o): o is Out => !!o);
     const lat = samples.map((s) => s.latencyMs ?? 0).sort((a, b) => a - b);
     const shouldTotal = outs.reduce((a, o) => a + o.shouldTotal, 0);
-    const shouldMet = outs.reduce((a, o) => a + (o.shouldTotal - o.warnings.length), 0);
+    // assertCase 의 warnings 에는 should 미충족 외에 `related_to 비율 >50%` 경고도 섞여 들어온다
+    // (scripts/eval.ts — 이번에도 수정하지 않는 파일). 전부 미충족으로 빼면 충족률이 실제보다
+    // 낮게, 케이스에 따라 음수까지 내려간다. should 미충족 경고만 `should.` 접두사로 골라 센다.
+    const shouldMissed = outs.reduce((a, o) => a + o.warnings.filter((w) => w.startsWith("should.")).length, 0);
+    const shouldMet = shouldTotal - shouldMissed;
     return {
       cases: samples.length,
       runFailed: samples.filter((s) => s.error).length,

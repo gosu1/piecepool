@@ -50,17 +50,17 @@ judge 없음. 골든 케이스 채점으로 충분하다.
 
 ## 현재 결과 — `results/latest.json`
 
-**실측 완료 — 게이트 1개 실패** (`gemini-3.5-flash`, judge `gemini-3.5-flash`, 2026-08-02, fixture 5종).
+**실측 완료 — 게이트 3개 실패** (`gemini-3.5-flash`, 2026-08-07, fixture 5종, `shouldMetRatio` 수정 공식).
 
 | 지표 | 실측 | 허용 |
 |---|---|---|
 | `runFailed` / `mustFail` / `schemaInvalid` | 0 / 0 / 0 | 0 |
-| `relatedToRatioMax` | 0 | ≤ 0.30 |
-| `thinConcepts` | 0 | 0 |
-| **`shouldMetRatio`** | **0.5217** | ≥ 0.60 ❌ |
-| `latencyP50` / `latencyMax` | 10.4s / 22.1s | — |
+| **`relatedToRatioMax`** | **0.3333** | ≤ 0.30 ❌ |
+| **`thinConcepts`** | **1** | 0 ❌ |
+| **`shouldMetRatio`** | **0.5652** | ≥ 0.60 ❌ |
+| `latencyP50` / `latencyMax` | 14.3s / 20.2s | — |
 
-`shouldMetRatio` 0.52는 **모델이 부족한 것인지 기준이 과한 것인지 아직 못 가른다.** 0.6은 baseline 없이 정한 잠정값이었고, 지금 생긴 이 실측이 첫 근거다. 임계값 조정은 §12 판정 담당의 승인 사항이므로 **낮추지 않고 실패 상태로 둔다.**
+`shouldMetRatio` 0.5652는 2026-08-08 계산 결함 수정(아래 적대적 검증 절) 후 처음 나온 신뢰 가능한 수치다 — 직전 기록 0.5217은 `related_to` 경고 오염이 섞인 값이라 추이 비교 대상이 아니다. 여전히 잠정 임계값 0.6 미달이며, **모델이 부족한 것인지 기준이 과한 것인지는 그대로 미결이다.** 임계값 조정은 §12 판정 담당의 승인 사항이므로 **낮추지 않고 실패 상태로 둔다.** `relatedToRatioMax`·`thinConcepts`는 아래 분산 표대로 회차 따라 0도 나오는 지표다 — 이번 회차는 계약(30% 상한) 위반 쪽이 나왔고 그대로 공개한다.
 
 **실행 간 변동이 크다.** 같은 fixture 5종을 두 번 돌린 결과:
 
@@ -72,9 +72,37 @@ judge 없음. 골든 케이스 채점으로 충분하다.
 
 코드는 그대로인데 실패 게이트가 3개에서 1개로 줄었다. n=5로는 회귀와 우연을 못 가른다는 뜻이다 — 특히 `related_to` 비율은 [`relation-types.md`](../../../10-contracts/relation-types.md)의 계약(30% 상한)이라 33%가 나온 회차는 실제 계약 위반이었다. **fixture 증량과 반복 실행이 필요하다.**
 
-`sourceRefs` 경고도 5개 케이스 전부에서 나왔다 — `[provider=gemini] sourceRef: dropped N ref(s) referencing unknown sources`. 모델이 입력에 없는 `sourceId`를 지어내고 `generate.ts`가 조용히 버린다. **어떤 게이트도 이걸 보지 않는다.** 인용 출처가 통째로 유실되는 경로라 지표 추가 후보다.
+`sourceRefs` 경고도 5개 케이스 전부에서 나왔다 — `[provider=gemini] sourceRef: dropped N ref(s) referencing unknown sources`. 모델이 입력에 없는 `sourceId`를 지어내고 `generate.ts`가 조용히 버린다. **어떤 게이트도 이걸 보지 않는다.** 인용 출처가 통째로 유실되는 경로라 지표 추가 후보다. 로컬 모델(PIE-44)에서는 같은 계열의 드랍이 두 종류 더 나왔다 — 존재하지 않는 개념 제목을 참조하는 관계, 노드 호환성 위반 관계. 전부 조용히 버려지므로 같은 사각지대다.
 
 **CLI는 `process.env.GEMINI_API_KEY`를 읽는다** — 앱의 `localStorage["gemini-key"]`가 아니다.
+
+## 로컬 모델 비교 (PIE-44)
+
+"키 없이 첫 경험"의 두 번째 필수 축([PIE-44](https://linear.app/piecepool/issue/PIE-44)). 같은 fixture 5종·같은 프롬프트·같은 프로덕션 배선(타임아웃 60초 × 재시도 3회)으로 로컬 4모델을 재고 기준선과 나란히 놓았다.
+
+측정 조건: Ollama 0.32.5 OpenAI 호환(`--base-url http://localhost:11434/v1`), `ollama ps` CONTEXT 40960 확인(조용한 truncate 없음), qwen3:8b는 29%/71% CPU/GPU 분할, 모델 교체 전 `ollama stop`. 2026-08-07~08. 숫자 출처는 실행별 `results/run-*.json`(gitignore — 로컬 보존). generate 는 judge 없는 eval이라 로컬 실행의 Gemini 소모는 0콜이다.
+
+| 지표 | Gemini(기준선) | qwen3:8b ①/② | qwen3:4b | A.X-4.0-Light | exaone3.5:7.8b* |
+|---|---|---|---|---|---|
+| `runFailed` | 0 | 2 / 2 | **5 (전멸)** | 0 | 2 |
+| `mustFail` | 0 | 0 / 0 | — | 2 | 0 |
+| `schemaInvalid` | 0 | 0 / 0 | — | 0 | 0 |
+| `relatedToRatioMax` | 0.3333 | **1.0 / 1.0** | — | 0 | 0 |
+| `shouldMetRatio` | 0.5652 | 0.083 / 0 | 미산출 | 0.043 | 0.5 |
+| `thinConcepts` | 1 | 0 / 0 | — | 5 | 1 |
+| `latencyP50` | 14.3s | 50.7s / 46.9s | (타임아웃) | 9.1s | 73.1s |
+| `latencyMax` | 20.2s | 180.8s† | 180.8s† | 18.7s | 135.7s |
+
+\* exaone3.5는 라이선스 NC — 참고 전용. † 180.8s = 타임아웃 낙제 경로(60s × 3회 재시도 소진).
+
+**로컬 4모델 전부 불합격.** 관찰:
+
+1. **구조화 출력 자체는 된다.** Ollama OpenAI 호환에서 `response_format: json_schema`가 작동해 완주 케이스의 `schemaInvalid`는 전 모델 0이다. 예외는 exaone3.5의 `strength > 1` 위반(재시도 3회 소진, 신규 실패 유형) 1건.
+2. **qwen3 계열의 낙제 경로는 타임아웃이다.** thinking이 60초 예산을 넘겨 매 시도가 잘린다. 타임아웃을 9분으로 늘린 진단 런의 실제 완료 시간: 8b `case-002` 74.5s, 8b `case-007` 145.6s, 4b `case-001` 77.8s — 지연이 절망적인 게 아니라 **60초 고정 예산이 thinking 소요를 못 담는 것**이다. 단, 완주시켜도 아래 품질 낙제는 그대로다.
+3. **qwen3:8b는 related_to 로 도피한다.** 케이스 최대 100%(계약 상한 30%) — 관계 유형 판단을 포기하는 패턴이 2회 재현. `shouldMetRatio` 0~0.083로 관계 유형 힌트를 거의 못 맞춘다.
+4. **A.X는 빠르고 비어 있다.** P50 9.1s(기준선급)인데 개념 제목을 영어로 추출해 must 매칭 실패(2건), 관계 0개 케이스, `thinConcepts` 5건. pdfsummary 때(속도 최고·콜아웃 0.17)와 같은 "형식만 빠르게, 내용 빈약" 패턴.
+5. **exaone3.5 완주 케이스 품질은 로컬 최고**(should 0.5, 기준선 −0.065)지만 지연 52~135s에 NC 라이선스라 채택 불가.
+6. **환각 축은 아무도 안 봤다.** generate 는 judge 없는 eval이다. pdfsummary 실측(PIE-55)에서 로컬 낙제 최대 항목이 환각(기준선 0/4 vs 로컬 3~4/4)이었으므로, 위 수치는 로컬 품질의 **상한**으로 읽어야 한다.
 
 ## 적대적 검증
 
@@ -91,7 +119,7 @@ README의 합격선만 보고 "골든 케이스를 전부 통과하면서 위키
 **자동으로 못 잡는 것:**
 
 - **`thinConcepts`는 길이의 하한일 뿐이다.** 50자를 채운 무의미한 문장(같은 말 반복, 원문 복붙)은 통과한다. 설명이 실제로 개념을 설명하는지는 사람 표본 검수가 필요하다.
-- **`should` 판정에는 계산 결함이 있다.** `shouldMetRatio = (shouldTotal - warnings.length) / shouldTotal`인데 `assertCase`의 `warnings`에는 `should` 미충족 외에 **`related_to 비율 > 50%` 경고도 섞여 들어간다**(`scripts/eval.ts`). 그 경고가 뜨면 충족률이 실제보다 낮게(경우에 따라 음수로) 계산된다. `eval.ts`는 이번 작업에서 고치지 않기로 한 파일이라 **보고만 한다.**
+- **`should` 판정 계산 결함 — 수정됨(2026-08-08, PIE-44 선행 작업).** `assertCase`의 `warnings`에 `should` 미충족 외에 `related_to 비율 > 50%` 경고가 섞여 충족률이 실제보다 낮게(케이스에 따라 음수까지) 계산되던 결함. 어댑터가 `should.` 접두사 경고만 세도록 고쳤다 — `generate.test.ts`가 오염 입력으로 실증한다. `eval.ts`는 여전히 무수정(채점기 복제 금지 원칙 유지).
 - 개념 제목만 맞고 내용이 엉뚱한 개념을 설명하는 경우는 골든 케이스로 잡히지 않는다.
 
 ## fixture 추가하기
@@ -138,3 +166,6 @@ fixture와 expected가 **쌍**이다. `id`가 같아야 짝이 맞는다.
 |---|---|---|
 | 2026-08-02 | `thinConcepts` 지표 신설 (설명 50자 미만 개념 수) | 적대적 검증에서 마침표 하나짜리 본문이 `shouldMetRatio` 만점을 받았다 |
 | 2026-08-02 | 임계값 **무변경** — `shouldMetRatio ≥ 0.6` 실패(실측 0.5217)를 그대로 둠 | 0.6은 baseline 없이 정한 잠정값이나, 낮출지는 §12 판정 담당의 승인 사항 |
+| 2026-08-08 | `shouldMetRatio` 계산 수정 — `should.` 접두사 경고만 미충족으로 집계 | `related_to >50%` 경고 오염으로 충족률이 실제보다 낮게 계산되던 결함(적대적 검증 절에 기록돼 있던 부채). `generate.test.ts` 오염 mock으로 실증. eval.ts 무수정 |
+| 2026-08-08 | `latest.json`을 수정 공식 재실측치로 교체 (`runAt 2026-08-07T14:46:05.742Z`) — 임계값 무변경 | 오염 공식의 0.5217은 추이 비교 불가. 재실측 0.5652도 0.6 미달 — 실패인 채로 공개. `relatedToRatioMax 0.3333`·`thinConcepts 1`도 이번 회차 실측 그대로 |
+| 2026-08-08 | 로컬 모델 4종 실측 기록(PIE-44) — 임계값 변경 없음 | Ollama 0.32.5로 qwen3:8b(2회) · qwen3:4b · A.X-4.0-Light Q4_K_M · exaone3.5:7.8b 측정 + 타임아웃 진단 런 3건. 게이트를 로컬 기준으로 낮추지 않았다 — 로컬이 얼마나 모자란지가 PIE-44의 질문이다 |
