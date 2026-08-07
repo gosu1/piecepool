@@ -20,12 +20,11 @@ jobs:
       # 타입만으론 못 잡는 배관(픽스처 경로·CLI 인자)을 키 없이 실제 실행해 확인한다.
       - name: scripts smoke (offline, no API key)
         run: npm run chunk -- --text "커널은 자원을 관리한다. 프로세스는 실행 중인 프로그램이다." --offline
-      # 아래는 안정화 전까지 continue-on-error, green 확인 후 blocking 전환
+      # 2026-08-07 blocking 전환 (PIE-5). 로컬 실측 전부 초록 확인 후 전환했다.
       - name: npm test (vitest)
-        continue-on-error: true
         run: npm test
+      # 생성물 최신 검사 — models/ 를 고치고 gen:types 를 잊으면 여기서 잡힌다.
       - name: gen:types drift guard
-        continue-on-error: true
         run: |
           npm run gen:types
           git diff --exit-code src/lib/generated
@@ -47,13 +46,10 @@ jobs:
         with:
           workspaces: src-tauri
       - run: cargo check --manifest-path src-tauri/Cargo.toml
-      # 아래 3개는 안정화 전까지 continue-on-error, green 확인 후 blocking 전환
+      # 2026-08-07 blocking 전환 (PIE-5). 로컬 실측 전부 초록 확인 후 전환했다.
       - name: cargo test
-        continue-on-error: true
         run: cargo test --manifest-path src-tauri/Cargo.toml
       - name: cargo clippy
-        continue-on-error: true
         run: cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
       - name: cargo fmt --check
-        continue-on-error: true
         run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
