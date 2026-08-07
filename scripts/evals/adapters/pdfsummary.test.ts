@@ -5,8 +5,10 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 vi.mock("../../../src/llm/pdfsummary", () => ({ runPdfSummary: vi.fn() }));
+vi.mock("../judge", () => ({ judgeJson: vi.fn() }));
 
 import { runPdfSummary } from "../../../src/llm/pdfsummary";
+import { judgeJson } from "../judge";
 import adapter, { calloutStats } from "./pdfsummary";
 
 // 실제 baseline 실행(results/latest.json)의 기록된 출력으로 지표를 되돌려 검증한다.
@@ -87,8 +89,12 @@ const fixture = (over: Partial<Fx> = {}): Fx => ({
 
 const ctx = { dry: true, apiKey: "k" };
 const mocked = vi.mocked(runPdfSummary);
+const mockedJudge = vi.mocked(judgeJson);
 
-beforeEach(() => mocked.mockReset());
+beforeEach(() => {
+  mocked.mockReset();
+  mockedJudge.mockReset();
+});
 
 function mockOutput(markdown: string, truncated = false, deltas = 2): void {
   mocked.mockImplementation(async (_input, _key, opts) => {
@@ -162,6 +168,61 @@ describe("metrics", () => {
     const m = await metricsOf(`${SECTION}${GOOD_CALLOUT}`);
     expect(Number.isFinite(m.ttftMsMax)).toBe(true);
     expect(m.totalMsMax).toBeGreaterThanOrEqual(m.ttftMsMax);
+  });
+});
+
+// 케이스별 judge 판정 기록(PIE-59). 집계 수치(hallucination/judgeFail)만으로는 어떤 fixture 의
+// 어떤 문장이 걸렸는지 run JSON 에서 확인할 수 없었다 — 이제 samples[].judge 에 남는다.
+describe("metrics — 케이스별 judge 기록", () => {
+  const wetCtx = { dry: false, apiKey: "k" };
+
+  async function runOne(): Promise<{ fixture: Fx; out: O; judge?: { verdict?: unknown; error?: string } }> {
+    mockOutput(`${SECTION}${GOOD_CALLOUT}`);
+    const fx = fixture();
+    return { fixture: fx, out: await adapter.run(fx, wetCtx) };
+  }
+
+  it("환각 판정을 근거 문장째로 남긴다", async () => {
+    const verdict = { hallucination: true, hallucinationEvidence: "원문에 없는 문장이다." };
+    mockedJudge.mockResolvedValue(verdict);
+    const samples = [await runOne()];
+    const m = await adapter.metrics(samples, wetCtx);
+    expect(samples[0].judge).toEqual({ verdict });
+    expect(m.hallucination).toBe(1);
+    expect(m.judgeFail).toBe(0);
+  });
+
+  it("환각이 없어도 판정을 남긴다 — '깨끗했다' 와 '판정이 없었다' 는 다른 사실이다", async () => {
+    const verdict = { hallucination: false, hallucinationEvidence: "" };
+    mockedJudge.mockResolvedValue(verdict);
+    const samples = [await runOne()];
+    const m = await adapter.metrics(samples, wetCtx);
+    expect(samples[0].judge).toEqual({ verdict });
+    expect(m.hallucination).toBe(0);
+  });
+
+  it("판정 실패는 사유 문자열로 남긴다 — 한도 소진인지 즉시 거절인지 여기서 읽는다", async () => {
+    mockedJudge.mockRejectedValue(new Error("judge: HTTP 503 (3회 시도 소진)"));
+    const samples = [await runOne()];
+    const m = await adapter.metrics(samples, wetCtx);
+    expect(samples[0].judge?.error).toBe("judge: HTTP 503 (3회 시도 소진)");
+    expect(samples[0].judge?.verdict).toBeUndefined();
+    expect(m.judgeFail).toBe(1);
+    expect(m.hallucination).toBe(0);
+  });
+
+  it("심판 모델 축을 그대로 넘긴다 — subject(ctx.model)를 넘기면 비교가 성립하지 않는다", async () => {
+    mockedJudge.mockResolvedValue({ hallucination: false, hallucinationEvidence: "" });
+    const samples = [await runOne()];
+    await adapter.metrics(samples, { ...wetCtx, model: "subject-model", judgeModel: "judge-model" });
+    expect(mockedJudge.mock.calls[0][4]).toBe("judge-model");
+  });
+
+  it("dry 에서는 judge 필드가 아예 생기지 않는다 — 심판을 안 불렀으니 빈 판정도 없다", async () => {
+    const samples = [await runOne()];
+    await adapter.metrics(samples, ctx);
+    expect(samples[0].judge).toBeUndefined();
+    expect(mockedJudge).not.toHaveBeenCalled();
   });
 });
 

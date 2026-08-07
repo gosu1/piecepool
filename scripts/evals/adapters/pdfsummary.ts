@@ -186,8 +186,13 @@ const adapter: EvalAdapter<Fixture, Out> = {
           ctx.apiKey,
           ctx.judgeModel, // subject(ctx.model)가 아니다 — judge.ts 주석 참조
         );
+        // 판정을 케이스에 붙여 둔다(PIE-59). hallucination 이 false 여도 남긴다 —
+        // "판정을 받았고 깨끗했다" 와 "판정 자체가 없었다" 는 다른 사실이고,
+        // 근거 문장(hallucinationEvidence)이 없으면 게이트가 깨져도 재확인할 것이 없다.
+        s.judge = { verdict: v };
         if (v.hallucination) hallu++;
-      } catch {
+      } catch (e) {
+        s.judge = { error: e instanceof Error ? e.message : String(e) };
         judgeFail++;
       }
     }
