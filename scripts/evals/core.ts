@@ -28,6 +28,12 @@ export interface Sample<F, O> {
   out?: O;
   error?: string;
   latencyMs?: number;
+  // 케이스별 judge 판정·근거를 run JSON 에 남기는 범용 슬롯(PIE-59) — 집계 수치만 남기면
+  // 어떤 문장이 왜 걸렸는지 재확인이 불가능하다. dry 실행이나 judge 없는 어댑터에서는
+  // undefined(직렬화 시 사라짐).
+  // 슬롯은 범용이지만 현재 pdfsummary 어댑터만 채운다 — judge 를 쓰는 다른 어댑터(synthesize)
+  // 배선은 후속이다.
+  judge?: { verdict?: unknown; error?: string };
 }
 
 export interface EvalAdapter<F, O> {
@@ -39,6 +45,8 @@ export interface EvalAdapter<F, O> {
   // 미지정이면 GEMINI_MODEL 로 본다.
   defaultModel?: string;
   run(fixture: F, ctx: RunCtx): Promise<O>;
+  // 어댑터는 metrics() 안에서 samples[i].judge 같은 케이스별 기록을 채울 수 있다 —
+  // run.ts 는 metrics() 이후의 samples 를 직렬화하므로 이 호출 순서가 계약이다.
   metrics(samples: Sample<F, O>[], ctx: RunCtx): Promise<Metrics>;
   gates: Gate[];
 }

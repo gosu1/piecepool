@@ -77,6 +77,37 @@ describe("runAdapter", () => {
   });
 });
 
+// 케이스별 judge 기록(PIE-59)은 어댑터가 metrics() 안에서 채운다 — runAdapter 는 그 뒤의 samples 를
+// 필드 pick/복사 없이 그대로 report 에 실어 직렬화한다. 여기서 재는 것은 그 한 가지다:
+// 어댑터가 붙인 필드가 러너를 지나 결과 JSON 까지 그대로 살아남는가.
+describe("samples[].judge 직렬화 계약", () => {
+  const judgeFilling = (dir: string) =>
+    adapter(dir, {
+      metrics: async (samples, ctx) => {
+        if (!ctx.dry) for (const s of samples) s.judge = { verdict: { hallucination: false } };
+        return { failed: 0 };
+      },
+    });
+
+  it("metrics() 가 채운 judge 가 결과 JSON 에 남는다", async () => {
+    const dir = fixtureDir([{ id: "a", n: 1 }]);
+    const rep = await runAdapter(judgeFilling(dir), { dry: false, apiKey: "" }, {});
+    const serialized = JSON.parse(JSON.stringify(rep));
+    expect(serialized.samples[0].judge).toEqual({ verdict: { hallucination: false } });
+  });
+
+  // 가짜 metrics 의 `if (!ctx.dry)` 가드가 스스로 안 채운 결과를 보는 것이므로, 이 테스트가
+  // 실제로 재는 것은 ctx.dry 가 metrics() 까지 도달한다는 것과 러너가 judge 를 스스로 만들지
+  // 않는다는 것 두 가지다 — "dry 면 judge 가 없다" 는 어댑터 쪽 규약이지 러너의 보장이 아니다.
+  it("ctx.dry 가 metrics() 에 그대로 전달된다 — 어댑터가 심판을 건너뛰는 지점이다", async () => {
+    const dir = fixtureDir([{ id: "a", n: 1 }]);
+    const rep = await runAdapter(judgeFilling(dir), { dry: true, apiKey: "" }, {});
+    const serialized = JSON.parse(JSON.stringify(rep));
+    expect(serialized.dry).toBe(true);
+    expect("judge" in serialized.samples[0]).toBe(false); // 가드가 안 채웠고 러너도 안 붙였다
+  });
+});
+
 // 어느 모델로 잰 수치인지 결과에 안 적히면 다른 실행과 비교할 근거가 없다.
 describe("RunReport 의 측정 축 기록", () => {
   it("모델 축을 준 대로 적는다", async () => {
