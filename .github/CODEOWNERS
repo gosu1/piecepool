@@ -49,8 +49,15 @@
 /scripts/evals/                  @kingmin-1225
 /docs/30-llm/                    @kingmin-1225
 
-# ── 슬라이스 6 Platform + 겸직 ① 컨트랙트 · ⑤ QA/E2E — 윤무진(@ChangSik88) ──
-# 겸직 ② 릴리즈/CI 담당이 확정되기 전까지 워크플로도 여기서 본다.
+# ── 슬라이스 5 Learning Loop 중 라이너·출처 — 윤세훈(@dbstpgns789-eng) ──
+# 역할 확인(2026-08-11): 라이너 api 활용 = 윤세훈. 아래 줄이 위의 /src/llm/ 을 덮는다.
+# 파인만(feynman*.ts)은 왕민·윤세훈·박서준 셋이 겹쳐 미정 — 회의에서 리뷰 담당 1인 확정.
+/src/llm/liner.ts                @dbstpgns789-eng
+/src/llm/provenance.ts           @dbstpgns789-eng
+/src/lib/factCheck.ts            @dbstpgns789-eng
+
+# ── 슬라이스 6 Platform + 겸직 ① 컨트랙트 · ② 릴리즈/CI · ⑤ QA/E2E — 윤무진(@ChangSik88) ──
+# 릴리즈/CI 는 배포·제품화에 직결이라 윤무진 확정 (2026-08-11).
 /docs/10-contracts/              @ChangSik88
 /docs/60-qa/                     @ChangSik88
 /src-tauri/src/models/           @ChangSik88
@@ -58,10 +65,15 @@
 /.github/workflows/              @ChangSik88
 /e2e/                            @ChangSik88
 
-# ── 주인 미정 — 일부러 비워둔다 (PIE-5 후속 이슈) ───────────────
-# 슬라이스 1 Ingest      src/lib/pdfText·pdfView·PdfViewer, src-tauri/src/pdf, import
-# 슬라이스 5 Learning Loop  src/llm/feynman·liner·provenance, src/lib/factCheck
-# 겸직 ③ 디자인시스템     docs/50-design, src/ds
-#   (정현우(@Black-Tiger-h)는 플러그인·비용 대시보드로 옮겼다)
-# 겸직 ⑥ 문서/사용자      docs/00-overview, docs/70-roadmap, README.md
-# 그 외                   docs/20-backend, docs/archive, .github(workflows 제외)
+# ── 방향성 문서 — 박서준(@gosu1) ───────────────────────────────
+# 방향 결정권자의 문서 소유다. 코드 리뷰 게이트가 아니다 — 코드 경로에는 넣지 않는다.
+/docs/00-overview/               @gosu1
+/docs/70-roadmap/                @gosu1
+/README.md                       @gosu1
+
+# ── 주인 미정 — 일부러 비워둔다 (회의 확정 대상) ─────────────────
+# 슬라이스 1 Ingest      src/lib/pdfText·pdfView·PdfViewer, src-tauri/src/pdf·import
+#   (담당이 있었다는 기억 있음 — 기록엔 없어 회의에서 재확인 후 여기 기입)
+# 파인만                 src/llm/feynman*.ts, src/lib/feynmanSection.ts (3인 겹침)
+# 겸직 ③ 디자인시스템     docs/50-design, src/ds — 디자인 담당 충원 전까지 공석/외주 확인
+# 백엔드 잔여 코드        src-tauri/src/storage·commands·notes·lib.rs + docs/20-backend
