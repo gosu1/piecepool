@@ -7,7 +7,7 @@ on:
 
 jobs:
   frontend:
-    runs-on: macos-14
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
@@ -24,22 +24,23 @@ jobs:
       - name: npm test (vitest)
         continue-on-error: true
         run: npm test
-      - name: gen:types drift guard
-        continue-on-error: true
-        run: |
-          npm run gen:types
-          git diff --exit-code src/lib/generated
       # e2e 는 blocking — 여기가 continue-on-error 였다면 셀렉터가 썩어도 아무도 모른다.
       - name: e2e (playwright)
         run: |
-          npx playwright install chromium
+          npx playwright install --with-deps chromium
           npm run e2e
 
   rust:
-    # Tauri(wry/webkit) 의존으로 macOS 유지 — bare ubuntu 금지
-    runs-on: macos-14
+    # macOS 러너는 분 차감 10배라 무료 한도(월 2,000분)를 1주에 소진한다.
+    # Tauri(wry/webkit) 링크는 아래 apt 의존성으로 해결 — 이 목록 없는 bare ubuntu 는 여전히 금지.
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      # Tauri v2 공식 Ubuntu prerequisites
+      - name: install tauri linux deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
@@ -57,3 +58,10 @@ jobs:
       - name: cargo fmt --check
         continue-on-error: true
         run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+      # gen:types 는 cargo test(export_bindings) 실행이라 rust 잡에 둔다 —
+      # frontend 잡에 두면 Tauri 네이티브 의존성 설치와 크레이트 재컴파일이 통째로 필요해진다.
+      - name: gen:types drift guard
+        continue-on-error: true
+        run: |
+          npm run gen:types
+          git diff --exit-code src/lib/generated
