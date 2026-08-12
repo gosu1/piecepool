@@ -3,6 +3,7 @@
 // 사용자가 쓴 내용이 사라진다. 미병합은 중복 파일이 생길 뿐이라 덜 나쁘다 — 게이트를 비대칭으로 둔다.
 import { join } from "node:path";
 import { mergeDuplicateConcepts } from "../../../src/llm/dedupConcepts";
+import { normalizeTitle } from "../../../src/lib/normalizeTitle";
 import type { LlmConcept } from "../../../src/llm/provider";
 import type { EvalAdapter, Metrics, Sample } from "../core";
 
@@ -11,7 +12,8 @@ type Out = { merged: LlmConcept[]; groupOf: Map<string, number> };
 
 // 병합 결과에서 "원제목 → 결과 인덱스" 를 만든다. 결과가 어떤 표기를 대표로 골랐든,
 // 원본 제목이 어느 그룹에 흡수됐는지는 정규화 비교로 되찾을 수 있다.
-const norm = (t: string): string => t.normalize("NFC").toLowerCase().replace(/\s+/g, " ").trim();
+// mergeDuplicateConcepts 와 같은 normalizeTitle 공용 구현을 써야 그룹 복원이 어긋나지 않는다.
+const norm = normalizeTitle;
 
 const adapter: EvalAdapter<Fixture, Out> = {
   id: "dedupConcepts",

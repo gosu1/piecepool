@@ -7,11 +7,10 @@ import { splitFeynmanSection, joinFeynmanSection } from "./feynmanSection";
 
 // LlmWikiResult → WikiPage[] + Relation[] 변환 후 백엔드에 저장.
 // 변환 파이프라인: docs/10-contracts/llm-output-schema.md (LlmConcept→Concept+WikiPage, LlmRelation→Relation).
-// dedup: normalizedTitle(NFC+소문자+공백정규화) 이 기존 위키와 일치하면 그 파일에 MERGE(새 .md 만들지 않음).
+// dedup: normalizedTitle(NFC+소문자+공백 제거) 이 기존 위키와 일치하면 그 파일에 MERGE(새 .md 만들지 않음).
 
-export function normalizeTitle(t: string): string {
-  return t.normalize("NFC").toLowerCase().replace(/\s+/g, " ").trim();
-}
+import { normalizeTitle } from "./normalizeTitle";
+export { normalizeTitle };
 function slugify(t: string): string {
   return t
     .normalize("NFC")

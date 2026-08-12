@@ -1,12 +1,13 @@
 import type { LlmConcept } from "./provider";
+import { normalizeTitle } from "../lib/normalizeTitle";
 
 // 한 LLM 응답 안에서 같은 개념(정규화 제목 동일)이 두 번 나오면, 저장 단계가 같은 파일 경로에
 // 두 번 써서 뒤가 앞을 덮는다(applyLlmResult 의 병렬 saveWikiBatch). 저장 전에 내용을 결합한다 —
 // 덮어쓰기가 아니라 summary/explanation/sourceRefs 등 필드 결합이다.
-// 정규화 규칙은 llmApply.normalizeTitle 과 동일해야 한다(NFC·소문자·공백정규화) — 어긋나면
-// 여기서 안 접힌 변형이 slugOrHash 로 같은 경로에 저장돼 유실이 재발한다.
+// 판정 키는 normalizeTitle 공용 구현 — 규칙이 어긋나면 여기서 안 접힌 변형이
+// slugOrHash 로 같은 경로에 저장돼 유실이 재발한다.
 
-const norm = (t: string): string => t.normalize("NFC").toLowerCase().replace(/\s+/g, " ").trim();
+const norm = normalizeTitle;
 
 /** 응답 내 동일 개념을 첫 등장 기준으로 결합한다. 순서는 첫 등장 순서를 보존한다. */
 export function mergeDuplicateConcepts(concepts: LlmConcept[]): LlmConcept[] {

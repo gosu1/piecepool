@@ -17,10 +17,13 @@ vi.mock("./ipc", () => ({
 }));
 
 describe("concept dedup key (normalizedTitle)", () => {
-  it("collapses case + whitespace, NFC — 'Self-Attention' == 'self attention'", () => {
+  it("NFC + 소문자 + 공백 전부 제거 — 띄어쓰기 변형이 같은 키로 접힌다", () => {
     expect(normalizeTitle("Self-Attention")).toBe("self-attention");
-    expect(normalizeTitle("Self  Attention")).toBe("self attention");
+    expect(normalizeTitle("Self  Attention")).toBe("selfattention");
     expect(normalizeTitle("  임베딩 ")).toBe("임베딩");
+    // PIE-64 — 한글 띄어쓰기 변형은 같은 개념이다. collapse(한 칸 축약)로는 안 접혔다.
+    expect(normalizeTitle("교착 상태")).toBe(normalizeTitle("교착상태"));
+    expect(normalizeTitle("교착 상태")).not.toBe(normalizeTitle("기아 상태"));
   });
   it("slugOrHash is stable per normalized title (same concept → same file)", () => {
     expect(slugOrHash("Self-Attention")).toBe(slugOrHash("self-attention"));
@@ -445,13 +448,14 @@ describe("applyLlmResult 병합 — 기존 개념에 새 노트가 얹힐 때", 
   });
 });
 
-// LLM 입력의 existingConcepts — normalizedTitle 이 validate.normTitle 과 다른 규칙으로 만들어지면
-// known 집합 비교가 영영 실패해 그 기존 개념으로 향하는 관계가 전부 조용히 드롭된다(droppedTitle).
+// LLM 입력의 existingConcepts — normalizedTitle 이 validate 의 관계 검증과 다른 규칙으로
+// 만들어지면 known 집합 비교가 영영 실패해 그 기존 개념으로 향하는 관계가 전부 조용히
+// 드롭된다(droppedTitle).
 describe("toExistingConcepts", () => {
-  it("normalizedTitle 은 normalizeTitle 규칙(NFC·소문자·공백정규화)을 따른다 — 엣지 드롭 방지", () => {
+  it("normalizedTitle 은 normalizeTitle 규칙(NFC·소문자·공백 제거)을 따른다 — 엣지 드롭 방지", () => {
     const pages = [existingPage({ conceptId: "concept-cnn", title: "합성곱  신경망" })];
     expect(toExistingConcepts(pages)).toEqual([
-      { id: "concept-cnn", title: "합성곱  신경망", normalizedTitle: "합성곱 신경망" },
+      { id: "concept-cnn", title: "합성곱  신경망", normalizedTitle: "합성곱신경망" },
     ]);
   });
 

@@ -92,7 +92,7 @@ LLM/검증/저장 단계의 **비치명적** 결과는 실패가 아니다. `?`�
 
 ## 7. dedup / merge
 
-`save_wiki`는 `Concept.normalizedTitle`(소문자·공백정규화)이 이미 있으면 **새 WikiPage를 만들지 않고 기존에 merge**한다 (CLAUDE.md §LLM Output, [llm-output-schema.md](../10-contracts/llm-output-schema.md)). 이것이 "자료가 쌓일수록 지식 지도가 성장"하는 핵심 동작이다. 응답 내 중복 `normalizedTitle`은 마지막 1개만 유지 ([output-validation §3.7](../30-llm/output-validation.md)).
+`save_wiki`는 `Concept.normalizedTitle`(소문자·공백 제거 — `src/lib/normalizeTitle.ts`)이 이미 있으면 **새 WikiPage를 만들지 않고 기존에 merge**한다 (CLAUDE.md §LLM Output, [llm-output-schema.md](../10-contracts/llm-output-schema.md)). 이것이 "자료가 쌓일수록 지식 지도가 성장"하는 핵심 동작이다. 응답 내 중복 `normalizedTitle`은 마지막 1개만 유지 ([output-validation §3.7](../30-llm/output-validation.md)).
 
 ---
 

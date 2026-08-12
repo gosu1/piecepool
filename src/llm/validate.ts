@@ -1,6 +1,7 @@
 import Ajv2020, { type ValidateFunction } from "ajv/dist/2020";
 import schema from "./schema/llm-wiki-result.schema.json" with { type: "json" };
 import type { LlmWikiInput, LlmWikiResult } from "./provider";
+import { normalizeTitle } from "../lib/normalizeTitle";
 
 // 런타임 JSON Schema 검증. schema는 SSOT(docs/10-contracts/llm-output-schema.md §4)에서
 // 생성됨 — npm run gen:llm-schema. 모든 provider 응답은 본 함수 통과 후에만 다음 계층에 노출.
@@ -63,10 +64,6 @@ export function sanitizeSourceRefs(
   return { data: { concepts, relations: result.relations }, dropped };
 }
 
-function normTitle(t: string): string {
-  return t.normalize("NFC").toLowerCase().replace(/\s+/g, " ").trim();
-}
-
 // 12행 node-compat 매트릭스 (relation-types.md §6). Rust graph.rs::compat 와 동일 규약을
 // 하나의 canonical predicate 로 구현한다(enum 값 복붙 아님 — 로직).
 type NodeKind = "concept" | "wikiPage" | "source";
@@ -103,8 +100,9 @@ export function normalizeRelations(
   input: LlmWikiInput,
 ): { data: LlmWikiResult; droppedTitle: number; droppedNode: number } {
   const known = new Set<string>([
-    ...result.concepts.map((c) => normTitle(c.title)),
-    ...input.existingConcepts.map((c) => c.normalizedTitle),
+    ...result.concepts.map((c) => normalizeTitle(c.title)),
+    // 호출측이 옛 규칙(공백 collapse)으로 만든 normalizedTitle 이 남아 있어도 어긋나지 않게 재정규화.
+    ...input.existingConcepts.map((c) => normalizeTitle(c.normalizedTitle)),
   ]);
   let droppedTitle = 0;
   let droppedNode = 0;
@@ -116,7 +114,7 @@ export function normalizeRelations(
       droppedNode++;
       return false;
     }
-    if (!known.has(normTitle(r.sourceConceptTitle)) || !known.has(normTitle(r.targetConceptTitle))) {
+    if (!known.has(normalizeTitle(r.sourceConceptTitle)) || !known.has(normalizeTitle(r.targetConceptTitle))) {
       droppedTitle++;
       return false;
     }
