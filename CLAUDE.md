@@ -35,29 +35,13 @@ Guidelines and commands for PiecePool Backend (Tauri + Rust) development.
 
 ### Workspace Layout (`docs/10-contracts/workspace-layout.md`)
 
-- The local directory structure is canonical. Every file path the backend reads or writes must conform exactly:
-  ```
-  <workspaceRoot>/.config/workspace.json    ← hidden dir; same name on every OS (Windows also sets FILE_ATTRIBUTE_HIDDEN)
-  <workspaceRoot>/.config/spaces.json
-  <space>/inbox/
-  <space>/archive/         ← raw user text; NEVER overwrite with LLM output
-  <space>/wiki/            ← LLM-generated WikiPage .md files
-  <space>/relations/relations.json
-  <space>/sources/original-files/
-  <space>/config/subjects.json
-  ```
+- The local directory structure is canonical. Every file path the backend reads or writes must conform exactly to the tree in [`workspace-layout.md`](docs/10-contracts/workspace-layout.md) — never hard-code paths from memory.
 - **`archive/` is read-only from the LLM's perspective.** The backend must never let LLM output overwrite an existing ArchiveNote.
-- File naming conventions are strict:
-  - Knowledge space slug: `kebab-case`, ASCII lowercase (e.g., `operating-systems`)
-  - Archive files: `YYYY-MM-DD-slug.md`
-  - Wiki files: `concept-slug.md` (lowercase, alphanumeric, hyphens only)
-  - `relations.json`: UTF-8, LF line endings, 2-space indent
+- File naming conventions are strict — space slug, archive/wiki filename, and `relations.json` format rules are defined in [`workspace-layout.md`](docs/10-contracts/workspace-layout.md).
 
 ### RelationType (`docs/10-contracts/relation-types.md`)
 
-- Only the 12 defined enum values are valid:
-  `extracted_from`, `explained_by`, `prerequisite`, `part_of`, `used_in`,
-  `causes`, `solves`, `contrasts`, `confused_with`, `related_to`, `tested_in`, `review_needed`
+- Only the 12 enum values defined in [`relation-types.md`](docs/10-contracts/relation-types.md) are valid — never invent new ones.
 - `related_to` is a **last resort**. If `related_to` exceeds 30% of stored relations, flag it in review.
 - `review_needed` must **never** be assigned by the LLM or backend automatically — it is a user-only action.
 - Respect the node compatibility matrix: e.g., `extracted_from` source must be `Concept` or `WikiPage`, target must be `Source`. Reject invalid combinations at schema validation.
@@ -136,13 +120,19 @@ src-tauri/src/
   pdf/         ← PDF-to-text extraction (1차). Page indexing lives here. 서드파티 pdf-extract 의
                   내부 panic(미지원 CMap 인코딩)은 catch_unwind 로 AppError 변환. Identity-H/V 외
                   인코딩은 프론트 pdf.js 가 2차 폴백으로 추출 (ADR-0010, src/lib/pdfText.ts).
+  graph/       ← Graph domain — node compatibility matrix, duplicate/self-loop checks, relation
+                  validation. commands/graph.rs is a thin IPC delegate of this module.
+  notes/       ← Note move-between-spaces transaction (validate → copy → record → delete source).
+  priority/    ← Node priority scoring — pure computation, derived on each get_graph call, never
+                  persisted (docs/20-backend/prioritization.md).
   seed/        ← First-run demo data generation. Writes to archive/, wiki/, relations/.
                   Never hard-code demo content in the UI layer.
+  tests.rs     ← Integration tests exercising commands/seed/storage together.
 ```
 
 - **Never use `unwrap()` or `panic!()` in production code.** Always propagate errors via `AppError` with `?`.
 - `models/` structs use `#[serde(rename_all = "camelCase")]` — Rust identifiers stay `snake_case`, JSON output is `camelCase`.
-- `ImportJobStatus::ClarifyPending` is **not yet in the code** (only in `entities.md`). Add it before implementing the clarify flow.
+- `ImportJobStatus::ClarifyPending` is defined in `models/mod.rs` but the clarify flow itself is not implemented yet — wire it up when building that flow.
 - LLM orchestration is handled by the TypeScript layer (`src/llm/`), not Rust. The `import/` module coordinates with it but does not own LLM logic.
 
 ---
@@ -171,7 +161,7 @@ Google Gemini is the only LLM provider (ADR-0009 supersedes ADR-0001). Liner is 
 - Any change to `docs/10-contracts/`: requires **all 4 role owners** (Backend + Frontend + LLM + Design) to approve. Add the `contracts-change` PR label.
 - If CI (`docs-check`) is red, **do not merge**.
 - Delete the feature branch after merge.
-- Do not copy-paste TS types or JSON Schema into backend source files — CI's `ssot-check` job will reject the PR.
+- Do not copy contract content (entity typedefs, the full RelationType list, the workspace tree, JSON Schema) outside `docs/10-contracts/` — CI's `ssot-check` job (`scripts/ssot-check.mjs`) scans docs, `CLAUDE.md`, and source files, and fails the PR on any new copy.
 - **UI/UX 변경 PR에는 비포·애프터 스크린샷 필수.** When creating a PR that changes UI/UX, add a "Before / After" section to the PR body and tell the user to attach before/after screenshots (agents cannot capture app screenshots themselves — remind the user to add them before requesting review).
 
 ---
