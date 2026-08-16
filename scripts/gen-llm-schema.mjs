@@ -7,8 +7,10 @@ import { dirname } from "node:path";
 const SRC = "docs/10-contracts/llm-output-schema.md";
 const OUT = "src/llm/schema/llm-wiki-result.schema.json";
 
+// \r? — Windows 는 core.autocrlf 로 md 가 CRLF 로 체크아웃된다. LF 만 받으면
+// 블록이 멀쩡히 있어도 "no ```json block" 으로 죽는다 (macOS 에선 재현 안 됨).
 const md = readFileSync(SRC, "utf8");
-const block = md.match(/```json\n([\s\S]*?)\n```/);
+const block = md.match(/```json\r?\n([\s\S]*?)\r?\n```/);
 if (!block) {
   console.error(`gen-llm-schema: no \`\`\`json block found in ${SRC}`);
   process.exit(1);
