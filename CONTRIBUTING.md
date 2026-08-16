@@ -104,26 +104,24 @@ cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
 
 [`.github/CODEOWNERS`](.github/CODEOWNERS)에 경로별 리뷰어가 적혀 있습니다.
 
-이 저장소는 비공개 + GitHub Free 플랜이라 **깃허브의 CODEOWNERS 자동 지정 기능은 꺼져 있습니다.** 대신 [`assign-reviewers`](.github/workflows/assign-reviewers.yml) 워크플로가 PR이 열릴 때 CODEOWNERS를 직접 읽어 리뷰어를 요청합니다. 결과는 같고 플랜과 무관하게 동작합니다. 같은 워크플로가 `docs/10-contracts/` 변경을 감지하면 `contracts-change` 라벨도 붙입니다.
+2026-08-16 저장소가 공개로 전환되면서 **깃허브의 CODEOWNERS 자동 지정 기능이 켜졌습니다** — PR이 열리면 이 파일 기준으로 리뷰어가 자동으로 붙습니다. [`assign-reviewers`](.github/workflows/assign-reviewers.yml) 워크플로도 같은 파일을 읽어 리뷰어를 요청하는 이중 안전망이며, `docs/10-contracts/` 변경을 감지해 `contracts-change` 라벨을 붙이는 것은 워크플로 몫입니다.
 
 행동 규범은 [행동 강령](.github/CODE_OF_CONDUCT.md)을 따릅니다.
 
-## 브랜치 보호 — 지금은 없다
+## 브랜치 보호 — 켤 수 있게 됐지만 아직 안 켰다
 
-**이 저장소는 비공개 + GitHub Free 플랜이라 브랜치 보호 규칙을 설정할 수 없다.** 아래는 전부 사람이 지키는 약속이며, 기계가 막아주지 않는다.
+비공개 + GitHub Free 플랜 시절에는 브랜치 보호 기능 자체가 잠겨 있었으나, **2026-08-16 공개 전환으로 설정할 수 있게 됐다.** 설정 권한은 저장소 소유자(팀장)에게만 있고 아직 켜지지 않았다. 켜기 전까지 아래는 전부 사람이 지키는 약속이며, 기계가 막아주지 않는다.
 
 - `main` 직접 push — 기술적으로 막혀 있지 않다. 그래도 하지 않는다.
 - CI 빨간불 머지 — 머지 버튼이 눌린다. 그래도 하지 않는다.
 - 최소 1인 승인 — 강제되지 않는다. 그래도 받는다.
-- CODEOWNERS 자동 리뷰어 지정 — 깃허브 기능은 꺼져 있으나 `assign-reviewers` 워크플로가 대신한다.
 
-저장소를 공개로 전환하거나 유료 플랜(Pro/Team)으로 올리면 위 네 가지가 전부 켜진다. 어느 쪽으로 갈지는 팀 결정 사항이다.
-
-그때 적용할 설정:
+팀장에게 요청할 설정 (PIE-71 안건):
 
 - 필수 상태 체크: `code-check`, `docs-check`
-- merge 전 최소 1인 review + CODEOWNERS review (`docs/10-contracts/`는 계약 담당 1인)
+- merge 전 최소 1인 review
 - stale approval 자동 해제, merge 후 브랜치 자동 삭제
 - `main` 직접 push 금지 (관리자 포함)
+- ⚠️ "Require review from Code Owners" 는 그대로 켜지 말 것 — `docs/10-contracts/` owner 가 계약 담당 1인뿐인데 깃허브는 PR 작성자 본인의 승인을 막으므로, 켜면 계약 담당이 올리는 계약 PR 은 승인할 사람이 없어 영구 차단된다. 끄고 가거나 계약 폴더에 2번째 owner 를 추가한 뒤 켠다 (PIE-71 에서 결정).
 
 버전·릴리즈는 `release-please`가 관리한다. Conventional Commits가 다음 버전을 결정하고, 릴리즈 PR 머지 시 tag + Release + macOS 번들이 생성된다.
