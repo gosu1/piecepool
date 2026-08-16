@@ -1,16 +1,27 @@
 name: Docs Check
 
+# ssot-check 가 CLAUDE.md·소스까지 스캔하므로 트리거도 같이 넓힌다.
 on:
   pull_request:
     paths:
       - 'docs/**'
       - 'README.md'
+      - 'CLAUDE.md'
+      - 'src/**'
+      - 'src-tauri/src/**'
+      - 'scripts/ssot-check.mjs'
+      - 'scripts/ssot-baseline.json'
       - '.github/workflows/docs-check.yml'
   push:
     branches: [main]
     paths:
       - 'docs/**'
       - 'README.md'
+      - 'CLAUDE.md'
+      - 'src/**'
+      - 'src-tauri/src/**'
+      - 'scripts/ssot-check.mjs'
+      - 'scripts/ssot-baseline.json'
       - '.github/workflows/docs-check.yml'
 
 jobs:
@@ -36,51 +47,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: No TypeScript type definitions outside 10-contracts
-        run: |
-          set +e
-          matches=$(find docs -name "*.md" \
-            -not -path "docs/10-contracts/*" \
-            -not -path "docs/archive/*" \
-            -print0 | xargs -0 grep -nHE "^type [A-Z][A-Za-z]+ =" 2>/dev/null)
-          set -e
-          if [ -n "$matches" ]; then
-            echo "::error::TypeScript type defined outside docs/10-contracts/ SSOT"
-            echo "$matches"
-            exit 1
-          fi
-          echo "::notice::SSOT clean — no TS type leakage outside 10-contracts/"
-
-      - name: No JSON Schema definitions outside 10-contracts
-        run: |
-          set +e
-          matches=$(find docs -name "*.md" \
-            -not -path "docs/10-contracts/*" \
-            -not -path "docs/archive/*" \
-            -print0 | xargs -0 grep -nHE '"\$schema":' 2>/dev/null)
-          set -e
-          if [ -n "$matches" ]; then
-            echo "::error::JSON Schema defined outside docs/10-contracts/ SSOT"
-            echo "$matches"
-            exit 1
-          fi
-          echo "::notice::SSOT clean — no JSON Schema leakage outside 10-contracts/"
-
-      - name: No RelationType enum exhaustive list outside relation-types.md
-        run: |
-          set +e
-          # Pattern: 12종 enum 값을 3개 이상 한 파일에서 나열하면 의심
-          matches=$(find docs -name "*.md" \
-            -not -path "docs/10-contracts/relation-types.md" \
-            -not -path "docs/archive/*" \
-            -print0 | xargs -0 grep -lE '"(part_of|used_in|confused_with|prerequisite|extracted_from|explained_by|causes|solves|contrasts|related_to|tested_in|review_needed)".*"(part_of|used_in|confused_with|prerequisite|extracted_from|explained_by|causes|solves|contrasts|related_to|tested_in|review_needed)".*"(part_of|used_in|confused_with|prerequisite|extracted_from|explained_by|causes|solves|contrasts|related_to|tested_in|review_needed)"' 2>/dev/null)
-          set -e
-          if [ -n "$matches" ]; then
-            echo "::warning::RelationType enum 3+ values appear together outside relation-types.md (SSOT 위험). Files:"
-            echo "$matches"
-          else
-            echo "::notice::SSOT clean — no RelationType enum proliferation"
-          fi
+      # 종전 grep 3종은 실제 복붙을 0건 잡았다 (백틱 미대응·CLAUDE.md 누락·warning 뿐).
+      # 검사 로직·베이스라인 래칫은 scripts/ssot-check.mjs 참조. 새 위반 = 실패.
+      - name: SSOT leakage check (docs + CLAUDE.md + src)
+        run: node scripts/ssot-check.mjs
 
   prettier:
     name: Prettier check (advisory)
