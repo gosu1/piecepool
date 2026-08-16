@@ -1,45 +1,80 @@
 # PiecePool CODEOWNERS
 # https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-security/customizing-your-repository/about-code-owners
 #
-# 규칙: 폴더별 owner. 후행 패턴이 우선.
-# - 10-contracts는 SSOT라 4개 역할 owner 모두 review 필요.
-# - 변경 절차: CONTRIBUTING.md + docs/archive/PRD_REFACTOR_PLAN.md §5 참조.
+# 경로별 리뷰 담당. 역할 배분표 기준 — 슬라이스 owner 가 코드를 쓰고 겸직 담당이 그 PR 을 리뷰한다.
+#
+# 자동 지정 동작 (2026-08-16 공개 전환 이후):
+#    공개 저장소가 되면서 깃허브 기본 CODEOWNERS 자동 지정이 켜졌다 — PR 이 열리면
+#    이 파일 기준으로 리뷰어가 자동으로 붙는다 (실측: PR #276 에 리뷰어 자동 요청 확인).
+#    .github/workflows/assign-reviewers.yml 도 이 파일을 읽어 같은 일을 하는 이중
+#    안전망이고, contracts-change 라벨 부착은 워크플로 몫이다.
+#    (비공개 + Free 시절엔 둘 다 없어서 PR 생성 도구가 이 파일을 읽어 --reviewer 로
+#    넘겨줬다 — PR #103: 생성 08:35:08 → 리뷰어 4명 08:35:09.)
+#    워크플로 파서는 아래 두 가지만 해석한다 — glob 을 쓰지 말 것:
+#      /경로/         디렉토리 접두사
+#      /경로/파일.ext  정확한 파일
+#    작성자 본인은 리뷰 요청에서 제외된다.
+#
+# 규칙 두 가지:
+# - 후행 패턴이 우선. 같은 경로를 두 번 적으면 뒤 줄이 앞 줄을 조용히 덮는다.
+# - 기본 owner(`*`) 를 두지 않는다. 팀장은 방향을 정하는 역할이지 리뷰 게이트가 아니다.
+#   아래에 안 걸리는 경로는 자동 리뷰어가 없다 = 아직 주인이 정해지지 않았다는 뜻이다.
+#   주인 미정 목록은 PIE-5 후속 이슈에 모아뒀다. 회의에서 정해지면 여기 추가한다.
+#
+# 10-contracts 는 SSOT 라 계약 담당 1인이 게이트다 (역할 배분표 §5-1).
+# 기존 "4역할 전원 승인" 은 6인 팀에서 실제로 돌지 않아 폐기했다 — PIE-5.
+# 변경 절차: CONTRIBUTING.md + docs/10-contracts/README.md "변경 절차" 참조.
 
-# 기본 (모든 파일) — PM/Tech Lead
-*                                @gosu1
+# ── 슬라이스 2 Authoring (읽고 쓰기) — 오준서(@O6west) ──────────
+/src/lib/SlashBlockEditor.tsx    @O6west
+/src/lib/cmCallout.ts            @O6west
+/src/lib/cmFormat.ts             @O6west
+/src/lib/cmMath.ts               @O6west
+/src/lib/cmWikiTerm.ts           @O6west
+/src/lib/markdown.tsx            @O6west
+/src/lib/wikilink.ts             @O6west
+/docs/40-frontend/               @O6west
 
-# 00-overview: 비전·범위 (PM)
+# ── 슬라이스 3 Knowledge Graph — 윤세훈(@dbstpgns789-eng) ───────
+/src-tauri/src/graph/            @dbstpgns789-eng
+/src-tauri/src/priority/         @dbstpgns789-eng
+/src/lib/CytoscapeGraph.tsx      @dbstpgns789-eng
+/src/lib/MiniGraph.tsx           @dbstpgns789-eng
+/src/lib/conceptGraph.ts         @dbstpgns789-eng
+/src/lib/graphStyle.ts           @dbstpgns789-eng
+/src/lib/relationMeta.ts         @dbstpgns789-eng
+/src/lib/priority.ts             @dbstpgns789-eng
+
+# ── 슬라이스 4 LLM Core + 겸직 ④ LLM 평가·비용 — 왕민(@kingmin-1225) ──
+/src/llm/                        @kingmin-1225
+/scripts/evals/                  @kingmin-1225
+/docs/30-llm/                    @kingmin-1225
+
+# ── 슬라이스 5 Learning Loop 중 라이너·출처 — 윤세훈(@dbstpgns789-eng) ──
+# 역할 확인(2026-08-11): 라이너 api 활용 = 윤세훈. 아래 줄이 위의 /src/llm/ 을 덮는다.
+# 파인만(feynman*.ts)은 왕민·윤세훈·박서준 셋이 겹쳐 미정 — 회의에서 리뷰 담당 1인 확정.
+/src/llm/liner.ts                @dbstpgns789-eng
+/src/llm/provenance.ts           @dbstpgns789-eng
+/src/lib/factCheck.ts            @dbstpgns789-eng
+
+# ── 슬라이스 6 Platform + 겸직 ① 컨트랙트 · ② 릴리즈/CI · ⑤ QA/E2E — 윤무진(@ChangSik88) ──
+# 릴리즈/CI 는 배포·제품화에 직결이라 윤무진 확정 (2026-08-11).
+/docs/10-contracts/              @ChangSik88
+/docs/60-qa/                     @ChangSik88
+/src-tauri/src/models/           @ChangSik88
+/src-tauri/tests/                @ChangSik88
+/.github/workflows/              @ChangSik88
+/e2e/                            @ChangSik88
+
+# ── 방향성 문서 — 박서준(@gosu1) ───────────────────────────────
+# 방향 결정권자의 문서 소유다. 코드 리뷰 게이트가 아니다 — 코드 경로에는 넣지 않는다.
 /docs/00-overview/               @gosu1
-
-# 10-contracts: 🔒 SSOT — Backend/Frontend/LLM/Design 4개 역할 owner 합의
-/docs/10-contracts/              @gosu1 @ChangSik88 @O6west @dbstpgns789-eng @Black-Tiger-h
-
-# 20-backend: Backend
-/docs/20-backend/                @gosu1 @ChangSik88 @O6west
-
-# 30-llm: LLM (adapter/validation/evals)
-/docs/30-llm/                    @gosu1
-
-# prompt-templates: Backend 주도 + LLM 공동 review (도메인 프롬프트 설계)
-/docs/30-llm/prompt-templates.md @gosu1 @ChangSik88 @O6west
-
-# 40-frontend: Frontend
-/docs/40-frontend/               @gosu1 @dbstpgns789-eng
-
-# 50-design: Figma 디자이너
-/docs/50-design/                 @Black-Tiger-h
-
-# 60-qa: QA / PM
-/docs/60-qa/                     @gosu1
-
-# 70-roadmap: PM
 /docs/70-roadmap/                @gosu1
-
-# archive: 읽기 전용 — PM만 수정
-/docs/archive/                   @gosu1
-
-# .github/: PM
-/.github/                        @gosu1
-
-# 루트 메타 문서
 /README.md                       @gosu1
+
+# ── 주인 미정 — 일부러 비워둔다 (회의 확정 대상) ─────────────────
+# 슬라이스 1 Ingest      src/lib/pdfText·pdfView·PdfViewer, src-tauri/src/pdf·import
+#   (담당이 있었다는 기억 있음 — 기록엔 없어 회의에서 재확인 후 여기 기입)
+# 파인만                 src/llm/feynman*.ts, src/lib/feynmanSection.ts (3인 겹침)
+# 겸직 ③ 디자인시스템     docs/50-design, src/ds — 디자인 담당 충원 전까지 공석/외주 확인
+# 백엔드 잔여 코드        src-tauri/src/storage·commands·notes·lib.rs + docs/20-backend

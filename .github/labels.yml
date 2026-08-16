@@ -36,7 +36,7 @@
   description: "Phase 5 QA/Roadmap"
 - name: "contracts-change"
   color: "b60205"
-  description: "docs/10-contracts SSOT 변경 — 4역할 승인 필요"
+  description: "docs/10-contracts SSOT 변경 — 계약 담당 1인 승인 필요"
 - name: "dependencies"
   color: "0366d6"
   description: "의존성 업데이트 (dependabot)"

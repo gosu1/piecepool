@@ -1,6 +1,6 @@
 # 10-contracts (🔒 Single Source of Truth)
 
-PiecePool 공유 계약. 모든 역할이 참조한다. **수정 시 4개 역할(Backend/Frontend/LLM/Design) owner review 필수**.
+PiecePool 공유 계약. 모든 역할이 참조한다. **수정 시 계약 담당 1인 승인 필수**.
 
 ## 포함 문서
 
@@ -23,15 +23,20 @@ CI workflow `docs-check.yml`의 `ssot-check` job이 grep으로 누출 자동 차
 ### 변경 절차
 1. 본 폴더 수정 PR 생성
 2. PR 라벨 `contracts-change` 부착
-3. Backend, Frontend, LLM, Design 4개 owner 모두 review 승인
-4. merge 후 의존 문서(`20-backend`, `30-llm`, `40-frontend`, `50-design`) 동기화 PR을 issue로 trace
+3. 계약 담당(@ChangSik88) 승인 (`assign-reviewers` 워크플로가 자동으로 요청한다)
+4. 영향받는 역할에게 PR 링크를 공유 — 승인 게이트는 아니지만 통보는 한다
+5. merge 후 의존 문서(`20-backend`, `30-llm`, `40-frontend`, `50-design`) 동기화 PR을 issue로 trace
 
 ## Owner
 
-Tech Lead (@gosu1). 변경은 4개 역할 합의 필요. CODEOWNERS:
+계약 담당 = 윤무진(@ChangSik88). 역할 배분표 §5-1의 "① 컨트랙트 담당"이 게이트다. CODEOWNERS:
 ```
-/docs/10-contracts/  @gosu1 @ChangSik88 @O6west @dbstpgns789-eng @Black-Tiger-h
+/docs/10-contracts/  @ChangSik88
 ```
+
+기존 "4개 역할 owner 전원 승인" 규칙은 폐기했다. 6인 팀에서 4명 승인을 모으는 절차가 실제로
+돌지 않았고 — 계약 폴더를 고친 PR이 승인 0건으로 머지된 사례가 있다 — 게이트가 있다는 착각만
+남겼다. 승인자 수를 늘리는 대신, 계약과 코드가 어긋나면 CI가 잡도록 옮긴다 (PIE-5).
 
 ## 작성 일정
 

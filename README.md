@@ -163,7 +163,7 @@ npm run e2e           # Playwright e2e
 전체 기여·브랜치·SSOT·커밋·모듈 경계 규칙은 **[CONTRIBUTING.md](CONTRIBUTING.md)** 를 따른다. 핵심만:
 
 - `main` 직접 push **금지**. feature branch → PR → review → merge (merge 후 브랜치 삭제).
-- 계약(`docs/10-contracts/`) 변경: `contracts-change` 라벨 + Backend/Frontend/LLM/Design 4역할 승인.
+- 계약(`docs/10-contracts/`) 변경: `contracts-change` 라벨 + 계약 담당 1인 승인.
 - CI(`docs-check` · `code-check`)가 red면 merge 금지.
 - 리뷰어는 [`.github/CODEOWNERS`](.github/CODEOWNERS)가 자동 할당. 확정 결정은 [ADR](docs/adr/) 기록.
 

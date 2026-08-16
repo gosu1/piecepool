@@ -95,7 +95,7 @@
 3. 결정 내용을 관련 문서(`10-contracts/`, `20-backend/`, `30-llm/`, `40-frontend/`, `50-design/`, `pricing-model.md` 등)에 반영
 4. 본 문서에서 해당 항목 제거, §6 결정된 항목 표에 1줄 기록
 
-SSOT 관련 결정(`10-contracts/` 영향)은 `contracts-change` 라벨 + 4역할 review 필수.
+SSOT 관련 결정(`10-contracts/` 영향)은 `contracts-change` 라벨 + 계약 담당 1인 승인 필수.
 
 ---
 

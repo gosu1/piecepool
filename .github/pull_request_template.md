@@ -5,7 +5,7 @@
 ## 영향 영역
 
 - [ ] `docs/00-overview/`
-- [ ] `docs/10-contracts/` ⚠️ **SSOT 변경** — `contracts-change` 라벨 부착 + 4개 역할(Backend/Frontend/LLM/Design) review 필수
+- [ ] `docs/10-contracts/` ⚠️ **SSOT 변경** — `contracts-change` 라벨 부착 + 계약 담당 1인 승인 필수
 - [ ] `docs/20-backend/`
 - [ ] `docs/30-llm/`
 - [ ] `docs/40-frontend/`

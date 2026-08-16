@@ -1,0 +1,78 @@
+name: Assign reviewers
+
+# 이 저장소는 비공개 + GitHub Free 플랜이라 깃허브의 CODEOWNERS 자동 지정이 꺼져 있다.
+# 그동안 리뷰어가 붙던 건 PR 을 만드는 쪽이 CODEOWNERS 를 읽어 --reviewer 로 넘겨준 덕이다.
+# (PR #103: 생성 08:35:08 → 리뷰어 4명 08:35:09 — gh pr create --reviewer 한 방)
+# 그 방식은 PR 을 어떻게 올리느냐에 의존한다. 웹 UI 로 올리면 아무도 안 붙는다.
+# 이 워크플로는 PR 이 열리는 경로와 무관하게 항상 돈다.
+# 저장소를 공개로 돌리거나 유료 플랜으로 올려 CODEOWNERS 가 켜지면 이 워크플로는 지워도 된다.
+
+on:
+  pull_request:
+    types: [opened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  assign:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const { owner, repo } = context.repo;
+            const number = context.payload.pull_request.number;
+            const author = context.payload.pull_request.user.login;
+
+            // ── CODEOWNERS 파싱 ──
+            // 이 저장소는 glob 없이 디렉토리 접두사(/path/)와 정확한 파일 경로만 쓴다.
+            const rules = fs.readFileSync('.github/CODEOWNERS', 'utf8')
+              .split('\n')
+              .map(l => l.replace(/#.*$/, '').trim())
+              .filter(Boolean)
+              .map(l => {
+                const [pattern, ...handles] = l.split(/\s+/);
+                return { pattern: pattern.replace(/^\//, ''), handles: handles.map(h => h.replace(/^@/, '')) };
+              });
+
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner, repo, pull_number: number, per_page: 100,
+            });
+
+            // CODEOWNERS 규약: 뒤 줄이 앞 줄을 덮는다 → 파일마다 마지막 매치를 쓴다.
+            const owners = new Set();
+            for (const f of files) {
+              let matched = null;
+              for (const r of rules) {
+                const isDir = r.pattern.endsWith('/');
+                if (isDir ? f.filename.startsWith(r.pattern) : f.filename === r.pattern) matched = r;
+              }
+              if (matched) matched.handles.forEach(h => owners.add(h));
+            }
+
+            // 작성자는 자기 PR 을 리뷰할 수 없다. 이미 요청된 사람도 뺀다.
+            const already = new Set(
+              (context.payload.pull_request.requested_reviewers || []).map(u => u.login)
+            );
+            const reviewers = [...owners].filter(h => h !== author && !already.has(h));
+
+            if (reviewers.length) {
+              await github.rest.pulls.requestReviewers({ owner, repo, pull_number: number, reviewers });
+              core.notice(`리뷰어 요청: ${reviewers.join(', ')}`);
+            } else {
+              core.notice(`요청할 리뷰어 없음 (작성자 ${author} 본인이 담당이거나, 담당 미지정 영역)`);
+            }
+
+            // ── contracts-change 라벨 ──
+            // 계약 폴더가 바뀌었는데 라벨을 잊는 일이 반복돼 자동으로 붙인다.
+            if (files.some(f => f.filename.startsWith('docs/10-contracts/'))) {
+              await github.rest.issues.addLabels({
+                owner, repo, issue_number: number, labels: ['contracts-change'],
+              });
+              core.notice('contracts-change 라벨 부착 (docs/10-contracts/ 변경 감지)');
+            }

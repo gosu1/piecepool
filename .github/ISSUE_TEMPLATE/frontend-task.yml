@@ -58,7 +58,7 @@ body:
     attributes:
       label: 계약 영향
       options:
-        - label: 예 — `contracts-change` 라벨 부착 + 4역할 review 필요
+        - label: 예 — `contracts-change` 라벨 부착 + 계약 담당 1인 승인 필요
         - label: 아니오
 
   - type: textarea

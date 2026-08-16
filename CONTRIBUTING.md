@@ -50,7 +50,7 @@ npm run tauri dev      # Tauri + Vite 동시 실행
 ## 브랜치 & PR
 
 - **`main`에 직접 push 금지.** feature branch → PR → review → merge.
-- 일반 변경: 최소 1인 리뷰. `docs/10-contracts/` 변경: `contracts-change` 라벨 + 4역할(Backend·Frontend·LLM·Design) 승인.
+- 일반 변경: 최소 1인 리뷰. `docs/10-contracts/` 변경: `contracts-change` 라벨 + 계약 담당 1인 승인.
 - CI(`docs-check`, `code-check`)가 red면 merge 금지.
 - merge 후 feature branch 삭제.
 - **UI/UX 변경 PR은 비포·애프터 스크린샷 첨부** — 리뷰어가 시각 변화를 코드 없이 확인할 수 있게. PR 템플릿 체크리스트에 포함.
@@ -81,7 +81,7 @@ docs(contracts): Source.tags 필드 추가
 | LLM 출력 schema | `llm-output-schema.md` |
 
 - Rust `models/`는 `entities.md`를 1:1 미러 (`#[serde(rename_all = "camelCase")]`). TS 타입은 `npm run gen:types`로 자동 생성 — `src/lib/generated/`는 손으로 수정 금지.
-- 계약 변경 절차: `contracts-change` 라벨 PR → 4역할 승인 → 의존 문서 동기화.
+- 계약 변경 절차: `contracts-change` 라벨 PR → 계약 담당 1인 승인 → 의존 문서 동기화.
 
 ## 백엔드 모듈 경계 (Rust)
 
@@ -102,15 +102,26 @@ cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
 
 ## 리뷰 할당
 
-[`.github/CODEOWNERS`](.github/CODEOWNERS)가 폴더별 리뷰어를 자동 지정합니다. 행동 규범은 [행동 강령](.github/CODE_OF_CONDUCT.md)을 따릅니다.
+[`.github/CODEOWNERS`](.github/CODEOWNERS)에 경로별 리뷰어가 적혀 있습니다.
 
-## 브랜치 보호
+2026-08-16 저장소가 공개로 전환되면서 **깃허브의 CODEOWNERS 자동 지정 기능이 켜졌습니다** — PR이 열리면 이 파일 기준으로 리뷰어가 자동으로 붙습니다. [`assign-reviewers`](.github/workflows/assign-reviewers.yml) 워크플로도 같은 파일을 읽어 리뷰어를 요청하는 이중 안전망이며, `docs/10-contracts/` 변경을 감지해 `contracts-change` 라벨을 붙이는 것은 워크플로 몫입니다.
 
-`main`은 GitHub Settings → Branches에서 보호 규칙을 적용한다(관리자 수동 또는 `gh api`):
+행동 규범은 [행동 강령](.github/CODE_OF_CONDUCT.md)을 따릅니다.
+
+## 브랜치 보호 — 켤 수 있게 됐지만 아직 안 켰다
+
+비공개 + GitHub Free 플랜 시절에는 브랜치 보호 기능 자체가 잠겨 있었으나, **2026-08-16 공개 전환으로 설정할 수 있게 됐다.** 설정 권한은 저장소 소유자(팀장)에게만 있고 아직 켜지지 않았다. 켜기 전까지 아래는 전부 사람이 지키는 약속이며, 기계가 막아주지 않는다.
+
+- `main` 직접 push — 기술적으로 막혀 있지 않다. 그래도 하지 않는다.
+- CI 빨간불 머지 — 머지 버튼이 눌린다. 그래도 하지 않는다.
+- 최소 1인 승인 — 강제되지 않는다. 그래도 받는다.
+
+팀장에게 요청할 설정 (PIE-71 안건):
 
 - 필수 상태 체크: `code-check`, `docs-check`
-- merge 전 최소 1인 review + CODEOWNERS review (`docs/10-contracts/`는 4역할)
+- merge 전 최소 1인 review
 - stale approval 자동 해제, merge 후 브랜치 자동 삭제
 - `main` 직접 push 금지 (관리자 포함)
+- ⚠️ "Require review from Code Owners" 는 그대로 켜지 말 것 — `docs/10-contracts/` owner 가 계약 담당 1인뿐인데 깃허브는 PR 작성자 본인의 승인을 막으므로, 켜면 계약 담당이 올리는 계약 PR 은 승인할 사람이 없어 영구 차단된다. 끄고 가거나 계약 폴더에 2번째 owner 를 추가한 뒤 켠다 (PIE-71 에서 결정).
 
 버전·릴리즈는 `release-please`가 관리한다. Conventional Commits가 다음 버전을 결정하고, 릴리즈 PR 머지 시 tag + Release + macOS 번들이 생성된다.
