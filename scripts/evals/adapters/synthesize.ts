@@ -97,9 +97,15 @@ const adapter: EvalAdapter<Fixture, Out> = {
           ctx.apiKey,
           ctx.judgeModel, // subject(ctx.model)가 아니다 — judge.ts 주석 참조
         );
+        // 판정을 케이스에 붙여 둔다(PIE-61, pdfsummary 의 PIE-59 와 같은 배선). 두 플래그가
+        // 모두 false 여도 남긴다 — "판정을 받았고 깨끗했다" 와 "판정 자체가 없었다" 는 다른
+        // 사실이다. 판정이 환각+모순 2필드라 pdfsummary(1필드)와 모양이 다르지만, 슬롯은
+        // verdict 객체를 통째로 담으므로 모양을 가리지 않는다(core.ts Sample.judge).
+        s.judge = { verdict: v };
         if (v.hallucination) hallu++;
         if (v.contradiction) contra++;
-      } catch {
+      } catch (e) {
+        s.judge = { error: e instanceof Error ? e.message : String(e) };
         judgeFail++;
       }
     }

@@ -31,8 +31,8 @@ export interface Sample<F, O> {
   // 케이스별 judge 판정·근거를 run JSON 에 남기는 범용 슬롯(PIE-59) — 집계 수치만 남기면
   // 어떤 문장이 왜 걸렸는지 재확인이 불가능하다. dry 실행이나 judge 없는 어댑터에서는
   // undefined(직렬화 시 사라짐).
-  // 슬롯은 범용이지만 현재 pdfsummary 어댑터만 채운다 — judge 를 쓰는 다른 어댑터(synthesize)
-  // 배선은 후속이다.
+  // judge 를 쓰는 두 어댑터(pdfsummary·synthesize)가 채운다(PIE-59·PIE-61). verdict 는
+  // 어댑터별 판정 스키마 그대로다 — 환각 1필드든 환각+모순 2필드든 슬롯은 모양을 가리지 않는다.
   judge?: { verdict?: unknown; error?: string };
 }
 
