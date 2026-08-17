@@ -12,6 +12,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { selectProvider, type LlmWikiInput, type LlmWikiResult, type ProviderId } from "../src/llm/index";
 import { validateLlmWikiResult } from "../src/llm/validate";
+import { normalizeTitle } from "../src/lib/normalizeTitle";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const EVALS_DIR = join(ROOT, "docs/30-llm/evals");
@@ -39,9 +40,8 @@ type Dirs = { fixturesDir: string; expectedDir: string; resultsDir: string };
 type CaseOutcome = { ok: boolean; failures: string[]; warnings: string[]; passes: string[] };
 type Runner = (input: LlmWikiInput) => Promise<LlmWikiResult>;
 
-function normTitle(t: string): string {
-  return t.toLowerCase().replace(/\s+/g, " ").trim();
-}
+// 앱과 같은 판정 키(src/lib/normalizeTitle) — 채점이 앱 병합과 다른 규칙으로 갈리면 안 된다.
+const normTitle = normalizeTitle;
 
 // 정규화 후 부분 포함(양방향) — provider별 표기 흔들림(접미사/언어) 흡수. evals.md §5.1.
 function fuzzyHit(haystack: string[], needle: string): boolean {

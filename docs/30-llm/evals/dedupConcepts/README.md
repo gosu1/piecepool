@@ -27,7 +27,7 @@ npm run eval:dedupConcepts -- --case pairs   # 하나만
 
 ### 정규화 규칙 제약
 
-`dedupConcepts.ts`의 `norm`(NFC · 소문자 · 공백 정규화)은 **`llmApply.normalizeTitle`과 같아야 한다.** 어긋나면 여기서 안 접힌 변형이 저장 단계의 `slugOrHash`로 같은 경로에 쓰여 뒤가 앞을 덮는다 — 그게 이 모듈이 만들어진 이유다. 한쪽만 고치면 안 된다.
+판정 키는 `src/lib/normalizeTitle.ts`(NFC · 소문자 · 공백 전부 제거) 단일 구현을 import 한다 — PIE-64 이후 규칙 사본이 어긋나 안 접힌 변형이 저장 단계의 `slugOrHash`로 같은 경로에 쓰여 뒤가 앞을 덮는 사고를 구조적으로 막기 위해서다. 규칙 변경은 그 파일에서만 한다.
 
 ## 합격선
 

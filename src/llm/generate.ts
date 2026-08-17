@@ -7,6 +7,7 @@ import { promote } from "./promote";
 import { classify, type NodeType } from "./classify";
 import { getOutputLanguage, type OutputLanguage } from "./language";
 import { errMsg } from "./http";
+import { normalizeTitle } from "../lib/normalizeTitle";
 
 // LLM 위키 생성 오케스트레이션 (README §LLM ①).
 //  - apiKey 있으면 Gemini(OpenAI 호환 Chat Completions, 구조화 출력) 호출.
@@ -103,7 +104,7 @@ async function chunkedExtract(
   for (const ch of used) {
     const existing = [
       ...input.existingConcepts,
-      ...concepts.map((c) => ({ id: normalize(c.title), title: c.title, normalizedTitle: normalize(c.title) })),
+      ...concepts.map((c) => ({ id: normalizeTitle(c.title), title: c.title, normalizedTitle: normalizeTitle(c.title) })),
     ];
     const r = await provider.generateWikiStructured({ ...input, sourceText: ch.text, existingConcepts: existing });
     // 이번 추출 내 동일 개념은 드롭이 아니라 결합 — 뒤 조각의 내용이 유실되지 않는다(#13).
@@ -126,7 +127,7 @@ function typeDistribution(chunks: Chunk[]): Partial<Record<NodeType, number>> {
 function dedupeRelations(relations: LlmRelation[]): LlmRelation[] {
   const seen = new Set<string>();
   return relations.filter((r) => {
-    const k = `${normalize(r.sourceConceptTitle)}|${normalize(r.targetConceptTitle)}|${r.relationType}`;
+    const k = `${normalizeTitle(r.sourceConceptTitle)}|${normalizeTitle(r.targetConceptTitle)}|${r.relationType}`;
     if (seen.has(k)) return false;
     seen.add(k);
     return true;
@@ -142,14 +143,14 @@ function promotionReport(result: LlmWikiResult): PromotionReport {
   const titleById = new Map<string, string>();
   const nodes: { id: string }[] = [];
   for (const c of result.concepts) {
-    const id = normalize(c.title);
+    const id = normalizeTitle(c.title);
     if (titleById.has(id)) continue; // 노드 id 중복 제거
     titleById.set(id, c.title);
     nodes.push({ id });
   }
   const edges = result.relations.map((r) => ({
-    source: normalize(r.sourceConceptTitle),
-    target: normalize(r.targetConceptTitle),
+    source: normalizeTitle(r.sourceConceptTitle),
+    target: normalizeTitle(r.targetConceptTitle),
   }));
   const r = promote(nodes, edges, { round: 0 });
   const isolatedTitles = r.nodes.filter((n) => n.state === "staging").map((n) => titleById.get(n.id) ?? n.id);
@@ -168,7 +169,7 @@ export function heuristicWiki(input: LlmWikiInput, lang: OutputLanguage = getOut
   concepts.push(concept(rootTitle, rootBody, lang));
 
   for (const sec of sections) {
-    if (normalize(sec.title) === normalize(rootTitle)) continue;
+    if (normalizeTitle(sec.title) === normalizeTitle(rootTitle)) continue;
     concepts.push(concept(sec.title, sec.body, lang));
     relations.push({
       sourceConceptTitle: sec.title,
@@ -238,6 +239,3 @@ function cleanTitle(s: string): string {
   return s.replace(/^#+\s*/, "").replace(/[*`]/g, "").trim();
 }
 
-function normalize(s: string): string {
-  return s.toLowerCase().replace(/\s+/g, " ").trim();
-}
