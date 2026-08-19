@@ -1,0 +1,2933 @@
+[
+  {
+    "round": 0,
+    "doc": "기계 학습",
+    "sourceId": "src-1",
+    "latencyMs": 16866,
+    "inputChars": 2271,
+    "existingConceptsIn": 0,
+    "concepts": [
+      "기계 학습",
+      "일반화",
+      "데이터 마이닝",
+      "인공신경망"
+    ],
+    "newTitles": [
+      "기계 학습",
+      "일반화",
+      "데이터 마이닝",
+      "인공신경망"
+    ],
+    "merged": 0,
+    "relations": [
+      [
+        "일반화",
+        "part_of",
+        "기계 학습"
+      ],
+      [
+        "기계 학습",
+        "contrasts",
+        "데이터 마이닝"
+      ],
+      [
+        "인공신경망",
+        "used_in",
+        "기계 학습"
+      ]
+    ],
+    "relatedToRatio": 0,
+    "promote": {
+      "stats": {
+        "staging": 0,
+        "active": 4,
+        "archived": 0
+      },
+      "transitions": [
+        {
+          "id": "concept-기계 학습",
+          "from": "new",
+          "to": "active",
+          "reason": "연결(degree 3) → active"
+        },
+        {
+          "id": "concept-일반화",
+          "from": "new",
+          "to": "active",
+          "reason": "연결(degree 1) → active"
+        },
+        {
+          "id": "concept-데이터 마이닝",
+          "from": "new",
+          "to": "active",
+          "reason": "연결(degree 1) → active"
+        },
+        {
+          "id": "concept-인공신경망",
+          "from": "new",
+          "to": "active",
+          "reason": "연결(degree 1) → active"
+        }
+      ],
+      "degrees": [
+        [
+          "concept-기계 학습",
+          3,
+          "active"
+        ],
+        [
+          "concept-일반화",
+          1,
+          "active"
+        ],
+        [
+          "concept-데이터 마이닝",
+          1,
+          "active"
+        ],
+        [
+          "concept-인공신경망",
+          1,
+          "active"
+        ]
+      ]
+    },
+    "pagesSnapshot": [
+      {
+        "title": "기계 학습",
+        "sourceIds": [
+          "src-1"
+        ],
+        "firstRound": 0
+      },
+      {
+        "title": "일반화",
+        "sourceIds": [
+          "src-1"
+        ],
+        "firstRound": 0
+      },
+      {
+        "title": "데이터 마이닝",
+        "sourceIds": [
+          "src-1"
+        ],
+        "firstRound": 0
+      },
+      {
+        "title": "인공신경망",
+        "sourceIds": [
+          "src-1"
+        ],
+        "firstRound": 0
+      }
+    ],
+    "raw": {
+      "concepts": [
+        {
+          "title": "기계 학습",
+          "aliases": [
+            "머신 러닝",
+            "machine learning",
+            "ML"
+          ],
+          "summary": "경험을 통해 자동으로 개선하는 컴퓨터 알고리즘의 연구이자 인공지능의 한 분야.",
+          "explanation": "방대한 데이터를 분석하여 미래를 예측하는 기술로, 복잡한 패턴 학습을 통해 상황 예측과 의사 결정을 돕는다. 기계 학습의 핵심은 데이터의 평가인 표현(representation)과 새로운 데이터를 처리하는 일반화(generalization)에 있다.",
+          "examples": [
+            "수신한 이메일이 스팸인지 아닌지 구분하는 것",
+            "문자 인식"
+          ],
+          "sourceRefs": [],
+          "sourceEmbeds": [],
+          "confusingConcepts": [
+            "데이터 마이닝"
+          ],
+          "relatedQuestions": [
+            "기계 학습과 데이터 마이닝의 차이점은 무엇인가요?",
+            "기계 학습을 달성하기 위한 핵심 요소 두 가지는 무엇인가요?"
+          ]
+        },
+        {
+          "title": "일반화",
+          "aliases": [
+            "generalization"
+          ],
+          "summary": "기계 학습에서 훈련 이후 새롭게 들어온 데이터를 정확히 처리할 수 있는 능력.",
+          "explanation": "기계 학습의 핵심 개념 중 하나로, 훈련에 사용되지 않은 미지의 데이터에 대해 올바른 예측이나 출력을 수행할 수 있는 모델의 성능을 뜻한다.",
+          "examples": [
+            "학습한 적 없는 새로운 이메일이 들어왔을 때 이를 정확히 스팸 여부로 판별하는 능력"
+          ],
+          "sourceRefs": [],
+          "sourceEmbeds": [],
+          "confusingConcepts": [],
+          "relatedQuestions": []
+        },
+        {
+          "title": "데이터 마이닝",
+          "aliases": [
+            "data mining"
+          ],
+          "summary": "데이터 속에 숨겨진 미처 몰랐던 속성과 유용한 패턴을 발견하는 것에 집중하는 기술.",
+          "explanation": "기계 학습과 기법적으로 상당 부분 겹치지만 지향점이 다르다. 기계 학습이 훈련 데이터를 통해 새로운 데이터에 대한 예측을 수행하는 것에 초점을 둔다면, 데이터 마이닝은 데이터베이스에서 지식을 발견하는 과정에 해당하며 데이터 내부에 숨겨진 유용한 속성을 발굴하는 데 중점을 둔다.",
+          "examples": [
+            "대형 마트 고객 구매 데이터를 분석해 기저귀와 맥주를 함께 구매하는 경향성을 발견해 내는 작업"
+          ],
+          "sourceRefs": [],
+          "sourceEmbeds": [],
+          "confusingConcepts": [
+            "기계 학습"
+          ],
+          "relatedQuestions": []
+        },
+        {
+          "title": "인공신경망",
+          "aliases": [
+            "artificial neural network",
+            "ANN"
+          ],
+          "summary": "생물학적 신경망에서 영감을 얻은 통계학적 학습 알고리즘.",
+          "explanation": "시냅스의 결합으로 네트워크를 형성한 인공 뉴런(노드)이 학습을 거치면서 시냅스의 결합 세기를 변화시켜, 어려운 문제 해결 능력을 얻도록 설계된 모델이다. 크게 정답이 주어지는 교사 학습(지도 학습)과 정답이 주어지지 않는 비교사 학습(비지도 학습)으로 나뉜다.",
+          "examples": [
+            "컴퓨터 비전",
+            "음성 인식"
+          ],
+          "sourceRefs": [],
+          "sourceEmbeds": [],
+          "confusingConcepts": [],
+          "relatedQuestions": [
+            "교사 학습과 비교사 학습은 각각 인공신경망의 어떤 작업에 이용되나요?"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "sourceConceptTitle": "일반화",
+          "targetConceptTitle": "기계 학습",
+          "relationType": "part_of",
+          "strength": 0.9,
+          "confidence": 0.95,
+          "explanation": "일반화는 표현(representation)과 함께 기계 학습을 구성하는 핵심 개념이자 기계 학습 모델이 달성하고자 하는 궁극적 목표이다.",
+          "evidence": [
+            {
+              "sourceId": "기계 학습",
+              "reason": "원문에서 기계 학습의 핵심이 표현과 일반화에 있다고 기술함."
+            }
+          ]
+        },
+        {
+          "sourceConceptTitle": "기계 학습",
+          "targetConceptTitle": "데이터 마이닝",
+          "relationType": "contrasts",
+          "strength": 0.8,
+          "confidence": 0.9,
+          "explanation": "두 분야는 동일한 분석 방법을 공유하며 유사점이 많지만, 기계 학습은 '알려진 속성을 기반으로 한 예측'에 무게를 두고 데이터 마이닝은 '데이터 속의 미처 발견하지 못했던 새로운 속성 발견'에 더 초점을 맞춘다.",
+          "evidence": [
+            {
+              "sourceId": "기계 학습",
+              "reason": "원문에서 기계 학습과 데이터 마이닝의 정의 차이를 대조하여 명시하고 있음."
+            }
+          ]
+        },
+        {
+          "sourceConceptTitle": "인공신경망",
+          "targetConceptTitle": "기계 학습",
+          "relationType": "used_in",
+          "strength": 0.85,
+          "confidence": 0.95,
+          "explanation": "인공신경망은 기계 학습과 인지과학 분야에서 문제를 해결하기 위해 널리 사용되는 대표적인 통계학적 학습 알고리즘이자 모델 형태이다.",
+          "evidence": [
+            {
+              "sourceId": "기계 학습",
+              "reason": "원문에서 인공신경망을 기계학습과 인지과학에서 활용하는 통계학적 학습 알고리즘으로 설명함."
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "round": 1,
+    "doc": "인공 신경망",
+    "sourceId": "src-2",
+    "latencyMs": 52581,
+    "inputChars": 32739,
+    "existingConceptsIn": 4,
+    "concepts": [
+      "인공신경망",
+      "지도 학습",
+      "자율 학습",
+      "준 지도 학습",
+      "퍼셉트론",
+      "오차역전파법",
+      "순방향 신경망",
+      "순환 인공 신경망"
+    ],
+    "newTitles": [
+      "지도 학습",
+      "자율 학습",
+      "준 지도 학습",
+      "퍼셉트론",
+      "오차역전파법",
+      "순방향 신경망",
+      "순환 인공 신경망"
+    ],
+    "merged": 1,
+    "relations": [
+      [
+        "오차역전파법",
+        "solves",
+        "퍼셉트론"
+      ],
+      [
+        "지도 학습",
+        "used_in",
+        "오차역전파법"
+      ],
+      [
+        "퍼셉트론",
+        "part_of",
+        "인공신경망"
+      ],
+      [
+        "지도 학습",
+        "used_in",
+        "인공신경망"
+      ],
+      [
+        "자율 학습",
+        "used_in",
+        "인공신경망"
+      ],
+      [
+        "준 지도 학습",
+        "used_in",
+        "인공신경망"
+      ],
+      [
+        "순방향 신경망",
+        "part_of",
+        "인공신경망"
+      ],
+      [
+        "순환 인공 신경망",
+        "part_of",
+        "인공신경망"
+      ],
+      [
+        "순방향 신경망",
+        "contrasts",
+        "순환 인공 신경망"
+      ]
+    ],
+    "relatedToRatio": 0,
+    "promote": {
+      "stats": {
+        "staging": 0,
+        "active": 11,
+        "archived": 0
+      },
+      "transitions": [
+        {
+          "id": "concept-지도 학습",
+          "from": "new",
+          "to": "active",
+          "reason": "연결(degree 2) → active"
+        },
+        {
+          "id": "concept-자율 학습",
+          "from": "new",
+          "to": "active",
+          "reason": "연결(degree 1) → active"
+        },
+        {
+          "id": "concept-준 지도 학습",
+          "from": "new",
+          "to": "active",
+          "reason": "연결(degree 1) → active"
+        },
+        {
+          "id": "concept-퍼셉트론",
+          "from": "new",
+          "to": "active",
+          "reason": "연결(degree 2) → active"
+        },
+        {
+          "id": "concept-오차역전파법",
+          "from": "new",
+          "to": "active",
+          "reason": "연결(degree 2) → active"
+        },
+        {
+          "id": "concept-순방향 신경망",
+          "from": "new",
+          "to": "active",
+          "reason": "연결(degree 2) → active"
+        },
+        {
+          "id": "concept-순환 인공 신경망",
+          "from": "new",
+          "to": "active",
+          "reason": "연결(degree 2) → active"
+        }
+      ],
+      "degrees": [
+        [
+          "concept-기계 학습",
+          3,
+          "active"
+        ],
+        [
+          "concept-일반화",
+          1,
+          "active"
+        ],
+        [
+          "concept-데이터 마이닝",
+          1,
+          "active"
+        ],
+        [
+          "concept-인공신경망",
+          7,
+          "active"
+        ],
+        [
+          "concept-지도 학습",
+          2,
+          "active"
+        ],
+        [
+          "concept-자율 학습",
+          1,
+          "active"
+        ],
+        [
+          "concept-준 지도 학습",
+          1,
+          "active"
+        ],
+        [
+          "concept-퍼셉트론",
+          2,
+          "active"
+        ],
+        [
+          "concept-오차역전파법",
+          2,
+          "active"
+        ],
+        [
+          "concept-순방향 신경망",
+          2,
+          "active"
+        ],
+        [
+          "concept-순환 인공 신경망",
+          2,
+          "active"
+        ]
+      ]
+    },
+    "pagesSnapshot": [
+      {
+        "title": "기계 학습",
+        "sourceIds": [
+          "src-1"
+        ],
+        "firstRound": 0
+      },
+      {
+        "title": "일반화",
+        "sourceIds": [
+          "src-1"
+        ],
+        "firstRound": 0
+      },
+      {
+        "title": "데이터 마이닝",
+        "sourceIds": [
+          "src-1"
+        ],
+        "firstRound": 0
+      },
+      {
+        "title": "인공신경망",
+        "sourceIds": [
+          "src-1",
+          "src-2"
+        ],
+        "firstRound": 0
+      },
+      {
+        "title": "지도 학습",
+        "sourceIds": [
+          "src-2"
+        ],
+        "firstRound": 1
+      },
+      {
+        "title": "자율 학습",
+        "sourceIds": [
+          "src-2"
+        ],
+        "firstRound": 1
+      },
+      {
+        "title": "준 지도 학습",
+        "sourceIds": [
+          "src-2"
+        ],
+        "firstRound": 1
+      },
+      {
+        "title": "퍼셉트론",
+        "sourceIds": [
+          "src-2"
+        ],
+        "firstRound": 1
+      },
+      {
+        "title": "오차역전파법",
+        "sourceIds": [
+          "src-2"
+        ],
+        "firstRound": 1
+      },
+      {
+        "title": "순방향 신경망",
+        "sourceIds": [
+          "src-2"
+        ],
+        "firstRound": 1
+      },
+      {
+        "title": "순환 인공 신경망",
+        "sourceIds": [
+          "src-2"
+        ],
+        "firstRound": 1
+      }
+    ],
+    "raw": {
+      "concepts": [
+        {
+          "title": "인공신경망",
+          "aliases": [
+            "ANN",
+            "인공 신경망"
+          ],
+          "summary": "생물학의 신경망에서 영감을 얻은 기계학습 모델로 학습을 통해 가중치를 조정하여 문제 해결 능력을 갖는다.",
+          "explanation": "인공신경망은 가중치가 부여된 시냅스들로 구성된 인공 뉴런(노드)이 다층 구조를 이뤄 신호를 전달하고 변환하는 기계학습 모델이다. 가중치를 조정함으로써 비선형 함수를 근사하고 컴퓨터 비전이나 음성 인식 등 복잡한 패턴을 효율적으로 처리할 수 있다.",
+          "examples": [
+            "필기체 이미지 픽셀 훈련을 통한 문자 인식",
+            "HLDN 폐암 검출 시스템"
+          ],
+          "sourceRefs": [],
+          "sourceEmbeds": []
+        },
+        {
+          "title": "지도 학습",
+          "aliases": [
+            "교사 학습"
+          ],
+          "summary": "교사 신호(정답)에 의해서 데이터에 대해 오차를 최소화하도록 신경망을 최적화하는 학습 패러다임.",
+          "explanation": "예제 쌍들이 주어졌을 때 데이터로부터 최적의 함수를 추론하는 과정이다. 주로 평균 제곱 오차 비용 함수를 사용하며, 다층 퍼셉트론에서 경사 하강법과 오차역전파법을 결합하여 가중치를 훈련시킨다. 패턴 인식이나 회귀분석에 적용된다.",
+          "examples": [
+            "음성인식",
+            "모션 인식"
+          ],
+          "sourceRefs": [],
+          "sourceEmbeds": []
+        },
+        {
+          "title": "자율 학습",
+          "aliases": [
+            "비지도 학습",
+            "비교사 학습"
+          ],
+          "summary": "정답이 없는 상태에서 입력 데이터의 자체 구조와 임의의 비용 함수를 최소화하는 학습 패러다임.",
+          "explanation": "데이터 간의 상호 정보량을 최대화하거나 사후 확률을 모델링하는 비용 함수를 사용한다. 레이블 없이 데이터의 분포나 관계성을 파악하는 문제에 주로 적합하다.",
+          "examples": [
+            "클러스터링",
+            "데이터 압축",
+            "베이지언 스팸 필터링"
+          ],
+          "sourceRefs": [],
+          "sourceEmbeds": []
+        },
+        {
+          "title": "준 지도 학습",
+          "aliases": [],
+          "summary": "환경과 상호 작용하며 발생하는 장기적 누적 비용을 최소화하기 위한 정책을 탐색하는 학습 패러다임.",
+          "explanation": "마르코프 결정 프로세스로 모델링되며, 주어진 환경에서 행동을 선택해 상태를 천이시키며 관측값과 비용을 기반으로 최적 정책을 찾는다. 인공신경망은 제어 문제의 해답을 수치적으로 근사하여 정확도 감소를 완화하는 데 주로 이용된다.",
+          "examples": [
+            "차량 경로 설정",
+            "천연 자원 관리"
+          ],
+          "sourceRefs": [],
+          "sourceEmbeds": []
+        },
+        {
+          "title": "퍼셉트론",
+          "aliases": [],
+          "summary": "Frank Rosenblatt가 고안한 이층 구조 학습 컴퓨터 망에 근거한 패턴 인식 알고리즘.",
+          "explanation": "간단한 연산을 수행하는 초기 기계학습 논리 회로 모델로, 단층 구조에서는 XOR 문제를 풀지 못하는 한계가 지적되어 신경망 연구의 정체기를 유발했다. 이 한계는 다층 퍼셉트론과 오차역전파법의 결합으로 해결되었다.",
+          "examples": [
+            "배타적 논리합 회로(XOR)의 단층 처리 불가능 사례"
+          ],
+          "sourceRefs": [],
+          "sourceEmbeds": []
+        },
+        {
+          "title": "오차역전파법",
+          "aliases": [
+            "역전파",
+            "back propagation"
+          ],
+          "summary": "경사 하강법에 필요한 비용 함수의 기울기를 출력층에서 입력층 방향으로 효율적으로 계산하는 가중치 학습 알고리즘.",
+          "explanation": "신경망 가중치 갱신을 위해 널리 사용되는 방법으로, Paul Werbos에 의해 개발되었다. 출력에서 구한 오차 값을 이용해 역방향으로 각 층의 도함수를 구하고 연결 가중치 매개변수를 교정하며, 다층 퍼셉트론에서 XOR 문제를 처리할 수 있게 한 원동력이다.",
+          "examples": [
+            "다층 퍼셉트론의 경사 하강법 가중치 조정"
+          ],
+          "sourceRefs": [],
+          "sourceEmbeds": []
+        },
+        {
+          "title": "순방향 신경망",
+          "aliases": [
+            "Feedforward neural network",
+            "전향 신경망"
+          ],
+          "summary": "정보가 입력에서 은닉노드를 거쳐 출력까지 순환 경로 없이 한 방향으로만 흐르는 인공신경망 구조.",
+          "explanation": "순방향 신경망은 유향 비순환 그래프로 모델링되며 시간적인 피드백 루프를 가지지 않는다. 가장 기초적인 형태의 인공신경망 방식으로 퍼셉트론과 시그모이드 구조 등이 이에 해당한다.",
+          "examples": [
+            "이진 구조",
+            "퍼셉트론",
+            "시그모이드 신경망"
+          ],
+          "sourceRefs": [],
+          "sourceEmbeds": []
+        },
+        {
+          "title": "순환 인공 신경망",
+          "aliases": [
+            "Recurrent neural network",
+            "재귀 신경망"
+          ],
+          "summary": "노드들 사이에 순환 구조와 양방향 데이터 이동 경로를 허용하는 인공신경망 유형.",
+          "explanation": "순방향 신경망과 대조되는 개념으로 데이터가 순방향뿐 아니라 후방 노드에서 전방 노드로 전달될 수 있어 시간적인 흐름이나 순차적 입력 데이터를 연산할 수 있는 동적 구조이다.",
+          "examples": [
+            "장단기 기억(LSTM)"
+          ],
+          "sourceRefs": [],
+          "sourceEmbeds": []
+        }
+      ],
+      "relations": [
+        {
+          "sourceConceptTitle": "오차역전파법",
+          "targetConceptTitle": "퍼셉트론",
+          "relationType": "solves",
+          "strength": 0.95,
+          "confidence": 0.95,
+          "explanation": "오차역전파법은 단층 퍼셉트론이 해결할 수 없었던 비선형 배타적 논리합(XOR) 문제를 다층 구조를 통해 효율적으로 계산하고 해결할 수 있도록 돕는다.",
+          "evidence": [
+            {
+              "sourceId": "doc-1",
+              "reason": "퍼셉트론의 비선형 한계를 해결한 수학적 기반이 오차역전파법임을 설명함"
+            }
+          ]
+        },
+        {
+          "sourceConceptTitle": "지도 학습",
+          "targetConceptTitle": "오차역전파법",
+          "relationType": "used_in",
+          "strength": 0.9,
+          "confidence": 0.9,
+          "explanation": "지도 학습에서 평균 제곱 오차 비용을 최소화하기 위해 다층 퍼셉트론에 경사 하강법을 적용할 때 오차역전파법이 핵심적으로 사용된다.",
+          "evidence": [
+            {
+              "sourceId": "doc-1",
+              "reason": "지도 학습의 가중치 조정을 위해 다층 퍼셉트론에 경사 하강법을 사용하면 오차역전파법이 됨을 언급함"
+            }
+          ]
+        },
+        {
+          "sourceConceptTitle": "퍼셉트론",
+          "targetConceptTitle": "인공신경망",
+          "relationType": "part_of",
+          "strength": 0.85,
+          "confidence": 0.9,
+          "explanation": "퍼셉트론은 인공신경망의 초기 단순 구조이자, 다층 신경망을 형성하는 기본 뼈대이다.",
+          "evidence": [
+            {
+              "sourceId": "doc-1",
+              "reason": "퍼셉트론을 설명하며 인공신경망과 밀접한 역사적 기초 모델로 정의함"
+            }
+          ]
+        },
+        {
+          "sourceConceptTitle": "지도 학습",
+          "targetConceptTitle": "인공신경망",
+          "relationType": "used_in",
+          "strength": 0.8,
+          "confidence": 0.9,
+          "explanation": "지도 학습은 예제 정답 데이터를 활용해 인공신경망을 특정 문제에 최적화하는 핵심적인 학습 패러다임이다.",
+          "evidence": [
+            {
+              "sourceId": "doc-1",
+              "reason": "교사 신호 입력에 의해 문제에 최적화되는 지도 학습이 인공신경망의 주요 분류 중 하나임을 설명함"
+            }
+          ]
+        },
+        {
+          "sourceConceptTitle": "자율 학습",
+          "targetConceptTitle": "인공신경망",
+          "relationType": "used_in",
+          "strength": 0.8,
+          "confidence": 0.9,
+          "explanation": "자율 학습은 교사 신호 없이 데이터의 클러스터링과 압축 등을 위해 인공신경망을 활용하는 대표적 패러다임이다.",
+          "evidence": [
+            {
+              "sourceId": "doc-1",
+              "reason": "교사 신호를 필요로 하지 않는 자율 학습이 인공신경망 모델에서 활용됨을 설명함"
+            }
+          ]
+        },
+        {
+          "sourceConceptTitle": "준 지도 학습",
+          "targetConceptTitle": "인공신경망",
+          "relationType": "used_in",
+          "strength": 0.7,
+          "confidence": 0.8,
+          "explanation": "준 지도 학습(원문의 마르코프 결정 프로세스 제어 문제 등)에서 제어 문제 해결과 수치적 근사를 위해 인공신경망이 도구로 결부되어 활용된다.",
+          "evidence": [
+            {
+              "sourceId": "doc-1",
+              "reason": "준 지도 학습에서 발생하는 제어 문제 해결에 인공신경망이 결부되어 사용되는 것을 설명함"
+            }
+          ]
+        },
+        {
+          "sourceConceptTitle": "순방향 신경망",
+          "targetConceptTitle": "인공신경망",
+          "relationType": "part_of",
+          "strength": 0.9,
+          "confidence": 0.95,
+          "explanation": "순방향 신경망은 정보 전달의 흐름 방향과 경로 순환 여부에 따라 분류되는 인공신경망의 가장 기본 형태이다.",
+          "evidence": [
+            {
+              "sourceId": "doc-1",
+              "reason": "순방향 신경망을 인공신경망의 가장 간단한 방법으로 분류하고 명시함"
+            }
+          ]
+        },
+        {
+          "sourceConceptTitle": "순환 인공 신경망",
+          "targetConceptTitle": "인공신경망",
+          "relationType": "part_of",
+          "strength": 0.9,
+          "confidence": 0.95,
+          "explanation": "순환 인공 신경망은 시간 흐름과 역방향 데이터 전달을 처리하기 위한 인공신경망의 대표적인 구조이다.",
+          "evidence": [
+            {
+              "sourceId": "doc-1",
+              "reason": "순환 인공 신경망을 전방 신경망과 반대로 동작하는 인공신경망 종류로 정의함"
+            }
+          ]
+        },
+        {
+          "sourceConceptTitle": "순방향 신경망",
+          "targetConceptTitle": "순환 인공 신경망",
+          "relationType": "contrasts",
+          "strength": 0.85,
+          "confidence": 0.9,
+          "explanation": "순방향 신경망은 순환 경로가 없는 그래프 구조를 이루는 반면, 순환 인공 신경망은 양방향 이동과 후방 노드 데이터 처리가 가능한 순환 경로를 가짐으로써 서로 대조된다.",
+          "evidence": [
+            {
+              "sourceId": "doc-1",
+              "reason": "순환 인공 신경망이 전방 신경망과 정 반대의 동작을 하며 순환 구조를 갖는 점을 대조하여 설명함"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "round": 2,
+    "doc": "딥 러닝",
+    "sourceId": "src-3",
+    "latencyMs": 42345,
+    "inputChars": 27029,
+    "existingConceptsIn": 11,
+    "concepts": [
+      "딥 러닝",
+      "심층 신경망",
+      "합성곱 신경망",
+      "순환 신경망",
+      "제한 볼츠만 머신",
+      "심층 신뢰 신경망",
+      "vanishing gradient problem",
+      "과적합",
+      "Drop-out"
+    ],
+    "newTitles": [
+      "딥 러닝",
+      "심층 신경망",
+      "합성곱 신경망",
+      "순환 신경망",
+      "제한 볼츠만 머신",
+      "심층 신뢰 신경망",
+      "vanishing gradient problem",
+      "과적합",
+      "Drop-out"
+    ],
+    "merged": 0,
+    "relations": [
+      [
+        "딥 러닝",
+        "part_of",
+        "기계 학습"
+      ],
+      [
+        "심층 신경망",
+        "part_of",
+        "인공신경망"
+      ],
+      [
+        "합성곱 신경망",
+        "part_of",
+        "심층 신경망"
+      ],
+      [
+        "순환 신경망",
+        "part_of",
+        "심층 신경망"
+      ],
+      [
+        "제한 볼츠만 머신",
+        "part_of",
+        "심층 신뢰 신경망"
+      ],
+      [
+        "vanishing gradient problem",
+        "related_to",
+        "심층 신경망"
+      ],
+      [
+        "Drop-out",
+        "solves",
+        "과적합"
+      ],
+      [
+        "오차역전파법",
+        "used_in",
+        "심층 신경망"
+      ]
+    ],
+    "relatedToRatio": 0.125,
+    "promote": {
+      "stats": {
+        "staging": 0,
+        "active": 20,
+        "archived": 0
+      },
+      "transitions": [
+        {
+          "id": "concept-딥 러닝",
+          "from": "new",
+          "to": "active",
+          "reason": "연결(degree 1) → active"
+        },
+        {
+          "id": "concept-심층 신경망",
+          "from": "new",
+          "to": "active",
+          "reason": "연결(degree 5) → active"
+        },
+        {
+          "id": "concept-합성곱 신경망",
+          "from": "new",
+          "to": "active",
+          "reason": "연결(degree 1) → active"
+        },
+        {
+          "id": "concept-순환 신경망",
+          "from": "new",
+          "to": "active",
+          "reason": "연결(degree 1) → active"
+        },
+        {
+          "id": "concept-제한 볼츠만 머신",
+          "from": "new",
+          "to": "active",
+          "reason": "연결(degree 1) → active"
+        },
+        {
+          "id": "concept-심층 신뢰 신경망",
+          "from": "new",
+          "to": "active",
+          "reason": "연결(degree 1) → active"
+        },
+        {
+          "id": "concept-vanishing gradient problem",
+          "from": "new",
+          "to": "active",
+          "reason": "연결(degree 1) → active"
+        },
+        {
+          "id": "concept-과적합",
+          "from": "new",
+          "to": "active",
+          "reason": "연결(degree 1) → active"
+        },
+        {
+          "id": "concept-drop-out",
+          "from": "new",
+          "to": "active",
+          "reason": "연결(degree 1) → active"
+        }
+      ],
+      "degrees": [
+        [
+          "concept-기계 학습",
+          4,
+          "active"
+        ],
+        [
+          "concept-일반화",
+          1,
+          "active"
+        ],
+        [
+          "concept-데이터 마이닝",
+          1,
+          "active"
+        ],
+        [
+          "concept-인공신경망",
+          8,
+          "active"
+        ],
+        [
+          "concept-지도 학습",
+          2,
+          "active"
+        ],
+        [
+          "concept-자율 학습",
+          1,
+          "active"
+        ],
+        [
+          "concept-준 지도 학습",
+          1,
+          "active"
+        ],
+        [
+          "concept-퍼셉트론",
+          2,
+          "active"
+        ],
+        [
+          "concept-오차역전파법",
+          3,
+          "active"
+        ],
+        [
+          "concept-순방향 신경망",
+          2,
+          "active"
+        ],
+        [
+          "concept-순환 인공 신경망",
+          2,
+          "active"
+        ],
+        [
+          "concept-딥 러닝",
+          1,
+          "active"
+        ],
+        [
+          "concept-심층 신경망",
+          5,
+          "active"
+        ],
+        [
+          "concept-합성곱 신경망",
+          1,
+          "active"
+        ],
+        [
+          "concept-순환 신경망",
+          1,
+          "active"
+        ],
+        [
+          "concept-제한 볼츠만 머신",
+          1,
+          "active"
+        ],
+        [
+          "concept-심층 신뢰 신경망",
+          1,
+          "active"
+        ],
+        [
+          "concept-vanishing gradient problem",
+          1,
+          "active"
+        ],
+        [
+          "concept-과적합",
+          1,
+          "active"
+        ],
+        [
+          "concept-drop-out",
+          1,
+          "active"
+        ]
+      ]
+    },
+    "pagesSnapshot": [
+      {
+        "title": "기계 학습",
+        "sourceIds": [
+          "src-1"
+        ],
+        "firstRound": 0
+      },
+      {
+        "title": "일반화",
+        "sourceIds": [
+          "src-1"
+        ],
+        "firstRound": 0
+      },
+      {
+        "title": "데이터 마이닝",
+        "sourceIds": [
+          "src-1"
+        ],
+        "firstRound": 0
+      },
+      {
+        "title": "인공신경망",
+        "sourceIds": [
+          "src-1",
+          "src-2"
+        ],
+        "firstRound": 0
+      },
+      {
+        "title": "지도 학습",
+        "sourceIds": [
+          "src-2"
+        ],
+        "firstRound": 1
+      },
+      {
+        "title": "자율 학습",
+        "sourceIds": [
+          "src-2"
+        ],
+        "firstRound": 1
+      },
+      {
+        "title": "준 지도 학습",
+        "sourceIds": [
+          "src-2"
+        ],
+        "firstRound": 1
+      },
+      {
+        "title": "퍼셉트론",
+        "sourceIds": [
+          "src-2"
+        ],
+        "firstRound": 1
+      },
+      {
+        "title": "오차역전파법",
+        "sourceIds": [
+          "src-2"
+        ],
+        "firstRound": 1
+      },
+      {
+        "title": "순방향 신경망",
+        "sourceIds": [
+          "src-2"
+        ],
+        "firstRound": 1
+      },
+      {
+        "title": "순환 인공 신경망",
+        "sourceIds": [
+          "src-2"
+        ],
+        "firstRound": 1
+      },
+      {
+        "title": "딥 러닝",
+        "sourceIds": [
+          "src-3"
+        ],
+        "firstRound": 2
+      },
+      {
+        "title": "심층 신경망",
+        "sourceIds": [
+          "src-3"
+        ],
+        "firstRound": 2
+      },
+      {
+        "title": "합성곱 신경망",
+        "sourceIds": [
+          "src-3"
+        ],
+        "firstRound": 2
+      },
+      {
+        "title": "순환 신경망",
+        "sourceIds": [
+          "src-3"
+        ],
+        "firstRound": 2
+      },
+      {
+        "title": "제한 볼츠만 머신",
+        "sourceIds": [
+          "src-3"
+        ],
+        "firstRound": 2
+      },
+      {
+        "title": "심층 신뢰 신경망",
+        "sourceIds": [
+          "src-3"
+        ],
+        "firstRound": 2
+      },
+      {
+        "title": "vanishing gradient problem",
+        "sourceIds": [
+          "src-3"
+        ],
+        "firstRound": 2
+      },
+      {
+        "title": "과적합",
+        "sourceIds": [
+          "src-3"
+        ],
+        "firstRound": 2
+      },
+      {
+        "title": "Drop-out",
+        "sourceIds": [
+          "src-3"
+        ],
+        "firstRound": 2
+      }
+    ],
+    "raw": {
+      "concepts": [
+        {
+          "title": "딥 러닝",
+          "aliases": [
+            "심층 학습",
+            "deep learning",
+            "deep structured learning",
+            "hierarchical learning"
+          ],
+          "summary": "여러 비선형 변환기법의 조합을 통해 높은 수준의 추상화를 시도하는 기계 학습 알고리즘의 집합입니다.",
+          "explanation": "인공신경망에 기반하여 설계되었으며, 컴퓨터가 데이터를 스스로 표현하고 학습할 수 있도록 하는 기계 학습의 한 분야입니다. 하드웨어(GPU)의 발전, 빅 데이터의 축현, 그리고 과적합 및 vanishing gradient problem의 극복을 통해 현대 인공지능의 중흥기를 이끌고 있습니다.",
+          "examples": [
+            "컴퓨터 비전",
+            "음성인식",
+            "자연어 처리",
+            "약물 발견"
+          ],
+          "sourceRefs": [],
+          "sourceEmbeds": [],
+          "confusingConcepts": [
+            "기계 학습"
+          ],
+          "relatedQuestions": [
+            "딥 러닝이 다시 부활하게 된 핵심 요인 세 가지는 무엇인가?"
+          ]
+        },
+        {
+          "title": "심층 신경망",
+          "aliases": [
+            "Deep Neural Network",
+            "DNN"
+          ],
+          "summary": "입력층과 출력층 사이에 여러 개의 은닉층으로 이뤄진 인공신경망입니다.",
+          "explanation": "복잡한 비선형 관계를 모델링할 수 있으며, 하위 계층의 특징들을 점진적으로 규합하여 복잡한 데이터를 적은 수의 유닛으로도 효과적으로 표현할 수 있습니다. 주로 표준 오류역전파 알고리즘과 확률적 경사 하강법을 통해 가중치를 학습합니다.",
+          "examples": [
+            "물체 식별 모델",
+            "언어 모델링"
+          ],
+          "sourceRefs": [],
+          "sourceEmbeds": [],
+          "confusingConcepts": [
+            "인공신경망"
+          ],
+          "relatedQuestions": [
+            "심층 신경망을 학습시킬 때 주로 사용되는 정칙화 기법은 무엇이 있는가?"
+          ]
+        },
+        {
+          "title": "합성곱 신경망",
+          "aliases": [
+            "Convolutional Neural Network",
+            "CNN"
+          ],
+          "summary": "최소한의 전처리를 사용하도록 설계된 다계층 퍼셉트론의 일종입니다.",
+          "explanation": "하나 또는 여러 개의 합성곱 계층과 그 위에 올려진 일반적인 인공 신경망 계층으로 이루어져 있으며, 가중치와 통합 계층(pooling layer)을 추가로 활용하여 2차원 구조의 입력 데이터를 보존하고 활용합니다.",
+          "examples": [
+            "영상 분류",
+            "자동 영상 캡셔닝",
+            "자동 음성 인식을 위한 음향 모델링"
+          ],
+          "sourceRefs": [],
+          "sourceEmbeds": [],
+          "confusingConcepts": [
+            "순환 신경망"
+          ],
+          "relatedQuestions": [
+            "CNN이 이미지 처리에 탁월한 구조적 이유는 무엇인가?"
+          ]
+        },
+        {
+          "title": "순환 신경망",
+          "aliases": [
+            "Recurrent Neural Network",
+            "RNN"
+          ],
+          "summary": "인공신경망을 구성하는 유닛 사이의 연결이 순환 구조(Directed cycle)를 이루는 신경망입니다.",
+          "explanation": "앞먹임 신경망과 달리 내부에 메모리를 가질 수 있어 시퀀스 데이터나 임의의 입력을 처리하는 데 강점을 가집니다. 다만, 유닛이 많아질 경우 학습 시 스케일링 이슈를 겪기 쉽습니다.",
+          "examples": [
+            "필기체 인식",
+            "LSTM(Long short term memory network)"
+          ],
+          "sourceRefs": [],
+          "sourceEmbeds": [],
+          "confusingConcepts": [
+            "순방향 신경망"
+          ],
+          "relatedQuestions": [
+            "순환 신경망을 훈련하기 위해 대표적으로 어떤 최적화 기법이 쓰이는가?"
+          ]
+        },
+        {
+          "title": "제한 볼츠만 머신",
+          "aliases": [
+            "Restricted Boltzmann Machine",
+            "RBM"
+          ],
+          "summary": "볼츠만 머신에서 동일 층 내부의 연결을 제거하여 가시 유닛과 은닉 유닛 간의 무방향 이분 그래프 구조로 만든 모델입니다.",
+          "explanation": "층간 연결을 없앰으로써 가시 유닛이 고정되었을 때 은닉 유닛을 한 번에 추론(Inference)할 수 있어 효율적인 Gibbs sampling이 가능합니다. 이 모델은 DBN을 구성하는 기본 뼈대로 활용됩니다.",
+          "examples": [
+            "DBN의 층별 비지도 사전훈련"
+          ],
+          "sourceRefs": [],
+          "sourceEmbeds": [],
+          "confusingConcepts": [
+            "심층 신뢰 신경망"
+          ],
+          "relatedQuestions": [
+            "RBM 학습에 활용되는 CD(Contrastive Divergence) 알고리즘의 장점은 무엇인가?"
+          ]
+        },
+        {
+          "title": "심층 신뢰 신경망",
+          "aliases": [
+            "Deep Belief Network",
+            "DBN"
+          ],
+          "summary": "잠재변수의 다중계층으로 이루어진 그래프 생성 모형(generative graphical model)입니다.",
+          "explanation": "비지도 학습 방식으로 계층마다 RBM을 순차적으로 쌓아 올리며 선행학습(pre-training)한 뒤, 오류역전파를 통해 가중치를 판별적으로 미세조정(fine-tuning)합니다. 훈련용 데이터가 적을 때 가중치 초기화가 미치는 영향력을 보강해 주는 유용한 아키텍처입니다.",
+          "examples": [
+            "비지도 사전훈련을 통한 DNN 가중치 초기화"
+          ],
+          "sourceRefs": [],
+          "sourceEmbeds": [],
+          "confusingConcepts": [
+            "심층 신경망"
+          ],
+          "relatedQuestions": [
+            "DBN은 어떻게 RBM을 활용하여 다층 구조의 학습 난이도를 극복하였는가?"
+          ]
+        },
+        {
+          "title": "vanishing gradient problem",
+          "aliases": [
+            "기울기 소실 문제"
+          ],
+          "summary": "인공신경망의 역전파 과정에서 은닉층을 거슬러 갈수록 기울기가 소실되어 가중치 학습이 정상적으로 이루어지지 않는 현상입니다.",
+          "explanation": "Sepp Hochreiter에 의해 분석된 이 현상은 다층 인공신경망이 국지적 최솟값(local optima)에 머무르거나 진동 또는 발산하게 만드는 원인이었으며, 긴 세월 동안 심층 인공신경망의 암흑기를 가져온 주된 기술적 한계였습니다.",
+          "examples": [
+            "다층 인공신경망 학습 도중 출력 부근의 기울기가 입력 방향으로 전달되지 못하고 사라지는 현상"
+          ],
+          "sourceRefs": [],
+          "sourceEmbeds": [],
+          "confusingConcepts": [
+            "과적합"
+          ],
+          "relatedQuestions": [
+            "vanishing gradient problem을 극복하기 위한 대표적인 해결 방법들은 무엇인가?"
+          ]
+        },
+        {
+          "title": "과적합",
+          "aliases": [
+            "Overfitting"
+          ],
+          "summary": "모델이 학습 데이터(training data)에 너무 가깝게 맞춰져 새로운 데이터에 대한 일반화 능력이 저하되는 현상입니다.",
+          "explanation": "심층 신경망은 계층의 수가 많고 매개변수가 다양하여 학습 데이터 내부의 희소한 의존성(rare dependency)까지 과도하게 모델링하기 때문에 과적합에 취약합니다. 이를 방지하기 위해 RBM 기반 사전훈련, 정칙화(regularization), Drop-out 기법 등이 사용됩니다.",
+          "examples": [
+            "트레이닝셋에서는 오차가 거의 없지만 테스트셋에서는 높은 오차율을 보이는 상태"
+          ],
+          "sourceRefs": [],
+          "sourceEmbeds": [],
+          "confusingConcepts": [
+            "일반화"
+          ],
+          "relatedQuestions": [
+            "과적합을 방지하기 위해 심층 신경망에 적용하는 수학적 정칙화 기법은 무엇이 있는가?"
+          ]
+        },
+        {
+          "title": "Drop-out",
+          "aliases": [
+            "드롭 아웃",
+            "dropout 정칙화"
+          ],
+          "summary": "학습 도중 은닉층들의 일부 유닛을 임의로 누락시켜 정칙화를 수행하고 과적합을 방지하는 기법입니다.",
+          "explanation": "2013년에 소개된 개념으로, 기존의 복잡한 RBM 기반 사전훈련에 비해 훨씬 간단하고 강력한 정칙화 효과를 냅니다. 네트워크가 특정 유닛 간의 결합성(rare dependency)에 지나치게 의존하는 것을 차단해 줍니다.",
+          "examples": [
+            "매 미니배치 학습마다 무작위로 은닉 유닛의 50% 활성화를 해제하고 피드포워드하는 정칙화"
+          ],
+          "sourceRefs": [],
+          "sourceEmbeds": [],
+          "confusingConcepts": [
+            "weight decay"
+          ],
+          "relatedQuestions": [
+            "Drop-out이 RBM 기반의 사전훈련보다 선호되는 실무적인 이점은 무엇인가?"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "sourceConceptTitle": "딥 러닝",
+          "targetConceptTitle": "기계 학습",
+          "relationType": "part_of",
+          "strength": 1,
+          "confidence": 1,
+          "explanation": "딥 러닝은 기계 학습 알고리즘의 집합으로 정의되는 기계 학습의 대표적인 한 분야입니다.",
+          "evidence": [
+            {
+              "sourceId": "doc-1",
+              "reason": "본문에서 딥 러닝은 기계 학습 알고리즘의 집합으로 정의되며, 큰 틀에서 사람의 사고방식을 컴퓨터에게 가르치는 기계학습의 한 분야라고 서술하고 있습니다."
+            }
+          ]
+        },
+        {
+          "sourceConceptTitle": "심층 신경망",
+          "targetConceptTitle": "인공신경망",
+          "relationType": "part_of",
+          "strength": 0.9,
+          "confidence": 1,
+          "explanation": "심층 신경망(DNN)은 입력층과 출력층 사이에 다수의 은닉층을 두어 인공신경망(ANN)의 복잡성을 강화한 파생 형태입니다.",
+          "evidence": [
+            {
+              "sourceId": "doc-1",
+              "reason": "심층 신경망(DNN)은 입력층과 출력층 사이에 여러 개의 은닉층들로 이뤄진 인공신경망(ANN)이라고 본문에 서술되어 있습니다."
+            }
+          ]
+        },
+        {
+          "sourceConceptTitle": "합성곱 신경망",
+          "targetConceptTitle": "심층 신경망",
+          "relationType": "part_of",
+          "strength": 0.8,
+          "confidence": 0.9,
+          "explanation": "합성곱 신경망(CNN)은 합성곱 계층을 두어 2차원 데이터를 다루는 특화된 형태의 심층 신경망 아키텍처 중 하나입니다.",
+          "evidence": [
+            {
+              "sourceId": "doc-1",
+              "reason": "CNN의 성공적인 적용 및 이를 발전시킨 합성곱 심층 신뢰 신경망 등을 딥 러닝 구조들의 하위 요소로 다루고 있습니다."
+            }
+          ]
+        },
+        {
+          "sourceConceptTitle": "순환 신경망",
+          "targetConceptTitle": "심층 신경망",
+          "relationType": "part_of",
+          "strength": 0.8,
+          "confidence": 0.9,
+          "explanation": "순환 신경망(RNN) 또한 은닉층들이 순환 연결을 이루어 순차 데이터를 모델링하는 아키텍처로, 심층 신경망 범주에 성공적으로 통합되어 사용됩니다.",
+          "evidence": [
+            {
+              "sourceId": "doc-1",
+              "reason": "본문에서 '최근의 연구들은 심층 학습 구조들을 순환 신경망(Recurrent Neural Network, RNN)에 성공적으로 적용했다'라고 서술되어 있습니다."
+            }
+          ]
+        },
+        {
+          "sourceConceptTitle": "제한 볼츠만 머신",
+          "targetConceptTitle": "심층 신뢰 신경망",
+          "relationType": "part_of",
+          "strength": 0.95,
+          "confidence": 1,
+          "explanation": "제한 볼츠만 머신(RBM)은 심층 신뢰 신경망(DBN)을 쌓아 올리기 위해 사용되는 기본 구성 단위이자 뼈대 모델입니다.",
+          "evidence": [
+            {
+              "sourceId": "doc-1",
+              "reason": "RBM은 DBN의 기본 뼈대가 되며, RBM을 차례로 쌓아올리며 Greedy하게 학습하여 DBN을 완성한다고 기술되어 있습니다."
+            }
+          ]
+        },
+        {
+          "sourceConceptTitle": "vanishing gradient problem",
+          "targetConceptTitle": "심층 신경망",
+          "relationType": "related_to",
+          "strength": 0.8,
+          "confidence": 0.9,
+          "explanation": "vanishing gradient problem은 다층 은닉 구조를 가지는 심층 신경망을 학습시킬 때 수렴하지 못하게 방해하는 가장 대표적인 장해 요소였습니다.",
+          "evidence": [
+            {
+              "sourceId": "doc-1",
+              "reason": "신경망 학습이 지연되거나 지역최솟값에 머무르게 만드는 주요 원인으로 vanishing gradient problem이 Sepp Hochreiter에 의해 분석되었다고 언급하고 있습니다."
+            }
+          ]
+        },
+        {
+          "sourceConceptTitle": "Drop-out",
+          "targetConceptTitle": "과적합",
+          "relationType": "solves",
+          "strength": 0.9,
+          "confidence": 0.95,
+          "explanation": "Drop-out은 심층 신경망의 복잡한 연결 과정에서 발생하기 쉬운 과적합(Overfitting) 문제를 무작위 유닛 비활성화 기법을 통해 효율적으로 해결해 줍니다.",
+          "evidence": [
+            {
+              "sourceId": "doc-1",
+              "reason": "ICASSP에서 RBM을 대체하여 과적합을 방지할 수 있는 Drop-out이라는 개념이 소개되면서 훨씬 간단하고 강력하게 과적합을 방지할 수 있게 되었다고 명시되어 있습니다."
+            }
+          ]
+        },
+        {
+          "sourceConceptTitle": "오차역전파법",
+          "targetConceptTitle": "심층 신경망",
+          "relationType": "used_in",
+          "strength": 0.9,
+          "confidence": 0.9,
+          "explanation": "심층 신경망은 가중치 갱신과 학습을 완수하기 위해 표준 오차역전파법(backpropagation)과 경사 하강법 알고리즘을 사용합니다.",
+          "evidence": [
+            {
+              "sourceId": "doc-1",
+              "reason": "본문에서 '심층 신경망은 표준 오류역전파 알고리즘으로 학습될 수 있다'라며 수학적 업데이트 공식을 서술하고 있습니다."
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "round": 3,
+    "doc": "순환 신경망",
+    "sourceId": "src-4",
+    "latencyMs": 51787,
+    "inputChars": 9991,
+    "existingConceptsIn": 20,
+    "concepts": [
+      "순환 신경망",
+      "LSTM",
+      "GRU",
+      "단순 순환망",
+      "엘만 신경망",
+      "조르단 신경망",
+      "양방향 순환 신경망"
+    ],
+    "newTitles": [
+      "LSTM",
+      "GRU",
+      "단순 순환망",
+      "엘만 신경망",
+      "조르단 신경망",
+      "양방향 순환 신경망"
+    ],
+    "merged": 1,
+    "relations": [
+      [
+        "순환 신경망",
+        "contrasts",
+        "순방향 신경망"
+      ],
+      [
+        "단순 순환망",
+        "part_of",
+        "순환 신경망"
+      ],
+      [
+        "엘만 신경망",
+        "part_of",
+        "단순 순환망"
+      ],
+      [
+        "조르단 신경망",
+        "part_of",
+        "단순 순환망"
+      ],
+      [
+        "LSTM",
+        "part_of",
+        "순환 신경망"
+      ],
+      [
+        "GRU",
+        "part_of",
+        "순환 신경망"
+      ],
+      [
+        "LSTM",
+        "solves",
+        "vanishing gradient problem"
+      ],
+      [
+        "GRU",
+        "related_to",
+        "LSTM"
+      ],
+      [
+        "양방향 순환 신경망",
+        "part_of",
+        "순환 신경망"
+      ],
+      [
+        "양방향 순환 신경망",
+        "related_to",
+        "LSTM"
+      ],
+      [
+        "LSTM",
+        "used_in",
+        "합성곱 신경망"
+      ]
+    ],
+    "relatedToRatio": 0.18181818181818182,
+    "promote": {
+      "stats": {
+        "staging": 0,
+        "active": 26,
+        "archived": 0
+      },
+      "transitions": [
+        {
+          "id": "concept-lstm",
+          "from": "new",
+          "to": "active",
+          "reason": "연결(degree 5) → active"
+        },
+        {
+          "id": "concept-gru",
+          "from": "new",
+          "to": "active",
+          "reason": "연결(degree 2) → active"
+        },
+        {
+          "id": "concept-단순 순환망",
+          "from": "new",
+          "to": "active",
+          "reason": "연결(degree 3) → active"
+        },
+        {
+          "id": "concept-엘만 신경망",
+          "from": "new",
+          "to": "active",
+          "reason": "연결(degree 1) → active"
+        },
+        {
+          "id": "concept-조르단 신경망",
+          "from": "new",
+          "to": "active",
+          "reason": "연결(degree 1) → active"
+        },
+        {
+          "id": "concept-양방향 순환 신경망",
+          "from": "new",
+          "to": "active",
+          "reason": "연결(degree 2) → active"
+        }
+      ],
+      "degrees": [
+        [
+          "concept-기계 학습",
+          4,
+          "active"
+        ],
+        [
+          "concept-일반화",
+          1,
+          "active"
+        ],
+        [
+          "concept-데이터 마이닝",
+          1,
+          "active"
+        ],
+        [
+          "concept-인공신경망",
+          8,
+          "active"
+        ],
+        [
+          "concept-지도 학습",
+          2,
+          "active"
+        ],
+        [
+          "concept-자율 학습",
+          1,
+          "active"
+        ],
+        [
+          "concept-준 지도 학습",
+          1,
+          "active"
+        ],
+        [
+          "concept-퍼셉트론",
+          2,
+          "active"
+        ],
+        [
+          "concept-오차역전파법",
+          3,
+          "active"
+        ],
+        [
+          "concept-순방향 신경망",
+          3,
+          "active"
+        ],
+        [
+          "concept-순환 인공 신경망",
+          2,
+          "active"
+        ],
+        [
+          "concept-딥 러닝",
+          1,
+          "active"
+        ],
+        [
+          "concept-심층 신경망",
+          5,
+          "active"
+        ],
+        [
+          "concept-합성곱 신경망",
+          2,
+          "active"
+        ],
+        [
+          "concept-순환 신경망",
+          6,
+          "active"
+        ],
+        [
+          "concept-제한 볼츠만 머신",
+          1,
+          "active"
+        ],
+        [
+          "concept-심층 신뢰 신경망",
+          1,
+          "active"
+        ],
+        [
+          "concept-vanishing gradient problem",
+          2,
+          "active"
+        ],
+        [
+          "concept-과적합",
+          1,
+          "active"
+        ],
+        [
+          "concept-drop-out",
+          1,
+          "active"
+        ],
+        [
+          "concept-lstm",
+          5,
+          "active"
+        ],
+        [
+          "concept-gru",
+          2,
+          "active"
+        ],
+        [
+          "concept-단순 순환망",
+          3,
+          "active"
+        ],
+        [
+          "concept-엘만 신경망",
+          1,
+          "active"
+        ],
+        [
+          "concept-조르단 신경망",
+          1,
+          "active"
+        ],
+        [
+          "concept-양방향 순환 신경망",
+          2,
+          "active"
+        ]
+      ]
+    },
+    "pagesSnapshot": [
+      {
+        "title": "기계 학습",
+        "sourceIds": [
+          "src-1"
+        ],
+        "firstRound": 0
+      },
+      {
+        "title": "일반화",
+        "sourceIds": [
+          "src-1"
+        ],
+        "firstRound": 0
+      },
+      {
+        "title": "데이터 마이닝",
+        "sourceIds": [
+          "src-1"
+        ],
+        "firstRound": 0
+      },
+      {
+        "title": "인공신경망",
+        "sourceIds": [
+          "src-1",
+          "src-2"
+        ],
+        "firstRound": 0
+      },
+      {
+        "title": "지도 학습",
+        "sourceIds": [
+          "src-2"
+        ],
+        "firstRound": 1
+      },
+      {
+        "title": "자율 학습",
+        "sourceIds": [
+          "src-2"
+        ],
+        "firstRound": 1
+      },
+      {
+        "title": "준 지도 학습",
+        "sourceIds": [
+          "src-2"
+        ],
+        "firstRound": 1
+      },
+      {
+        "title": "퍼셉트론",
+        "sourceIds": [
+          "src-2"
+        ],
+        "firstRound": 1
+      },
+      {
+        "title": "오차역전파법",
+        "sourceIds": [
+          "src-2"
+        ],
+        "firstRound": 1
+      },
+      {
+        "title": "순방향 신경망",
+        "sourceIds": [
+          "src-2"
+        ],
+        "firstRound": 1
+      },
+      {
+        "title": "순환 인공 신경망",
+        "sourceIds": [
+          "src-2"
+        ],
+        "firstRound": 1
+      },
+      {
+        "title": "딥 러닝",
+        "sourceIds": [
+          "src-3"
+        ],
+        "firstRound": 2
+      },
+      {
+        "title": "심층 신경망",
+        "sourceIds": [
+          "src-3"
+        ],
+        "firstRound": 2
+      },
+      {
+        "title": "합성곱 신경망",
+        "sourceIds": [
+          "src-3"
+        ],
+        "firstRound": 2
+      },
+      {
+        "title": "순환 신경망",
+        "sourceIds": [
+          "src-3",
+          "src-4"
+        ],
+        "firstRound": 2
+      },
+      {
+        "title": "제한 볼츠만 머신",
+        "sourceIds": [
+          "src-3"
+        ],
+        "firstRound": 2
+      },
+      {
+        "title": "심층 신뢰 신경망",
+        "sourceIds": [
+          "src-3"
+        ],
+        "firstRound": 2
+      },
+      {
+        "title": "vanishing gradient problem",
+        "sourceIds": [
+          "src-3"
+        ],
+        "firstRound": 2
+      },
+      {
+        "title": "과적합",
+        "sourceIds": [
+          "src-3"
+        ],
+        "firstRound": 2
+      },
+      {
+        "title": "Drop-out",
+        "sourceIds": [
+          "src-3"
+        ],
+        "firstRound": 2
+      },
+      {
+        "title": "LSTM",
+        "sourceIds": [
+          "src-4"
+        ],
+        "firstRound": 3
+      },
+      {
+        "title": "GRU",
+        "sourceIds": [
+          "src-4"
+        ],
+        "firstRound": 3
+      },
+      {
+        "title": "단순 순환망",
+        "sourceIds": [
+          "src-4"
+        ],
+        "firstRound": 3
+      },
+      {
+        "title": "엘만 신경망",
+        "sourceIds": [
+          "src-4"
+        ],
+        "firstRound": 3
+      },
+      {
+        "title": "조르단 신경망",
+        "sourceIds": [
+          "src-4"
+        ],
+        "firstRound": 3
+      },
+      {
+        "title": "양방향 순환 신경망",
+        "sourceIds": [
+          "src-4"
+        ],
+        "firstRound": 3
+      }
+    ],
+    "raw": {
+      "concepts": [
+        {
+          "title": "순환 신경망",
+          "aliases": [
+            "Recurrent neural network",
+            "RNN"
+          ],
+          "summary": "유닛 간의 연결이 순환적 구조를 가지고 내부 메모리를 활용해 시퀀스 형태의 입력을 처리할 수 있는 인공 신경망.",
+          "explanation": "순환 신경망은 은닉 노드들의 활성화 값을 저장하는 내부 상태를 유지하여 시변적 동적 특징을 모델링합니다. 입력 신호의 길이가 한정되지 않은 동적 데이터를 처리하는 데 유용하며, 필기 인식이나 음성 인식에 주로 적용됩니다. 유향 비순환 그래프로 재구성될 수 있는 유한 임펄스 구조와, 재구성이 불가능한 무한 임펄스 구조를 모두 포함합니다.",
+          "examples": [
+            "음성 인식",
+            "필기 인식",
+            "기계 번역",
+            "단백질간 상동성 발견"
+          ],
+          "sourceRefs": [],
+          "sourceEmbeds": []
+        },
+        {
+          "title": "LSTM",
+          "aliases": [
+            "long short-term memory",
+            "장단기 메모리"
+          ],
+          "summary": "역전파 시 기울기 소실 문제를 해결하기 위해 망각 게이트 등을 도입한 순환 신경망 구조.",
+          "explanation": "1997년 혹스라이터와 슈미트후버가 발명한 LSTM은 망각 게이트(forget gate)를 추가하여 vanishing gradient problem을 방지합니다. 이를 통해 수백만 단위 시간 전의 사건도 학습할 수 있게 되어 고주파 및 저주파 신호를 모두 처리할 수 있습니다. CTC(Connectionist temporal classification)와 결합하여 음성 인식, 필기 인식 등에서 기존 모형들을 능가하는 우수한 성능을 보여주었습니다.",
+          "examples": [
+            "구글 안드로이드 음성 인식",
+            "바이두의 Switchboard Hub5'00 음성 인식 갱신"
+          ],
+          "sourceRefs": [],
+          "sourceEmbeds": []
+        },
+        {
+          "title": "GRU",
+          "aliases": [
+            "Gated recurrent units",
+            "게이트 순환 유닛"
+          ],
+          "summary": "출력 게이트를 제거해 매개변수를 줄임으로써 LSTM보다 가벼우면서도 대등한 성능을 내는 순환 신경망 구조.",
+          "explanation": "2014년에 고안된 GRU는 LSTM과 유사한 게이트 메커니즘을 사용하지만, 출력 게이트가 없어 매개변수의 수가 적습니다. 이 덕분에 연산 부담이 적으면서도 다성음악 학습이나 음성 인식 분야에서 LSTM에 필적하는 성능을 냅니다.",
+          "examples": [
+            "다성음악 학습",
+            "음성 인식"
+          ],
+          "sourceRefs": [],
+          "sourceEmbeds": []
+        },
+        {
+          "title": "단순 순환망",
+          "aliases": [
+            "Simple recurrent network",
+            "SRN"
+          ],
+          "summary": "이전 단계의 상태를 저장하는 문맥 유닛을 추가하여 기억 능력을 갖춘 엘만 신경망과 조르단 신경망 등의 초기 RNN 구조.",
+          "explanation": "단순 순환망은 문맥 유닛(context unit)을 활용해 과거의 상태를 저장함으로써 일반적인 다중계층 퍼셉트론보다 더 뛰어난 예측 성능을 가집니다. 대표적인 형태로는 은닉 레이어의 이전 상태를 전달받는 엘만 신경망과, 출력 레이어의 이전 상태를 저장하는 조르단 신경망이 있습니다.",
+          "examples": [
+            "엘만 신경망",
+            "조르단 신경망"
+          ],
+          "sourceRefs": [],
+          "sourceEmbeds": []
+        },
+        {
+          "title": "엘만 신경망",
+          "aliases": [],
+          "summary": "은닉 레이어의 이전 단계 상태값을 문맥 유닛에 복사하여 다음 학습 단계에 되먹임하는 단순 순환망 구조.",
+          "explanation": "세 개의 레이어(입력, 은닉, 출력)와 문맥 유닛으로 구성되며, 은닉 레이어가 직전 단계에 가졌던 상태 값이 고정 가중치 1을 통해 문맥 유닛에 저장됩니다. 이를 통해 과거의 시퀀스 정보를 반영하여 예측력을 향상시킵니다.",
+          "examples": [],
+          "sourceRefs": [],
+          "sourceEmbeds": []
+        },
+        {
+          "title": "조르단 신경망",
+          "aliases": [],
+          "summary": "출력 레이어의 이전 단계 상태값을 문맥 유닛(상태 레이어)에 복사하여 다음 은닉 레이어 연산에 반영하는 단순 순환망 구조.",
+          "explanation": "엘만 신경망과 유사하나, 문맥 유닛이 은닉 레이어가 아닌 출력 레이어로부터 값을 입력받는다는 특징이 있습니다. 이때의 문맥 유닛은 상태 레이어(state layer)라고 부르며, 자체적인 내부 순환 구조를 갖습니다.",
+          "examples": [],
+          "sourceRefs": [],
+          "sourceEmbeds": []
+        },
+        {
+          "title": "양방향 순환 신경망",
+          "aliases": [
+            "Bi-directional RNN"
+          ],
+          "summary": "시퀀스 데이터를 순방향과 역방향의 두 가지 RNN으로 각각 처리한 뒤 조합하여 과거와 미래 맥락을 모두 학습하는 신경망.",
+          "explanation": "길이가 고정된 순열 데이터에서 특정 시점 기준 이전 정보와 이후 정보를 동시에 학습하기 위해 고안되었습니다. 왼쪽에서 오른쪽으로 진행하는 RNN 하나와, 반대 방향인 오른쪽에서 왼쪽으로 진행하는 RNN 하나를 결합한 뒤 최종 출력값을 지도 학습의 정답과 비교합니다. LSTM과 결합했을 때 매우 높은 효율성을 보입니다.",
+          "examples": [],
+          "sourceRefs": [],
+          "sourceEmbeds": []
+        }
+      ],
+      "relations": [
+        {
+          "sourceConceptTitle": "순환 신경망",
+          "targetConceptTitle": "순방향 신경망",
+          "relationType": "contrasts",
+          "strength": 0.8,
+          "confidence": 0.9,
+          "explanation": "순방향 신경망과 달리 순환 신경망은 연결에 순환 구조를 가집니다. 이를 통해 내부에 상태를 저장하고 시변적 동적 특징과 시퀀스 입력을 모델링할 수 있습니다.",
+          "evidence": [
+            {
+              "sourceId": "sourceText",
+              "reason": "순방향 신경망과 달리 내부의 메모리를 이용해 시퀀스 형태의 입력을 처리할 수 있다고 대조하여 설명함."
+            }
+          ]
+        },
+        {
+          "sourceConceptTitle": "단순 순환망",
+          "targetConceptTitle": "순환 신경망",
+          "relationType": "part_of",
+          "strength": 0.9,
+          "confidence": 0.95,
+          "explanation": "단순 순환망은 초기 형태의 단순한 순환 신경망 구조를 일컫는 분류군입니다.",
+          "evidence": [
+            {
+              "sourceId": "sourceText",
+              "reason": "단순 순환망에 속하는 엘만 신경망과 조르단 신경망의 수식과 구조가 RNN의 일종으로 설명되어 있음."
+            }
+          ]
+        },
+        {
+          "sourceConceptTitle": "엘만 신경망",
+          "targetConceptTitle": "단순 순환망",
+          "relationType": "part_of",
+          "strength": 1,
+          "confidence": 1,
+          "explanation": "엘만 신경망은 단순 순환망의 하위 구조 중 하나입니다.",
+          "evidence": [
+            {
+              "sourceId": "sourceText",
+              "reason": "엘만 신경망과 조르단 신경망을 단순 순환망이라 부른다고 명시되어 있음."
+            }
+          ]
+        },
+        {
+          "sourceConceptTitle": "조르단 신경망",
+          "targetConceptTitle": "단순 순환망",
+          "relationType": "part_of",
+          "strength": 1,
+          "confidence": 1,
+          "explanation": "조르단 신경망은 단순 순환망의 대표적인 하위 분류 중 하나입니다.",
+          "evidence": [
+            {
+              "sourceId": "sourceText",
+              "reason": "조르단 신경망이 단순 순환망에 포함된다고 명시함."
+            }
+          ]
+        },
+        {
+          "sourceConceptTitle": "LSTM",
+          "targetConceptTitle": "순환 신경망",
+          "relationType": "part_of",
+          "strength": 0.9,
+          "confidence": 0.95,
+          "explanation": "LSTM은 게이트된 메모리 구조를 갖는 발전된 형태의 순환 신경망입니다.",
+          "evidence": [
+            {
+              "sourceId": "sourceText",
+              "reason": "LSTM을 게이트된 메모리를 응용하는 RNN의 대표적인 예시로 소개함."
+            }
+          ]
+        },
+        {
+          "sourceConceptTitle": "GRU",
+          "targetConceptTitle": "순환 신경망",
+          "relationType": "part_of",
+          "strength": 0.9,
+          "confidence": 0.95,
+          "explanation": "GRU 역시 게이트 메커니즘을 응용해 저장공간을 가진 순환 신경망의 일종입니다.",
+          "evidence": [
+            {
+              "sourceId": "sourceText",
+              "reason": "LSTM과 GRU가 게이트된 메모리를 응용하는 대표적인 예시라고 명시함."
+            }
+          ]
+        },
+        {
+          "sourceConceptTitle": "LSTM",
+          "targetConceptTitle": "vanishing gradient problem",
+          "relationType": "solves",
+          "strength": 0.95,
+          "confidence": 1,
+          "explanation": "LSTM은 망각 게이트를 추가로 도입하여 역전파 시 발생하는 vanishing gradient problem을 성공적으로 방지하고 해결합니다.",
+          "evidence": [
+            {
+              "sourceId": "sourceText",
+              "reason": "LSTM이 기울기 소실 문제를 해결하기 위해 고안된 딥 러닝 시스템이라고 직접 언급함."
+            }
+          ]
+        },
+        {
+          "sourceConceptTitle": "GRU",
+          "targetConceptTitle": "LSTM",
+          "relationType": "related_to",
+          "strength": 0.85,
+          "confidence": 0.9,
+          "explanation": "GRU는 LSTM의 복잡한 구조를 단순화하여 출력 게이트를 제거하고 더 적은 매개변수로 유사한 성능을 내도록 고안된 모델입니다.",
+          "evidence": [
+            {
+              "sourceId": "sourceText",
+              "reason": "GRU가 출력 게이트 없이 LSTM에 비해 적은 매개변수를 가지면서도 LSTM과 유사한 성능을 보인다고 비교함."
+            }
+          ]
+        },
+        {
+          "sourceConceptTitle": "양방향 순환 신경망",
+          "targetConceptTitle": "순환 신경망",
+          "relationType": "part_of",
+          "strength": 0.9,
+          "confidence": 0.95,
+          "explanation": "양방향 순환 신경망은 두 개의 단방향 RNN을 서로 다른 방향으로 작동시켜 결합하는 특수한 형태의 순환 신경망입니다.",
+          "evidence": [
+            {
+              "sourceId": "sourceText",
+              "reason": "양방향 순환 신경망이 서로 다른 방향의 두 RNN의 출력을 조합하여 학습하는 알고리즘으로 설명됨."
+            }
+          ]
+        },
+        {
+          "sourceConceptTitle": "양방향 순환 신경망",
+          "targetConceptTitle": "LSTM",
+          "relationType": "related_to",
+          "strength": 0.8,
+          "confidence": 0.9,
+          "explanation": "양방향 순환 신경망은 LSTM과 병용하여 사용할 때 특히 시너지 효과를 내며 탁월한 성능을 보입니다.",
+          "evidence": [
+            {
+              "sourceId": "sourceText",
+              "reason": "LSTM과 병용할 때 특히 좋은 성능을 낸다는 사실이 증명되었다고 서술함."
+            }
+          ]
+        },
+        {
+          "sourceConceptTitle": "LSTM",
+          "targetConceptTitle": "합성곱 신경망",
+          "relationType": "used_in",
+          "strength": 0.7,
+          "confidence": 0.8,
+          "explanation": "LSTM은 합성곱 신경망과 함께 사용되어 자동 이미지 캡셔닝 분야에서 우수한 성능을 발휘합니다.",
+          "evidence": [
+            {
+              "sourceId": "sourceText",
+              "reason": "합성곱 신경망과 함께 응용되어 자동 이미지 캡셔닝 분야에 활용되었다고 언급됨."
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "round": 4,
+    "doc": "트랜스포머 (기계 학습)",
+    "sourceId": "src-5",
+    "latencyMs": 40938,
+    "inputChars": 91174,
+    "existingConceptsIn": 26,
+    "concepts": [
+      "트랜스포머",
+      "어텐션 메커니즘",
+      "멀티 헤드 어텐션",
+      "위치 인코딩",
+      "RoPE",
+      "ALiBi",
+      "FlashAttention",
+      "KV 캐싱",
+      "추론적 디코딩"
+    ],
+    "newTitles": [
+      "트랜스포머",
+      "어텐션 메커니즘",
+      "멀티 헤드 어텐션",
+      "위치 인코딩",
+      "RoPE",
+      "ALiBi",
+      "FlashAttention",
+      "KV 캐싱",
+      "추론적 디코딩"
+    ],
+    "merged": 0,
+    "relations": [
+      [
+        "멀티 헤드 어텐션",
+        "part_of",
+        "트랜스포머"
+      ],
+      [
+        "위치 인코딩",
+        "used_in",
+        "트랜스포머"
+      ],
+      [
+        "RoPE",
+        "related_to",
+        "위치 인코딩"
+      ],
+      [
+        "ALiBi",
+        "related_to",
+        "위치 인코딩"
+      ],
+      [
+        "FlashAttention",
+        "used_in",
+        "멀티 헤드 어텐션"
+      ],
+      [
+        "KV 캐싱",
+        "used_in",
+        "트랜스포머"
+      ],
+      [
+        "추론적 디코딩",
+        "used_in",
+        "트랜스포머"
+      ]
+    ],
+    "relatedToRatio": 0.2857142857142857,
+    "promote": {
+      "stats": {
+        "staging": 1,
+        "active": 34,
+        "archived": 0
+      },
+      "transitions": [
+        {
+          "id": "concept-트랜스포머",
+          "from": "new",
+          "to": "active",
+          "reason": "연결(degree 4) → active"
+        },
+        {
+          "id": "concept-어텐션 메커니즘",
+          "from": "new",
+          "to": "staging",
+          "reason": "신규 고립 → staging 보류"
+        },
+        {
+          "id": "concept-멀티 헤드 어텐션",
+          "from": "new",
+          "to": "active",
+          "reason": "연결(degree 2) → active"
+        },
+        {
+          "id": "concept-위치 인코딩",
+          "from": "new",
+          "to": "active",
+          "reason": "연결(degree 3) → active"
+        },
+        {
+          "id": "concept-rope",
+          "from": "new",
+          "to": "active",
+          "reason": "연결(degree 1) → active"
+        },
+        {
+          "id": "concept-alibi",
+          "from": "new",
+          "to": "active",
+          "reason": "연결(degree 1) → active"
+        },
+        {
+          "id": "concept-flashattention",
+          "from": "new",
+          "to": "active",
+          "reason": "연결(degree 1) → active"
+        },
+        {
+          "id": "concept-kv 캐싱",
+          "from": "new",
+          "to": "active",
+          "reason": "연결(degree 1) → active"
+        },
+        {
+          "id": "concept-추론적 디코딩",
+          "from": "new",
+          "to": "active",
+          "reason": "연결(degree 1) → active"
+        }
+      ],
+      "degrees": [
+        [
+          "concept-기계 학습",
+          4,
+          "active"
+        ],
+        [
+          "concept-일반화",
+          1,
+          "active"
+        ],
+        [
+          "concept-데이터 마이닝",
+          1,
+          "active"
+        ],
+        [
+          "concept-인공신경망",
+          8,
+          "active"
+        ],
+        [
+          "concept-지도 학습",
+          2,
+          "active"
+        ],
+        [
+          "concept-자율 학습",
+          1,
+          "active"
+        ],
+        [
+          "concept-준 지도 학습",
+          1,
+          "active"
+        ],
+        [
+          "concept-퍼셉트론",
+          2,
+          "active"
+        ],
+        [
+          "concept-오차역전파법",
+          3,
+          "active"
+        ],
+        [
+          "concept-순방향 신경망",
+          3,
+          "active"
+        ],
+        [
+          "concept-순환 인공 신경망",
+          2,
+          "active"
+        ],
+        [
+          "concept-딥 러닝",
+          1,
+          "active"
+        ],
+        [
+          "concept-심층 신경망",
+          5,
+          "active"
+        ],
+        [
+          "concept-합성곱 신경망",
+          2,
+          "active"
+        ],
+        [
+          "concept-순환 신경망",
+          6,
+          "active"
+        ],
+        [
+          "concept-제한 볼츠만 머신",
+          1,
+          "active"
+        ],
+        [
+          "concept-심층 신뢰 신경망",
+          1,
+          "active"
+        ],
+        [
+          "concept-vanishing gradient problem",
+          2,
+          "active"
+        ],
+        [
+          "concept-과적합",
+          1,
+          "active"
+        ],
+        [
+          "concept-drop-out",
+          1,
+          "active"
+        ],
+        [
+          "concept-lstm",
+          5,
+          "active"
+        ],
+        [
+          "concept-gru",
+          2,
+          "active"
+        ],
+        [
+          "concept-단순 순환망",
+          3,
+          "active"
+        ],
+        [
+          "concept-엘만 신경망",
+          1,
+          "active"
+        ],
+        [
+          "concept-조르단 신경망",
+          1,
+          "active"
+        ],
+        [
+          "concept-양방향 순환 신경망",
+          2,
+          "active"
+        ],
+        [
+          "concept-트랜스포머",
+          4,
+          "active"
+        ],
+        [
+          "concept-어텐션 메커니즘",
+          0,
+          "staging"
+        ],
+        [
+          "concept-멀티 헤드 어텐션",
+          2,
+          "active"
+        ],
+        [
+          "concept-위치 인코딩",
+          3,
+          "active"
+        ],
+        [
+          "concept-rope",
+          1,
+          "active"
+        ],
+        [
+          "concept-alibi",
+          1,
+          "active"
+        ],
+        [
+          "concept-flashattention",
+          1,
+          "active"
+        ],
+        [
+          "concept-kv 캐싱",
+          1,
+          "active"
+        ],
+        [
+          "concept-추론적 디코딩",
+          1,
+          "active"
+        ]
+      ]
+    },
+    "pagesSnapshot": [
+      {
+        "title": "기계 학습",
+        "sourceIds": [
+          "src-1"
+        ],
+        "firstRound": 0
+      },
+      {
+        "title": "일반화",
+        "sourceIds": [
+          "src-1"
+        ],
+        "firstRound": 0
+      },
+      {
+        "title": "데이터 마이닝",
+        "sourceIds": [
+          "src-1"
+        ],
+        "firstRound": 0
+      },
+      {
+        "title": "인공신경망",
+        "sourceIds": [
+          "src-1",
+          "src-2"
+        ],
+        "firstRound": 0
+      },
+      {
+        "title": "지도 학습",
+        "sourceIds": [
+          "src-2"
+        ],
+        "firstRound": 1
+      },
+      {
+        "title": "자율 학습",
+        "sourceIds": [
+          "src-2"
+        ],
+        "firstRound": 1
+      },
+      {
+        "title": "준 지도 학습",
+        "sourceIds": [
+          "src-2"
+        ],
+        "firstRound": 1
+      },
+      {
+        "title": "퍼셉트론",
+        "sourceIds": [
+          "src-2"
+        ],
+        "firstRound": 1
+      },
+      {
+        "title": "오차역전파법",
+        "sourceIds": [
+          "src-2"
+        ],
+        "firstRound": 1
+      },
+      {
+        "title": "순방향 신경망",
+        "sourceIds": [
+          "src-2"
+        ],
+        "firstRound": 1
+      },
+      {
+        "title": "순환 인공 신경망",
+        "sourceIds": [
+          "src-2"
+        ],
+        "firstRound": 1
+      },
+      {
+        "title": "딥 러닝",
+        "sourceIds": [
+          "src-3"
+        ],
+        "firstRound": 2
+      },
+      {
+        "title": "심층 신경망",
+        "sourceIds": [
+          "src-3"
+        ],
+        "firstRound": 2
+      },
+      {
+        "title": "합성곱 신경망",
+        "sourceIds": [
+          "src-3"
+        ],
+        "firstRound": 2
+      },
+      {
+        "title": "순환 신경망",
+        "sourceIds": [
+          "src-3",
+          "src-4"
+        ],
+        "firstRound": 2
+      },
+      {
+        "title": "제한 볼츠만 머신",
+        "sourceIds": [
+          "src-3"
+        ],
+        "firstRound": 2
+      },
+      {
+        "title": "심층 신뢰 신경망",
+        "sourceIds": [
+          "src-3"
+        ],
+        "firstRound": 2
+      },
+      {
+        "title": "vanishing gradient problem",
+        "sourceIds": [
+          "src-3"
+        ],
+        "firstRound": 2
+      },
+      {
+        "title": "과적합",
+        "sourceIds": [
+          "src-3"
+        ],
+        "firstRound": 2
+      },
+      {
+        "title": "Drop-out",
+        "sourceIds": [
+          "src-3"
+        ],
+        "firstRound": 2
+      },
+      {
+        "title": "LSTM",
+        "sourceIds": [
+          "src-4"
+        ],
+        "firstRound": 3
+      },
+      {
+        "title": "GRU",
+        "sourceIds": [
+          "src-4"
+        ],
+        "firstRound": 3
+      },
+      {
+        "title": "단순 순환망",
+        "sourceIds": [
+          "src-4"
+        ],
+        "firstRound": 3
+      },
+      {
+        "title": "엘만 신경망",
+        "sourceIds": [
+          "src-4"
+        ],
+        "firstRound": 3
+      },
+      {
+        "title": "조르단 신경망",
+        "sourceIds": [
+          "src-4"
+        ],
+        "firstRound": 3
+      },
+      {
+        "title": "양방향 순환 신경망",
+        "sourceIds": [
+          "src-4"
+        ],
+        "firstRound": 3
+      },
+      {
+        "title": "트랜스포머",
+        "sourceIds": [
+          "src-5"
+        ],
+        "firstRound": 4
+      },
+      {
+        "title": "어텐션 메커니즘",
+        "sourceIds": [
+          "src-5"
+        ],
+        "firstRound": 4
+      },
+      {
+        "title": "멀티 헤드 어텐션",
+        "sourceIds": [
+          "src-5"
+        ],
+        "firstRound": 4
+      },
+      {
+        "title": "위치 인코딩",
+        "sourceIds": [
+          "src-5"
+        ],
+        "firstRound": 4
+      },
+      {
+        "title": "RoPE",
+        "sourceIds": [
+          "src-5"
+        ],
+        "firstRound": 4
+      },
+      {
+        "title": "ALiBi",
+        "sourceIds": [
+          "src-5"
+        ],
+        "firstRound": 4
+      },
+      {
+        "title": "FlashAttention",
+        "sourceIds": [
+          "src-5"
+        ],
+        "firstRound": 4
+      },
+      {
+        "title": "KV 캐싱",
+        "sourceIds": [
+          "src-5"
+        ],
+        "firstRound": 4
+      },
+      {
+        "title": "추론적 디코딩",
+        "sourceIds": [
+          "src-5"
+        ],
+        "firstRound": 4
+      }
+    ],
+    "raw": {
+      "concepts": [
+        {
+          "title": "트랜스포머",
+          "aliases": [
+            "transformer"
+          ],
+          "summary": "멀티 헤드 어텐션 메커니즘을 기반으로 하는 병렬 처리 딥 러닝 아키텍처",
+          "explanation": "순환 신경망(RNN)이나 LSTM과 달리 순환 유닛을 사용하지 않고 병렬 멀티 헤드 어텐션 메커니즘을 사용하여 시퀀스를 학습한다. 이를 통해 장기 의존성 문제를 극복하고 GPU를 통한 가속화 및 학습 속도 단축을 이끌어냈다. 현대 대형 언어 모델(LLM)의 핵심 기술이다.",
+          "examples": [
+            "GPT",
+            "BERT",
+            "Vicuna-13B",
+            "T5",
+            "LLaVA",
+            "비전 트랜스포머"
+          ],
+          "sourceRefs": [],
+          "sourceEmbeds": []
+        },
+        {
+          "title": "어텐션 메커니즘",
+          "aliases": [
+            "attention"
+          ],
+          "summary": "입력 데이터 중 특정 부분의 신호를 증폭하고 덜 중요한 부분은 약화하여 컨텍스트를 파악하게 하는 기법",
+          "explanation": "초기 seq2seq 모델의 병목 현상(고정 크기 벡터 문제)을 해결하기 위해 도입되었다. 쿼리(Query), 키(Key), 값(Value) 벡터 간의 연산을 통해 가중치를 부여하고, 중요한 맥락을 찾아내는 원리이다.",
+          "examples": [
+            "스케일드 점곱 어텐션",
+            "자체 어텐션"
+          ],
+          "sourceRefs": [],
+          "sourceEmbeds": []
+        },
+        {
+          "title": "멀티 헤드 어텐션",
+          "aliases": [
+            "MultiheadedAttention",
+            "멀티헤드 어텐션"
+          ],
+          "summary": "여러 개의 어텐션 헤드가 독립적이고 병렬적으로 어텐션을 수행하도록 하는 기법",
+          "explanation": "각각의 어텐션 헤드가 서로 다른 관련성을 학습하며, 그 결과를 연결(Concat)하고 출력 투영 행렬을 통해 통합한다. 병렬 처리가 가능하여 GPU 성능을 극대화할 수 있다.",
+          "examples": [
+            "GPT-2의 12개 헤드 구조"
+          ],
+          "sourceRefs": [],
+          "sourceEmbeds": []
+        },
+        {
+          "title": "위치 인코딩",
+          "aliases": [
+            "positional encoding",
+            "위치 임베딩"
+          ],
+          "summary": "순환 유닛이 없는 트랜스포머 모델에 토큰의 시퀀스 내 위치 정보를 고정된 크기 벡터로 주입하는 기법",
+          "explanation": "순차 구조가 배제된 트랜스포머에서 단어의 순서(편향)를 주기 위한 수학적 인코딩이다. 사인과 코사인 함수를 이용한 절대 위치 인코딩이나, 상대적 위치 정보를 이용하는 상대 위치 인코딩 등이 존재한다.",
+          "examples": [
+            "사인파형 위치 인코딩",
+            "RoPE",
+            "ALiBi"
+          ],
+          "sourceRefs": [],
+          "sourceEmbeds": []
+        },
+        {
+          "title": "RoPE",
+          "aliases": [
+            "Rotary Position Embedding",
+            "회전 위치 임베딩"
+          ],
+          "summary": "2차원 벡터 좌표의 회전각 변환을 통해 위치 정보를 표현하는 상대 위치 인코딩 기법",
+          "explanation": "복소수 곱셈을 활용하여 어텐션 쿼리와 키의 점곱이 상대적 거리(위치 차이)에만 의존하도록 설계되었다. LLaMA 시리즈 등 최신 LLM에 주로 사용된다.",
+          "examples": [
+            "LLaMA 시리즈의 RoPE 적용"
+          ],
+          "sourceRefs": [],
+          "sourceEmbeds": []
+        },
+        {
+          "title": "ALiBi",
+          "aliases": [
+            "Attention with Linear Biases"
+          ],
+          "summary": "어텐션 맵에 직접 거리에 따른 선형 편향을 더해 위치 정보를 인코딩하는 기법",
+          "explanation": "전체 네트워크의 임베딩 단이 아닌, 어텐션 메커니즘의 소프트맥스 직전 단계에 선형 편향 행렬 B를 추가한다. 학습 때보다 긴 컨텍스트 창에서 동작하게 하는 외삽 능력이 뛰어나다.",
+          "examples": [
+            "ALiBi를 적용한 외삽 학습"
+          ],
+          "sourceRefs": [],
+          "sourceEmbeds": []
+        },
+        {
+          "title": "FlashAttention",
+          "aliases": [
+            "FlashAttention-2"
+          ],
+          "summary": "GPU 메모리 접근을 최적화하여 고속으로 어텐션을 연산하는 통신 회피 알고리즘",
+          "explanation": "소프트맥스 등을 전체 시퀀스에 대해 한 번에 연산하지 않고, 블록 단위로 행렬 곱셈을 나누어 연산함으로써 느린 GPU 전역 메모리 대신 빠른 SRAM 캐시 내부에서 작업을 처리한다. FlashAttention-2는 시퀀스 길이 병렬화 및 워프 최적화를 추가했다.",
+          "examples": [
+            "A100 GPU에서의 FlashAttention-2 가속"
+          ],
+          "sourceRefs": [],
+          "sourceEmbeds": []
+        },
+        {
+          "title": "KV 캐싱",
+          "aliases": [
+            "KV Caching",
+            "PagedAttention"
+          ],
+          "summary": "추론 과정에서 이미 계산된 토큰의 Key와 Value 벡터를 저장하여 재사용하는 최적화 기법",
+          "explanation": "자기회귀 모델은 새로운 토큰을 하나씩 생성하는데, 이전에 입력 및 생성된 토큰들의 Key, Value 값은 변하지 않으므로 이를 메모리에 저장(캐싱)해둠으로써 대량의 불필요한 연산을 회피하고 생성 시간을 대폭 단축한다.",
+          "examples": [
+            "vLLM의 PagedAttention",
+            "챗봇의 시스템 프롬프트 캐싱"
+          ],
+          "sourceRefs": [],
+          "sourceEmbeds": []
+        },
+        {
+          "title": "추론적 디코딩",
+          "aliases": [
+            "Speculative Decoding"
+          ],
+          "summary": "가벼운 초안 모델이 먼저 생성한 토큰들을 대형 모델이 병렬로 빠르게 검증하여 디코딩 속도를 가속화하는 최적화 기법",
+          "explanation": "디코더-온리 트랜스포머가 단일 순방향 패스로 긴 컨텍스트에 대한 토큰 타당성을 병렬 검증할 수 있다는 장점을 활용한다. 작은 모델의 예측이 맞을 경우 연산 속도를 대폭 절감한다.",
+          "examples": [
+            "GPT-3의 생성을 보조하는 GPT-3-small 기반 검증"
+          ],
+          "sourceRefs": [],
+          "sourceEmbeds": []
+        }
+      ],
+      "relations": [
+        {
+          "sourceConceptTitle": "멀티 헤드 어텐션",
+          "targetConceptTitle": "트랜스포머",
+          "relationType": "part_of",
+          "strength": 0.95,
+          "confidence": 0.95,
+          "explanation": "멀티 헤드 어텐션은 트랜스포머 인코더 및 디코더 레이어의 주요 서브레이어 구성 요소이다.",
+          "evidence": [
+            {
+              "sourceId": "transformer_note",
+              "reason": "트랜스포머 레이어가 교대로 어텐션 및 순방향 레이어로 구성됨을 서술함."
+            }
+          ]
+        },
+        {
+          "sourceConceptTitle": "위치 인코딩",
+          "targetConceptTitle": "트랜스포머",
+          "relationType": "used_in",
+          "strength": 0.9,
+          "confidence": 0.95,
+          "explanation": "순환 유닛이 없는 트랜스포머에서 단어 시퀀스의 순서 정보를 모델에 인식시키기 위해 위치 인코딩을 입력 임베딩에 추가한다.",
+          "evidence": [
+            {
+              "sourceId": "transformer_note",
+              "reason": "트랜스포머에 입력 시퀀스 단어가 어디에 있는지 위치 정보를 제공하기 위해 주입함."
+            }
+          ]
+        },
+        {
+          "sourceConceptTitle": "RoPE",
+          "targetConceptTitle": "위치 인코딩",
+          "relationType": "related_to",
+          "strength": 0.85,
+          "confidence": 0.9,
+          "explanation": "RoPE는 트랜스포머에서 절대 위치 인코딩 방식의 대안으로 사용되는 상대 위치 인코딩 기법이다.",
+          "evidence": [
+            {
+              "sourceId": "transformer_note",
+              "reason": "대체 위치 인코딩 방법론으로 RoPE가 서술됨."
+            }
+          ]
+        },
+        {
+          "sourceConceptTitle": "ALiBi",
+          "targetConceptTitle": "위치 인코딩",
+          "relationType": "related_to",
+          "strength": 0.8,
+          "confidence": 0.9,
+          "explanation": "ALiBi는 절대 및 상대 위치 인코딩 방식 대신, 어텐션 맵에 직접적인 선형 편향을 더하는 특수한 형태의 위치 제공 메커니즘이다.",
+          "evidence": [
+            {
+              "sourceId": "transformer_note",
+              "reason": "ALiBi가 어텐션 메커니즘에 직접 편향을 가하는 상대 위치 인코딩 기법으로 기술됨."
+            }
+          ]
+        },
+        {
+          "sourceConceptTitle": "FlashAttention",
+          "targetConceptTitle": "멀티 헤드 어텐션",
+          "relationType": "used_in",
+          "strength": 0.85,
+          "confidence": 0.9,
+          "explanation": "FlashAttention은 멀티 헤드 어텐션의 행렬곱 및 소프트맥스 계산 비용을 GPU 메모리 최적화를 통해 가속화하는 알고리즘이다.",
+          "evidence": [
+            {
+              "sourceId": "transformer_note",
+              "reason": "FlashAttention이 GPU에서 어텐션 메커니즘을 효율적으로 구현하는 알고리즘으로 소개됨."
+            }
+          ]
+        },
+        {
+          "sourceConceptTitle": "KV 캐싱",
+          "targetConceptTitle": "트랜스포머",
+          "relationType": "used_in",
+          "strength": 0.9,
+          "confidence": 0.9,
+          "explanation": "KV 캐싱은 자기회귀 트랜스포머의 추론 연산 시 중복되는 Key, Value 계산을 회피하기 위해 널리 사용되는 최적화 기법이다.",
+          "evidence": [
+            {
+              "sourceId": "transformer_note",
+              "reason": "자기회귀 트랜스포머의 추론에서 이미 계산된 키와 값 벡터를 재사용하는 방식으로 서술됨."
+            }
+          ]
+        },
+        {
+          "sourceConceptTitle": "추론적 디코딩",
+          "targetConceptTitle": "트랜스포머",
+          "relationType": "used_in",
+          "strength": 0.85,
+          "confidence": 0.9,
+          "explanation": "추론적 디코딩은 대형 트랜스포머 디코더 모델의 순방향 패스 병렬성 검증 속도가 단일 토큰 순차 생성 속도보다 빠르다는 특성을 활용하여 디코딩 효율을 높인다.",
+          "evidence": [
+            {
+              "sourceId": "transformer_note",
+              "reason": "트랜스포머 디코더의 검증 병렬 연산 장점을 활용해 생성 속도를 가속하는 기법으로 등장함."
+            }
+          ]
+        }
+      ]
+    }
+  }
+]
