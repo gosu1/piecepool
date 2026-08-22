@@ -52,7 +52,10 @@ pub fn run() {
             commands::graph::unmark_review_needed,
             commands::understanding::get_understanding,
             commands::understanding::set_understanding,
+            commands::queries::open_query_window,
         ])
+        // 메인 창이 닫히면 쿼리바도 같이 닫는다 (설계 문서 §1.5). 반대 방향은 서로 독립.
+        .on_window_event(commands::queries::close_query_with_main)
         .run(tauri::generate_context!())
         .expect("error while building tauri application");
 }

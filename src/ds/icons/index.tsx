@@ -323,3 +323,11 @@ export const CalendarIcon = (p: IconProps) => (
     <path d="M8 3v4M16 3v4M4 10.5h16" />
   </Svg>
 );
+
+// 쿼리바 — 말풍선(묻는다) + 4각 별(PiecePool 별자리 정체성). GraphIcon(원 3개)과 모양이 겹치지 않는다.
+export const AskIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M17.5 4h-11A2.5 2.5 0 0 0 4 6.5v8A2.5 2.5 0 0 0 6.5 17H7v3.4L11.6 17h5.9a2.5 2.5 0 0 0 2.5-2.5v-8A2.5 2.5 0 0 0 17.5 4Z" />
+    <path d="M12 6.9l1.02 2.33 2.33 1.02-2.33 1.02L12 13.6l-1.02-2.33-2.33-1.02 2.33-1.02Z" />
+  </Svg>
+);

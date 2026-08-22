@@ -58,6 +58,7 @@ const real = {
     invoke<number>("mark_review_needed", { space, conceptId, sourceId, quotes }),
   unmarkReviewNeeded: (space: string, conceptId: string) =>
     invoke<number>("unmark_review_needed", { space, conceptId }),
+  openQueryWindow: () => invoke<void>("open_query_window"),
   getUnderstanding: (space: string) => invoke<UnderstandingMap>("get_understanding", { space }),
   setUnderstanding: (space: string, conceptId: string, state: UnderstandingState) =>
     invoke<UnderstandingMap>("set_understanding", { space, conceptId, state }),
@@ -66,6 +67,7 @@ const real = {
 const api = inTauri ? real : mock;
 
 export const {
+  openQueryWindow,
   getWorkspace,
   listSpaces,
   createSpace,

@@ -1329,6 +1329,7 @@ export default function PiecePoolApp() {
           onRemoveFromHome={toggleStudyHome}
           onOpenWiki={openWiki}
           onNewNote={() => openNewNote(currentSpace)}
+          onOpenQuery={() => ipc.openQueryWindow().catch((e) => setNotice(`쿼리바 열기 실패: ${String(e)}`))}
           onNewFolder={() => setDialog({ kind: "new-space" })}
           onOpenGraph={openGraph}
         />

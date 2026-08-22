@@ -1,8 +1,10 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
+import QueryWindow from "./app/query/QueryWindow";
 import { ThemeProvider } from "./ds";
 import { inTauri } from "./lib/platform";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import "./styles/index.css";
 
 // Tauri(WebView2)가 브라우저보다 UI를 크게 렌더하는 문제 — Tauri에서만 전체 웹뷰 줌을 낮춰
@@ -21,10 +23,21 @@ if (inTauri) {
   window.addEventListener("contextmenu", (e) => e.preventDefault());
 }
 
+// 창 이름표로 어느 화면을 그릴지 고른다 — 쿼리바는 메인 앱과 같은 번들을 쓰는 별개 창이다(설계 문서 §1.2).
+// 브라우저(npm run dev)에는 창 개념이 없으므로 항상 메인 앱을 그린다.
+function windowLabel(): string {
+  if (!inTauri) return "main";
+  try {
+    return getCurrentWindow().label;
+  } catch {
+    return "main";
+  }
+}
+
+const isQueryWindow = windowLabel() === "query";
+
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <ThemeProvider defaultTheme="dark">
-      <App />
-    </ThemeProvider>
+    <ThemeProvider defaultTheme="dark">{isQueryWindow ? <QueryWindow /> : <App />}</ThemeProvider>
   </React.StrictMode>,
 );
