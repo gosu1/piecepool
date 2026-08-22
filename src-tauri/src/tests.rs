@@ -40,6 +40,8 @@ fn config_dir_is_hidden() {
     // 이관 전 구버전 워크스페이스와 충돌하지 않게 레거시 이름도 예약을 유지한다.
     assert!(storage::RESERVED_SPACE_DIR.contains(&".config"));
     assert!(storage::RESERVED_SPACE_DIR.contains(&"config"));
+    // 쿼리바 대화 기록 폴더(workspace-layout.md §3.10)도 지식 영역이 덮어쓰면 안 된다.
+    assert!(storage::RESERVED_SPACE_DIR.contains(&"queries"));
 }
 
 // 루트의 `config` 를 무조건 설정 디렉토리로 단정하면 안 된다 — RESERVED_SPACE_DIR 도입

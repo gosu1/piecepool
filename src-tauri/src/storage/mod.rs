@@ -540,12 +540,17 @@ pub fn slug_or_hash(input: &str) -> String {
     }
 }
 
-/// Workspace 루트에서 지식 영역이 쓸 수 없는 이름(설정 디렉토리와 충돌).
+/// 쿼리바 대화 기록 디렉토리 이름 (Workspace 루트). 계약: workspace-layout.md §3.10.
+/// `.config` 와 달리 숨기지 않는다 — 앱이 쓰는 설정이 아니라 사용자가 만든 지식이라
+/// 탐색기로 열어보고 백업할 수 있어야 한다.
+pub const QUERIES_DIR: &str = "queries";
+
+/// Workspace 루트에서 지식 영역이 쓸 수 없는 이름(설정 디렉토리·쿼리바 폴더와 충돌).
 /// 레거시 "config" 도 계속 예약한다 — 아직 이관되지 않은 구버전 워크스페이스에서 과목 폴더가
 /// 설정 디렉토리를 덮어쓰는 것을 막고, 이관이 실패한 워크스페이스에서도 legacy 를 보호한다.
 /// ".config" 는 `space_dir_name` 이 앞 `.` 을 떼므로 실제로 도달하지 않지만, 폴더명 규칙이
 /// 바뀌어도 설정 디렉토리가 뚫리지 않게 함께 예약한다.
-pub const RESERVED_SPACE_DIR: &[&str] = &[CONFIG_DIR, LEGACY_CONFIG_DIR];
+pub const RESERVED_SPACE_DIR: &[&str] = &[CONFIG_DIR, LEGACY_CONFIG_DIR, QUERIES_DIR];
 
 /// 지식 영역 폴더명. 표시 이름을 그대로 쓴다(한글 보존) — Finder 에서 본 이름과 같게.
 /// 경로에 위험한 문자만 `-` 로 치환하고, 연속 공백을 접고, 숨김 파일이 되지 않게 앞 `.` 을 떼어낸다.
