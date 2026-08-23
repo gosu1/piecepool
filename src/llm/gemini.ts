@@ -36,10 +36,13 @@ export function defaultEndpoint(): string {
 //   gemini-3.5-flash    → 블라인드 A/B 판정 승자로 승격 (`npm run eval:ab` 13케이스, 2026-07-12).
 //                         한때 503 UNAVAILABLE 지속이었음 — 재발하면 flash-lite로 임시 강등.
 //   gemini-3.1-flash-lite → 무료 티어 여유가 크고 빠르다 — PDF 요약 전용.
-// PDF 요약+쉬운설명(pdfsummary.ts)만 lite 고정(속도) — 그 외 모든 채팅 호출은 GEMINI_MODEL 단일.
+// PDF 요약+쉬운설명(pdfsummary.ts)과 쿼리바(queryAgent.ts)는 lite 고정 — 그 외 채팅 호출은 GEMINI_MODEL.
+// 쿼리바가 lite 인 이유는 속도가 아니라 **하루 요청 한도(RPD)** 다. 3.5-flash 는 무료 티어 RPD 가
+// 20회라 대화 몇 번이면 소진된다. 쿼리바는 한 질문에 도구 왕복이 여러 번 붙어 특히 빨리 닳는다.
 // 우선순위: PIECEPOOL_LLM_MODEL(env — CLI·eval 용, provider 경유 호출) > 기본값.
 export const GEMINI_MODEL = "gemini-3.5-flash";
 export const GEMINI_SUMMARY_MODEL = "gemini-3.1-flash-lite";
+export const GEMINI_QUERY_MODEL = "gemini-3.1-flash-lite";
 
 const DEFAULTS: Omit<GeminiProviderConfig, "apiKey"> = {
   endpoint: GEMINI_OPENAI_ENDPOINT,

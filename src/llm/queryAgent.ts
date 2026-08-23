@@ -9,7 +9,7 @@
 // 이 파일 하나에 모았다. 인터페이스 계층을 미리 만들지는 않았다 — 구현이 하나뿐인데 틀을
 // 먼저 만들면 그 틀이 Gemini 모양으로 굳는다.
 
-import { defaultEndpoint, GEMINI_MODEL } from "./gemini";
+import { defaultEndpoint, GEMINI_QUERY_MODEL } from "./gemini";
 import { errMsg, isAbort, isRetriable, sleep } from "./http";
 import { QUERY_TOOLS, runTool } from "./queryTools";
 import { geminiKey } from "../lib/settings";
@@ -104,7 +104,7 @@ export async function askQuery(turns: QueryTurn[], opts: AskOptions = {}): Promi
   if (!key) throw new Error("API key 필요 — 설정에서 Gemini 키를 넣어주세요");
 
   const url = `${opts.endpoint ?? defaultEndpoint()}/chat/completions`;
-  const model = opts.model ?? GEMINI_MODEL;
+  const model = opts.model ?? GEMINI_QUERY_MODEL;
   const limit = opts.maxRounds ?? MAX_ROUNDS;
 
   const messages: Msg[] = [
