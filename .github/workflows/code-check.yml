@@ -25,14 +25,9 @@ jobs:
       # 2026-08-07 blocking 전환 (PIE-5). 로컬 실측 전부 초록 확인 후 전환했다.
       - name: npm test (vitest)
         run: npm test
-      # chromium 을 매번 내려받지 않게 캐시한다 — 키는 lockfile 해시라 playwright 버전이 바뀌면 자동 갱신.
-      - name: cache playwright browsers
-        uses: actions/cache@v6
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       # e2e 는 blocking — 여기가 continue-on-error 였다면 셀렉터가 썩어도 아무도 모른다.
       # CI 에서는 위 build 결과를 그대로 preview 한다(playwright.config.ts 의 CI 분기) — 재빌드 없음.
+      # chromium 캐시(actions/cache)는 실측 결과 복원 5초 = 다운로드 5초라 효과 0이어서 두지 않는다 (PIE-75).
       - name: e2e (playwright)
         run: |
           npx playwright install --with-deps chromium
