@@ -7,7 +7,9 @@ on:
 
 jobs:
   frontend:
-    runs-on: macos-14
+    # 2026-08-23 ubuntu 전환 (PIE-75). Rust 의존 스텝(드리프트 가드)을 rust 잡으로 옮겨 순수 Node 잡이 됐다.
+    # macOS 동시 실행 한도(5개)에 frontend 가 끼지 않게 한다.
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
@@ -23,15 +25,17 @@ jobs:
       # 2026-08-07 blocking 전환 (PIE-5). 로컬 실측 전부 초록 확인 후 전환했다.
       - name: npm test (vitest)
         run: npm test
-      # 생성물 최신 검사 — models/ 를 고치고 gen:types 를 잊으면 여기서 잡힌다.
-      - name: gen:types drift guard
-        run: |
-          npm run gen:types
-          git diff --exit-code src/lib/generated
+      # chromium 을 매번 내려받지 않게 캐시한다 — 키는 lockfile 해시라 playwright 버전이 바뀌면 자동 갱신.
+      - name: cache playwright browsers
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       # e2e 는 blocking — 여기가 continue-on-error 였다면 셀렉터가 썩어도 아무도 모른다.
+      # CI 에서는 위 build 결과를 그대로 preview 한다(playwright.config.ts 의 CI 분기) — 재빌드 없음.
       - name: e2e (playwright)
         run: |
-          npx playwright install chromium
+          npx playwright install --with-deps chromium
           npm run e2e
 
   rust:
@@ -49,6 +53,10 @@ jobs:
       # 2026-08-07 blocking 전환 (PIE-5). 로컬 실측 전부 초록 확인 후 전환했다.
       - name: cargo test
         run: cargo test --manifest-path src-tauri/Cargo.toml
+      # 생성물 최신 검사 — 바로 위 cargo test 가 export_bindings 로 src/lib/generated 를 다시 쓴다.
+      # models/ 를 고치고 gen:types 를 잊으면 커밋본과 달라져 여기서 잡힌다. (2026-08-23 frontend 에서 이사, PIE-75)
+      - name: gen:types drift guard
+        run: git diff --exit-code src/lib/generated
       - name: cargo clippy
         run: cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
       - name: cargo fmt --check
