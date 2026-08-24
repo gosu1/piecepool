@@ -18,6 +18,11 @@ function newId(): string {
   return `${stamp}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+/** 말 단위로 흩어진 출처를 한 벌로 — 같은 위키를 여러 번 읽어도 한 번만 센다. */
+function flatCited(m: Map<number, string[]>): string[] {
+  return [...new Set([...m.values()].flat())];
+}
+
 /** 목록에 뜰 이름 — 첫 질문을 줄여 쓴다. 사용자가 이름을 짓게 하지 않는다. */
 function titleFrom(turns: QueryTurn[]): string {
   const first = turns.find((t) => t.role === "user")?.text.replace(/\s+/g, " ").trim() ?? "";
@@ -29,6 +34,8 @@ export interface QuerySessionState {
   turns: QueryTurn[];
   sessions: QuerySessionMeta[];
   currentId: string | null;
+  /** 이 대화에서 실제로 열어 본 위키 — `/lint` 가 후보를 좁히는 데 쓴다 */
+  citedWiki: string[];
   /** 말 한 마디를 붙이고 파일에 남긴다. 저장이 실패해도 화면의 대화는 유지된다. */
   append: (turn: QueryTurn, citedWiki?: string[]) => void;
   /** 지난 대화를 꺼내 온다. */
@@ -44,6 +51,7 @@ export function useQuerySession(): QuerySessionState {
   const [turns, setTurns] = useState<QueryTurn[]>([]);
   const [sessions, setSessions] = useState<QuerySessionMeta[]>([]);
   const [currentId, setCurrentId] = useState<string | null>(null);
+  const [citedWiki, setCitedWiki] = useState<string[]>([]);
   const [storageError, setStorageError] = useState("");
 
   // 상태(useState)는 다음 렌더에야 반영된다. 한 번의 대화에서 질문과 답변이 잇달아 붙는데
@@ -75,12 +83,15 @@ export function useQuerySession(): QuerySessionState {
   }, [refresh]);
 
   const append = useCallback(
-    (turn: QueryTurn, citedWiki?: string[]) => {
+    (turn: QueryTurn, cited?: string[]) => {
       // 파일 쓰기를 setTurns 안에 두면 안 된다. 상태 갱신 함수는 순수해야 하고, StrictMode 는
       // 버그를 드러내려고 그 함수를 두 번 부른다 — 그러면 같은 대화가 두 벌 저장된다.
       const next = [...turnsRef.current, turn];
       turnsRef.current = next;
-      if (citedWiki?.length) citedRef.current.set(next.length - 1, citedWiki);
+      if (cited?.length) {
+        citedRef.current.set(next.length - 1, cited);
+        setCitedWiki(flatCited(citedRef.current));
+      }
       setTurns(next);
 
       if (!idRef.current) {
@@ -121,6 +132,7 @@ export function useQuerySession(): QuerySessionState {
         .map((t, i): [number, string[]] => [i, t.citedWiki ?? []])
         .filter(([, c]) => c.length > 0);
       citedRef.current = new Map(cited);
+      setCitedWiki(flatCited(citedRef.current));
       createdAtRef.current = s.createdAt;
       idRef.current = s.id;
       const loaded: QueryTurn[] = s.turns.map((t) => ({ role: t.role, text: t.text }));
@@ -135,6 +147,7 @@ export function useQuerySession(): QuerySessionState {
 
   const reset = useCallback(() => {
     citedRef.current = new Map();
+    setCitedWiki([]);
     createdAtRef.current = "";
     idRef.current = null;
     turnsRef.current = [];
@@ -155,5 +168,5 @@ export function useQuerySession(): QuerySessionState {
     [refresh, reset],
   );
 
-  return { turns, sessions, currentId, append, open, reset, remove, storageError };
+  return { turns, sessions, currentId, citedWiki, append, open, reset, remove, storageError };
 }

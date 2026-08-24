@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Icons, cn } from "../../ds";
 import { Markdown } from "../../lib/markdown";
 import { errorHint } from "../panes/FeynmanPanel";
@@ -9,6 +9,7 @@ import type { QuerySessionMeta } from "../../lib/types";
 import { SlashBlockEditor } from "../../lib/SlashBlockEditor";
 import { useQuerySession } from "./useQuerySession";
 import { parseCommand, QUERY_COMMANDS, QUERY_SLASH_ITEMS, type QueryCommandName } from "./commands";
+import { LintPanel } from "./LintPanel";
 
 // ══ 쿼리바 창 — 메인 앱과 별개로 뜨는 두 번째 창 ══
 //
@@ -24,8 +25,9 @@ const EXAMPLES = [
 ];
 
 /** 답변 글 속 위키 제목을 강조하려면 제목 목록이 필요하다 — 모든 폴더에서 한 번 모은다. */
-function useWikiTitles(): string[] {
+function useWikiTitles(): { titles: string[]; reload: () => void } {
   const [titles, setTitles] = useState<string[]>([]);
+  const [nonce, setNonce] = useState(0);
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -40,8 +42,8 @@ function useWikiTitles(): string[] {
     return () => {
       alive = false;
     };
-  }, []);
-  return titles;
+  }, [nonce]);
+  return { titles, reload: () => setNonce((n) => n + 1) };
 }
 
 /** 목록의 상대 시각 — 방금 · N분 전 · 어제 · 8월 18일. StudyHome 과 같은 감각. */
@@ -83,17 +85,7 @@ function Thinking({ label }: { label: string }) {
  * 대화 흐름에 끼우지 않는다. 도움말이나 목록은 주고받은 말이 아니라서 세션 파일에 남으면
  * 안 되고, 다음에 그 대화를 열었을 때 다시 보일 이유도 없다.
  */
-function CommandPanel({
-  cmd,
-  sessions,
-  onPick,
-  onClose,
-}: {
-  cmd: QueryCommandName;
-  sessions: QuerySessionMeta[];
-  onPick: (id: string) => void;
-  onClose: () => void;
-}) {
+function Panel({ cmd, onClose, children }: { cmd: QueryCommandName; onClose: () => void; children: ReactNode }) {
   return (
     <div className="mx-auto mb-2 max-w-[680px] overflow-hidden rounded-lg border border-hairline bg-surface shadow-soft">
       <div className="flex items-center justify-between border-b border-hairline px-3.5 py-2">
@@ -102,7 +94,22 @@ function CommandPanel({
           <Icons.CloseIcon size={13} />
         </button>
       </div>
+      {children}
+    </div>
+  );
+}
 
+function CommandBody({
+  cmd,
+  sessions,
+  onPick,
+}: {
+  cmd: QueryCommandName;
+  sessions: QuerySessionMeta[];
+  onPick: (id: string) => void;
+}) {
+  return (
+    <>
       {cmd === "help" && (
         <ul className="px-3.5 py-2.5">
           {QUERY_COMMANDS.map((c) => (
@@ -135,22 +142,19 @@ function CommandPanel({
           </div>
         ))}
 
-      {cmd === "lint" && (
-        <p className="px-3.5 py-3 text-[13px] text-ink-faint">위키에 반영하는 기능은 아직 준비 중입니다.</p>
-      )}
-    </div>
+    </>
   );
 }
 
 export default function QueryWindow() {
-  const { turns, sessions, currentId, append, open, reset, remove, storageError } = useQuerySession();
+  const { turns, sessions, currentId, citedWiki, append, open, reset, remove, storageError } = useQuerySession();
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState("");
   const [error, setError] = useState("");
   /** 명령이 띄우는 판 — 대화가 아니라 화면 것이라 세션 파일에는 안 남는다 */
   const [panel, setPanel] = useState<QueryCommandName | null>(null);
-  const titles = useWikiTitles();
+  const { titles, reload: reloadTitles } = useWikiTitles();
   const abortRef = useRef<AbortController | null>(null);
   const tailRef = useRef<HTMLDivElement>(null);
 
@@ -332,15 +336,20 @@ export default function QueryWindow() {
 
         <div className="shrink-0 px-8 pb-4">
           {panel && (
-            <CommandPanel
-              cmd={panel}
-              sessions={sessions}
-              onPick={(id) => {
-                void open(id);
-                setPanel(null);
-              }}
-              onClose={() => setPanel(null)}
-            />
+            <Panel cmd={panel} onClose={() => setPanel(null)}>
+              {panel === "lint" ? (
+                <LintPanel turns={turns} citedWiki={citedWiki} onDone={reloadTitles} />
+              ) : (
+                <CommandBody
+                  cmd={panel}
+                  sessions={sessions}
+                  onPick={(id) => {
+                    void open(id);
+                    setPanel(null);
+                  }}
+                />
+              )}
+            </Panel>
           )}
           <div className="mx-auto flex max-w-[680px] items-end gap-2 rounded-lg border border-hairline bg-surface py-1 pl-3.5 pr-2 shadow-soft">
             {/* 인박스 캡처와 같은 입력창이다 — 한글 조합과 `http://` 슬래시가 거기서 이미 해결돼 있다(설계 §4.2) */}
