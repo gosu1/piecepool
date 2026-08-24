@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { Icons } from "../../ds";
+import { Icons, cn } from "../../ds";
 import { Markdown } from "../../lib/markdown";
 import { errorHint } from "../panes/FeynmanPanel";
 import { askQuery, type QueryTurn } from "../../llm/queryAgent";
 import { errMsg, isAbort } from "../../llm/http";
 import * as ipc from "../../lib/ipc";
+import { useQuerySession } from "./useQuerySession";
 
 // ══ 쿼리바 창 — 메인 앱과 별개로 뜨는 두 번째 창 ══
 //
@@ -41,6 +42,21 @@ function useWikiTitles(): string[] {
   return titles;
 }
 
+/** 목록의 상대 시각 — 방금 · N분 전 · 어제 · 8월 18일. StudyHome 과 같은 감각. */
+function relTime(iso: string): string {
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return "";
+  const min = Math.floor((Date.now() - t) / 60000);
+  if (min < 1) return "방금";
+  if (min < 60) return `${min}분 전`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}시간 전`;
+  const day = Math.floor(hr / 24);
+  if (day === 1) return "어제";
+  if (day < 7) return `${day}일 전`;
+  return new Date(iso).toLocaleDateString("ko-KR", { month: "long", day: "numeric" });
+}
+
 /** 답을 만드는 동안 보여주는 점 세 개. 파일 이름은 띄우지 않는다(설계 §2.5). */
 function Thinking({ label }: { label: string }) {
   return (
@@ -60,7 +76,7 @@ function Thinking({ label }: { label: string }) {
 }
 
 export default function QueryWindow() {
-  const [turns, setTurns] = useState<QueryTurn[]>([]);
+  const { turns, sessions, currentId, append, open, reset, remove, storageError } = useQuerySession();
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState("");
@@ -92,7 +108,7 @@ export default function QueryWindow() {
     if (!q || busy) return;
 
     const next: QueryTurn[] = [...turns, { role: "user", text: q }];
-    setTurns(next);
+    append({ role: "user", text: q });
     setDraft("");
     setError("");
     setBusy(true);
@@ -103,7 +119,7 @@ export default function QueryWindow() {
 
     try {
       const r = await askQuery(next, { signal: ac.signal, onProgress: setProgress });
-      setTurns([...next, { role: "assistant", text: r.text }]);
+      append({ role: "assistant", text: r.text }, r.citedWiki);
     } catch (e) {
       if (isAbort(e)) return; // 새로 물어보느라 끊은 것 — 오류가 아니다
       setError(errMsg(e));
@@ -119,12 +135,66 @@ export default function QueryWindow() {
     <div className="flex h-screen bg-canvas text-ink">
       {/* 왼쪽 — 지난 대화. 저장 기능이 아직 없어 비어 있다(설계 §3·§6). */}
       <aside className="flex w-[216px] shrink-0 flex-col border-r border-hairline bg-chrome">
-        <div className="m-2.5 mb-1.5 flex h-[34px] items-center gap-1.5 rounded-md border border-hairline bg-surface px-2.5 text-[13px] font-medium text-ink-2 shadow-soft">
+        <button
+          type="button"
+          onClick={reset}
+          className="m-2.5 mb-1.5 flex h-[34px] shrink-0 items-center gap-1.5 rounded-md border border-hairline bg-surface px-2.5 text-[13px] font-medium text-ink-2 shadow-soft transition-colors hover:bg-surface-soft"
+        >
           <Icons.PlusIcon size={15} />
-          <span className="flex-1">새 대화</span>
+          <span className="flex-1 text-left">새 대화</span>
+        </button>
+
+        {sessions.length === 0 ? (
+          <p className="px-3.5 pt-3 text-[11px] leading-relaxed text-ink-faint">지난 대화가 여기 쌓입니다.</p>
+        ) : (
+          <>
+            <p className="px-3.5 pb-1.5 pt-2 text-[11px] font-semibold tracking-wider text-ink-faint">
+              세션 {sessions.length}
+            </p>
+            <div className="min-h-0 flex-1 overflow-y-auto pb-2">
+              {sessions.map((s) => (
+                <div
+                  key={s.id}
+                  className={cn(
+                    "group mx-2 mb-px flex gap-2 rounded-lg px-2.5 py-1.5",
+                    s.id === currentId ? "bg-surface-soft" : "hover:bg-surface-soft/60",
+                  )}
+                >
+                  <button
+                    type="button"
+                    onClick={() => void open(s.id)}
+                    className="min-w-0 flex-1 text-left"
+                  >
+                    <span
+                      className={cn(
+                        "block truncate text-[13px] leading-snug",
+                        s.id === currentId ? "font-medium text-ink" : "text-ink-muted",
+                      )}
+                    >
+                      {s.title}
+                    </span>
+                    {/* 날짜로 묶지 않는다 — 마지막 시각과 주고받은 횟수만(설계 §3) */}
+                    <span className="mt-0.5 block truncate font-mono text-[10.5px] text-ink-faint">
+                      {relTime(s.updatedAt)} · {s.turnCount}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void remove(s.id)}
+                    aria-label={`${s.title} 삭제`}
+                    className="mt-0.5 h-4 shrink-0 self-start text-ink-faint opacity-0 transition-opacity hover:text-ink-2 group-hover:opacity-100"
+                  >
+                    <Icons.CloseIcon size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        <div className="mt-auto shrink-0 border-t border-hairline px-3.5 py-2.5 text-[11px] text-ink-faint">
+          {storageError ? <span className="text-warning">대화를 저장하지 못했어요</span> : "PiecePool 쿼리바"}
         </div>
-        <p className="px-3.5 pt-3 text-[11px] leading-relaxed text-ink-faint">지난 대화가 여기 쌓입니다.</p>
-        <div className="mt-auto border-t border-hairline px-3.5 py-2.5 text-[11px] text-ink-faint">PiecePool 쿼리바</div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">

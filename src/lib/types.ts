@@ -54,3 +54,31 @@ export interface UnderstandingEntry {
 
 /** conceptId → 항목 */
 export type UnderstandingMap = Record<string, UnderstandingEntry>;
+
+// ── 쿼리바 대화 기록 (list/read/save/delete_query_session 응답) ──
+// `queries/sessions/<id>.json` — 대화 1건 = 파일 1개. 계약: workspace-layout.md §3.10.
+// 파생 상태라 entities 계약이 아니다(UnderstandingEntry 전례).
+
+export interface QuerySessionTurn {
+  role: "user" | "assistant";
+  text: string;
+  at: string;
+  /** 이 답을 만들며 실제로 열어 본 위키 — "폴더/파일명" 꼴. 사용자 말에는 없다. */
+  citedWiki?: string[];
+}
+
+export interface QuerySession {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  turns: QuerySessionTurn[];
+}
+
+/** 목록용 요약 — 본문(turns)을 안 싣는다. 목록이 커져도 가볍다. */
+export interface QuerySessionMeta {
+  id: string;
+  title: string;
+  updatedAt: string;
+  turnCount: number;
+}

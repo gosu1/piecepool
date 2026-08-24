@@ -12,6 +12,8 @@ import type {
   SourceType,
   UnderstandingMap,
   UnderstandingState,
+  QuerySession,
+  QuerySessionMeta,
 } from "./types";
 import { computePriorities } from "./priority";
 import { groupOf } from "./relationMeta";
@@ -260,10 +262,33 @@ function graphOf(space: string): GraphData {
   return { nodes, relations: rels };
 }
 
+const QUERY_SESSIONS = new Map<string, QuerySession>();
+
 export const mock = {
   // 브라우저에는 창이 하나뿐 — 쿼리바 창은 Tauri 에서만 뜬다.
   openQueryWindow: async () => {
     console.info("[mock] 쿼리바 창은 데스크톱 앱에서만 열립니다");
+  },
+  // 대화 기록은 파일에 쓰는 일이라 브라우저에서는 메모리에만 둔다.
+  listQuerySessions: () =>
+    delay<QuerySessionMeta[]>(
+      [...QUERY_SESSIONS.values()]
+        .map((s) => ({ id: s.id, title: s.title, updatedAt: s.updatedAt, turnCount: s.turns.length }))
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+    ),
+  readQuerySession: (id: string): Promise<QuerySession> => {
+    const s = QUERY_SESSIONS.get(id);
+    if (!s) return Promise.reject(new Error(`대화를 찾을 수 없습니다: ${id}`));
+    return delay(s);
+  },
+  saveQuerySession: (session: QuerySession) => {
+    const saved: QuerySession = { ...session, updatedAt: NOW };
+    QUERY_SESSIONS.set(session.id, saved);
+    return delay(saved);
+  },
+  deleteQuerySession: (id: string) => {
+    QUERY_SESSIONS.delete(id);
+    return delay<void>(undefined);
   },
   getWorkspace: () =>
     delay<Workspace>({ id: "ws", name: "PiecePool Workspace", rootPath: "~/PiecePool", createdAt: NOW, updatedAt: NOW }),

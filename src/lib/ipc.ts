@@ -11,6 +11,8 @@ import type {
   SourceType,
   UnderstandingMap,
   UnderstandingState,
+  QuerySession,
+  QuerySessionMeta,
 } from "./types";
 import { mock } from "./mockIpc";
 import { inTauri } from "./platform";
@@ -59,6 +61,10 @@ const real = {
   unmarkReviewNeeded: (space: string, conceptId: string) =>
     invoke<number>("unmark_review_needed", { space, conceptId }),
   openQueryWindow: () => invoke<void>("open_query_window"),
+  listQuerySessions: () => invoke<QuerySessionMeta[]>("list_query_sessions"),
+  readQuerySession: (id: string) => invoke<QuerySession>("read_query_session", { id }),
+  saveQuerySession: (session: QuerySession) => invoke<QuerySession>("save_query_session", { session }),
+  deleteQuerySession: (id: string) => invoke<void>("delete_query_session", { id }),
   getUnderstanding: (space: string) => invoke<UnderstandingMap>("get_understanding", { space }),
   setUnderstanding: (space: string, conceptId: string, state: UnderstandingState) =>
     invoke<UnderstandingMap>("set_understanding", { space, conceptId, state }),
@@ -68,6 +74,10 @@ const api = inTauri ? real : mock;
 
 export const {
   openQueryWindow,
+  listQuerySessions,
+  readQuerySession,
+  saveQuerySession,
+  deleteQuerySession,
   getWorkspace,
   listSpaces,
   createSpace,
