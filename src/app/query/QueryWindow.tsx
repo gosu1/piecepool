@@ -5,15 +5,17 @@ import { errorHint } from "../panes/FeynmanPanel";
 import { askQuery, type QueryTurn } from "../../llm/queryAgent";
 import { errMsg, isAbort } from "../../llm/http";
 import * as ipc from "../../lib/ipc";
+import type { QuerySessionMeta } from "../../lib/types";
+import { SlashBlockEditor } from "../../lib/SlashBlockEditor";
 import { useQuerySession } from "./useQuerySession";
+import { parseCommand, QUERY_COMMANDS, QUERY_SLASH_ITEMS, type QueryCommandName } from "./commands";
 
 // ══ 쿼리바 창 — 메인 앱과 별개로 뜨는 두 번째 창 ══
 //
 // `main.tsx` 가 창 이름표(label)를 보고 이 화면을 고른다. 메인 앱과 같은 번들을 쓰되 그리는
 // 것만 다르다. 설계: "쿼리바 설계" §1~§2.
 //
-// 대화 저장(§6)·대화 목록(§3)·슬래시 명령(§4)·/lint(§5)는 이어지는 작업에서 채운다.
-// 지금은 물으면 답이 오는 데까지다.
+// `/lint`(§5)는 이어지는 작업에서 채운다.
 
 const EXAMPLES = [
   "지난주에 적어둔 것 중에 지금 쓸 만한 게 뭐야?",
@@ -75,28 +77,85 @@ function Thinking({ label }: { label: string }) {
   );
 }
 
+/**
+ * 명령이 띄우는 판 — 입력창 바로 위에 뜬다.
+ *
+ * 대화 흐름에 끼우지 않는다. 도움말이나 목록은 주고받은 말이 아니라서 세션 파일에 남으면
+ * 안 되고, 다음에 그 대화를 열었을 때 다시 보일 이유도 없다.
+ */
+function CommandPanel({
+  cmd,
+  sessions,
+  onPick,
+  onClose,
+}: {
+  cmd: QueryCommandName;
+  sessions: QuerySessionMeta[];
+  onPick: (id: string) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="mx-auto mb-2 max-w-[680px] overflow-hidden rounded-lg border border-hairline bg-surface shadow-soft">
+      <div className="flex items-center justify-between border-b border-hairline px-3.5 py-2">
+        <span className="font-mono text-[11px] font-medium tracking-wide text-ink-muted">/{cmd}</span>
+        <button type="button" onClick={onClose} aria-label="닫기" className="text-ink-faint hover:text-ink-2">
+          <Icons.CloseIcon size={13} />
+        </button>
+      </div>
+
+      {cmd === "help" && (
+        <ul className="px-3.5 py-2.5">
+          {QUERY_COMMANDS.map((c) => (
+            <li key={c.name} className="flex gap-3 py-1 text-[13px] leading-relaxed">
+              <code className="w-[76px] shrink-0 font-mono text-[12px] text-primary">/{c.name}</code>
+              <span className="text-ink-muted">{c.help}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {cmd === "sessions" &&
+        (sessions.length === 0 ? (
+          <p className="px-3.5 py-3 text-[13px] text-ink-faint">아직 지난 대화가 없습니다.</p>
+        ) : (
+          <div className="max-h-56 overflow-y-auto py-1.5">
+            {sessions.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => onPick(s.id)}
+                className="flex w-full items-baseline gap-3 px-3.5 py-1.5 text-left hover:bg-surface-soft"
+              >
+                <span className="min-w-0 flex-1 truncate text-[13.5px] text-ink-2">{s.title}</span>
+                <span className="shrink-0 font-mono text-[10.5px] text-ink-faint">
+                  {relTime(s.updatedAt)} · {s.turnCount}
+                </span>
+              </button>
+            ))}
+          </div>
+        ))}
+
+      {cmd === "lint" && (
+        <p className="px-3.5 py-3 text-[13px] text-ink-faint">위키에 반영하는 기능은 아직 준비 중입니다.</p>
+      )}
+    </div>
+  );
+}
+
 export default function QueryWindow() {
   const { turns, sessions, currentId, append, open, reset, remove, storageError } = useQuerySession();
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState("");
   const [error, setError] = useState("");
+  /** 명령이 띄우는 판 — 대화가 아니라 화면 것이라 세션 파일에는 안 남는다 */
+  const [panel, setPanel] = useState<QueryCommandName | null>(null);
   const titles = useWikiTitles();
   const abortRef = useRef<AbortController | null>(null);
   const tailRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // 창이 닫히면 진행 중인 요청을 끊는다(설계 §1.5). 답이 없어진 화면에 도착하지 않게.
   useEffect(() => () => abortRef.current?.abort(), []);
-
-  // textarea 는 내용이 늘어도 저절로 안 커진다 — 높이를 0으로 되돌린 뒤 실제 내용 높이로 다시 잡는다.
-  // (되돌리지 않으면 한 번 커진 높이가 줄지 않는다.)
-  useEffect(() => {
-    const el = inputRef.current;
-    if (!el) return;
-    el.style.height = "0px";
-    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
-  }, [draft]);
 
   // 새 말이 오가면 아래로 따라간다.
   useEffect(() => {
@@ -109,7 +168,6 @@ export default function QueryWindow() {
 
     const next: QueryTurn[] = [...turns, { role: "user", text: q }];
     append({ role: "user", text: q });
-    setDraft("");
     setError("");
     setBusy(true);
 
@@ -127,6 +185,26 @@ export default function QueryWindow() {
       setBusy(false);
       setProgress("");
     }
+  }
+
+  function runCommand(cmd: QueryCommandName) {
+    setError("");
+    if (cmd === "new") {
+      reset();
+      setPanel(null);
+      return;
+    }
+    setPanel(cmd);
+  }
+
+  /** 보내기 — 첫 글자가 슬래시이고 아는 명령이면 명령으로, 아니면 질문으로 간다(설계 §4.2). */
+  function submit() {
+    const text = draft.trim();
+    if (!text || busy) return;
+    const cmd = parseCommand(text);
+    setDraft("");
+    if (cmd) runCommand(cmd);
+    else void send(text);
   }
 
   const empty = turns.length === 0 && !busy;
@@ -253,35 +331,42 @@ export default function QueryWindow() {
         )}
 
         <div className="shrink-0 px-8 pb-4">
-          <div className="mx-auto flex max-w-[680px] items-end gap-2 rounded-lg border border-hairline bg-surface py-2 pl-3.5 pr-2 shadow-soft">
-            <textarea
-              ref={inputRef}
-              spellCheck={false}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                // Enter 보내기 · Shift+Enter 줄바꿈. 한글 조합 중 Enter 는 글자를 확정하는 키라 흘려보낸다.
-                if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-                  e.preventDefault();
-                  void send(draft);
-                }
+          {panel && (
+            <CommandPanel
+              cmd={panel}
+              sessions={sessions}
+              onPick={(id) => {
+                void open(id);
+                setPanel(null);
               }}
-              rows={1}
+              onClose={() => setPanel(null)}
+            />
+          )}
+          <div className="mx-auto flex max-w-[680px] items-end gap-2 rounded-lg border border-hairline bg-surface py-1 pl-3.5 pr-2 shadow-soft">
+            {/* 인박스 캡처와 같은 입력창이다 — 한글 조합과 `http://` 슬래시가 거기서 이미 해결돼 있다(설계 §4.2) */}
+            <SlashBlockEditor
+              value={draft}
+              onChange={setDraft}
+              onSubmit={submit}
               placeholder="무엇이든 물어보세요"
-              disabled={busy}
-              className="min-h-[32px] flex-1 resize-none overflow-y-auto bg-transparent py-1 text-[15px] leading-relaxed text-ink outline-none placeholder:text-ink-faint disabled:opacity-60"
+              height="auto"
+              frameless
+              readOnly={busy}
+              slashItems={QUERY_SLASH_ITEMS}
+              submitOnEnter
+              className="min-w-0 flex-1 max-h-40 overflow-y-auto"
             />
             <button
               type="button"
-              onClick={() => void send(draft)}
+              onClick={submit}
               disabled={busy || !draft.trim()}
               aria-label="보내기"
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary text-on-primary transition-opacity disabled:opacity-35"
+              className="mb-1.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary text-on-primary transition-opacity disabled:opacity-35"
             >
               <Icons.ArrowRightIcon size={18} />
             </button>
           </div>
-          <p className="mt-2 text-center text-[11px] text-ink-faint">↵ 보내기 · ⇧↵ 줄바꿈</p>
+          <p className="mt-2 text-center text-[11px] text-ink-faint">↵ 보내기 · ⇧↵ 줄바꿈 · / 명령</p>
         </div>
       </div>
     </div>
