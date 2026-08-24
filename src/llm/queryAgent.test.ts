@@ -112,6 +112,22 @@ describe("askQuery", () => {
     expect(roles).toEqual(["system", "user", "assistant", "user"]);
   });
 
+  it("답할 때의 규칙을 시스템 자리에 실어 보낸다", async () => {
+    const { fn, bodies } = fakeFetch(answer("답"));
+    await askQuery([{ role: "user", text: "?" }], { ...KEY, fetchFn: fn });
+    const sys = bodies[0].messages[0];
+    expect(sys.role).toBe("system");
+    // 위키에 없어도 답한다 — 라벨로 구분하는 것이 규칙이다
+    expect(sys.content).toContain("[추론]");
+    expect(sys.content).toContain("답을 거부하지 마라");
+    // 위키에서 온 문장은 라벨이 없다는 규칙이 함께 있어야 라벨이 뜻을 갖는다
+    expect(sys.content).toContain("안 붙은 문장은 반드시 위키에서 온 것");
+    // 위키는 형식이 채워져야 만들어진다 — 대화 중 즉석 생성 제안은 시키지 않는다
+    expect(sys.content).toContain("추가하자거나 저장하자는 제안은 하지 마라");
+    // 사용자 어휘와 위키 어휘가 다를 수 있다(제1종 오류 vs FP)
+    expect(sys.content).toContain("다른 이름도 함께 떠올려");
+  });
+
   it("도구 설명서를 함께 보낸다", async () => {
     const { fn, bodies } = fakeFetch(answer("답"));
     await askQuery([{ role: "user", text: "?" }], { ...KEY, fetchFn: fn });
