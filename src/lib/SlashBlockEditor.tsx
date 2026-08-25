@@ -140,11 +140,25 @@ const framelessFrame = EditorView.theme({
   ".cm-content": { padding: "10px 0" },
 });
 
-type SlashSection = { name: string; rank: number };
+export type SlashSection = { name: string; rank: number };
 const SEC_BASIC: SlashSection = { name: "기본 블록", rank: 0 };
 const SEC_INSERT: SlashSection = { name: "삽입", rank: 1 };
 
-type SlashItem = { label: string; detail: string; insert: string; icon: string; section: SlashSection; cursor?: number };
+export type SlashItem = {
+  label: string;
+  detail: string;
+  insert: string;
+  icon: string;
+  section: SlashSection;
+  cursor?: number;
+  /**
+   * 영문 명령으로도 찾히게 하는 별칭. 이름이 "위키에 반영"이어도 `/lint` 로 찾힌다(쿼리바 설계 §4.3).
+   *
+   * CM 은 `label` 로만 거른다 — 그래서 별칭을 label 뒤에 붙여 검색어에 걸리게 하고, 화면에는
+   * `displayLabel` 로 이름만 보여준다. 별칭이 없는 항목은 지금까지와 똑같이 동작한다.
+   */
+  alias?: string;
+};
 const SLASH_ITEMS: SlashItem[] = [
   { label: "제목 1", detail: "# ", insert: "# ", icon: "H1", section: SEC_BASIC },
   { label: "제목 2", detail: "## ", insert: "## ", icon: "H2", section: SEC_BASIC },
@@ -163,29 +177,34 @@ const SLASH_ITEMS: SlashItem[] = [
 ];
 
 // "/" 뒤 쿼리에서 슬래시 메뉴 제공. 줄 시작이거나 공백 뒤의 "/"에서만(http:// 같은 건 제외).
-function slashSource(context: CompletionContext) {
-  const line = context.state.doc.lineAt(context.pos);
-  const before = line.text.slice(0, context.pos - line.from);
-  const m = /\/([\w가-힣]*)$/.exec(before);
-  if (!m) return null;
-  if (!context.explicit && m.index > 0 && !/\s/.test(before[m.index - 1])) return null;
-  // from = "/" 다음(쿼리 시작). CM 은 [from, cursor] 텍스트로 옵션을 필터하므로
-  // "/" 를 포함하면 라벨과 안 맞아 전부 걸러진다. apply 에서 "/"까지 포함해 치환.
-  const from = context.pos - m[1].length;
-  const options: Completion[] = SLASH_ITEMS.map((it) => {
-    const opt: Completion & { icon: string } = {
-      label: it.label,
-      detail: it.detail,
-      section: it.section,
-      icon: it.icon, // addToOptions 렌더에서 좌측 아이콘 박스로 읽음 (CM 표준 필드 아님)
-      apply: (view, _completion, aFrom, aTo) => {
-        const start = aFrom - 1; // 앞의 "/" 포함
-        view.dispatch({ changes: { from: start, to: aTo, insert: it.insert }, selection: { anchor: start + (it.cursor ?? it.insert.length) } });
-      },
-    };
-    return opt;
-  });
-  return { from, options };
+// 항목은 밖에서 건네줄 수 있다 — 안 건네주면 위 기본 목록을 쓴다.
+function slashSource(getItems: () => SlashItem[]) {
+  return (context: CompletionContext) => {
+    const line = context.state.doc.lineAt(context.pos);
+    const before = line.text.slice(0, context.pos - line.from);
+    const m = /\/([\w가-힣]*)$/.exec(before);
+    if (!m) return null;
+    if (!context.explicit && m.index > 0 && !/\s/.test(before[m.index - 1])) return null;
+    // from = "/" 다음(쿼리 시작). CM 은 [from, cursor] 텍스트로 옵션을 필터하므로
+    // "/" 를 포함하면 라벨과 안 맞아 전부 걸러진다. apply 에서 "/"까지 포함해 치환.
+    const from = context.pos - m[1].length;
+    const options: Completion[] = getItems().map((it) => {
+      const opt: Completion & { icon: string } = {
+        label: it.alias ? `${it.label} ${it.alias}` : it.label,
+        detail: it.detail,
+        section: it.section,
+        icon: it.icon, // addToOptions 렌더에서 좌측 아이콘 박스로 읽음 (CM 표준 필드 아님)
+        apply: (view, _completion, aFrom, aTo) => {
+          const start = aFrom - 1; // 앞의 "/" 포함
+          view.dispatch({ changes: { from: start, to: aTo, insert: it.insert }, selection: { anchor: start + (it.cursor ?? it.insert.length) } });
+        },
+      };
+      // 별칭을 붙인 라벨은 검색에만 쓰고 화면에는 이름만 보인다.
+      if (it.alias) opt.displayLabel = it.label;
+      return opt;
+    });
+    return { from, options };
+  };
 }
 
 // 안정 참조(렌더마다 새 객체면 @uiw 가 에디터 재구성 → 팝업 닫힘).
@@ -215,6 +234,8 @@ export function SlashBlockEditor({
   foldEasyKey = 0,
   wikiTerms,
   onWikiTerm,
+  slashItems,
+  submitOnEnter = false,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -232,6 +253,10 @@ export function SlashBlockEditor({
   wikiTerms?: string[];
   /** 강조된 키워드 클릭 — canonical 위키 제목을 올린다 */
   onWikiTerm?: (title: string) => void;
+  /** 슬래시 메뉴에 띄울 항목. 안 주면 기본 블록 목록 그대로다 */
+  slashItems?: SlashItem[];
+  /** Enter 로 제출(⇧Enter 는 줄바꿈). 안 켜면 ⌘Enter 만 제출한다 */
+  submitOnEnter?: boolean;
 }) {
   const submitRef = useRef(onSubmit);
   submitRef.current = onSubmit;
@@ -239,6 +264,8 @@ export function SlashBlockEditor({
   useEffect(() => {
     if (foldEasyKey && viewRef.current) foldEasyCallouts(viewRef.current);
   }, [foldEasyKey]);
+  const itemsRef = useRef(slashItems);
+  itemsRef.current = slashItems;
   const termsRef = useRef(wikiTerms);
   termsRef.current = wikiTerms;
   const onTermRef = useRef(onWikiTerm);
@@ -263,6 +290,11 @@ export function SlashBlockEditor({
       frameless ? framelessFrame : boxedFrame,
       Prec.high(
         keymap.of([
+          // 슬래시 메뉴가 떠 있을 때의 Enter 는 CM 이 Prec.highest 로 가로채 항목 고르기가 된다.
+          // 여기까지 오는 것은 메뉴가 없을 때뿐이다.
+          ...(submitOnEnter
+            ? [{ key: "Enter", run: () => (submitRef.current?.(), true), shift: insertNewlineContinueMarkup }]
+            : []),
           { key: "Enter", run: insertNewlineContinueMarkup },
           { key: "Backspace", run: deleteMarkupBackward },
           { key: "Mod-Enter", run: () => (submitRef.current?.(), true) },
@@ -274,7 +306,7 @@ export function SlashBlockEditor({
       slashTrigger,
       ...wikiTermExtension(() => termsRef.current ?? [], (t) => onTermRef.current?.(t)),
       autocompletion({
-        override: [slashSource],
+        override: [slashSource(() => itemsRef.current ?? SLASH_ITEMS)],
         activateOnTyping: true,
         icons: false,
         addToOptions: [
@@ -291,7 +323,7 @@ export function SlashBlockEditor({
       }),
       ...(placeholder ? [cmPlaceholder(placeholder)] : []),
     ],
-    [placeholder, frameless],
+    [placeholder, frameless, submitOnEnter],
   );
 
   return (

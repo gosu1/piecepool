@@ -1105,3 +1105,32 @@ fn safe_join_rejects_traversal() {
     // 거부: null byte
     assert!(storage::safe_join(base, "a\0b").is_err());
 }
+
+// ── 쿼리바 대화 기록 ────────────────────────────────────────
+// 파일명이 곧 대화 id 라, id 에 경로 문자가 섞이면 workspace 밖을 건드릴 수 있다.
+// 저장·읽기·삭제가 전부 같은 함수를 지나므로 여기서 한 번 막으면 세 곳이 함께 막힌다.
+#[test]
+fn query_session_id_rejects_path_escape() {
+    use crate::commands::queries::{delete_query_session, read_query_session};
+
+    for bad in ["../secret", "..\\secret", "a/b", "a\\b", "C:evil", ""] {
+        assert!(
+            read_query_session(bad.to_string()).is_err(),
+            "읽기가 통과하면 안 된다: {bad:?}"
+        );
+        assert!(
+            delete_query_session(bad.to_string()).is_err(),
+            "삭제가 통과하면 안 된다: {bad:?}"
+        );
+    }
+}
+
+// 대화가 하나도 없을 때 목록은 빈 배열이어야 한다 — 폴더가 없다고 오류를 내면
+// 쿼리바 창이 처음 열릴 때마다 빨간불이 뜬다.
+#[test]
+fn query_session_list_is_empty_before_first_save() {
+    use crate::commands::queries::list_query_sessions;
+    let out = list_query_sessions().expect("빈 목록은 오류가 아니다");
+    // 이 테스트는 실제 워크스페이스를 보므로 개수는 단언하지 않는다. 오류가 아니면 통과다.
+    let _ = out.len();
+}

@@ -33,6 +33,7 @@ export function StudyHome({
   onRemoveFromHome,
   onOpenWiki,
   onNewNote,
+  onOpenQuery,
   onNewFolder,
   onOpenGraph,
 }: {
@@ -47,6 +48,8 @@ export function StudyHome({
   onRemoveFromHome: (id: string) => void;
   onOpenWiki: (space: string, file: string) => void;
   onNewNote: () => void;
+  // 쿼리바 창 열기 — 메인 앱과 별개 창(설계 문서 §1.4). 이미 떠 있으면 앞으로 가져온다.
+  onOpenQuery: () => void;
   // 폴더(지식 공간) 0개일 때 첫 행동 — 노트가 아니라 폴더부터 만들게 유도한다.
   onNewFolder: () => void;
   onOpenGraph: (space: string) => void;
@@ -113,14 +116,29 @@ export function StudyHome({
       </h1>
       <p className="pp-date-in mt-3 text-center text-[14px] text-ink-faint">{today}</p>
 
-      {/* 새 노트 — 유일한 주액션. 블루 채움 + accent 후광(시그니처) */}
-      <button
-        type="button"
-        onClick={onNewNote}
-        className="mt-9 flex w-full items-center justify-center gap-3 rounded-2xl bg-primary px-6 py-[19px] text-[18px] font-semibold text-on-primary shadow-[0_14px_32px_-12px_var(--color-primary)] dark:shadow-[0_10px_24px_-17px_var(--color-primary)] transition-transform hover:-translate-y-0.5"
-      >
-        <Icons.PlusIcon size={22} /> 새 노트
-      </button>
+      {/* 새 노트 — 유일한 주액션. 블루 채움 + accent 후광(시그니처).
+          옆 쿼리바는 정사각형으로 줄인다 — 같은 크기면 어느 쪽이 주액션인지 흐려진다. */}
+      <div className="mt-9 flex items-stretch gap-3">
+        <button
+          type="button"
+          onClick={onNewNote}
+          className="flex flex-1 items-center justify-center gap-3 rounded-2xl bg-primary px-6 py-[19px] text-[18px] font-semibold text-on-primary shadow-[0_14px_32px_-12px_var(--color-primary)] dark:shadow-[0_10px_24px_-17px_var(--color-primary)] transition-transform hover:-translate-y-0.5"
+        >
+          <Icons.PlusIcon size={22} /> 새 노트
+        </button>
+        <button
+          type="button"
+          onClick={onOpenQuery}
+          title="쿼리바 — 쌓아둔 것에 물어봅니다"
+          aria-label="쿼리바 열기"
+          className="flex w-[64px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl border border-hairline bg-surface shadow-soft transition-transform hover:-translate-y-0.5"
+        >
+          <span className="text-primary">
+            <Icons.AskIcon size={21} />
+          </span>
+          <span className="text-[10px] font-semibold text-ink-muted">쿼리바</span>
+        </button>
+      </div>
 
       {/* 개념 지도 — 핵심 차별점. 추상 그래프 일러스트로 "지식망" 은유 + 클릭 시 진짜 그래프 */}
       <button

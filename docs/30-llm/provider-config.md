@@ -64,7 +64,7 @@ if feature 3 활성 && LINER_API_KEY is empty
 
 ### 3.1 Gemini
 
-- 모델 (생성): 기본 `gemini-3.5-flash`(`GEMINI_MODEL`, [`src/llm/gemini.ts`](../../src/llm/gemini.ts)). 예외 하나 — PDF 요약+쉬운설명(pdfsummary.ts)만 `gemini-3.1-flash-lite`(`GEMINI_SUMMARY_MODEL`) 고정, 속도 목적. 사용자 모델 선택 UI 없음
+- 모델 (생성): 기본 `gemini-3.5-flash`(`GEMINI_MODEL`, [`src/llm/gemini.ts`](../../src/llm/gemini.ts)). 예외 둘 — PDF 요약+쉬운설명(pdfsummary.ts)은 `GEMINI_SUMMARY_MODEL` 고정(속도 목적), 쿼리바(queryAgent.ts)는 `GEMINI_QUERY_MODEL` 고정(**하루 요청 한도** 목적). 둘 다 값은 `gemini-3.1-flash-lite` 지만 이유가 달라 상수를 나눠 둔다 — 한쪽만 바꿔야 할 때 서로 끌려가지 않게. 사용자 모델 선택 UI 없음
 - 임베딩: `gemini-embedding-001`
 - 호출: **Chat Completions** — Gemini의 OpenAI 호환 엔드포인트(`https://generativelanguage.googleapis.com/v1beta/openai`)의 `/chat/completions`, 스트리밍은 `delta.content`
 - structured output: `response_format: { type: "json_schema", json_schema: { name: "LlmWikiResult", strict: false, schema: ... } }`
@@ -168,4 +168,5 @@ Backend import-pipeline
 - OpenAI 단일 LLM provider + Liner 출처 검색(feature 3) 결정을 반영.
 - SSOT `LlmWikiResult` 타입은 [llm-output-schema.md](../10-contracts/llm-output-schema.md)만 정의. 본 문서는 어댑터 interface만 정의 (SSOT 위반 아님).
 - 2026-07-16: PDF 요약+쉬운설명을 `gemini-3.1-flash-lite` 고정(속도) — 그 외 채팅 호출은 `gemini-3.5-flash` 단일. 설정 모달 모델 피커 제거. 계약 무변경 (§3.1).
+- 2026-08-23: 쿼리바(PIE-76)를 `gemini-3.1-flash-lite` 고정 — 속도가 아니라 **하루 요청 한도(RPD)** 때문이다. `gemini-3.5-flash` 는 무료 티어 RPD 가 20회라 대화 몇 번이면 소진된다. 쿼리바는 한 질문에 도구 왕복이 여러 번 붙어 특히 빨리 닳는다. 상수는 `GEMINI_QUERY_MODEL` 로 따로 뒀다 (§3.1). 계약 무변경.
 - 2026-07-10: LLM provider를 **Google Gemini 단일**로 전환 ([ADR-0009](../adr/0009-llm-provider-gemini.md), [ADR-0001](../adr/0001-llm-provider-openai.md) 대체). 호출은 Gemini의 OpenAI 호환 엔드포인트 Chat Completions(`/chat/completions`, `response_format`, `strict:false`) — 구 Responses API 폐기. 계약 무변경. Liner(feature 3) 역할 불변, 보조 되묻기만 Gemini로.
