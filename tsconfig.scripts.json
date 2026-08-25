@@ -7,10 +7,16 @@
 // 이 파일이 없던 동안 `scripts/` 는 타입체크 밖에 있었고, 그래서
 // `chunk-preview.ts` 가 존재하지 않는 `createOpenAiEmbedder` 를 import 하고
 // `eval.ts` 가 `ProviderId = "gemini"` 인데 `["openai"]` 를 담은 채로 CI 초록이었다.
+//
+// DOM 을 함께 켜는 이유: 스크립트가 채점 로직을 복제하지 않고 `src/` 에서 그대로
+// import 하는데(`normalizeTitle` 등), 그 경로가 `ipc.ts` → `platform.ts` 의
+// `typeof window` 런타임 감지에 닿는다. DOM 없이는 여기서 TS2304 가 난다.
+// 대신 스크립트가 실제 DOM API 를 쓰면 타입체크는 통과하고 Node 에서 터지므로,
+// `scripts/` 는 브라우저 API 를 직접 부르지 않는다는 전제 위에 있다.
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022"],
+    "lib": ["ES2022", "DOM"],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
