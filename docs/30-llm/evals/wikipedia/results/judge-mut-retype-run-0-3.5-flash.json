@@ -1,0 +1,72 @@
+[
+  {
+    "run": "run-0",
+    "doc": "기계 학습",
+    "source": "일반화",
+    "type": "causes",
+    "target": "기계 학습",
+    "confidence": 0.95,
+    "judgement": null,
+    "judgeQuoteReal": null,
+    "hadExcerpt": true,
+    "judgeModel": "gemini-3.5-flash",
+    "mutation": "retype",
+    "caught": null
+  },
+  {
+    "run": "run-0",
+    "doc": "기계 학습",
+    "source": "기계 학습",
+    "type": "part_of",
+    "target": "데이터 마이닝",
+    "confidence": 0.9,
+    "judgement": null,
+    "judgeQuoteReal": null,
+    "hadExcerpt": true,
+    "judgeModel": "gemini-3.5-flash",
+    "mutation": "retype",
+    "caught": null
+  },
+  {
+    "run": "run-0",
+    "doc": "기계 학습",
+    "source": "인공신경망",
+    "type": "part_of",
+    "target": "기계 학습",
+    "confidence": 0.95,
+    "judgement": null,
+    "judgeQuoteReal": null,
+    "hadExcerpt": true,
+    "judgeModel": "gemini-3.5-flash",
+    "mutation": "retype",
+    "caught": null
+  },
+  {
+    "run": "run-0",
+    "doc": "인공 신경망",
+    "source": "오차역전파법",
+    "type": "used_in",
+    "target": "퍼셉트론",
+    "confidence": 0.95,
+    "judgement": null,
+    "judgeQuoteReal": null,
+    "hadExcerpt": true,
+    "judgeModel": "gemini-3.5-flash",
+    "mutation": "retype",
+    "caught": null
+  },
+  {
+    "run": "run-0",
+    "doc": "인공 신경망",
+    "source": "지도 학습",
+    "type": "part_of",
+    "target": "오차역전파법",
+    "confidence": 0.9,
+    "judgement": null,
+    "judgeQuoteReal": null,
+    "hadExcerpt": true,
+    "judgeModel": "gemini-3.5-flash",
+    "mutation": "retype",
+    "caught": null
+  }
+]

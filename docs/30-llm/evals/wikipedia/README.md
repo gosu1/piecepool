@@ -2,6 +2,8 @@
 
 위키백과 문서를 앱에 순차 투입해, **위키백과 편집자가 이미 내려둔 판정**을 정답지로 개념 추출을 채점한다.
 
+관계 쪽 채점은 [`relations.md`](relations.md) — PIE-53(그래프 관계 품질) 진단.
+
 ```bash
 npm run wiki-collect -- --dir docs/30-llm/evals/wikipedia   # 수집 + 정답지
 npm run wiki-exp     -- --dir docs/30-llm/evals/wikipedia   # 5라운드 투입 (GEMINI_API_KEY 필요)

@@ -1,0 +1,72 @@
+[
+  {
+    "run": "run-0",
+    "doc": "기계 학습",
+    "source": "일반화",
+    "type": "used_in",
+    "target": "추론적 디코딩",
+    "confidence": 0.95,
+    "judgement": null,
+    "judgeQuoteReal": null,
+    "hadExcerpt": true,
+    "judgeModel": "gemini-3.5-flash",
+    "mutation": "fakePair",
+    "caught": null
+  },
+  {
+    "run": "run-0",
+    "doc": "기계 학습",
+    "source": "인공신경망",
+    "type": "used_in",
+    "target": "ALiBi",
+    "confidence": 0.95,
+    "judgement": null,
+    "judgeQuoteReal": null,
+    "hadExcerpt": true,
+    "judgeModel": "gemini-3.5-flash",
+    "mutation": "fakePair",
+    "caught": null
+  },
+  {
+    "run": "run-0",
+    "doc": "기계 학습",
+    "source": "지도 학습",
+    "type": "used_in",
+    "target": "트랜스포머",
+    "confidence": 0.95,
+    "judgement": null,
+    "judgeQuoteReal": null,
+    "hadExcerpt": false,
+    "judgeModel": "gemini-3.5-flash",
+    "mutation": "fakePair",
+    "caught": null
+  },
+  {
+    "run": "run-0",
+    "doc": "기계 학습",
+    "source": "순방향 신경망",
+    "type": "used_in",
+    "target": "GRU",
+    "confidence": 0.95,
+    "judgement": null,
+    "judgeQuoteReal": null,
+    "hadExcerpt": false,
+    "judgeModel": "gemini-3.5-flash",
+    "mutation": "fakePair",
+    "caught": null
+  },
+  {
+    "run": "run-0",
+    "doc": "기계 학습",
+    "source": "심층 신경망",
+    "type": "used_in",
+    "target": "엘만 신경망",
+    "confidence": 0.95,
+    "judgement": null,
+    "judgeQuoteReal": null,
+    "hadExcerpt": false,
+    "judgeModel": "gemini-3.5-flash",
+    "mutation": "fakePair",
+    "caught": null
+  }
+]

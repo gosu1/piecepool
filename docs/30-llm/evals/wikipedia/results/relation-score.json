@@ -1,0 +1,1798 @@
+[
+  {
+    "run": "run-0",
+    "doc": "기계 학습",
+    "source": "일반화",
+    "type": "part_of",
+    "target": "기계 학습",
+    "confidence": 0.95,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [],
+    "supportSentence": "기계 학습의 핵심은 표현(representation)과 일반화(generalization)에 있다.",
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-0",
+    "doc": "기계 학습",
+    "source": "기계 학습",
+    "type": "contrasts",
+    "target": "데이터 마이닝",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "차이를",
+      "대조하여"
+    ],
+    "supportSentence": "== 기계 학습과 데이터 마이닝 ==",
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-0",
+    "doc": "기계 학습",
+    "source": "인공신경망",
+    "type": "used_in",
+    "target": "기계 학습",
+    "confidence": 0.95,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "활용하는"
+    ],
+    "supportSentence": "인공신경망(artificial neural network, ANN)은 기계학습과 인지과학에서 생물학의 신경망에서 영감을 얻은 통계학적 학습 알고리즘으로 시냅스의 결합으로 네트워크를 형성한 인공 뉴런(노드)이 학습을 통해 시냅스의 결합 세기를 변화시켜, 문제 해결 능력을 가지는 모델 전반을 가리킨다.",
+    "lexTypes": [
+      "solves"
+    ],
+    "typeMismatch": true,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-0",
+    "doc": "인공 신경망",
+    "source": "오차역전파법",
+    "type": "solves",
+    "target": "퍼셉트론",
+    "confidence": 0.95,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [],
+    "supportSentence": "좁은 의미에서는 오차역전파법을 이용한 다층 퍼셉트론을 가리키는 경우도 있지만, 이것은 잘못된 용법으로, 인공신경망은 이에 국한되지 않는다.",
+    "lexTypes": [
+      "solves"
+    ],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-0",
+    "doc": "인공 신경망",
+    "source": "지도 학습",
+    "type": "used_in",
+    "target": "오차역전파법",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "됨을"
+    ],
+    "supportSentence": null,
+    "lexTypes": [
+      "used_in"
+    ],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-0",
+    "doc": "인공 신경망",
+    "source": "퍼셉트론",
+    "type": "part_of",
+    "target": "인공신경망",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "기초"
+    ],
+    "supportSentence": "좁은 의미에서는 오차역전파법을 이용한 다층 퍼셉트론을 가리키는 경우도 있지만, 이것은 잘못된 용법으로, 인공신경망은 이에 국한되지 않는다.",
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-0",
+    "doc": "인공 신경망",
+    "source": "지도 학습",
+    "type": "used_in",
+    "target": "인공신경망",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "주요"
+    ],
+    "supportSentence": "인공신경망에는 교사 신호(정답)의 입력에 의해서 문제에 최적화되어 가는 지도 학습과 교사 신호를 필요로 하지 않는 비지도 학습으로 나뉘어 있다.",
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-0",
+    "doc": "인공 신경망",
+    "source": "자율 학습",
+    "type": "used_in",
+    "target": "인공신경망",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [],
+    "supportSentence": null,
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-0",
+    "doc": "인공 신경망",
+    "source": "준 지도 학습",
+    "type": "used_in",
+    "target": "인공신경망",
+    "confidence": 0.8,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [],
+    "supportSentence": "인공신경망은 전체적인 알고리즘의 일부로서 준 지도 학습에 자주 이용된다.",
+    "lexTypes": [
+      "solves",
+      "used_in"
+    ],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-0",
+    "doc": "인공 신경망",
+    "source": "순방향 신경망",
+    "type": "part_of",
+    "target": "인공신경망",
+    "confidence": 0.95,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [],
+    "supportSentence": "순방향 신경망(Feedforward neural network): 가장 간단한 방법의 인공신경망 방법이다.",
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-0",
+    "doc": "인공 신경망",
+    "source": "순환 인공 신경망",
+    "type": "part_of",
+    "target": "인공신경망",
+    "confidence": 0.95,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [],
+    "supportSentence": "순환 인공 신경망(Recurrent neural network): 순환 인공 신경망은 전방 신경망과 정 반대의 동작을 한다.",
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-0",
+    "doc": "인공 신경망",
+    "source": "순방향 신경망",
+    "type": "contrasts",
+    "target": "순환 인공 신경망",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "갖는"
+    ],
+    "supportSentence": null,
+    "lexTypes": [
+      "contrasts"
+    ],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-0",
+    "doc": "딥 러닝",
+    "source": "딥 러닝",
+    "type": "part_of",
+    "target": "기계 학습",
+    "confidence": 1,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [],
+    "supportSentence": "심층 학습(深層學習) 또는 딥 러닝(영어: deep structured learning, deep learning 또는 hierarchical learning)은 여러 '비선형 변환기법'의 조합을 통해 높은 수준의 추상화(abstractions, 다량의 데이터나 복잡한 자료들 속에서 핵심적인 내용 또는 기능을 요약하는 작업)를 시도하는 기계 학습 알고리즘의 집합으로 정의되며, 큰 틀에서 사람의 사고방식을 컴퓨터에게 가르치는 기계학습의 한 분야라고 이야기할 수 있다.",
+    "lexTypes": [
+      "part_of"
+    ],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-0",
+    "doc": "딥 러닝",
+    "source": "심층 신경망",
+    "type": "part_of",
+    "target": "인공신경망",
+    "confidence": 1,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [],
+    "supportSentence": "심층 신경망(Deep Neural Network, DNN)은 입력층(input layer)과 출력층(output layer) 사이에 여러 개의 은닉층(hidden layer)들로 이뤄진 인공신경망(Artificial Neural Network, ANN)이다.",
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-0",
+    "doc": "딥 러닝",
+    "source": "합성곱 신경망",
+    "type": "part_of",
+    "target": "심층 신경망",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "등을",
+      "다루고"
+    ],
+    "supportSentence": null,
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-0",
+    "doc": "딥 러닝",
+    "source": "순환 신경망",
+    "type": "part_of",
+    "target": "심층 신경망",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [
+      "최근의 연구들은 심층 학습 구조들을 순환 신경망(Recurrent Neural Network, RNN)에 성공적으로 적용했다"
+    ],
+    "claimedFalse": [],
+    "ungroundedTokens": [],
+    "supportSentence": "이전의 심층 신경망들은 보통 앞먹임 신경망으로 설계되어 왔지만, 최근의 연구들은 심층 학습 구조들을 순환 신경망(Recurrent Neural Network, RNN)에 성공적으로 적용했다.",
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-0",
+    "doc": "딥 러닝",
+    "source": "제한 볼츠만 머신",
+    "type": "part_of",
+    "target": "심층 신뢰 신경망",
+    "confidence": 1,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "차례로"
+    ],
+    "supportSentence": null,
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-0",
+    "doc": "딥 러닝",
+    "source": "vanishing gradient problem",
+    "type": "related_to",
+    "target": "심층 신경망",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "지연되거나",
+      "만드는"
+    ],
+    "supportSentence": null,
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-0",
+    "doc": "딥 러닝",
+    "source": "Drop-out",
+    "type": "solves",
+    "target": "과적합",
+    "confidence": 0.95,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "명시되어"
+    ],
+    "supportSentence": "또한 2013년에는 신호처리학회인 ICASSP에서 RBM을 대체하여 과적합을 방지할 수 있는 Drop-out이라는 개념이 소개되면서 사전훈련보다 훨씬 더 간단하고 강력한 형태로 과적합을 방지할 수 있게 되었다.",
+    "lexTypes": [
+      "solves"
+    ],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-0",
+    "doc": "딥 러닝",
+    "source": "오차역전파법",
+    "type": "used_in",
+    "target": "심층 신경망",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [
+      "심층 신경망은 표준 오류역전파 알고리즘으로 학습될 수 있다"
+    ],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "라며",
+      "업데이트",
+      "공식을"
+    ],
+    "supportSentence": null,
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-0",
+    "doc": "순환 신경망",
+    "source": "순환 신경망",
+    "type": "contrasts",
+    "target": "순방향 신경망",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "대조하여"
+    ],
+    "supportSentence": "유한 임펄스 순환 신경망은 유향 비순환 그래프이므로 적절하게 풀어서 재구성한다면 순방향 신경망으로도 표현할 수 있지만, 무한 임펄스 순환 신경망은 유향 그래프이므로 순방향 신경망으로 표현하는 것이 불가능하다.",
+    "lexTypes": [
+      "contrasts"
+    ],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-0",
+    "doc": "순환 신경망",
+    "source": "단순 순환망",
+    "type": "part_of",
+    "target": "순환 신경망",
+    "confidence": 0.95,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "수식과",
+      "일종으로",
+      "설명되어"
+    ],
+    "supportSentence": null,
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-0",
+    "doc": "순환 신경망",
+    "source": "엘만 신경망",
+    "type": "part_of",
+    "target": "단순 순환망",
+    "confidence": 1,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "명시되어"
+    ],
+    "supportSentence": "엘만 신경망과 조르단 신경망을 단순 순환망(Simple recurrent network, SRN)이라 부른다.",
+    "lexTypes": [
+      "part_of"
+    ],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-0",
+    "doc": "순환 신경망",
+    "source": "조르단 신경망",
+    "type": "part_of",
+    "target": "단순 순환망",
+    "confidence": 1,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "포함된다고"
+    ],
+    "supportSentence": "엘만 신경망과 조르단 신경망을 단순 순환망(Simple recurrent network, SRN)이라 부른다.",
+    "lexTypes": [
+      "part_of"
+    ],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-0",
+    "doc": "순환 신경망",
+    "source": "LSTM",
+    "type": "part_of",
+    "target": "순환 신경망",
+    "confidence": 0.95,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "소개함"
+    ],
+    "supportSentence": "트랜스포머는 순환 유닛이 없다는 장점이 있어 장단기 메모리 (LSTM)와 같은 이전 순환 신경망 아키텍처 (RNN)보다 훈련 시간이 적게 걸린다.",
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-0",
+    "doc": "순환 신경망",
+    "source": "GRU",
+    "type": "part_of",
+    "target": "순환 신경망",
+    "confidence": 0.95,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [],
+    "supportSentence": null,
+    "lexTypes": [
+      "part_of"
+    ],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-0",
+    "doc": "순환 신경망",
+    "source": "LSTM",
+    "type": "solves",
+    "target": "vanishing gradient problem",
+    "confidence": 1,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "직접"
+    ],
+    "supportSentence": null,
+    "lexTypes": [
+      "solves"
+    ],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-0",
+    "doc": "순환 신경망",
+    "source": "GRU",
+    "type": "related_to",
+    "target": "LSTM",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "보인다고"
+    ],
+    "supportSentence": "이와 같은 저장공간을 게이트된 상태(gated state) 또는 게이트된 메모리(gated memory)라고 하며, LSTM과 게이트 순환 유닛(GRU)이 이를 응용하는 대표적인 예시이다.",
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-0",
+    "doc": "순환 신경망",
+    "source": "양방향 순환 신경망",
+    "type": "part_of",
+    "target": "순환 신경망",
+    "confidence": 0.95,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "서로",
+      "다른",
+      "설명됨"
+    ],
+    "supportSentence": null,
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-0",
+    "doc": "순환 신경망",
+    "source": "양방향 순환 신경망",
+    "type": "related_to",
+    "target": "LSTM",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [],
+    "supportSentence": null,
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-0",
+    "doc": "순환 신경망",
+    "source": "LSTM",
+    "type": "used_in",
+    "target": "합성곱 신경망",
+    "confidence": 0.8,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "활용되었다고",
+      "언급됨"
+    ],
+    "supportSentence": null,
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-0",
+    "doc": "트랜스포머 (기계 학습)",
+    "source": "멀티 헤드 어텐션",
+    "type": "part_of",
+    "target": "트랜스포머",
+    "confidence": 0.95,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [],
+    "supportSentence": "트랜스포머(transformer)는 멀티 헤드 어텐션 메커니즘을 기반으로 하는 딥 러닝 아키텍처이며, 텍스트가 토큰이라는 수치 표현으로 변환되고 각 토큰은 워드 임베딩 테이블에서 조회를 통해 벡터로 변환된다.",
+    "lexTypes": [
+      "part_of"
+    ],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-0",
+    "doc": "트랜스포머 (기계 학습)",
+    "source": "위치 인코딩",
+    "type": "used_in",
+    "target": "트랜스포머",
+    "confidence": 0.95,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "주입함"
+    ],
+    "supportSentence": "트랜스포머는 사인파형 외에 다른 위치 인코딩 방법을 사용할 수 있다.",
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-0",
+    "doc": "트랜스포머 (기계 학습)",
+    "source": "RoPE",
+    "type": "related_to",
+    "target": "위치 인코딩",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "서술됨"
+    ],
+    "supportSentence": null,
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-0",
+    "doc": "트랜스포머 (기계 학습)",
+    "source": "ALiBi",
+    "type": "related_to",
+    "target": "위치 인코딩",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [],
+    "supportSentence": "상대 위치 인코딩은 ALiBi와 유사하지만 더 일반적이다.",
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-0",
+    "doc": "트랜스포머 (기계 학습)",
+    "source": "FlashAttention",
+    "type": "used_in",
+    "target": "멀티 헤드 어텐션",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "소개됨"
+    ],
+    "supportSentence": null,
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-0",
+    "doc": "트랜스포머 (기계 학습)",
+    "source": "KV 캐싱",
+    "type": "used_in",
+    "target": "트랜스포머",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "재사용하는",
+      "서술됨"
+    ],
+    "supportSentence": null,
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-0",
+    "doc": "트랜스포머 (기계 학습)",
+    "source": "추론적 디코딩",
+    "type": "used_in",
+    "target": "트랜스포머",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "활용해",
+      "등장함"
+    ],
+    "supportSentence": "추론적 디코딩의 핵심은 트랜스포머 디코더가 다음과 같은 의미에서 디코딩하는 것보다 더 빠르게 검증할 수 있다는 점이다.",
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-1",
+    "doc": "기계 학습",
+    "source": "일반화",
+    "type": "part_of",
+    "target": "기계 학습",
+    "confidence": 0.95,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [
+      "기계 학습의 핵심은 표현(representation)과 일반화(generalization)에 있다"
+    ],
+    "claimedFalse": [],
+    "ungroundedTokens": [],
+    "supportSentence": "기계 학습의 핵심은 표현(representation)과 일반화(generalization)에 있다.",
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-1",
+    "doc": "기계 학습",
+    "source": "기계 학습",
+    "type": "contrasts",
+    "target": "데이터 마이닝",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [
+      "기계 학습과 데이터 마이닝"
+    ],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "원문의",
+      "문단에서",
+      "차이점을"
+    ],
+    "supportSentence": "== 기계 학습과 데이터 마이닝 ==",
+    "lexTypes": [
+      "contrasts"
+    ],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-1",
+    "doc": "기계 학습",
+    "source": "인공신경망",
+    "type": "part_of",
+    "target": "기계 학습",
+    "confidence": 0.95,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [
+      "인공신경망은 기계학습과 인지과학에서... 통계학적 학습 알고리즘"
+    ],
+    "claimedFalse": [
+      "인공신경망은 기계학습과 인지과학에서... 통계학적 학습 알고리즘"
+    ],
+    "ungroundedTokens": [
+      "소개함"
+    ],
+    "supportSentence": "인공신경망(artificial neural network, ANN)은 기계학습과 인지과학에서 생물학의 신경망에서 영감을 얻은 통계학적 학습 알고리즘으로 시냅스의 결합으로 네트워크를 형성한 인공 뉴런(노드)이 학습을 통해 시냅스의 결합 세기를 변화시켜, 문제 해결 능력을 가지는 모델 전반을 가리킨다.",
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-1",
+    "doc": "인공 신경망",
+    "source": "퍼셉트론",
+    "type": "part_of",
+    "target": "인공 신경망",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "소개되었습니다"
+    ],
+    "supportSentence": "좁은 의미에서는 오차역전파법을 이용한 다층 퍼셉트론을 가리키는 경우도 있지만, 이것은 잘못된 용법으로, 인공신경망은 이에 국한되지 않는다.",
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-1",
+    "doc": "인공 신경망",
+    "source": "오차역전파법",
+    "type": "solves",
+    "target": "퍼셉트론",
+    "confidence": 0.95,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "명시되어"
+    ],
+    "supportSentence": "좁은 의미에서는 오차역전파법을 이용한 다층 퍼셉트론을 가리키는 경우도 있지만, 이것은 잘못된 용법으로, 인공신경망은 이에 국한되지 않는다.",
+    "lexTypes": [
+      "solves"
+    ],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-1",
+    "doc": "인공 신경망",
+    "source": "오차역전파법",
+    "type": "used_in",
+    "target": "지도 학습",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [],
+    "supportSentence": null,
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-1",
+    "doc": "인공 신경망",
+    "source": "순환 인공 신경망",
+    "type": "contrasts",
+    "target": "순방향 신경망",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [],
+    "supportSentence": null,
+    "lexTypes": [
+      "contrasts"
+    ],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-1",
+    "doc": "딥 러닝",
+    "source": "딥 러닝",
+    "type": "part_of",
+    "target": "기계 학습",
+    "confidence": 1,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [
+      "기계 학습 알고리즘의 집합으로 정의되며... 기계학습의 한 분야라고 이야기할 수 있다"
+    ],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "명시되어"
+    ],
+    "supportSentence": "심층 학습(深層學習) 또는 딥 러닝(영어: deep structured learning, deep learning 또는 hierarchical learning)은 여러 '비선형 변환기법'의 조합을 통해 높은 수준의 추상화(abstractions, 다량의 데이터나 복잡한 자료들 속에서 핵심적인 내용 또는 기능을 요약하는 작업)를 시도하는 기계 학습 알고리즘의 집합으로 정의되며, 큰 틀에서 사람의 사고방식을 컴퓨터에게 가르치는 기계학습의 한 분야라고 이야기할 수 있다.",
+    "lexTypes": [
+      "part_of"
+    ],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-1",
+    "doc": "딥 러닝",
+    "source": "심층 신경망",
+    "type": "part_of",
+    "target": "인공신경망",
+    "confidence": 1,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [
+      "심층 신경망은 ... 인공신경망(Artificial Neural Network, ANN)이다"
+    ],
+    "claimedFalse": [],
+    "ungroundedTokens": [],
+    "supportSentence": "심층 신경망(Deep Neural Network, DNN)은 입력층(input layer)과 출력층(output layer) 사이에 여러 개의 은닉층(hidden layer)들로 이뤄진 인공신경망(Artificial Neural Network, ANN)이다.",
+    "lexTypes": [
+      "part_of"
+    ],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-1",
+    "doc": "딥 러닝",
+    "source": "합성곱 신경망",
+    "type": "part_of",
+    "target": "인공신경망",
+    "confidence": 1,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [
+      "CNN은 하나 또는 여러개의 합성곱 계층과 그 위에 올려진 일반적인 인공 신경망 계층들로 이루어져 있으며"
+    ],
+    "claimedFalse": [],
+    "ungroundedTokens": [],
+    "supportSentence": null,
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-1",
+    "doc": "딥 러닝",
+    "source": "순환 신경망",
+    "type": "related_to",
+    "target": "순환 인공 신경망",
+    "confidence": 0.95,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [
+      "순환 신경망은 인공신경망을 구성하는 유닛 사이의 연결이 Directed cycle을 구성하는 신경망"
+    ],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "원문의"
+    ],
+    "supportSentence": null,
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-1",
+    "doc": "딥 러닝",
+    "source": "제한 볼츠만 머신",
+    "type": "used_in",
+    "target": "심층 신뢰 신경망",
+    "confidence": 1,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [
+      "RBM은 DBN의 기본 뼈대가 된다, RBM을 쌓아올리면서(Stacking), Greedy하게 학습함으로써, DBN을 완성한다"
+    ],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "원문"
+    ],
+    "supportSentence": null,
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-1",
+    "doc": "딥 러닝",
+    "source": "Drop-out",
+    "type": "used_in",
+    "target": "심층 신경망",
+    "confidence": 0.95,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [
+      "최근에 들어서는 심층 신경망에 적용되고 있는 정칙화 방법 중 하나로 dropout 정칙화가 등장했다"
+    ],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "밝히고"
+    ],
+    "supportSentence": "그리고 최근에 들어서는 심층 신경망에 적용되고 있는 정칙화 방법 중 하나로 dropout 정칙화가 등장했다.",
+    "lexTypes": [
+      "causes",
+      "solves"
+    ],
+    "typeMismatch": true,
+    "dirJudged": true,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-1",
+    "doc": "딥 러닝",
+    "source": "오차역전파법",
+    "type": "used_in",
+    "target": "심층 신경망",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [
+      "심층 신경망은 표준 오류역전파 알고리즘으로 학습될 수 있다"
+    ],
+    "claimedFalse": [],
+    "ungroundedTokens": [],
+    "supportSentence": null,
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-1",
+    "doc": "순환 신경망",
+    "source": "LSTM",
+    "type": "part_of",
+    "target": "순환 신경망",
+    "confidence": 0.95,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "소개함"
+    ],
+    "supportSentence": "트랜스포머는 순환 유닛이 없다는 장점이 있어 장단기 메모리 (LSTM)와 같은 이전 순환 신경망 아키텍처 (RNN)보다 훈련 시간이 적게 걸린다.",
+    "lexTypes": [
+      "solves",
+      "part_of"
+    ],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-1",
+    "doc": "순환 신경망",
+    "source": "GRU",
+    "type": "part_of",
+    "target": "순환 신경망",
+    "confidence": 0.95,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "밝힘"
+    ],
+    "supportSentence": null,
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-1",
+    "doc": "순환 신경망",
+    "source": "엘만 신경망",
+    "type": "part_of",
+    "target": "순환 신경망",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "하위",
+      "다룸"
+    ],
+    "supportSentence": null,
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-1",
+    "doc": "순환 신경망",
+    "source": "조르단 신경망",
+    "type": "part_of",
+    "target": "순환 신경망",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "묶어"
+    ],
+    "supportSentence": null,
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-1",
+    "doc": "순환 신경망",
+    "source": "양방향 순환 신경망",
+    "type": "part_of",
+    "target": "순환 신경망",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "정방향과",
+      "역방향의",
+      "활용하는",
+      "제시됨"
+    ],
+    "supportSentence": null,
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-1",
+    "doc": "순환 신경망",
+    "source": "엘만 신경망",
+    "type": "contrasts",
+    "target": "조르단 신경망",
+    "confidence": 0.95,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [
+      "조르단 신경망은 엘만 신경망과 비슷하나, 문맥 유닛이 은닉 레이어가 아닌 출력 레이어로부터 값을 받는다는 차이점이 있다"
+    ],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "명시됨"
+    ],
+    "supportSentence": "엘만 신경망과 조르단 신경망을 단순 순환망(Simple recurrent network, SRN)이라 부른다.",
+    "lexTypes": [
+      "contrasts"
+    ],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-1",
+    "doc": "순환 신경망",
+    "source": "GRU",
+    "type": "related_to",
+    "target": "LSTM",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [
+      "출력 게이트가 존재하지 않으므로, LSTM에 비해 더 적은 수의 매개변수를 가짐에도 불구하고 ... LSTM과 유사한 성능을 가진다"
+    ],
+    "claimedFalse": [],
+    "ungroundedTokens": [],
+    "supportSentence": "이와 같은 저장공간을 게이트된 상태(gated state) 또는 게이트된 메모리(gated memory)라고 하며, LSTM과 게이트 순환 유닛(GRU)이 이를 응용하는 대표적인 예시이다.",
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-1",
+    "doc": "순환 신경망",
+    "source": "CTC",
+    "type": "used_in",
+    "target": "LSTM",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [
+      "CTC 기술로 훈련시킨 LSTM이 처음으로 필기체 인식 시합에서 승리를 거둠",
+      "LSTM을 쌓은 뒤 CTC로 이 신경망을 학습시키는 방식으로 실제 연구분야에 많이 사용됨"
+    ],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "등을"
+    ],
+    "supportSentence": "2009년에는 CTC(Connectionist temporal classification) 기술로 훈련시킨 LSTM이 처음으로 필기체 인식 시합에서 승리를 거둠으로써, 패턴 인식 분야에 독보적인 기능을 가지고 있음이 증명되었다.",
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-1",
+    "doc": "순환 신경망",
+    "source": "순방향 신경망",
+    "type": "contrasts",
+    "target": "순환 신경망",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [
+      "순방향 신경망과 달리 내부의 메모리를 이용해 시퀀스 형태의 입력을 처리할 수 있다"
+    ],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "대조적",
+      "활용함"
+    ],
+    "supportSentence": "유한 임펄스 순환 신경망은 유향 비순환 그래프이므로 적절하게 풀어서 재구성한다면 순방향 신경망으로도 표현할 수 있지만, 무한 임펄스 순환 신경망은 유향 그래프이므로 순방향 신경망으로 표현하는 것이 불가능하다.",
+    "lexTypes": [
+      "contrasts"
+    ],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-1",
+    "doc": "트랜스포머 (기계 학습)",
+    "source": "멀티 헤드 어텐션",
+    "type": "part_of",
+    "target": "트랜스포머",
+    "confidence": 0.95,
+    "hasQuote": true,
+    "quoteInSource": true,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "필수성이"
+    ],
+    "supportSentence": "트랜스포머(transformer)는 멀티 헤드 어텐션 메커니즘을 기반으로 하는 딥 러닝 아키텍처이며, 텍스트가 토큰이라는 수치 표현으로 변환되고 각 토큰은 워드 임베딩 테이블에서 조회를 통해 벡터로 변환된다.",
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-1",
+    "doc": "트랜스포머 (기계 학습)",
+    "source": "위치 인코딩",
+    "type": "used_in",
+    "target": "트랜스포머",
+    "confidence": 0.9,
+    "hasQuote": true,
+    "quoteInSource": true,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "부여하기",
+      "필수",
+      "증명"
+    ],
+    "supportSentence": "트랜스포머는 사인파형 외에 다른 위치 인코딩 방법을 사용할 수 있다.",
+    "lexTypes": [
+      "used_in"
+    ],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-1",
+    "doc": "트랜스포머 (기계 학습)",
+    "source": "FlashAttention",
+    "type": "used_in",
+    "target": "트랜스포머",
+    "confidence": 0.9,
+    "hasQuote": true,
+    "quoteInSource": true,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "물리적인",
+      "상에"
+    ],
+    "supportSentence": "FlashAttention는 GPU에서 트랜스포머 어텐션 메커니즘을 효율적으로 구현하는 알고리즘이다.",
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-1",
+    "doc": "트랜스포머 (기계 학습)",
+    "source": "KV 캐싱",
+    "type": "used_in",
+    "target": "트랜스포머",
+    "confidence": 0.9,
+    "hasQuote": true,
+    "quoteInSource": true,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "견인하는"
+    ],
+    "supportSentence": null,
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-1",
+    "doc": "트랜스포머 (기계 학습)",
+    "source": "멀티 쿼리 어텐션",
+    "type": "related_to",
+    "target": "멀티 헤드 어텐션",
+    "confidence": 0.9,
+    "hasQuote": true,
+    "quoteInSource": false,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "수식을",
+      "기초로",
+      "단일화시키는"
+    ],
+    "supportSentence": "멀티 쿼리 어텐션은 멀티헤드 어텐션 메커니즘을 변경한다.",
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-2",
+    "doc": "기계 학습",
+    "source": "일반화",
+    "type": "part_of",
+    "target": "기계 학습",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "내용을"
+    ],
+    "supportSentence": "기계 학습의 핵심은 표현(representation)과 일반화(generalization)에 있다.",
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-2",
+    "doc": "기계 학습",
+    "source": "기계 학습",
+    "type": "contrasts",
+    "target": "데이터 마이닝",
+    "confidence": 0.85,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "개념은",
+      "목적성에",
+      "있어"
+    ],
+    "supportSentence": "== 기계 학습과 데이터 마이닝 ==",
+    "lexTypes": [
+      "contrasts"
+    ],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-2",
+    "doc": "기계 학습",
+    "source": "인공신경망",
+    "type": "part_of",
+    "target": "기계 학습",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [],
+    "supportSentence": "인공신경망(artificial neural network, ANN)은 기계학습과 인지과학에서 생물학의 신경망에서 영감을 얻은 통계학적 학습 알고리즘으로 시냅스의 결합으로 네트워크를 형성한 인공 뉴런(노드)이 학습을 통해 시냅스의 결합 세기를 변화시켜, 문제 해결 능력을 가지는 모델 전반을 가리킨다.",
+    "lexTypes": [
+      "part_of"
+    ],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-2",
+    "doc": "인공 신경망",
+    "source": "오차역전파법",
+    "type": "used_in",
+    "target": "인공신경망",
+    "confidence": 0.95,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "극복하게",
+      "언급한다"
+    ],
+    "supportSentence": "좁은 의미에서는 오차역전파법을 이용한 다층 퍼셉트론을 가리키는 경우도 있지만, 이것은 잘못된 용법으로, 인공신경망은 이에 국한되지 않는다.",
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-2",
+    "doc": "인공 신경망",
+    "source": "다층 퍼셉트론",
+    "type": "part_of",
+    "target": "인공신경망",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [],
+    "supportSentence": "좁은 의미에서는 오차역전파법을 이용한 다층 퍼셉트론을 가리키는 경우도 있지만, 이것은 잘못된 용법으로, 인공신경망은 이에 국한되지 않는다.",
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-2",
+    "doc": "인공 신경망",
+    "source": "오차역전파법",
+    "type": "solves",
+    "target": "다층 퍼셉트론",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [],
+    "supportSentence": "좁은 의미에서는 오차역전파법을 이용한 다층 퍼셉트론을 가리키는 경우도 있지만, 이것은 잘못된 용법으로, 인공신경망은 이에 국한되지 않는다.",
+    "lexTypes": [
+      "contrasts"
+    ],
+    "typeMismatch": true,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-2",
+    "doc": "인공 신경망",
+    "source": "활성화 함수",
+    "type": "part_of",
+    "target": "인공신경망",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [],
+    "supportSentence": null,
+    "lexTypes": [
+      "part_of"
+    ],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-2",
+    "doc": "인공 신경망",
+    "source": "비용 함수",
+    "type": "used_in",
+    "target": "인공신경망",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "나간다고"
+    ],
+    "supportSentence": null,
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-3",
+    "doc": "기계 학습",
+    "source": "일반화",
+    "type": "part_of",
+    "target": "기계 학습",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "내용을"
+    ],
+    "supportSentence": "기계 학습의 핵심은 표현(representation)과 일반화(generalization)에 있다.",
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-3",
+    "doc": "기계 학습",
+    "source": "기계 학습",
+    "type": "contrasts",
+    "target": "데이터 마이닝",
+    "confidence": 0.85,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "개념은",
+      "목적성에",
+      "있어"
+    ],
+    "supportSentence": "== 기계 학습과 데이터 마이닝 ==",
+    "lexTypes": [
+      "contrasts"
+    ],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-3",
+    "doc": "기계 학습",
+    "source": "인공신경망",
+    "type": "part_of",
+    "target": "기계 학습",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [],
+    "supportSentence": "인공신경망(artificial neural network, ANN)은 기계학습과 인지과학에서 생물학의 신경망에서 영감을 얻은 통계학적 학습 알고리즘으로 시냅스의 결합으로 네트워크를 형성한 인공 뉴런(노드)이 학습을 통해 시냅스의 결합 세기를 변화시켜, 문제 해결 능력을 가지는 모델 전반을 가리킨다.",
+    "lexTypes": [
+      "part_of"
+    ],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-3",
+    "doc": "인공 신경망",
+    "source": "오차역전파법",
+    "type": "used_in",
+    "target": "인공신경망",
+    "confidence": 0.95,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "극복하게",
+      "언급한다"
+    ],
+    "supportSentence": "좁은 의미에서는 오차역전파법을 이용한 다층 퍼셉트론을 가리키는 경우도 있지만, 이것은 잘못된 용법으로, 인공신경망은 이에 국한되지 않는다.",
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-3",
+    "doc": "인공 신경망",
+    "source": "다층 퍼셉트론",
+    "type": "part_of",
+    "target": "인공신경망",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [],
+    "supportSentence": "좁은 의미에서는 오차역전파법을 이용한 다층 퍼셉트론을 가리키는 경우도 있지만, 이것은 잘못된 용법으로, 인공신경망은 이에 국한되지 않는다.",
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-3",
+    "doc": "인공 신경망",
+    "source": "오차역전파법",
+    "type": "solves",
+    "target": "다층 퍼셉트론",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [],
+    "supportSentence": "좁은 의미에서는 오차역전파법을 이용한 다층 퍼셉트론을 가리키는 경우도 있지만, 이것은 잘못된 용법으로, 인공신경망은 이에 국한되지 않는다.",
+    "lexTypes": [
+      "contrasts"
+    ],
+    "typeMismatch": true,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-3",
+    "doc": "인공 신경망",
+    "source": "활성화 함수",
+    "type": "part_of",
+    "target": "인공신경망",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [],
+    "supportSentence": null,
+    "lexTypes": [
+      "part_of"
+    ],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  },
+  {
+    "run": "run-3",
+    "doc": "인공 신경망",
+    "source": "비용 함수",
+    "type": "used_in",
+    "target": "인공신경망",
+    "confidence": 0.9,
+    "hasQuote": false,
+    "quoteInSource": null,
+    "claimedQuotes": [],
+    "claimedFalse": [],
+    "ungroundedTokens": [
+      "나간다고"
+    ],
+    "supportSentence": null,
+    "lexTypes": [],
+    "typeMismatch": false,
+    "dirJudged": false,
+    "dirSuspect": null,
+    "badSourceId": true
+  }
+]

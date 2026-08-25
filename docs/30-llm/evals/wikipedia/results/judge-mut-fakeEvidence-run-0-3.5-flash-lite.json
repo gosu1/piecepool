@@ -1,0 +1,16 @@
+[
+  {
+    "run": "run-0",
+    "doc": "기계 학습",
+    "source": "일반화",
+    "type": "part_of",
+    "target": "기계 학습",
+    "confidence": 0.95,
+    "judgement": null,
+    "judgeQuoteReal": null,
+    "hadExcerpt": true,
+    "judgeModel": "gemini-3.5-flash",
+    "mutation": "fakeEvidence",
+    "caught": null
+  }
+]

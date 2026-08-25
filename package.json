@@ -57,7 +57,9 @@
     "eval:pdfsummary": "npm run eval:llm -- --adapter pdfsummary",
     "wiki-exp": "tsx --env-file=.env scripts/wiki-experiment.ts",
     "wiki-score": "tsx scripts/wiki-score.ts",
-    "wiki-collect": "tsx scripts/wiki-collect.ts"
+    "wiki-collect": "tsx scripts/wiki-collect.ts",
+    "relation-score": "tsx scripts/relation-score.ts",
+    "relation-judge": "tsx --env-file=.env scripts/relation-judge.ts"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
