@@ -49,6 +49,7 @@ Liner API는 검색과 답변 생성을 제공하는 7종의 HTTP API입니다. 
 | §8 | 공식 문서와 실제 동작이 다른 항목 |
 | §9 | 구현 시 주의사항 |
 | §10 | 미확인 항목 |
+| §11 | Liner의 자리 — 모델이 아니라 완성 서비스 |
 
 ---
 
@@ -1953,3 +1954,90 @@ Visual Answer의 `data-update` 이벤트에는 같은 HTML이 `output.html`과 `
 ### 문서 간 불일치 (미해결)
 
 quick-start 페이지는 응답이 `choices[].delta.content`로 온다고 적었는데, Agent API 레퍼런스는 모두 `text-delta.delta`라고 적습니다. 실측에서는 `text-delta`가 왔습니다.
+
+---
+
+## 11. Liner의 자리 — 모델이 아니라 완성 서비스
+
+§1~§10은 Liner가 무엇을 주는지를 적었다. 이 절은 **그것이 우리 앱의 어느 자리에 놓이는가**를 적는다. 결론부터 적으면, Liner는 대화를 지휘하는 주체가 될 수 없다.
+
+### 11.1 두 층을 가르는 선
+
+우리가 "AI API"라고 부르는 것에는 성격이 다른 두 층이 섞여 있다.
+
+| 층 | 예 | 파는 것 |
+|---|---|---|
+| 모델 API | Gemini API, Anthropic API | **모델을 골라 쓰는 권한.** 토큰당 과금 |
+| 에이전트 서비스 | **Liner** | **완성된 작업.** 호출당 정액 |
+
+Gemini는 뇌를 빌려준다 — 도구는 우리가 쥐어주고 루프도 우리가 돈다. Liner는 이미 도구를 쥔 뇌이고, 자기 루프를 돌아 결과만 준다.
+
+### 11.2 근거 — 전부 실측
+
+| 근거 | 확인한 곳 |
+|---|---|
+| **`tools` 파라미터가 없다** | §4-2 · §4-3 입력 표. 7종 전부 확인. `tools/`는 URL 경로(`/api/v1/tools/search/web`)에만 나오며 자기 엔드포인트 분류다 |
+| **`system` 역할이 없다** | §4-1. `role`은 `user`·`assistant`뿐이라 규칙을 고정할 자리가 없다 |
+| **지시가 검색 단계에 닿지 않는다** | §4-1 「프롬프트 지시문의 실제 효과」. 검색 범위 제한이 검색어에 전달되지 않았고 제외 연산자는 0회였다. **다만 맥락은 검색어 재작성까지 전달된다** |
+| **출력 형식 지시는 무시되기 쉽다** | 같은 표. 판정 라벨·문장 단위 인용 번호가 무시된 사례 |
+| **`model` 유효값이 비공개다** | §4-3 · §10. Quick Answer는 `mode`도 `model`도 없어 모델 선택 자체가 불가능하다 |
+| **재현성 보장이 없다** | §4-2. "같은 질문을 나중에 다시 던졌을 때 같은 답이 나온다는 보장이 없다" |
+| **호출당 정액 과금** | §2 과금. 토큰 단위가 아니다 |
+| **MCP가 자기 도구 5종을 노출한다** | §6. `search_web` 외 4종. 지휘자가 아니라 부품으로 쓰이도록 설계됐다 |
+
+Liner가 내부적으로 부르는 도구는 `search_web` · `search_papers` · `search_paper_sections` · `update_search_status` · `finish_subtask` 이며 전부 내장이다. 우리 도구를 끼워 넣을 구멍이 없다.
+
+> 시각화 엔진 atlas 가 `gemini-3-flash-preview` 로 구동된다는 관측(§0)은 **Visualization API 에 한한 것**이다. 나머지 6종의 내부 모델은 확인된 바 없으므로 위 근거에 포함하지 않는다.
+
+### 11.3 결합 방향은 하나뿐이다
+
+```text
+✗  Liner 에게 우리 도구를 쥐어준다         tools 파라미터가 없다
+✓  우리 모델에게 Liner 를 도구로 쥐어준다   MCP 또는 REST
+```
+
+이는 [ADR-0009](../adr/0009-llm-provider-gemini.md) §3의 배치와 일치한다. Liner는 처음부터 feature 3(정보 간극 메우기 · fact-check)의 **출처 검색** 담당이었고, 이번 실측은 그 배치가 옳았음을 확인한다.
+
+공식 MCP 문서가 이 방향을 명시한다.
+
+> Clients (like Claude Desktop, Cursor, VS Code) connect to Liner's remote MCP server to access Liner's tools. **The client consumes Liner's capabilities rather than registering its own tools with Liner.**
+>
+> — [liner.com/ko/developers/docs/mcp](https://liner.com/ko/developers/docs/mcp) (2026-08-25 확인)
+
+MCP 라는 이름이 양방향처럼 들리지만 한 방향이다. 서버가 도구를 내놓고 클라이언트가 가져다 쓴다. Liner 가 서버이고 우리가 클라이언트다.
+
+엔드포인트는 `https://platform.liner.com/api/v1/mcp`(Streamable HTTP)이며, 인증은 브라우저 환경의 OAuth 2.1 또는 헤드리스·CI 용 `Authorization: Bearer $LINER_API_KEY` 다.
+
+```bash
+# Claude Code 에 붙일 때 (헤드리스·API 키)
+claude mcp add --transport http liner https://platform.liner.com/api/v1/mcp \
+  --header "Authorization: Bearer $LINER_API_KEY"
+```
+
+**다만 우리 앱은 MCP 클라이언트가 아니다.** Tauri 웹뷰에서 MCP 를 쓰려면 클라이언트를 따로 구현해야 하므로, 앱 안에서는 REST 직접 호출이 현실적이다. MCP 는 Claude Code · Cursor 같은 기존 호스트에서 같은 도구를 미리 시험해 볼 때 쓴다.
+
+MCP 제공 여부가 여기서 갈린다(§6).
+
+| API | MCP |
+|---|---|
+| Search · Scholar · Quick Answer · Search Agent · Deep Research | 제공 |
+| Visualization · Visual Answer | **미제공 — REST 로 직접 호출해야 한다** |
+
+### 11.4 우리 코드에 미치는 영향
+
+Liner를 대화 주체로 놓으면 다음이 무효화되거나 불안정해진다.
+
+| 대상 | 상태 | 이유 |
+|---|---|---|
+| `queryTools.ts` 의 도구 4개 전부 | **무효** | 주입 경로가 없다 |
+| `queryAgent.ts` SYSTEM 중 "도구로 위키를 찾아 읽어라" | **무효** | 같은 이유 |
+| SYSTEM 중 "같은 개념의 다른 이름도 떠올려 찾아봐라" | **무효** | 지시가 검색 단계에 안 닿는다 |
+| SYSTEM 중 `[추론]` 라벨 규칙 두 줄 | **불안정** | 출력 형식 지시는 무시되기 쉽다. 항상 무시되는 것은 아니다 |
+
+즉 [wiki-qa-agent.md](wiki-qa-agent.md) §11.5가 프롬프트로 세워 둔 근거 구분이 **코드로 다시 구현되어야** 성립한다.
+
+그리고 Liner는 검색을 끌 수 없다(§4-2 — Quick Answer는 항상 웹 검색만 한다). 위키에 답이 있어도 웹을 보고, 매번 과금되며, 필기 일부가 매번 밖으로 나간다.
+
+### 11.5 남는 질문
+
+Liner가 뇌 자리에 앉을 수 없다면 **그 자리를 무엇이 맡을 것인가**가 남는다. 이 문서의 범위를 벗어나므로 여기서는 질문만 기록한다.
