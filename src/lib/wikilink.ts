@@ -47,16 +47,19 @@ interface MdNode {
 }
 
 function expand(value: string): MdNode[] {
-  return parseWikilinks(value).map((t) =>
-    t.kind === "text"
-      ? { type: "text", value: t.value }
-      : {
-          type: "link",
-          url: (t.kind === "embed" ? "embed:" : "wiki:") + t.value,
-          title: null,
-          children: [{ type: "text", value: t.alias ?? t.value }],
-        },
-  );
+  return parseWikilinks(value).map((t) => {
+    if (t.kind === "text") return { type: "text", value: t.value };
+    // [[파일]] 은 동명 위키가 아니라 원본 파일로 가는 링크다(계약 §1) — 스킴을 여기서 가른다.
+    // #page=N 조각을 떼고 판정한다. 안 떼면 확장자가 "pdf#page=12" 가 되어 원본으로 안 잡힌다.
+    const scheme =
+      t.kind === "embed" ? "embed:" : isOriginalFile(parseEmbedTarget(t.value).file) ? "orig:" : "wiki:";
+    return {
+      type: "link",
+      url: scheme + t.value,
+      title: null,
+      children: [{ type: "text", value: t.alias ?? t.value }],
+    };
+  });
 }
 
 function walk(node: MdNode): void {
