@@ -62,7 +62,7 @@ GIF 는 코드 두 곳에 이미 들어와 있고 브라우저가 기본 지원�
 
 ### 3.2 스킴 분기를 파싱 계층으로
 
-`wikilink.ts` 의 `expand()` 가 대상의 확장자를 보고 스킴을 나눈다. 판정은 이미 있는 `isOriginalFile()` 을 export 해 재사용한다.
+`wikilink.ts` 의 `expand()` 가 대상의 확장자를 보고 스킴을 나눈다. 판정은 이미 있는 `isOriginalFile()` 을 그대로 쓴다(같은 파일 안이라 export 는 필요 없다).
 
 - 원본 파일(pdf + `IMAGE_EXTS`) → `orig:` + target
 - 그 외 → `wiki:` + target (기존 그대로)
@@ -76,11 +76,13 @@ GIF 는 코드 두 곳에 이미 들어와 있고 브라우저가 기본 지원�
 
 ### 3.3 원본 파일 탭
 
-`TabKind` 에 `"source"` 를 추가한다. 탭 id 는 `source:<space>:<file>` — 파일 하나가 탭 하나다.
+`TabKind` 에 `"original"` 을 추가한다. 탭 id 는 `original:<space>:<file>` — 파일 하나가 탭 하나다.
 
-page 번호는 탭 id 에 넣지 않는다. 넣으면 같은 PDF 의 12 page 링크와 30 page 링크가 탭 두 개가 되어, 위키·아카이브 탭이 지키는 "파일 하나 = 탭 하나" 모델과 어긋난다. 대신 `graphViews[tabId]` 가 이미 쓰는 방식대로 `PiecePoolApp` 이 `sourcePages: Record<string, number>` 를 소유하고 `PdfViewer` 에 `initialPage` 로 내려보낸다. 이미 열린 탭을 다시 클릭하면 그 값만 갱신되므로 같은 탭이 해당 page 로 이동한다.
+`"source"` 가 아닌 이유: `archive` 탭의 `KIND_LABEL` 이 이미 "Source" 이고, 계약과 코드가 원본 파일을 `sources/original-files/`·`isOriginalFile`·`noteOriginalFiles` 로 부른다. `KIND_LABEL` 은 `Record<TabKind, string>` 이라 항목을 빠뜨리면 tsc 가 잡는다.
 
-`renderActiveTab` 의 `case "source"`:
+page 번호는 탭 id 에 넣지 않는다. 넣으면 같은 PDF 의 12 page 링크와 30 page 링크가 탭 두 개가 되어, 위키·아카이브 탭이 지키는 "파일 하나 = 탭 하나" 모델과 어긋난다. 대신 `graphViews[tabId]` 가 이미 쓰는 방식대로 `PiecePoolApp` 이 `originalPages: Record<string, number>` 를 소유하고 `PdfViewer` 에 `initialPage` 로 내려보낸다. 이미 열린 탭을 다시 클릭하면 그 값만 갱신되므로 같은 탭이 해당 page 로 이동한다.
+
+`renderActiveTab` 의 `case "original"`:
 
 - 확장자 `pdf` → `<PdfViewer space file initialPage>` (인박스에서 쓰던 뷰어 재사용)
 - 확장자가 `IMAGE_EXTS` 에 있음 → `<FilePreview space target={file} />` (이미지 렌더를 이미 갖고 있다)
@@ -100,9 +102,10 @@ export function resolveInitialPage(want: number, total: number): { page: number;
 
 ### 4.1 단위 테스트
 
-- `wikilink.test.ts` — `[[개념]]` 은 `wiki:`, `[[a.pdf]]`·`[[b.svg]]` 는 `orig:` 로 갈린다. `![[..]]` 는 그대로 `embed:`. svg·gif 가 `firstEmbedFile`·`noteOriginalFiles` 에 잡힌다
+- `wikilink.test.ts` — `remarkWikilink` 가 만든 mdast 에서 `[[개념]]` 은 `wiki:`, `[[a.pdf]]`·`[[b.svg]]` 는 `orig:` 로 갈린다. `![[..]]` 는 그대로 `embed:`. svg·gif 가 `firstEmbedFile`·`noteOriginalFiles` 에 잡힌다
 - `pdfView.test.ts` — `resolveInitialPage(200, 10)` → `{ page: 1, over: true }`, `resolveInitialPage(12, 30)` → `{ page: 12, over: false }`, `total` 이 0(미로드)일 때의 동작
-- `markdownRender.test.ts` — `[[강의자료.pdf]]` 클릭이 `onOpenFile` 을 부르고 `onLink` 는 부르지 않는다
+
+저장소에 jsdom·testing-library 가 없어 React 컴포넌트를 마운트하는 테스트는 쓰지 않는다. `markdownRender.test.ts` 가 이미 하듯 remark 체인을 문자열→트리로 돌려 검증하고, `markdown.tsx` 의 `orig:` 분기 자체는 실기 확인(§4.2)으로 덮는다.
 
 ### 4.2 실기 확인
 
@@ -130,11 +133,12 @@ UI 변경이므로 PR 본문에 비포·애프터 스크린샷을 첨부한다.
 | 파일 | 변경 |
 |---|---|
 | `docs/10-contracts/wikilink-embed.md` | §4 지원 포맷에 GIF 추가 |
-| `src/lib/wikilink.ts` | `IMAGE_MIME`·`IMAGE_EXTS` export, `isOriginalFile` export, `expand()` 스킴 분기 |
+| `src/lib/wikilink.ts` | `IMAGE_MIME`·`IMAGE_EXTS`·`extOf` export, `expand()` 스킴 분기 |
 | `src/lib/markdown.tsx` | `onOpenFile` prop, `orig:` 분기, `urlTransform` 보존 목록, 정규식 제거 |
 | `src/lib/FilePreview.tsx` | 지역 `MIME` 제거하고 `IMAGE_MIME` 사용 |
 | `src/lib/pdfView.ts` | `resolveInitialPage` 추가 |
 | `src/lib/PdfViewer.tsx` | `initialPage` prop, 범위 초과 배너 |
-| `src/store/workspaceStore.ts` | `TabKind` 에 `"source"` |
-| `src/app/PiecePoolApp.tsx` | `openSource`, `sourcePages`, `renderActiveTab` 의 `case "source"`, `onOpenFile` 연결 |
+| `src/store/workspaceStore.ts` | `TabKind` 에 `"original"` |
+| `src/app/PiecePoolApp.tsx` | `openOriginal`, `originalPages`, `KIND_LABEL`, `renderActiveTab` 의 `case "original"`, `onOpenFile` 연결 |
 | `src/app/panes/DocView.tsx` | `onOpenFile` 통과 |
+| `src/app/panes/InboxSection.tsx` | 위키 패널의 `<Markdown>`(879줄)에 `onOpenFile` 연결 — 카드가 재현한 인박스 화면 |
