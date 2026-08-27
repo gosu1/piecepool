@@ -38,7 +38,7 @@
   - `export const IMAGE_EXTS: Set<string>` — `Object.keys(IMAGE_MIME)` 로 만든 집합
   - `export function extOf(file: string): string` — 파일명의 소문자 확장자, 없으면 `""`
 
-- [ ] **Step 1: 실패하는 테스트를 쓴다**
+- [x] **Step 1: 실패하는 테스트를 쓴다**
 
 `src/lib/wikilink.test.ts` 의 import 줄(2번째 줄)을 다음으로 바꾼다.
 
@@ -65,12 +65,12 @@ describe("IMAGE_EXTS — 계약 §4 지원 포맷의 단일 출처", () => {
 });
 ```
 
-- [ ] **Step 2: 테스트가 실패하는지 확인한다**
+- [x] **Step 2: 테스트가 실패하는지 확인한다**
 
 Run: `npx vitest run src/lib/wikilink.test.ts`
 Expected: FAIL. `IMAGE_EXTS` 가 export 되지 않아 import 단계에서 터진다 (`No matching export in "src/lib/wikilink.ts" for import "IMAGE_EXTS"`).
 
-- [ ] **Step 3: `wikilink.ts` 에 단일 출처를 만든다**
+- [x] **Step 3: `wikilink.ts` 에 단일 출처를 만든다**
 
 `src/lib/wikilink.ts:80` 의 이 줄을
 
@@ -99,7 +99,7 @@ export function extOf(file: string): string {
 }
 ```
 
-- [ ] **Step 4: `wikilink.ts` 안의 확장자 추출을 `extOf` 로 바꾼다**
+- [x] **Step 4: `wikilink.ts` 안의 확장자 추출을 `extOf` 로 바꾼다**
 
 `firstEmbedFile` 안(교체 전 88번째 줄)의
 
@@ -125,12 +125,12 @@ export function extOf(file: string): string {
   const ext = extOf(file);
 ```
 
-- [ ] **Step 5: 테스트가 통과하는지 확인한다**
+- [x] **Step 5: 테스트가 통과하는지 확인한다**
 
 Run: `npx vitest run src/lib/wikilink.test.ts`
 Expected: PASS. 기존 테스트 전부 + 새 3건 통과.
 
-- [ ] **Step 6: `markdown.tsx` 의 복사본을 제거한다**
+- [x] **Step 6: `markdown.tsx` 의 복사본을 제거한다**
 
 `src/lib/markdown.tsx:7` 의 import 를
 
@@ -156,7 +156,7 @@ import { remarkWikilink, parseEmbedTarget, IMAGE_EXTS, extOf } from "./wikilink"
   const isImage = IMAGE_EXTS.has(extOf(file));
 ```
 
-- [ ] **Step 7: `FilePreview.tsx` 의 복사본을 제거한다**
+- [x] **Step 7: `FilePreview.tsx` 의 복사본을 제거한다**
 
 `src/lib/FilePreview.tsx:5` 의 import 를
 
@@ -202,7 +202,7 @@ const MIME: Record<string, string> = { png: "image/png", jpg: "image/jpeg", jpeg
     return <img src={`data:${IMAGE_MIME[ext]};base64,${b64}`} alt={file} className="max-w-full rounded-md border border-hairline" />;
 ```
 
-- [ ] **Step 8: 계약 §4 에 GIF 를 추가한다**
+- [x] **Step 8: 계약 §4 에 GIF 를 추가한다**
 
 `docs/10-contracts/wikilink-embed.md:65` 의
 
@@ -216,7 +216,7 @@ const MIME: Record<string, string> = { png: "image/png", jpg: "image/jpeg", jpeg
 - 지원 포맷: PNG, JPG, JPEG, WebP, SVG, GIF (MVP)
 ```
 
-- [ ] **Step 9: 전체 테스트와 타입 검사**
+- [x] **Step 9: 전체 테스트와 타입 검사**
 
 Run: `npm run test`
 Expected: 전부 PASS
@@ -224,7 +224,7 @@ Expected: 전부 PASS
 Run: `npm run check`
 Expected: 오류 없이 종료(출력 없음)
 
-- [ ] **Step 10: 커밋**
+- [x] **Step 10: 커밋**
 
 ```bash
 git add src/lib/wikilink.ts src/lib/wikilink.test.ts src/lib/markdown.tsx src/lib/FilePreview.tsx docs/10-contracts/wikilink-embed.md
@@ -249,7 +249,7 @@ git commit -m "fix(wikilink): 그림 확장자 목록을 한 곳으로 모으고
 
 판정에 쓰는 `isOriginalFile` 은 `wikilink.ts` 안에서만 불리므로 export 하지 않는다.
 
-- [ ] **Step 1: 실패하는 테스트를 쓴다**
+- [x] **Step 1: 실패하는 테스트를 쓴다**
 
 `src/lib/wikilink.test.ts` 의 import 줄에 `remarkWikilink` 를 더한다.
 
@@ -309,12 +309,12 @@ describe("remarkWikilink — 링크 스킴 분기(계약 §1)", () => {
 });
 ```
 
-- [ ] **Step 2: 테스트가 실패하는지 확인한다**
+- [x] **Step 2: 테스트가 실패하는지 확인한다**
 
 Run: `npx vitest run src/lib/wikilink.test.ts`
 Expected: FAIL. "원본 PDF 링크는 orig:" 가 `["wiki:강의자료.pdf"]` 를 받아 `["orig:강의자료.pdf"]` 와 어긋난다.
 
-- [ ] **Step 3: `expand()` 에서 스킴을 가른다**
+- [x] **Step 3: `expand()` 에서 스킴을 가른다**
 
 `src/lib/wikilink.ts:49-60` 의 `expand` 전체를 다음으로 교체한다.
 
@@ -336,17 +336,17 @@ function expand(value: string): MdNode[] {
 }
 ```
 
-- [ ] **Step 4: 테스트가 통과하는지 확인한다**
+- [x] **Step 4: 테스트가 통과하는지 확인한다**
 
 Run: `npx vitest run src/lib/wikilink.test.ts`
 Expected: PASS. 새 6건과 기존 테스트 전부 통과.
 
-- [ ] **Step 5: 전체 테스트**
+- [x] **Step 5: 전체 테스트**
 
 Run: `npm run test`
 Expected: 전부 PASS
 
-- [ ] **Step 6: 커밋**
+- [x] **Step 6: 커밋**
 
 ```bash
 git add src/lib/wikilink.ts src/lib/wikilink.test.ts
@@ -369,7 +369,7 @@ orig: 스킴을 붙인다. 렌더러는 스킴만 보면 된다."
 - Consumes: 없음
 - Produces: `export function resolveInitialPage(want: number, total: number): { page: number; over: boolean }`
 
-- [ ] **Step 1: 실패하는 테스트를 쓴다**
+- [x] **Step 1: 실패하는 테스트를 쓴다**
 
 `src/lib/pdfView.test.ts` 의 import 줄을 다음으로 바꾼다.
 
@@ -400,12 +400,12 @@ describe("resolveInitialPage — 링크가 지정한 page (계약 §3.2)", () =>
 });
 ```
 
-- [ ] **Step 2: 테스트가 실패하는지 확인한다**
+- [x] **Step 2: 테스트가 실패하는지 확인한다**
 
 Run: `npx vitest run src/lib/pdfView.test.ts`
 Expected: FAIL. `resolveInitialPage` 가 export 되지 않아 import 단계에서 터진다.
 
-- [ ] **Step 3: 함수를 구현한다**
+- [x] **Step 3: 함수를 구현한다**
 
 `src/lib/pdfView.ts` 파일 끝에 다음을 덧붙인다.
 
@@ -420,12 +420,12 @@ export function resolveInitialPage(want: number, total: number): { page: number;
 }
 ```
 
-- [ ] **Step 4: 테스트가 통과하는지 확인한다**
+- [x] **Step 4: 테스트가 통과하는지 확인한다**
 
 Run: `npx vitest run src/lib/pdfView.test.ts`
 Expected: PASS. 새 5건 + 기존 `clampZoom`·`clampPage` 테스트 전부 통과.
 
-- [ ] **Step 5: 커밋**
+- [x] **Step 5: 커밋**
 
 ```bash
 git add src/lib/pdfView.ts src/lib/pdfView.test.ts
@@ -446,7 +446,7 @@ pdfView.ts 에 두어 vitest 로 잰다."
 - Consumes: Task 3 의 `resolveInitialPage`
 - Produces: `PdfViewer` 가 `{ space: string; file: string; initialPage?: number }` 를 받는다. `initialPage` 는 1-indexed. 생략하면 종전과 완전히 같게 동작한다
 
-- [ ] **Step 1: import 에 `resolveInitialPage` 를 더한다**
+- [x] **Step 1: import 에 `resolveInitialPage` 를 더한다**
 
 `src/lib/PdfViewer.tsx:5` 를
 
@@ -460,7 +460,7 @@ import { clampPage, clampZoom } from "./pdfView";
 import { clampPage, clampZoom, resolveInitialPage } from "./pdfView";
 ```
 
-- [ ] **Step 2: prop 을 추가한다**
+- [x] **Step 2: prop 을 추가한다**
 
 `src/lib/PdfViewer.tsx:41-47` 의
 
@@ -489,7 +489,7 @@ export function PdfViewer({
 }) {
 ```
 
-- [ ] **Step 3: 범위 초과 상태를 추가한다**
+- [x] **Step 3: 범위 초과 상태를 추가한다**
 
 `src/lib/PdfViewer.tsx` 의
 
@@ -504,7 +504,7 @@ export function PdfViewer({
   const [overPage, setOverPage] = useState<number | null>(null);
 ```
 
-- [ ] **Step 4: 파일이 바뀌면 안내도 지운다**
+- [x] **Step 4: 파일이 바뀌면 안내도 지운다**
 
 `[space, file]` effect 안의
 
@@ -521,7 +521,7 @@ export function PdfViewer({
     setOverPage(null);
 ```
 
-- [ ] **Step 5: 링크가 지정한 page 로 가는 effect 를 넣는다**
+- [x] **Step 5: 링크가 지정한 page 로 가는 effect 를 넣는다**
 
 `src/lib/PdfViewer.tsx` 의 이 블록
 
@@ -551,7 +551,7 @@ export function PdfViewer({
   }, [initialPage, numPages]);
 ```
 
-- [ ] **Step 6: 안내 배너를 툴바 아래에 넣는다**
+- [x] **Step 6: 안내 배너를 툴바 아래에 넣는다**
 
 `src/lib/PdfViewer.tsx` 의 툴바를 닫는 `</div>` 와 본문 주석 사이, 즉
 
@@ -573,7 +573,7 @@ export function PdfViewer({
       {/* 본문 — Ctrl+휠 줌 리스너가 붙는 컨테이너 */}
 ```
 
-- [ ] **Step 7: 타입 검사와 전체 테스트**
+- [x] **Step 7: 타입 검사와 전체 테스트**
 
 Run: `npm run check`
 Expected: 오류 없이 종료. `initialPage` 는 선택 prop 이라 기존 호출부(`InboxSection.tsx:813`)는 그대로 통과한다.
@@ -581,7 +581,7 @@ Expected: 오류 없이 종료. `initialPage` 는 선택 prop 이라 기존 호�
 Run: `npm run test`
 Expected: 전부 PASS
 
-- [ ] **Step 8: 커밋**
+- [x] **Step 8: 커밋**
 
 ```bash
 git add src/lib/PdfViewer.tsx
@@ -608,7 +608,7 @@ git commit -m "feat(pdf): 뷰어가 링크의 initialPage 를 받고 범위 초�
 
 이 작업이 끝나도 아직 아무 일도 일어나지 않는다(`onOpenFile` 을 넘기는 곳이 없다). 링크는 클릭 가능한 모양이 되고, 실제 동작은 Task 6 이 붙인다.
 
-- [ ] **Step 1: `MarkdownProps` 에 prop 을 추가한다**
+- [x] **Step 1: `MarkdownProps` 에 prop 을 추가한다**
 
 `src/lib/markdown.tsx` 의 `MarkdownProps` 안, `embedSpace` 줄 바로 아래에 다음을 넣는다.
 
@@ -618,7 +618,7 @@ git commit -m "feat(pdf): 뷰어가 링크의 initialPage 를 받고 범위 초�
   onOpenFile?: (target: string) => void;
 ```
 
-- [ ] **Step 2: `urlTransform` 에 `orig:` 를 더한다**
+- [x] **Step 2: `urlTransform` 에 `orig:` 를 더한다**
 
 `src/lib/markdown.tsx:48-50` 의
 
@@ -639,7 +639,7 @@ const urlTransform = (url: string) =>
     : defaultUrlTransform(url);
 ```
 
-- [ ] **Step 3: 컴포넌트 시그니처에 prop 을 넣는다**
+- [x] **Step 3: 컴포넌트 시그니처에 prop 을 넣는다**
 
 `src/lib/markdown.tsx:54` 의
 
@@ -653,7 +653,7 @@ export const Markdown = memo(function Markdown({ source, className, onLink, link
 export const Markdown = memo(function Markdown({ source, className, onLink, onOpenFile, linkExists, embedSpace, terms }: MarkdownProps) {
 ```
 
-- [ ] **Step 4: `orig:` 분기를 추가한다**
+- [x] **Step 4: `orig:` 분기를 추가한다**
 
 `src/lib/markdown.tsx` 의 `term:` 분기가 끝나는 지점, 즉
 
@@ -676,7 +676,7 @@ export const Markdown = memo(function Markdown({ source, className, onLink, onOp
             }
 ```
 
-- [ ] **Step 5: `components` useMemo 의 deps 를 고친다**
+- [x] **Step 5: `components` useMemo 의 deps 를 고친다**
 
 `src/lib/markdown.tsx:146` 의
 
@@ -690,7 +690,7 @@ export const Markdown = memo(function Markdown({ source, className, onLink, onOp
     [onLink, onOpenFile, linkExists, embedSpace],
 ```
 
-- [ ] **Step 6: `DocView` 가 prop 을 통과시키게 한다**
+- [x] **Step 6: `DocView` 가 prop 을 통과시키게 한다**
 
 `src/app/panes/DocView.tsx` 의 destructure 목록에서 `onLink,` 바로 아래에 다음 줄을 넣는다.
 
@@ -717,7 +717,7 @@ export const Markdown = memo(function Markdown({ source, className, onLink, onOp
       <Markdown source={displayMd} onLink={onLink} onOpenFile={onOpenFile} linkExists={linkExists} embedSpace={embedSpace} terms={docTerms} />
 ```
 
-- [ ] **Step 7: 타입 검사와 전체 테스트**
+- [x] **Step 7: 타입 검사와 전체 테스트**
 
 Run: `npm run check`
 Expected: 오류 없이 종료
@@ -725,7 +725,7 @@ Expected: 오류 없이 종료
 Run: `npm run test`
 Expected: 전부 PASS
 
-- [ ] **Step 8: 커밋**
+- [x] **Step 8: 커밋**
 
 ```bash
 git add src/lib/markdown.tsx src/app/panes/DocView.tsx
@@ -750,7 +750,7 @@ urlTransform 보존 목록에 orig: 를 넣지 않으면 링크가 통째로 사
   - `TabKind` 에 `"original"` 이 추가된다. 탭 id 형식은 `original:<space>:<file>`
   - `InboxSection` 이 `onOpenSource: (space: string, target: string) => void` 를 **필수** prop 으로 받는다 (형제인 `onOpenWiki` 와 같은 결)
 
-- [ ] **Step 1: `TabKind` 에 `"original"` 을 추가한다**
+- [x] **Step 1: `TabKind` 에 `"original"` 을 추가한다**
 
 `src/store/workspaceStore.ts:9` 의
 
@@ -776,12 +776,12 @@ export type TabKind = "home" | "wiki" | "archive" | "inbox" | "graph" | "origina
   file?: string; // wiki/archive 파일명. original 은 sources/original-files/ 의 원본 파일명
 ```
 
-- [ ] **Step 2: 타입 검사로 빠뜨린 곳을 찾는다**
+- [x] **Step 2: 타입 검사로 빠뜨린 곳을 찾는다**
 
 Run: `npm run check`
 Expected: FAIL 1건. `src/app/PiecePoolApp.tsx:41` 의 `KIND_LABEL` 이 `Record<TabKind, string>` 이라 `original` 항목이 없다고 잡힌다. 이 실패가 Step 3 의 근거다.
 
-- [ ] **Step 3: `KIND_LABEL` 에 항목을 넣는다**
+- [x] **Step 3: `KIND_LABEL` 에 항목을 넣는다**
 
 `src/app/PiecePoolApp.tsx:41` 의
 
@@ -795,7 +795,7 @@ const KIND_LABEL: Record<TabKind, string> = { wiki: "Wiki", archive: "Source", i
 const KIND_LABEL: Record<TabKind, string> = { wiki: "Wiki", archive: "Source", inbox: "Inbox", graph: "Graph", home: "Home", original: "Original", empty: "새 탭" };
 ```
 
-- [ ] **Step 4: `PiecePoolApp` 의 import 를 보강한다**
+- [x] **Step 4: `PiecePoolApp` 의 import 를 보강한다**
 
 `src/app/PiecePoolApp.tsx:36` 의
 
@@ -816,7 +816,7 @@ import { PdfViewer } from "../lib/PdfViewer";
 import { FilePreview } from "../lib/FilePreview";
 ```
 
-- [ ] **Step 5: `openOriginal` 을 만든다**
+- [x] **Step 5: `openOriginal` 을 만든다**
 
 `src/app/PiecePoolApp.tsx` 의
 
@@ -839,7 +839,7 @@ import { FilePreview } from "../lib/FilePreview";
   };
 ```
 
-- [ ] **Step 6: `renderActiveTab` 에 분기를 넣는다**
+- [x] **Step 6: `renderActiveTab` 에 분기를 넣는다**
 
 `src/app/PiecePoolApp.tsx` 의 `switch (activeTab.kind) {` 안, `case "graph": {` 바로 **앞에** 다음을 넣는다.
 
@@ -857,7 +857,7 @@ import { FilePreview } from "../lib/FilePreview";
       }
 ```
 
-- [ ] **Step 7: 위키·아카이브 화면의 링크를 연결한다**
+- [x] **Step 7: 위키·아카이브 화면의 링크를 연결한다**
 
 `src/app/PiecePoolApp.tsx` 에서 `onLink={(t) => resolveLink(space, t)}` 가 나오는 **두 곳 모두**, 그 줄 바로 아래에 다음을 넣는다.
 
@@ -865,7 +865,7 @@ import { FilePreview } from "../lib/FilePreview";
         onOpenFile={(t) => openOriginal(space, t)}
 ```
 
-- [ ] **Step 8: 인박스 위키 패널을 연결한다**
+- [x] **Step 8: 인박스 위키 패널을 연결한다**
 
 `src/app/panes/InboxSection.tsx` 의 destructure 목록에서 `onOpenWiki,` 바로 아래에 다음 줄을 넣는다.
 
@@ -896,7 +896,7 @@ import { FilePreview } from "../lib/FilePreview";
             />
 ```
 
-- [ ] **Step 9: `InboxSection` 호출부에 prop 을 넘긴다**
+- [x] **Step 9: `InboxSection` 호출부에 prop 을 넘긴다**
 
 `src/app/PiecePoolApp.tsx` 의 `<InboxSection` 안, `onOpenWiki={openWiki}` 줄 바로 아래에 다음을 넣는다.
 
@@ -904,7 +904,7 @@ import { FilePreview } from "../lib/FilePreview";
             onOpenSource={openOriginal}
 ```
 
-- [ ] **Step 10: 타입 검사와 전체 테스트**
+- [x] **Step 10: 타입 검사와 전체 테스트**
 
 Run: `npm run check`
 Expected: 오류 없이 종료
@@ -915,7 +915,7 @@ Expected: 전부 PASS
 Run: `node scripts/ssot-check.mjs`
 Expected: 통과. 이 스크립트는 RelationType 값과 계약 엔티티 이름의 복사만 찾으므로 확장자 목록은 대상이 아니다
 
-- [ ] **Step 11: 커밋**
+- [x] **Step 11: 커밋**
 
 ```bash
 git add src/store/workspaceStore.ts src/app/PiecePoolApp.tsx src/app/panes/InboxSection.tsx
@@ -935,12 +935,12 @@ page 는 탭 id 가 아니라 셸이 들고 initialPage 로 내려보낸다 —
 **Interfaces:**
 - Consumes: Task 1-6 전부
 
-- [ ] **Step 1: 앱을 띄운다**
+- [x] **Step 1: 앱을 띄운다**
 
 Run: `npm run tauri dev`
 Expected: 데스크톱 창이 뜬다
 
-- [ ] **Step 2: 확인용 원본을 준비한다**
+- [x] **Step 2: 확인용 원본을 준비한다**
 
 세션 스크래치패드에 만들어 둔 두 파일을 인박스 탭에서 업로드한다.
 
@@ -949,7 +949,7 @@ Expected: 데스크톱 창이 뜬다
 
 **파일명을 한글로 바꾸지 말 것.** `save_source_file` 이 stem 을 slug 처리하는데 한글 stem 은 해시로 뭉개진다(`src-tauri/src/tests.rs:760`). 그러면 본문의 `[[...]]` 와 저장된 파일명이 어긋나 확인 자체가 성립하지 않는다. 영문 소문자 이름은 그대로 남는다.
 
-- [ ] **Step 3: 노트에 네 줄을 넣는다**
+- [x] **Step 3: 노트에 네 줄을 넣는다**
 
 위키 문서 하나를 편집 모드로 열고 본문에 다음을 넣은 뒤 저장한다.
 
@@ -960,7 +960,7 @@ Expected: 데스크톱 창이 뜬다
 ![[diagram.svg]]
 ```
 
-- [ ] **Step 4: 네 동작을 확인한다**
+- [x] **Step 4: 네 동작을 확인한다**
 
 - 첫 줄 클릭 → `Original` 탭이 새로 열리고 PDF 1쪽("PAGE 1")이 보인다
 - 둘째 줄 클릭 → **같은 탭**이 유지된 채 12쪽("PAGE 12")으로 이동한다. 탭이 새로 생기면 안 된다
