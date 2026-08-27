@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { clampZoom, clampPage } from "./pdfView";
+import { clampZoom, clampPage, resolveInitialPage } from "./pdfView";
 
 describe("clampZoom", () => {
   it("keeps values in range", () => {
@@ -28,5 +28,24 @@ describe("clampPage", () => {
   });
   it("total 0 (미로드) → 1", () => {
     expect(clampPage(7, 0)).toBe(1);
+  });
+});
+
+describe("resolveInitialPage — 링크가 지정한 page (계약 §3.2)", () => {
+  it("범위 안이면 그 page 그대로", () => {
+    expect(resolveInitialPage(12, 30)).toEqual({ page: 12, over: false });
+  });
+  it("마지막 page 는 초과가 아니다", () => {
+    expect(resolveInitialPage(10, 10)).toEqual({ page: 10, over: false });
+  });
+  it("범위 초과면 첫 page + over", () => {
+    expect(resolveInitialPage(200, 10)).toEqual({ page: 1, over: true });
+  });
+  it("total 0(아직 문서 미로드)이면 판정을 미룬다", () => {
+    expect(resolveInitialPage(200, 0)).toEqual({ page: 200, over: false });
+  });
+  it("1 미만은 첫 page (over 아님)", () => {
+    expect(resolveInitialPage(0, 10)).toEqual({ page: 1, over: false });
+    expect(resolveInitialPage(-3, 10)).toEqual({ page: 1, over: false });
   });
 });
