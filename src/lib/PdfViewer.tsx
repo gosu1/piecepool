@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { Document, Page, pdfjs } from "react-pdf";
 import { cn } from "../ds";
 import * as ipc from "./ipc";
-import { clampPage, clampZoom } from "./pdfView";
+import { clampPage, clampZoom, resolveInitialPage } from "./pdfView";
 
 // Inbox 작업 공간용 PDF 뷰어 — 연속 스크롤(지연 렌더) / 썸네일+단일 페이지, Ctrl+휠 줌.
 // embed용 경량 뷰어는 FilePreview.tsx (설계: .superpowers/specs/2026-07-03-pdf-viewer-design.md).
@@ -41,15 +41,20 @@ function TBtn({ children, onClick, disabled, title, active }: { children: React.
 export function PdfViewer({
   space,
   file,
+  initialPage,
 }: {
   space: string;
   file: string;
+  /** 링크(`[[a.pdf#page=N]]`)가 지정한 1-indexed page. 총 page 수를 넘으면 첫 page + 안내(계약 §3.2). */
+  initialPage?: number;
 }) {
   const [b64, setB64] = useState<string | null>(null);
   // 파일 읽기 실패(loadErr)와 pdf.js 파싱 실패(parseErr)는 원인도 대처도 다르다 — 한 state 에 합치면
   // <Document error> 분기가 영영 도달 불가가 되고 실제 에러 문자열도 화면에 안 나온다.
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [parseErr, setParseErr] = useState<string | null>(null);
+  // 링크가 요청한 page 가 범위를 넘었을 때 그 숫자를 담는다(안내 문구에 쓴다). 정상이면 null.
+  const [overPage, setOverPage] = useState<number | null>(null);
   const [numPages, setNumPages] = useState(0);
   const [cur, setCur] = useState(1);
   const curRef = useRef(cur); // 모드 전환 effect 가 최신 페이지를 [mode] 만 보고 읽도록 미러
@@ -78,6 +83,7 @@ export function PdfViewer({
     setB64(null);
     setLoadErr(null);
     setParseErr(null);
+    setOverPage(null);
     setNumPages(0);
     setCur(1);
     setVisible(new Set([1]));
@@ -222,6 +228,20 @@ export function PdfViewer({
     pageEls.current[p - 1]?.scrollIntoView({ block: "start" });
   }, [mode, zoom, numPages]);
 
+  // 링크가 지정한 page 로 — 문서 로드로 numPages 가 확정된 뒤, 그리고 같은 탭에서 다른 page 링크를 눌렀을 때.
+  // restorePageRef 를 함께 무장한다: 폭맞춤 줌이 안정될 때까지 페이지가 밀리므로 위 effect 가 이어서 재스냅한다.
+  // mode 는 의도적으로 deps 에서 뺐다 — 모드 전환 시 위치 복원은 위 두 effect 의 몫이고,
+  // 여기서 다시 잡으면 사용자가 옮겨둔 page 를 initialPage 로 되돌려버린다.
+  useLayoutEffect(() => {
+    if (!initialPage || numPages < 1) return;
+    const { page, over } = resolveInitialPage(initialPage, numPages);
+    setOverPage(over ? initialPage : null);
+    setCur(page);
+    restorePageRef.current = page;
+    pageEls.current[page - 1]?.scrollIntoView({ block: "start" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialPage, numPages]);
+
   const goTo = (p: number) => {
     const t = clampPage(p, numPages);
     setCur(t);
@@ -362,6 +382,12 @@ export function PdfViewer({
           {mode === "scroll" ? "썸네일" : "연속"}
         </TBtn>
       </div>
+      {/* 범위 초과 안내 — 문구는 FilePreview 의 임베드 경로와 같게 맞춘다(같은 상황에 다른 말을 하지 않는다) */}
+      {overPage !== null && (
+        <p className="shrink-0 border-b border-hairline px-3 py-1.5 text-[12px] text-danger">
+          요청한 {overPage}쪽이 범위를 벗어남(총 {numPages}쪽) — 1쪽을 표시합니다.
+        </p>
+      )}
       {/* 본문 — Ctrl+휠 줌 리스너가 붙는 컨테이너 */}
       <div ref={bodyRef} className={cn("min-h-0 flex-1", mode === "scroll" ? "overflow-y-auto" : "overflow-hidden")}>
         {body}
