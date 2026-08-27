@@ -15,7 +15,8 @@
 | [0007](0007-importjob-orchestration-ts.md) | ImportJob 오케스트레이션 = TS 주도 | 채택 |
 | [0008](0008-note-synthesis-streaming.md) | 파편 노트 정리 글 합성 = 스트리밍 + WikiPage 재사용 | 채택 |
 | [0009](0009-llm-provider-gemini.md) | LLM provider = Google Gemini 단일 (OpenAI 호환 엔드포인트) | 채택 |
-| [0010](0010-pdf-text-extraction-pdfjs-fallback.md) | PDF 텍스트 추출 = Rust `pdf-extract` + pdf.js 폴백 | 채택 |
+| [0010](0010-pdf-text-extraction-pdfjs-fallback.md) | PDF 텍스트 추출 = Rust `pdf-extract` + pdf.js 폴백 | 대체됨 → [0011](0011-pdf-text-extraction-pdf-inspector.md) |
+| [0011](0011-pdf-text-extraction-pdf-inspector.md) | PDF 텍스트 추출 1차 엔진 = `pdf-inspector` (pdf.js 폴백 유지) | 채택 |
 
 ## 새 ADR 작성
 
