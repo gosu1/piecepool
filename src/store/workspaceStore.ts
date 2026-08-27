@@ -6,14 +6,14 @@ import { persist } from "zustand/middleware";
 // useImportStore 단일 소유(두 스토어 드리프트 방지). 순수 뷰 상태라 백엔드/계약 무관.
 // localStorage persist — 재시작 시 열린 탭·활성 탭·사이드바 상태 복원(수용기준 §1).
 
-export type TabKind = "home" | "wiki" | "archive" | "inbox" | "graph" | "empty";
+export type TabKind = "home" | "wiki" | "archive" | "inbox" | "graph" | "original" | "empty";
 
 export interface WorkspaceTab {
   id: string; // 안정 식별자. 예: "home" · "wiki:operating-systems:paging.md"
   kind: TabKind;
   title: string;
   space?: string; // KnowledgeSpace slug (home/graph 는 선택)
-  file?: string; // wiki/archive 파일명
+  file?: string; // wiki/archive 파일명. original 은 sources/original-files/ 의 원본 파일명
   dirty?: boolean; // 미저장 표시(●)
 }
 

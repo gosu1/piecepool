@@ -16,6 +16,8 @@ import type { LinkedItem } from "./panes/PageHeader";
 import { RelationQuality } from "./panes/RelationQuality";
 import { GraphSection } from "./panes/GraphSection";
 import { InboxSection, InboxPanelToggles } from "./panes/InboxSection";
+import { PdfViewer } from "../lib/PdfViewer";
+import { FilePreview } from "../lib/FilePreview";
 import { StudyHome } from "./panes/StudyHome";
 import { Ribbon } from "./shell/Ribbon";
 import { NewTabPane } from "./shell/NewTabPane";
@@ -33,12 +35,12 @@ import type { TabKind } from "../store/workspaceStore";
 import { useInboxDraftStore } from "../store/inboxDraftStore";
 import { useFeynmanStore, wikiKey, hasGeminiKey } from "../store/feynmanStore";
 import { splitFeynmanSection, joinFeynmanSection, stripFeynmanSection } from "../lib/feynmanSection";
-import { noteOriginalFiles } from "../lib/wikilink";
+import { noteOriginalFiles, parseEmbedTarget, extOf } from "../lib/wikilink";
 import { retitleWikilinks, retitleLeadingH1 } from "../lib/retitleSync";
 import { titleError } from "../lib/titleValidation";
 import { getBodyFontSize, applyBodyFontSize } from "../lib/settings";
 
-const KIND_LABEL: Record<TabKind, string> = { wiki: "Wiki", archive: "Source", inbox: "Inbox", graph: "Graph", home: "Home", empty: "새 탭" };
+const KIND_LABEL: Record<TabKind, string> = { wiki: "Wiki", archive: "Source", inbox: "Inbox", graph: "Graph", home: "Home", original: "Original", empty: "새 탭" };
 
 // 트리 id 파서 — 파일명에 ":" 가 없다는 계약(kebab/slug)에 기대지 않고 앞 3개만 분해한다.
 function parseDocId(id: string): { kind: string; space: string; file: string } | null {
@@ -293,6 +295,16 @@ export default function PiecePoolApp() {
   const openArchive = (space: string, file: string) => {
     const title = (notesBySlug[space] ?? []).find((n) => n.path === file)?.title ?? file;
     openTab({ id: `archive:${space}:${file}`, kind: "archive", title, space, file });
+  };
+  // 원본 파일 탭 — 본문의 [[강의자료.pdf]] 링크가 여는 곳(계약 §1). 파일 하나 = 탭 하나다.
+  // page 를 탭 id 에 넣지 않는다 — 같은 PDF 의 12쪽 링크와 30쪽 링크가 탭 둘로 갈라진다.
+  // 대신 탭 id → page 를 셸이 들고 initialPage 로 내려보낸다(graphViews 와 같은 방식).
+  const [originalPages, setOriginalPages] = useState<Record<string, number>>({});
+  const openOriginal = (space: string, target: string) => {
+    const { file, page } = parseEmbedTarget(target);
+    const id = `original:${space}:${file}`;
+    setOriginalPages((m) => ({ ...m, [id]: page ?? 1 }));
+    openTab({ id, kind: "original", title: file, space, file });
   };
   const openGraph = (space: string) => openTab({ id: `graph:${space}`, kind: "graph", title: "Graph", space });
   const openHome = () => openTab({ id: "home", kind: "home", title: "Study Home" });
@@ -1171,6 +1183,7 @@ export default function PiecePoolApp() {
         }}
         onSave={() => saveWikiDoc(space, page, drafts[key] ?? savedBody)}
         onLink={(t) => resolveLink(space, t)}
+        onOpenFile={(t) => openOriginal(space, t)}
         linkExists={linkExistsIn(space)}
         embedSpace={space}
         terms={termsBySlug[space]}
@@ -1290,6 +1303,7 @@ export default function PiecePoolApp() {
         }}
         onSave={() => saveArchiveDoc(space, note.path, drafts[key] ?? note.markdown)}
         onLink={(t) => resolveLink(space, t)}
+        onOpenFile={(t) => openOriginal(space, t)}
         linkExists={linkExistsIn(space)}
         embedSpace={space}
         terms={termsBySlug[space]}
@@ -1347,6 +1361,17 @@ export default function PiecePoolApp() {
         const note = (notesBySlug[sp] ?? []).find((n) => n.path === activeTab.file);
         return note ? sourceReader(sp, note) : <EmptyState icon={<Icons.FileUpIcon size={28} />} title="원본을 찾을 수 없어요" description={activeTab.file} />;
       }
+      case "original": {
+        const file = activeTab.file ?? "";
+        // PDF 는 인박스에서 쓰던 뷰어를 그대로 재사용하고, 이미지는 FilePreview 가 이미 그린다.
+        return extOf(file) === "pdf" ? (
+          <PdfViewer key={activeTab.id} space={sp} file={file} initialPage={originalPages[activeTab.id]} />
+        ) : (
+          <div className="h-full overflow-auto p-4">
+            <FilePreview space={sp} target={file} />
+          </div>
+        );
+      }
       case "graph": {
         const tabId = activeTab.id;
         return (
@@ -1386,6 +1411,7 @@ export default function PiecePoolApp() {
             graphBySlug={graphBySlug}
             onCreateSpace={createNewSpace}
             onOpenWiki={openWiki}
+            onOpenSource={openOriginal}
             onWikiSaved={(savedSpace, path, saved) =>
               setWikiBySlug((m) => ({
                 ...m,
