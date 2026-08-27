@@ -34,6 +34,15 @@
 
 같은 목록을 세 번 적은 결과다. 한 곳을 고쳐도 나머지가 남는다.
 
+**렌더링은 수정 전에도 정상이었다.** 임베드는 `markdown.tsx` → `FilePreview` 로 흐르고 `FilePreview` 의 `MIME` 에는 svg 가 있다. 데스크톱 앱에서 `![[a.svg]]` 는 원래부터 그림으로 보인다(2026-08-28 실기 확인). 카드가 쓴 "svg 는 안 보이고" 는 증상 서술이 틀렸다.
+
+실제로 깨져 있던 것은 `wikilink.ts` 의 `IMAGE_EXTS` 를 쓰는 두 함수이고, 결과는 화면 문제보다 나쁘다.
+
+- `noteOriginalFiles` → `PiecePoolApp.tsx:844`. 노트를 지울 때 본문에서 원본 목록을 뽑아 함께 지우는데 svg 가 그 목록에 안 잡힌다. **노트를 지워도 svg 파일이 디스크에 남는다.** `wikilink.ts` 주석이 이미 경고하던 상황이다 — "PDF 하나만 챙기면 이미지가 디스크에 샌다".
+- `firstEmbedFile` → `llmApply.ts:52` 의 `embedSourceFiles`. 임베드가 svg 뿐인 노트는 대표 원본이 null 이 되어 `sourceFiles` 가 빈 배열이 된다. 그러면 `sanitizeSourceRefs` 가 LLM 의 sourceRefs 를 전부 환각으로 보고 지운다 — **sourceRefs 파이프라인 전체가 no-op** 이 된다(같은 함수 주석에 적혀 있다).
+
+`markdown.tsx:31` 의 정규식은 데스크톱이 아닌 환경의 placeholder 아이콘(🖼/📄)만 고르므로 영향이 작다. 그럼에도 셋을 하나로 모으는 이유는 목록을 세 벌 두는 구조 자체가 원인이기 때문이다.
+
 ## 2. 이번 범위
 
 - `[[파일명]]` / `[[파일명#page=N]]` 클릭 시 원본을 앱 안 새 탭에서 연다
@@ -119,7 +128,7 @@ export function resolveInitialPage(want: number, total: number): { page: number;
 
 - 첫 줄 클릭 → 원본 탭이 열리고 1 page 표시
 - 둘째 줄 클릭 → 같은 탭, 1 page + "요청한 200쪽이 범위를 벗어남(총 N쪽)" 배너
-- 셋째 줄 → svg 가 본문에 그림으로 보인다
+- 셋째 줄 → svg 가 본문에 그림으로 보인다 (수정 전에도 보였다 — §1.2. 회귀만 확인하는 항목이다)
 
 UI 변경이므로 PR 본문에 비포·애프터 스크린샷을 첨부한다.
 
