@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseWikilinks, parseEmbedTarget, firstEmbedFile, noteOriginalFiles, renameRefs } from "./wikilink";
+import { parseWikilinks, parseEmbedTarget, firstEmbedFile, noteOriginalFiles, renameRefs, IMAGE_EXTS } from "./wikilink";
 
 describe("parseWikilinks", () => {
   it("splits text / link / embed", () => {
@@ -131,5 +131,20 @@ describe("renameRefs — 원본 이동 후 참조 리네임", () => {
 
   it("이름이 그대로면 본문도 그대로", () => {
     expect(renameRefs("![[a.pdf]]", "a.pdf", "a.pdf")).toBe("![[a.pdf]]");
+  });
+});
+
+describe("IMAGE_EXTS — 계약 §4 지원 포맷의 단일 출처", () => {
+  it("계약이 정한 여섯 포맷", () => {
+    expect([...IMAGE_EXTS].sort()).toEqual(["gif", "jpeg", "jpg", "png", "svg", "webp"]);
+  });
+
+  it("svg 도 그림으로 본다(종전 누락)", () => {
+    expect(firstEmbedFile("![[diagram.svg]]")).toEqual({ file: "diagram.svg", type: "image" });
+    expect(noteOriginalFiles("![[diagram.svg]]")).toEqual(["diagram.svg"]);
+  });
+
+  it("gif 도 그대로 그림이다", () => {
+    expect(firstEmbedFile("![[loop.gif]]")).toEqual({ file: "loop.gif", type: "image" });
   });
 });

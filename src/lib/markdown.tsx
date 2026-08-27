@@ -4,7 +4,7 @@ import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
 import { memo, useMemo, type ReactNode } from "react";
-import { remarkWikilink, parseEmbedTarget } from "./wikilink";
+import { remarkWikilink, parseEmbedTarget, IMAGE_EXTS, extOf } from "./wikilink";
 import { remarkWikiTerm } from "./wikiTerms";
 import { remarkCallout } from "./callout";
 import { FilePreview } from "./FilePreview";
@@ -28,7 +28,7 @@ export interface MarkdownProps {
 function Embed({ target, space }: { target: string; space?: string }) {
   const { file, page } = parseEmbedTarget(target);
   if (space) return <FilePreview space={space} target={target} />;
-  const isImage = /\.(png|jpe?g|webp|svg)$/i.test(file);
+  const isImage = IMAGE_EXTS.has(extOf(file));
   return (
     <span className="my-1 flex items-center gap-3 rounded-lg border border-dashed border-hairline bg-surface-soft px-4 py-3 text-[13px] text-ink-muted">
       <span className="text-ink-faint">{isImage ? "🖼" : "📄"}</span>

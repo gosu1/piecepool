@@ -62,7 +62,7 @@ MVP 범위 외. 후속 작업: `docs/70-roadmap/post-mvp.md`.
 ```
 
 - `<space>/sources/original-files/attention-diagram.png` 기준 해석
-- 지원 포맷: PNG, JPG, JPEG, WebP, SVG (MVP)
+- 지원 포맷: PNG, JPG, JPEG, WebP, SVG, GIF (MVP)
 - 이미지 OCR 결과 활용은 후속 (`docs/70-roadmap/post-mvp.md`)
 
 ---

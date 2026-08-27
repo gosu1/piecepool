@@ -77,7 +77,22 @@ export function remarkWikilink() {
   return (tree: MdNode) => walk(tree);
 }
 
-const IMAGE_EXTS = new Set(["png", "jpg", "jpeg", "webp", "gif"]);
+/** 계약 §4 지원 포맷의 유일한 코드 표현 — docs/10-contracts/wikilink-embed.md.
+ *  확장자 목록을 다른 파일에 다시 적지 말 것. markdown.tsx · FilePreview.tsx 가 여기서 가져다 쓴다. */
+export const IMAGE_MIME: Record<string, string> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  webp: "image/webp",
+  svg: "image/svg+xml",
+  gif: "image/gif",
+};
+export const IMAGE_EXTS = new Set(Object.keys(IMAGE_MIME));
+
+/** 파일명의 소문자 확장자. 없으면 "". */
+export function extOf(file: string): string {
+  return file.split(".").pop()?.toLowerCase() ?? "";
+}
 
 /** 본문의 첫 pdf/image 임베드 → 그 노트의 대표 원본. 없으면 null.
  *  노트↔원본은 1:1 이다(sanitizeSourceRefs 의 sourceId→file 맵이 1:1). */
@@ -85,7 +100,7 @@ export function firstEmbedFile(markdown: string): { file: string; type: "pdf" | 
   for (const t of parseWikilinks(markdown)) {
     if (t.kind !== "embed") continue;
     const { file } = parseEmbedTarget(t.value);
-    const ext = file.split(".").pop()?.toLowerCase() ?? "";
+    const ext = extOf(file);
     if (ext === "pdf") return { file, type: "pdf" };
     if (IMAGE_EXTS.has(ext)) return { file, type: "image" };
   }
@@ -94,7 +109,7 @@ export function firstEmbedFile(markdown: string): { file: string; type: "pdf" | 
 
 /** original-files 에 사는 원본(pdf + 이미지)인가 — firstEmbedFile 과 같은 확장자 규칙. */
 function isOriginalFile(file: string): boolean {
-  const ext = file.split(".").pop()?.toLowerCase() ?? "";
+  const ext = extOf(file);
   return ext === "pdf" || IMAGE_EXTS.has(ext);
 }
 
