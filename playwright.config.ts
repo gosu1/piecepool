@@ -10,7 +10,10 @@ export default defineConfig({
   use: { baseURL: "http://localhost:5273", trace: "off" },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    command: "npm run build && npx vite preview --port 5273 --strictPort",
+    // CI 는 바로 앞 스텝에서 이미 build 했으므로 preview 만 띄운다. 로컬은 빌드부터.
+    command: process.env.CI
+      ? "npx vite preview --port 5273 --strictPort"
+      : "npm run build && npx vite preview --port 5273 --strictPort",
     url: "http://localhost:5273",
     reuseExistingServer: false,
     timeout: 120_000,
