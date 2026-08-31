@@ -28,6 +28,7 @@ export function DocView({
   onChangeDraft,
   onSave,
   onLink,
+  onOpenFile,
   linkExists,
   sources,
   relationGroups,
@@ -53,6 +54,8 @@ export function DocView({
   onChangeDraft: (md: string) => void;
   onSave: () => void | Promise<void>;
   onLink: (target: string) => void;
+  /** 원본 파일 링크(`[[a.pdf]]`) 클릭 — target 은 `파일명#page=N` 원문 그대로 */
+  onOpenFile?: (target: string) => void;
   linkExists?: (target: string) => boolean;
   /** 위키 개념 섹션 — 관련 소스(원본 노트/파일) */
   sources?: DocLinkItem[];
@@ -85,7 +88,7 @@ export function DocView({
   const displayMd = docType === "wiki" ? stripFeynmanSection(stripEvidenceSection(savedMd)) : savedMd;
   const readBody = displayMd.trim() ? (
     <div className="px-1">
-      <Markdown source={displayMd} onLink={onLink} linkExists={linkExists} embedSpace={embedSpace} terms={docTerms} />
+      <Markdown source={displayMd} onLink={onLink} onOpenFile={onOpenFile} linkExists={linkExists} embedSpace={embedSpace} terms={docTerms} />
     </div>
   ) : (
     <button

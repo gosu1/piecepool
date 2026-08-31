@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import * as ipc from "./ipc";
 import { clampZoom } from "./pdfView";
-import { parseEmbedTarget } from "./wikilink";
+import { parseEmbedTarget, IMAGE_MIME, extOf } from "./wikilink";
 
 // 원본 파일 미리보기 — 이미지(data URL) / PDF(react-pdf). 규약: docs/10-contracts/wikilink-embed.md.
 // pdf.js 워커는 Vite 번들에서 로드. #page=N 범위 초과 시 1쪽 렌더 + 오류 표시(크래시 금지).
@@ -16,12 +16,10 @@ function Box({ children, tone = "muted" }: { children: React.ReactNode; tone?: "
   );
 }
 
-const MIME: Record<string, string> = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", gif: "image/gif", svg: "image/svg+xml" };
-
 export function FilePreview({ space, target }: { space: string; target: string }) {
   const { file, page } = parseEmbedTarget(target);
-  const ext = file.split(".").pop()?.toLowerCase() ?? "";
-  const isImage = ext in MIME;
+  const ext = extOf(file);
+  const isImage = ext in IMAGE_MIME;
   const isPdf = ext === "pdf";
 
   const [b64, setB64] = useState<string | null>(null);
@@ -89,7 +87,7 @@ export function FilePreview({ space, target }: { space: string; target: string }
   if (!b64) return <Box>원본 미리보기는 데스크톱(Tauri)에서 볼 수 있습니다: {file}</Box>;
 
   if (isImage) {
-    return <img src={`data:${MIME[ext]};base64,${b64}`} alt={file} className="max-w-full rounded-md border border-hairline" />;
+    return <img src={`data:${IMAGE_MIME[ext]};base64,${b64}`} alt={file} className="max-w-full rounded-md border border-hairline" />;
   }
 
   if (isPdf) {

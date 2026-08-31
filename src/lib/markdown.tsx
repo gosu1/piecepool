@@ -4,7 +4,7 @@ import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
 import { memo, useMemo, type ReactNode } from "react";
-import { remarkWikilink, parseEmbedTarget } from "./wikilink";
+import { remarkWikilink, parseEmbedTarget, IMAGE_EXTS, extOf } from "./wikilink";
 import { remarkWikiTerm } from "./wikiTerms";
 import { remarkCallout } from "./callout";
 import { FilePreview } from "./FilePreview";
@@ -20,6 +20,9 @@ export interface MarkdownProps {
   /** 위키링크 대상 존재 여부 — false 면 깨진 링크 표식(점선 + tooltip)으로 렌더(수용기준 §2.3). */
   linkExists?: (target: string) => boolean;
   embedSpace?: string; // 있으면 ![[파일]] 를 sources/original-files/ 에서 실제 렌더
+  /** `[[강의자료.pdf]]` 처럼 원본 파일을 가리키는 링크 클릭(계약 §1).
+   *  target 은 `파일명#page=N` 원문 그대로 — 쪼개는 책임은 호출자에 둔다. */
+  onOpenFile?: (target: string) => void;
   /** 본문 속 개념 키워드 강조 — 위키 제목 목록. 매치 클릭은 onLink(제목)로 전달(DocView 전용). */
   terms?: string[];
 }
@@ -28,7 +31,7 @@ export interface MarkdownProps {
 function Embed({ target, space }: { target: string; space?: string }) {
   const { file, page } = parseEmbedTarget(target);
   if (space) return <FilePreview space={space} target={target} />;
-  const isImage = /\.(png|jpe?g|webp|svg)$/i.test(file);
+  const isImage = IMAGE_EXTS.has(extOf(file));
   return (
     <span className="my-1 flex items-center gap-3 rounded-lg border border-dashed border-hairline bg-surface-soft px-4 py-3 text-[13px] text-ink-muted">
       <span className="text-ink-faint">{isImage ? "🖼" : "📄"}</span>
@@ -45,13 +48,16 @@ function Embed({ target, space }: { target: string; space?: string }) {
 // remarkMath: $...$/$$...$$ → math 노드, rehypeKatex 가 hast 에서 KaTeX 로. remarkCallout: > [!easy] → details.
 const REMARK_PLUGINS = [remarkGfm, remarkMath, remarkWikilink as never, remarkCallout as never];
 const REHYPE_PLUGINS = [rehypeKatex];
-// 커스텀 스킴(wiki:/embed:/term:) 은 기본 sanitizer 가 제거하므로 보존 — 나머지는 기본 정화.
+// 커스텀 스킴(wiki:/embed:/term:/orig:) 은 기본 sanitizer 가 제거하므로 보존 — 나머지는 기본 정화.
+// orig: 를 빠뜨리면 원본 링크가 통째로 사라진다(모양도 클릭도 없이).
 const urlTransform = (url: string) =>
-  url.startsWith("wiki:") || url.startsWith("embed:") || url.startsWith("term:") ? url : defaultUrlTransform(url);
+  url.startsWith("wiki:") || url.startsWith("embed:") || url.startsWith("term:") || url.startsWith("orig:")
+    ? url
+    : defaultUrlTransform(url);
 
 // memo + components useMemo: 부모(노트 에디터) 리렌더마다 components 신원이 바뀌면
 // react-markdown 이 embed(=FilePreview/PDF) 를 재마운트해 PDF 를 다시 로드한다 → 초기화·렉.
-export const Markdown = memo(function Markdown({ source, className, onLink, linkExists, embedSpace, terms }: MarkdownProps) {
+export const Markdown = memo(function Markdown({ source, className, onLink, onOpenFile, linkExists, embedSpace, terms }: MarkdownProps) {
   // terms 는 내용 키로 memo — 부모가 매 렌더 새 배열을 줘도 파이프라인 재실행(임베드 재마운트) 없음.
   const termsKey = terms?.join("\n") ?? "";
   const remarkPlugins = useMemo(
@@ -81,6 +87,16 @@ export const Markdown = memo(function Markdown({ source, className, onLink, link
                   onClick={() => onLink?.(target)}
                   className="rounded-[3px] bg-primary/[0.08] px-0.5 text-ink underline decoration-primary/50 decoration-dotted underline-offset-[3px] hover:bg-primary/[0.16]"
                 >
+                  {children}
+                </button>
+              );
+            }
+            if (h.startsWith("orig:")) {
+              const target = decode(h.slice(5));
+              // linkExists 는 위키 존재 여부만 안다 — 원본 링크에는 쓰지 않는다.
+              // 파일이 없는 경우는 탭을 연 뒤 뷰어가 "원본을 불러오지 못했습니다" 로 알린다.
+              return (
+                <button type="button" onClick={() => onOpenFile?.(target)} className="text-primary underline-offset-2 hover:underline">
                   {children}
                 </button>
               );
@@ -143,7 +159,7 @@ export const Markdown = memo(function Markdown({ source, className, onLink, link
           <summary className="cursor-pointer select-none text-[14px] font-semibold text-ink marker:text-ink-faint">{children}</summary>
         ),
       }),
-    [onLink, linkExists, embedSpace],
+    [onLink, onOpenFile, linkExists, embedSpace],
   );
 
   return (

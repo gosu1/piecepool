@@ -160,6 +160,7 @@ export function InboxSection({
   graphBySlug,
   onCreateSpace,
   onOpenWiki,
+  onOpenSource,
   onWikiSaved,
   onRefresh,
   onNotice,
@@ -185,6 +186,8 @@ export function InboxSection({
   // 저장 위치 드롭다운에서 바로 새 과목 폴더 만들기 — 만든 slug 를 돌려주면 그 과목으로 대상이 옮겨간다.
   onCreateSpace: (name: string) => Promise<string | null>;
   onOpenWiki: (space: string, file: string) => void;
+  /** 원본 파일 탭 열기 — 본문의 [[강의자료.pdf]] 링크(계약 §1). target 은 `파일명#page=N` 원문 그대로 */
+  onOpenSource: (space: string, target: string) => void;
   /**
    * 파인만 판정 저장 직후 — 앱의 메모리 사본(wikiBySlug)을 갱신한다. 없으면 카드가 안 나타난다.
    * @param path 저장 **전** path (매칭 키). saved.path 로 찾으면 path 가 바뀌는 날 조용히 no-op 한다.
@@ -876,7 +879,11 @@ export function InboxSection({
           <>
             {/* 제목은 본문 첫 줄 `# {제목}`(mergeWiki 계약)이 담당 — 패널이 h2 로 또 넣으면 제목 중복. DocView 와 일치시켜 본문만 렌더. */}
             {/* 근거(`## 근거` PDF 임베드)·파인만 기록은 표시에서 감춘다 — 대신 아래에 개념 중심 관계 그래프 */}
-            <Markdown source={stripFeynmanSection(stripEvidenceSection(refWiki.markdown))} embedSpace={targetSpace} />
+            <Markdown
+              source={stripFeynmanSection(stripEvidenceSection(refWiki.markdown))}
+              embedSpace={targetSpace}
+              onOpenFile={(t) => onOpenSource(targetSpace, t)}
+            />
             {(() => {
               const groups = conceptRelationGroups(graphBySlug[targetSpace], refWiki.conceptId, (path) =>
                 onOpenWiki(targetSpace, path),

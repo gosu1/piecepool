@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseWikilinks, parseEmbedTarget, firstEmbedFile, noteOriginalFiles, renameRefs } from "./wikilink";
+import { parseWikilinks, parseEmbedTarget, firstEmbedFile, noteOriginalFiles, renameRefs, IMAGE_EXTS, remarkWikilink } from "./wikilink";
 
 describe("parseWikilinks", () => {
   it("splits text / link / embed", () => {
@@ -131,5 +131,68 @@ describe("renameRefs — 원본 이동 후 참조 리네임", () => {
 
   it("이름이 그대로면 본문도 그대로", () => {
     expect(renameRefs("![[a.pdf]]", "a.pdf", "a.pdf")).toBe("![[a.pdf]]");
+  });
+});
+
+describe("IMAGE_EXTS — 계약 §4 지원 포맷의 단일 출처", () => {
+  it("계약이 정한 여섯 포맷", () => {
+    expect([...IMAGE_EXTS].sort()).toEqual(["gif", "jpeg", "jpg", "png", "svg", "webp"]);
+  });
+
+  it("svg 도 그림으로 본다(종전 누락)", () => {
+    expect(firstEmbedFile("![[diagram.svg]]")).toEqual({ file: "diagram.svg", type: "image" });
+    expect(noteOriginalFiles("![[diagram.svg]]")).toEqual(["diagram.svg"]);
+  });
+
+  it("gif 도 그대로 그림이다", () => {
+    expect(firstEmbedFile("![[loop.gif]]")).toEqual({ file: "loop.gif", type: "image" });
+  });
+});
+
+// remark 플러그인이 만든 mdast 에서 link url(=스킴 + 대상)만 뽑는다.
+// jsdom 이 없으므로 컴포넌트를 마운트하지 않고 트리 수준에서 검증한다.
+interface TreeNode {
+  type: string;
+  url?: string;
+  value?: string;
+  children?: TreeNode[];
+}
+
+function linkUrls(md: string): string[] {
+  const tree: TreeNode = { type: "root", children: [{ type: "paragraph", children: [{ type: "text", value: md }] }] };
+  (remarkWikilink() as (t: TreeNode) => void)(tree);
+  const out: string[] = [];
+  const walk = (n: TreeNode) => {
+    if (n.type === "link" && n.url) out.push(n.url);
+    n.children?.forEach(walk);
+  };
+  walk(tree);
+  return out;
+}
+
+describe("remarkWikilink — 링크 스킴 분기(계약 §1)", () => {
+  it("개념 링크는 wiki:", () => {
+    expect(linkUrls("[[프로세스]]")).toEqual(["wiki:프로세스"]);
+  });
+
+  it("원본 PDF 링크는 orig:", () => {
+    expect(linkUrls("[[강의자료.pdf]]")).toEqual(["orig:강의자료.pdf"]);
+  });
+
+  it("#page=N 이 붙어도 orig: 이고 조각은 그대로 남는다", () => {
+    expect(linkUrls("[[강의자료.pdf#page=12]]")).toEqual(["orig:강의자료.pdf#page=12"]);
+  });
+
+  it("이미지 링크도 orig:", () => {
+    expect(linkUrls("[[그림.svg]]")).toEqual(["orig:그림.svg"]);
+  });
+
+  it("임베드는 원본이든 아니든 embed: 그대로", () => {
+    expect(linkUrls("![[강의자료.pdf]]")).toEqual(["embed:강의자료.pdf"]);
+    expect(linkUrls("![[프로세스]]")).toEqual(["embed:프로세스"]);
+  });
+
+  it("별칭이 있어도 스킴은 대상 기준", () => {
+    expect(linkUrls("[[강의자료.pdf|강의록]]")).toEqual(["orig:강의자료.pdf"]);
   });
 });
