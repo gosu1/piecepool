@@ -1,7 +1,7 @@
 {
   "name": "piecepool",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Local-first AI knowledge workspace for university students — Tauri + Rust + React/TS",
   "license": "UNLICENSED",
   "author": "gosu1",
