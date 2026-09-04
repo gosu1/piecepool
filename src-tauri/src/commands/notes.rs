@@ -62,6 +62,7 @@ pub fn create_note(
         title,
         markdown,
         subject_ids,
+        tags: None,
         created_at: now.clone(),
         updated_at: now,
     };

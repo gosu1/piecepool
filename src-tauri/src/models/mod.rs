@@ -76,6 +76,9 @@ pub struct Source {
     pub kind: SourceType,
     pub title: String,
     pub subject_ids: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub tags: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub inbox_path: Option<String>,
@@ -100,6 +103,9 @@ pub struct ArchiveNote {
     pub title: String,
     pub markdown: String,
     pub subject_ids: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub tags: Option<Vec<String>>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -158,6 +164,9 @@ pub struct WikiPage {
     pub title: String,
     pub path: String,
     pub subject_ids: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub tags: Option<Vec<String>>,
     pub source_ids: Vec<String>,
     pub source_refs: Vec<SourceRef>,
     pub markdown: String,

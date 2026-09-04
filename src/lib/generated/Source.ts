@@ -4,4 +4,4 @@ import type { SourceType } from "./SourceType";
 /**
  * entities.md#source
  */
-export type Source = { id: string, spaceId: string, type: SourceType, title: string, subjectIds: Array<string>, inboxPath?: string, archivePath: string, originalFilePath?: string, createdAt: string, updatedAt: string, };
+export type Source = { id: string, spaceId: string, type: SourceType, title: string, subjectIds: Array<string>, tags?: Array<string>, inboxPath?: string, archivePath: string, originalFilePath?: string, createdAt: string, updatedAt: string, };

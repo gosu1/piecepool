@@ -125,6 +125,7 @@ type ArchiveNote = {
   title: string;
   markdown: string;      // 파일 본문 (frontmatter 제외)
   subjectIds: string[];
+  tags?: string[];       // 자유 해시태그 — frontmatter tags 와 1:1 (markdown-frontmatter.md §2.1)
   createdAt: string;
   updatedAt: string;
 };
@@ -166,6 +167,7 @@ type WikiPage = {
   title: string;
   path: string;              // <space>/wiki/*.md 절대 경로
   subjectIds: string[];
+  tags?: string[];           // 자유 해시태그 — frontmatter tags 와 1:1 (markdown-frontmatter.md §3.1)
   sourceIds: string[];       // 본 페이지가 근거로 삼은 Source들
   sourceRefs: SourceRef[];   // 본문 embed/링크에 대응되는 구조화 참조
   markdown: string;          // frontmatter 제외 본문
@@ -287,3 +289,4 @@ type ImportJob = {
 - Relation 엔티티와 RelationType enum은 [relation-types.md](relation-types.md)로 분리했다.
 - 2026-05-29: `ImportJobStatus`에 `clarify_pending` 추가 (되묻기). 발의 = [output-validation.md §6.4](../30-llm/output-validation.md), 추적 = [#42](https://github.com/gosu1/piecepool/issues/42). `contracts-change` → 4역할 review.
 - 2026-06-25: `Source`에 `tags?: string[]` 추가 (project 경계와 무관한 자유 해시태그, PARA Resource 개념). `subjectIds`는 특정 `KnowledgeSpace`에 종속돼 재사용 불가 판정. 발의 = [#64](https://github.com/gosu1/piecepool/issues/64). `contracts-change` → 4역할 review.
+- 2026-08-08: `ArchiveNote`·`WikiPage`에 `tags?: string[]` 추가 — 2026-06-25 발의가 [markdown-frontmatter.md](markdown-frontmatter.md) §2.1·§3.1 에는 `tags`를 넣으면서 본 문서의 두 엔티티 정의를 누락해, 파일의 tags 를 담을 곳이 메모리 표현에 없었다. 계약 간 정합 복구 (PIE-5). `contracts-change` → 계약 담당 1인 승인.

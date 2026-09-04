@@ -47,6 +47,7 @@ fn note(
         title: title.into(),
         markdown: body.into(),
         subject_ids: vec![subject.into()],
+        tags: None,
         created_at: now.into(),
         updated_at: now.into(),
     }
@@ -67,6 +68,7 @@ fn wiki(
         title: title.into(),
         path: String::new(),
         subject_ids: vec![subject.into()],
+        tags: None,
         source_ids: vec![],
         source_refs: vec![],
         markdown: body.into(),
