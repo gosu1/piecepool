@@ -117,9 +117,11 @@ src-tauri/src/
                   Use tokio::fs for async ops; std::fs only in sync contexts.
   import/      ← Executes each import step (file I/O for parsing/archiving/writing) and records
                   ImportJob state. State-machine sequencing is owned by the TS service layer (ADR-0007), not Rust.
-  pdf/         ← PDF-to-text extraction (1차). Page indexing lives here. 서드파티 pdf-extract 의
-                  내부 panic(미지원 CMap 인코딩)은 catch_unwind 로 AppError 변환. Identity-H/V 외
-                  인코딩은 프론트 pdf.js 가 2차 폴백으로 추출 (ADR-0010, src/lib/pdfText.ts).
+  pdf/         ← PDF-to-text extraction (1차). Page indexing lives here. 엔진은 pdf-inspector
+                  (ADR-0011). 라이브러리는 0-indexed 로 주므로 pdf/ 가 1-indexed 로 변환한다.
+                  글자가 깨진 페이지는 빈 문자열로 오고, 프론트 pdf.js 가 2차 폴백으로 재추출
+                  (src/lib/pdfText.ts). bcmap 은 resources/bcmaps/ 를 번들해 앱 시작 시
+                  set_bcmaps_dir 로 경로를 건다 — 안 걸면 배포 앱에서만 조용히 무력화된다.
   graph/       ← Graph domain — node compatibility matrix, duplicate/self-loop checks, relation
                   validation. commands/graph.rs is a thin IPC delegate of this module.
   notes/       ← Note move-between-spaces transaction (validate → copy → record → delete source).

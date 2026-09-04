@@ -18,6 +18,24 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_drag::init())
+        .setup(|app| {
+            // PDF 글자 대응표(bcmap) 위치를 추출기에 알린다. 안 걸면 배포 앱에서만
+            // 한글 CID 폰트 처리가 조용히 빠진다 — pdf::set_bcmaps_dir 주석 참고.
+            // 실패해도 앱은 뜬다. 그 PDF 는 프론트 pdf.js 재추출이 받는다(ADR-0011).
+            use tauri::Manager;
+            match app
+                .path()
+                .resolve("resources/bcmaps", tauri::path::BaseDirectory::Resource)
+            {
+                Ok(dir) => {
+                    if let Err(e) = pdf::set_bcmaps_dir(&dir) {
+                        eprintln!("[pdf] {}", e.message);
+                    }
+                }
+                Err(e) => eprintln!("[pdf] bcmap 리소스 경로 해석 실패: {e}"),
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             commands::workspace::get_workspace,
             commands::workspace::list_spaces,

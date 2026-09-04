@@ -7,40 +7,51 @@
 > PDF **page preview 렌더링은 백엔드 책임이 아니다** — 프론트(PDF.js)가 담당한다
 > ([wikilink-embed.md §8](../10-contracts/wikilink-embed.md)). 백엔드는 텍스트와 **총 page 수**만 제공한다.
 
-> ⚠️ **이중 경로([ADR-0010](../adr/0010-pdf-text-extraction-pdfjs-fallback.md), ADR-0005 대체)**: `pdf-extract`는
-> `Identity-H/V` 외 predefined CMap(예: 한글 `UniKS-UTF16-H`)을 `panic!`으로 거부한다. 이 경우
-> Rust는 panic을 `catch_unwind`로 삼켜 `AppError`로 반환하고(§3.1), 프론트가 **pdf.js로 재추출하는
-> 폴백**을 수행한다(`src/lib/pdfText.ts`). 즉 텍스트 추출은 Rust 1차 + 프론트 pdf.js 2차의 이중 경로다.
+> ⚠️ **이중 경로([ADR-0011](../adr/0011-pdf-text-extraction-pdf-inspector.md), ADR-0010 대체)**: 텍스트 추출은
+> Rust 1차 + 프론트 pdf.js 2차의 이중 경로다. 1차 엔진은 `pdf-inspector`이며, 글자가 깨졌다고 판단한
+> 페이지를 **빈 문자열로** 돌려준다(옛 `pdf-extract`는 같은 자리에서 `panic!`했다). 프론트는 전 페이지가
+> 비어 있으면 **pdf.js로 재추출**한다(`src/lib/pdfText.ts`의 `hasText()` → `extractPdfTextWithFallback`).
+> 한글 2단 학회 조판 PDF가 이 경로로 간다 — 근거 실측은 ADR-0011.
 
 ---
 
-## 1. 라이브러리 선정: `pdf-extract` (순수 Rust)
+## 1. 라이브러리 선정: `pdf-inspector` (순수 Rust)
 
-채택: **[`pdf-extract`](https://crates.io/crates/pdf-extract)** `0.10.0` — 페이지 단위 텍스트 추출 턴키 API.
+채택: **[`pdf-inspector`](https://crates.io/crates/pdf-inspector)** `1.17.0` (MIT) — 페이지 단위 Markdown 추출 API
+`extract_pages_markdown(path, pages) → PagesExtractionResult`. 선정 근거와 실측은
+[ADR-0011](../adr/0011-pdf-text-extraction-pdf-inspector.md)이 SSOT이며, 여기서는 이 모듈이 알아야 할 것만 적는다.
 
-> ⚠️ **버전 · 함수 사양 정렬**: `docs/superpowers/plans/tasks` 작업 9에 기재된 옛 사양
-> (`pdf-extract = "0.7"` + 전체 단일 문자열 추출 `extract_text_from_mem`)을 폐기한다.
-> `0.7`에는 페이지 단위 함수가 없고(`extract_text` / `extract_text_from_mem` 2개뿐),
-> **페이지 단위 추출(`extract_text_from_mem_by_pages` → `Vec<String>`)은 `0.10.0`부터 제공**되므로
-> `0.10.0`을 백엔드 표준으로 고정한다. 이에 맞춰 IPC 계약(`ipc-api.md`)의 `extract_pdf_text`
-> 반환 타입도 단일 `string` → §2.2의 `PdfExtractResult` 객체로 상향한다(A안).
+### 이 모듈이 알아야 할 사양
 
-### 결정적 근거
-
-| 근거 | 내용 |
+| 항목 | 내용 |
 |---|---|
-| **순수 Rust · 번들 0** | C/C++ 라이브러리나 외부 바이너리가 필요 없다. `.dmg`/`.pkg` 배포에 추가 번들이 붙지 않고 빌드가 단순하다. |
-| **턴키 텍스트 API** | `extract_text` / 페이지 단위 추출을 바로 제공한다. 저수준 content stream 파싱을 직접 짤 필요가 없다. |
-| **검증된 채택량** | crates.io 누적 약 2.5M · 최근 90일 약 1.58M 다운로드로 Rust PDF 텍스트 추출의 사실상 표준. 내부적으로 `lopdf`(누적 10M+) 기반이라 파서 신뢰도가 높다. |
-| **렌더 기능 불필요** | page preview는 프론트 PDF.js가 담당하므로([wikilink-embed.md §8](../10-contracts/wikilink-embed.md)), 렌더까지 포함하는 `pdfium-render`(Pdfium C++ 바이너리 번들 필요)는 백엔드에 과하다. |
+| **페이지 번호는 0-indexed** | `PageMarkdown.page`가 0부터 센다. 본 모듈 계약은 1-indexed(§2.1)이므로 `pdf/`가 `+1` 변환한다. 여기가 어긋나면 `SourceRef.page`가 통째로 한 칸씩 밀린다. |
+| **실패는 `PdfError`** | `Io` / `Parse` / `Encrypted` / `InvalidStructure` / `NotAPdf`. 암호화 판별이 에러 문자열 검색이 아니라 타입 매칭이다(§3.1). |
+| **깨진 글자는 빈 문자열** | 글자가 깨졌다고 판단한 페이지는 `needs_ocr = true` + 빈 Markdown으로 온다. 오류가 아니라 정상 반환이며, 이것이 프론트 폴백을 부르는 신호다. |
+| **본문이 Markdown** | 표를 Markdown 표로 복원한다. 옛 `pdf-extract`는 평문으로 평탄화해 열 정보를 잃었다. 이 텍스트가 그대로 LLM 입력이 된다. |
+| **bcmap은 파일시스템에서 읽는다** | 아래 §1.1. |
 
-### 탈락 후보 (요약)
+### 1.1 bcmap 배선 (배포 앱에서만 드러나는 함정)
 
-- **`pdfium-render`**: 텍스트+렌더를 모두 주지만 Google Pdfium **네이티브 바이너리 번들**이 필요. 렌더는 프론트가 이미 가져가 백엔드엔 불필요한 무게. → 탈락
-- **`lopdf` 단독**: 저수준 PDF 조작용. 텍스트 추출은 content stream을 직접 파싱해야 해 범위 초과. (단, `pdf-extract`가 내부 의존성으로 사용) → 직접 사용 안 함
-- **`pdf` (pdf-rs)**: 순수 Rust 파서지만 텍스트 추출 API가 저수준이라 보일러플레이트가 많음. → 탈락
+한글·일본어·중국어 PDF가 글자 대응표(CMap)를 파일 안에 넣지 않고 이름으로만 참조하는 경우, 그 표(`.bcmap`)를
+읽는 쪽이 갖고 있어야 글자가 나온다. `pdf-inspector`는 **네이티브 빌드에서 이 표를 파일시스템에서 읽는다**
+(크레이트에 내장하는 것은 wasm 타깃뿐). 찾는 순서는 이렇다.
+
+1. `PDF_INSPECTOR_BCMAPS_DIR` 환경변수
+2. 없으면 **빌드한 기계의 카고 캐시 경로**
+
+2번 때문에 개발 빌드는 우연히 동작하고, 배포 앱에서는 예외도 로그도 없이 한글 CID 폰트 처리만 빠진다.
+따라서 표 168종을 `src-tauri/resources/bcmaps/`에 담아 Tauri 리소스로 번들하고
+(`tauri.conf.json` → `bundle.resources`), 앱 시작 시 `pdf::set_bcmaps_dir`로 위 환경변수를 건다
+(`lib.rs`의 `setup`). 이 함수는 표가 실제로 있는지 확인해 실패를 로그로 남긴다 — 확인하지 않으면
+실패가 어디에도 안 남는다.
+
+> **검증은 배포 빌드로만 된다.** 개발 빌드 통과는 증거가 아니다.
+> Adobe CMap 자료(BSD-3) 고지는 [`THIRD-PARTY-NOTICES.md`](../../THIRD-PARTY-NOTICES.md).
 
 > 이미지 OCR(이미지 → 텍스트)은 본 문서 범위 밖이다. 별도 `ocr/` 모듈 설계에서 다룬다.
+> `pdf-inspector`가 `pages_needing_ocr`를 페이지 단위로 주지만 현재 쓰지 않는다 — OCR 경로는
+> vision LLM([ADR-0003](../adr/0003-ocr-vision-llm.md))이다.
 
 ---
 
@@ -120,18 +131,20 @@ struct PageText {
 | 파일이 PDF가 아님 / 헤더 손상 | `pdf_extract` 중단, "PDF 파일이 손상되었거나 올바른 형식이 아닙니다." |
 | 암호화·열람 제한으로 파싱 불가 | `pdf_extract` 중단, "암호가 설정된 PDF는 지원하지 않습니다. 보안 해제 후 다시 시도해주세요." _(추후 별도 kind `pdf_encrypted` 분리 검토)_ |
 | page 수 0 또는 본문 구조 파싱 실패 | `pdf_extract` 중단, "PDF 구조를 분석할 수 없습니다." |
-| 미지원 폰트/CMap 인코딩(`pdf-extract` 내부 `panic!`) | `catch_unwind`로 삼켜 `pdf_extract` 반환, "이 PDF의 폰트/인코딩을 지원하지 않아…". 프론트가 pdf.js 폴백으로 재시도([ADR-0010](../adr/0010-pdf-text-extraction-pdfjs-fallback.md)) |
+| 글자가 깨진 페이지(미지원 폰트/CMap 인코딩 등) | **중단하지 않는다.** 해당 페이지를 빈 문자열로 반환하고, 프론트가 pdf.js 폴백으로 재시도([ADR-0011](../adr/0011-pdf-text-extraction-pdf-inspector.md)) |
 
 - 중단 시 `import/`는 `ImportJob.status = failed` + `errorMessage`로 전이한다
   ([entities.md ImportJob](../10-contracts/entities.md)).
 - **원본 PDF는 보존**한다. 추출 실패가 원본 파일 삭제로 이어지지 않는다.
 - 우리 코드에서 `unwrap()`/`panic!()` 금지 — 모든 실패는 `AppError`로 `?` 전파한다([architecture.md §4](architecture.md)).
-  단 서드파티 `pdf-extract`가 내부에서 `panic!`하므로, 그 호출만 `std::panic::catch_unwind`로 감싸
-  `AppError`로 변환한다(앱 크래시 방지 — Cargo 기본 unwind 전략 전제).
+  `pdf-inspector` 호출은 `std::panic::catch_unwind`로 감싼다. 이 라이브러리는 실패를 `PdfError`로
+  돌려주지만 밑단 파서(`lopdf`)까지 panic이 없다는 보장은 없고, 사용자 파일을 서드파티에 물리는
+  자리이기 때문이다(앱 크래시 방지 — Cargo 기본 unwind 전략 전제).
 
-> `pdf-extract`는 `extract_text_*_encrypted` 변종으로 암호화 여부를 구분 감지할 수 있어,
-> 위 메시지 분리가 가능하다. 별도 kind(`pdf_encrypted`) 신설은 `error-handling.md` 레지스트리
-> 변경(별도 PR)이 선행돼야 하므로, 우선 메시지만 분리하고 kind 신설은 해당 PR에 코멘트로 남긴다.
+> 암호화 판별은 `PdfError::Encrypted` **타입 매칭**으로 한다. 옛 `pdf-extract` 시절에는 에러 문자열에서
+> `"encrypt"`를 찾아 갈랐는데, 라이브러리가 문구를 바꾸면 조용히 깨지는 방식이었다.
+> 별도 kind(`pdf_encrypted`) 신설은 `error-handling.md` 레지스트리 변경(별도 PR)이 선행돼야 하므로,
+> 우선 메시지만 분리하고 kind 신설은 해당 PR에 코멘트로 남긴다.
 
 ### 3.2 page 범위 초과 검증의 책임 위임 (본 모듈 밖)
 
@@ -192,3 +205,7 @@ struct PageText {
 - page 1-indexing 규약의 SSOT는 `wikilink-embed.md §3`이며 본 문서는 백엔드 관점 반영이다.
 - `pdf_extract` kind 및 암호화 분리(`pdf_encrypted` 신설 제안)는 `error-handling.md`
   레지스트리(별도 PR)와 정렬한다.
+- **PIE-74 (2026-08-27)**: 1차 엔진을 `pdf-extract` 0.10.0 → `pdf-inspector` 1.17.0으로 교체
+  ([ADR-0011](../adr/0011-pdf-text-extraction-pdf-inspector.md), ADR-0010 대체). §1 선정 근거를
+  교체하고 §1.1 bcmap 배선을 신설. 미지원 인코딩이 `panic!` 중단에서 **빈 문자열 반환**으로 바뀌어
+  §3.1 표를 정정했다. 프론트 pdf.js 2차 폴백과 `PdfExtractResult` 반환 형태는 무변경.
